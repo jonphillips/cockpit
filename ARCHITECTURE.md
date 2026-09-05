@@ -13,7 +13,7 @@ Cockpit is explicitly **not** a work-management, productivity, task-management, 
 
 The application should help its users notice and remember things worth experiencing without turning life into a queue of obligations.
 
-This document defines how Cockpit software is built. Product vocabulary, canonical entities, ranking semantics, and the detailed core loop will be defined separately as the product architecture develops.
+This document defines how Cockpit software is built. Product vocabulary, canonical entities, ranking semantics, and the detailed core loop are developed in `docs/PRODUCT-MODEL.md`.
 
 ## 2. Relationship to jon-platform
 
@@ -63,7 +63,7 @@ Cockpit does not introduce TCA or another application architecture without a spe
 
 ## 4. Persistence
 
-SQLiteData is Cockpit's canonical persistent store.
+SQLiteData is Cockpit's canonical persistent knowledge store.
 
 Cockpit follows jon-platform persistence rules:
 
@@ -73,6 +73,10 @@ Cockpit follows jon-platform persistence rules:
 - Complex transactions are expressed as deterministic functions operating on a database.
 - Stable identity is preserved across edits.
 - Schema design accounts for CloudKit constraints from the beginning.
+
+The canonical knowledge store should contain relatively lightweight application truth: identities, provenance, extracted/normalized meaning, relationships, custody intent, Personal Model claims, and product state.
+
+Potentially large preserved source bytes are a separate storage responsibility and must not be assumed to replicate through the ordinary SQLiteData synchronization path to every device.
 
 Cockpit should not introduce a server-side database, app account system, or custom synchronization service unless a future product requirement demonstrably cannot be met by the local-first architecture.
 
@@ -85,6 +89,8 @@ Cockpit uses SQLiteData + CloudKit for personal-device synchronization where syn
 Cockpit owns its CloudKit container configuration, SQLiteData schema, `makeSyncEngine` implementation, app-specific sync presentation/settings, and Cockpit-specific sharing semantics.
 
 Cockpit must design its canonical ownership graph with CloudKit sharing constraints in mind rather than retrofit those constraints after the schema is established.
+
+Artifact content has an independent cloud/local lifecycle described in Section 9. Cloud custody must not imply local availability on every device.
 
 ## 6. AI architecture
 
@@ -104,6 +110,8 @@ A model response is not canonical application state merely because it is plausib
 
 Cockpit should use deterministic computation where deterministic computation is sufficient. AI is particularly appropriate where interpretation, synthesis, classification, comparison, or fuzzy extraction provides meaningful value.
 
+The Personal Model should be stored as structured, provenance-bearing application knowledge. LLM-readable prose/profile context should be generated as a task-specific projection rather than treated as canonical truth.
+
 ## 7. Semantic fidelity
 
 Cockpit adopts jon-platform's semantic-fidelity doctrine as a core architectural rule.
@@ -113,6 +121,12 @@ Every significant representation boundary should be understood as lossless, inte
 This is especially important because Cockpit may eventually ingest heterogeneous material including web pages, newsletters, events, recommendations, travel information, music, food and wine material, and model-generated research.
 
 Parsing successfully is not equivalent to preserving meaning correctly. Cockpit should prefer explicit uncertainty or human review to silently manufacturing semantic precision.
+
+Artifact custody adds a specific fidelity promise:
+
+> Once Cockpit tells the user they no longer need to care about the upstream source, Cockpit must own enough information to keep that promise.
+
+A source pointer is not equivalent to preserved content.
 
 ## 8. Web access and capture
 
@@ -124,7 +138,66 @@ When adopted, `WebExtractorKit` may own persistent browsing, rendered DOM retrie
 
 Cockpit owns source-specific extraction, source interpretation, domain schemas, extraction prompts, capture-field definitions where Cockpit-specific, normalization into Cockpit concepts, and Cockpit-specific browser composition/workflow.
 
-## 9. External LLM handoff
+## 9. Artifact custody and availability
+
+Cockpit distinguishes application knowledge from potentially large preserved source content.
+
+A conceptual `ArtifactLibraryClient` should isolate the mechanics of assuming custody of original content, retrieving it, caching it, and guaranteeing per-device offline availability.
+
+This is initially a Cockpit-local seam. Do not create a `JonLibraryKit`, standalone Jon Library product, or jon-platform package based on this first consumer.
+
+### Independent dimensions
+
+Artifact **custody** is synchronized product knowledge. Conceptually it distinguishes content Cockpit merely references from content Cockpit promises to preserve durably.
+
+Artifact **availability** is device-local state. Conceptually it distinguishes content that is absent, expendably cached, or pinned on the current device.
+
+These dimensions must not collapse into one `isSaved` or `isDownloaded` flag.
+
+### Offline guarantee
+
+> Keep on this device is a promise, not a hint.
+
+Pinned content must live in app-controlled persistent local storage that Cockpit does not voluntarily purge. Expendable downloads may live in cache storage. Cockpit should be able to verify physical local availability rather than rely on an opaque cloud residency assumption.
+
+### Current cloud-storage hypothesis
+
+CloudKit assets appear suitable for canonical preserved bytes because asset transfer can be separated from lightweight record fetching. A fetched CloudKit asset's staging file is temporary, so pinned content must be copied/moved into app-controlled persistent local storage.
+
+This remains an implementation hypothesis, not a schema decision. Validate CloudKit asset behavior, SQLiteData integration, quotas, failure recovery, content hashing, and lifecycle requirements before hardening the storage design.
+
+The likely boundary is conceptually:
+
+```text
+Cockpit domain
+     |
+     | preserve / retrieve / availability
+     v
+ArtifactLibraryClient
+     |
+     +-- CloudArtifactStore
+     +-- LocalArtifactStore
+            +-- expendable cache
+            +-- persistent pinned content
+```
+
+Cockpit should use system viewers/frameworks for PDFs, media, and other content where possible. Artifact custody does not imply building a universal viewer.
+
+## 10. Email and other source integrations
+
+Cockpit should integrate with source services through app-local injectable clients before considering platform extraction.
+
+Email is a source, not an instruction to build an email client.
+
+The current product boundary is that Cockpit may ingest, understand, summarize, retain, preserve, and keep source-derived concerns salient. It may eventually propose or perform narrowly scoped provider actions such as archive or mark-read when those workflows are explicitly designed.
+
+Cockpit must not depend on exact-message deep-linking into Apple Mail for correctness because Apple does not expose a documented iOS API that guarantees that behavior.
+
+Provider folders/labels may be useful ingestion or transport controls, but they are not Cockpit's canonical triage/workflow state.
+
+Source-action agency and constrained reply behavior remain open product decisions and must preserve the principle that Cockpit does not become a general email client.
+
+## 11. External LLM handoff
 
 `LLMHandoffKit` is **not currently an approved Cockpit dependency**.
 
@@ -136,7 +209,7 @@ Cockpit must not work around existing leakage by adopting Galavant vocabulary. I
 
 Until that requirement exists, no Cockpit-driven refactor is required.
 
-## 10. Domain ownership
+## 12. Domain ownership
 
 The following belong in Cockpit unless and until another real consumer proves otherwise:
 
@@ -145,6 +218,9 @@ The following belong in Cockpit unless and until another real consumer proves ot
 - database schema,
 - source taxonomy,
 - source adapters,
+- artifact custody semantics,
+- disposition semantics,
+- Personal Model ontology,
 - relevance and ranking,
 - taste and interest semantics,
 - temporal relevance,
@@ -166,15 +242,15 @@ In particular, the fact that an article, restaurant, album, wine, event, hotel, 
 
 Preserve meaningful distinctions until the product model demonstrates which distinctions should actually collapse.
 
-## 11. External system boundaries
+## 13. External system boundaries
 
 When Cockpit first integrates a new external framework or service, the integration should normally be wrapped immediately in an injectable client.
 
-Potential future examples include calendar/event access, music-library access, newsletter/email ingestion, location/place services, event discovery, and external cultural databases.
+Potential future examples include calendar/event access, music-library access, newsletter/email ingestion, location/place services, event discovery, artifact storage, and external cultural databases.
 
 These clients begin in Cockpit. A client moves to jon-platform only after another real application proves that its API and semantics are genuinely domain-neutral.
 
-## 12. Platform extraction policy
+## 14. Platform extraction policy
 
 > First use establishes a requirement. Repeated use may establish an abstraction.
 
@@ -188,7 +264,7 @@ When Cockpit discovers a possible platform abstraction:
 6. When extraction is justified, move rather than copy shared code.
 7. Verify all existing consumers before removing old APIs.
 
-## 13. Compatibility rule
+## 15. Compatibility rule
 
 Cockpit must never casually redefine jon-platform APIs around its own needs.
 
@@ -206,23 +282,25 @@ Preferred migration order:
 
 Breaking coordinated migrations are allowed when materially superior, but must be deliberate and documented.
 
-## 14. Device philosophy
+## 16. Device philosophy
 
 Cockpit follows jon-platform's device-appropriate UI principle rather than forcing one identical composition across Apple devices.
 
 Likely Cockpit usage will eventually distinguish richer browsing/exploration/curation/synthesis from lightweight awareness/capture/retrieval/in-the-moment use.
 
-The exact iPad/iPhone split remains a Cockpit product-design decision rather than a platform rule. Do not prematurely encode it before the core loop is understood.
+Artifact availability is explicitly device-specific. A preserved Artifact may be pinned on an iPad while absent from an iPhone.
 
-## 15. Testing
+The exact iPad/iPhone product split remains a Cockpit design decision rather than a platform rule. Do not prematurely encode final navigation before the core loop is understood.
+
+## 17. Testing
 
 Cockpit should make deterministic core behavior cheap to test.
 
-Particular emphasis should be placed on database operations, ranking/relevance calculations, normalization, semantic-fidelity boundaries, model-response decoding, AI proposal-to-commit boundaries, source adapters, migration behavior, and CloudKit-compatible identity behavior.
+Particular emphasis should be placed on database operations, ranking/relevance calculations, normalization, semantic-fidelity boundaries, model-response decoding, AI proposal-to-commit boundaries, source adapters, migration behavior, CloudKit-compatible identity behavior, artifact custody transitions, local availability state, checksum/integrity verification, and source-action boundaries.
 
 External dependencies should be injected so important behavior can be exercised without live network/model/framework calls.
 
-## 16. Initial platform dependencies
+## 18. Initial platform dependencies
 
 | Capability | Decision |
 |---|---|
@@ -238,33 +316,27 @@ External dependencies should be injected so important behavior can be exercised 
 | Shared chat UI | No assumption |
 | New Cockpit-derived packages | None |
 
-## 17. Open architecture questions
+## 19. Open architecture questions
 
-The infrastructure architecture is substantially settled. The major unresolved questions are product/domain questions:
+The infrastructure architecture is substantially settled. Product/domain work is tracked in `docs/PRODUCT-MODEL.md`.
 
-- What is Cockpit's canonical model?
-- What enters Cockpit?
-- What is retained permanently versus surfaced ephemerally?
-- What is the distinction between an interest, source, candidate, opportunity, saved object, and experience?
-- Which concepts should span travel, food, wine, music, events, and reading?
-- Which distinctions must remain domain-specific?
-- What does "interesting now" mean?
-- What evidence changes relevance?
-- What is explicit user preference versus inferred preference?
-- What role does time play?
-- What household/shared semantics exist?
-- What does AI know automatically?
-- What does AI infer?
-- What requires review?
-- What should Cockpit do exceptionally well on iPad?
-- What should remain immediately useful on iPhone?
+The highest-priority investigations are:
 
-These questions should drive the next phase of Cockpit design.
+- Daily/Disposition: what does it mean to be finished with incoming material?
+- Source actions: how much agency should Cockpit have over upstream systems?
+- Cross-app handoff: how should Cockpit pass rich domain work to Yes Chef, Galavant, and future specialists?
+- Personal Model: what kinds of structured claims can Cockpit know, with what provenance/confidence/scope?
+- Artifact Library implementation: how should cloud custody, cache storage, pinned storage, integrity, quotas, and failure recovery be implemented without coupling bulk content to ordinary knowledge synchronization?
+- What should Cockpit do exceptionally well on iPad versus iPhone?
 
-## 18. Architectural north star
+Do not design a universal relevance/ranking algorithm until real incoming workflows establish what needs to be ranked.
+
+## 20. Architectural north star
 
 Cockpit should contain rich product semantics over boring, proven infrastructure.
 
 jon-platform supplies the boring infrastructure.
 
 Cockpit supplies the opinion.
+
+For product semantics and the emerging Daily / You / Discover responsibilities, see `docs/PRODUCT-MODEL.md`.
