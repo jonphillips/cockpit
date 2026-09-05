@@ -72,6 +72,8 @@ Cockpit is both subtractive and additive:
 
 The user may read or inspect such messages in Cockpit, but unresolved email remains represented by the upstream Inbox rather than by a Cockpit task system.
 
+Cockpit should reason over the **current Inbox**, not merely messages that arrived since the last Daily review. An older message that still remains in Inbox remains part of the current attention state and may still deserve prominent surfacing.
+
 ### Important distinction
 
 Importance and actionability are not the same thing.
@@ -94,11 +96,11 @@ Different classes of incoming mail can support different views and retention/dis
 
 Personal messages should be identified and surfaced prominently.
 
-`Personal` should not automatically mean every address in Contacts. Contacts are useful evidence and onboarding input, but the personal set should be explicitly or gradually learned around real people and their identities.
+`Personal` should be a curated relationship set rather than a synonym for Contacts. Contacts are useful evidence and onboarding input, but inclusion in Contacts should not automatically confer Personal status.
+
+The initial model should support explicit additions such as `Add to Personal`, with Contacts helping suggest likely candidates. Over time Cockpit may propose additional people based on repeated evidence, but the user remains in control of the curated set.
 
 A Person may have multiple email addresses. The durable concept is the Person, not the address string.
-
-Cockpit may initially support explicit actions such as `Add to Personal` and later propose additions based on repeated evidence.
 
 Personal email should be handled conservatively. Cockpit may summarize and highlight it, but should not casually clear it merely because a model believes no reply is needed.
 
@@ -116,6 +118,8 @@ Cockpit may synthesize these into a report that highlights unusually relevant of
 
 The user should be able to clear the entire batch after reviewing the report.
 
+Archive is the default Gmail disposition for `Clear`. Marketplace/report widgets may expose a persistent `Trash cleared messages` policy for categories whose source mail is deliberately disposable. This setting belongs with the marketplace/report behavior rather than as friction on every individual clear action.
+
 ### Newsletters
 
 Newsletters should behave more like reading subscriptions than like ordinary Inbox traffic.
@@ -130,6 +134,8 @@ Each newsletter/source may eventually have its own policy, potentially including
 
 The user should be able to see recent newsletter issues in Cockpit, open/read one in place, and then clear the related Gmail messages without making the newsletters disappear from Cockpit's own reading/history model.
 
+Cockpit should become the **primary reading history** for newsletters it manages. Once a newsletter issue has been successfully ingested according to its custody/retention policy, the user should expect to find and reread it in Cockpit rather than hunt through Gmail Archive.
+
 This is a core example of Cockpit removing something from the action queue without removing it from the user's life.
 
 ### Business / transactional
@@ -138,21 +144,25 @@ Receipts, airline notices, bills, statements, reservations, deliveries, and simi
 
 They share one key characteristic: they are evidence of real-world transactions or obligations, but their eventual semantics differ.
 
-Cockpit should initially make them easy to scan and selectively clear. Richer domain behavior can emerge later from real workflows rather than from one giant `Business` ontology.
+Cockpit should make them easy to scan and selectively clear. Understanding a transactional message does **not** imply that it can safely leave Inbox: Cockpit may summarize an airline change, bill, or statement while deliberately leaving the source message in Mail's action queue.
+
+Over time, transactional sources/categories should be able to acquire explicit handling policies based on how the user wants to deal with them. For example, a user may teach Cockpit that routine delivery confirmations can be cleared after summarization while a particular class of bills should remain in Inbox until handled. These policies should emerge from real behavior rather than from one giant `Business` ontology.
 
 Examples:
 
 - receipt -> likely acknowledge / archive,
-- flight schedule change -> potentially trip-relevant,
-- statement -> often archival,
-- bill -> may require action,
-- reservation confirmation -> may reinforce known plans.
+- flight schedule change -> potentially trip-relevant and may remain in Inbox,
+- statement -> often archival but policy-dependent,
+- bill -> may require action and remain in Inbox,
+- reservation confirmation -> may reinforce known plans and then be clearable.
 
 ## 5. Clearing email
 
 `Clear` is a Cockpit decision that the message no longer needs to remain in the Gmail Inbox for attention purposes.
 
 It is not a task-completion concept.
+
+Archive is the default upstream action for `Clear`. Trash is an explicit learned or configured policy for deliberately disposable categories such as marketplace/promotional mail; it should not normally require a per-message choice.
 
 Clearing has two independent consequences:
 
@@ -164,7 +174,7 @@ Examples:
 
 - leave in Inbox,
 - archive in Gmail,
-- move to Trash.
+- move to Trash when an explicit source/category policy says the content is disposable.
 
 The exact policy may be individual, source-specific, or category-specific.
 
@@ -185,7 +195,7 @@ These dimensions must remain independent.
 Examples:
 
 - newsletter: archive in Gmail + preserve/read in Cockpit,
-- retail offer: Trash in Gmail + forget in Cockpit after report generation,
+- retail offer: archive by default, or Trash by configured marketplace policy + forget in Cockpit after report generation,
 - receipt: archive in Gmail + retain extracted transaction metadata if useful,
 - personal email: leave in Inbox + surface prominently in Cockpit.
 
@@ -205,7 +215,19 @@ Such automation should be:
 
 Do not jump directly from model classification to autonomous clearing.
 
-## 6. Sources and artifacts
+## 6. Daily cadence
+
+Daily is primarily a deliberate morning review, not a replacement notification stream.
+
+The morning review should establish situational awareness, reduce the Inbox, and surface the handful of messages or developments the user especially should not miss.
+
+Cockpit may also surface selected information during the day when it is clearly important or time-sensitive, but intraday surfacing should be intentionally sparse. The product should not recreate notification overload under a new brand.
+
+The current product bias is therefore:
+
+> Morning review by default; selective interruption by exception.
+
+## 7. Sources and artifacts
 
 Cockpit must distinguish where information came from from what Cockpit actually received or captured.
 
@@ -227,7 +249,7 @@ An Artifact can exist at different levels of custody. Cockpit may know that an A
 
 Most incoming Artifacts should be understandable and disposable without becoming rich permanent domain objects.
 
-## 7. Attention is not custody
+## 8. Attention is not custody
 
 Cockpit understanding content and Cockpit preserving content are separate decisions.
 
@@ -247,7 +269,7 @@ A paid recipe newsletter illustrates why custody matters. If Cockpit tells the u
 
 A pointer is not a preserved artifact.
 
-## 8. Knowledge and content are different storage responsibilities
+## 9. Knowledge and content are different storage responsibilities
 
 Cockpit's canonical knowledge store should remain relatively lightweight. Potentially large original content has a separate lifecycle.
 
@@ -273,7 +295,7 @@ Artifact content
 
 The existence of an Artifact in Cockpit must not imply that all of its content downloads to every device.
 
-## 9. Cloud custody and local availability are independent
+## 10. Cloud custody and local availability are independent
 
 Artifact storage has at least two independent dimensions.
 
@@ -302,7 +324,7 @@ A preserved Artifact can therefore be absent on an iPhone, cached on a Mac, and 
 
 Cockpit should be able to verify its own offline-readiness claims from app-controlled local storage rather than merely infer them from an opaque cloud-download state.
 
-## 10. Artifact Library boundary
+## 11. Artifact Library boundary
 
 The need for explicit custody and device availability establishes a real subsystem boundary, but not a new product or shared package.
 
@@ -330,7 +352,7 @@ The current storage hypothesis is CloudKit assets for canonical preserved bytes,
 
 Cockpit should use system viewers such as Quick Look and media frameworks where appropriate rather than become a universal document/media viewer.
 
-## 11. Signals, subjects, and opportunities
+## 12. Signals, subjects, and opportunities
 
 Incoming material may produce knowledge beyond the Artifact itself.
 
@@ -356,7 +378,7 @@ An **Opportunity** is the relationship between something potentially interesting
 
 Opportunity should not become Cockpit's center of gravity. It is an output of a broader system that first handles mundane incoming information well.
 
-## 12. Subject Watching / source fan-out
+## 13. Subject Watching / source fan-out
 
 Cockpit should track Subjects rather than force the user to manage feeds individually.
 
@@ -381,7 +403,7 @@ This is particularly important for hostile or incomplete platforms such as socia
 
 The open question is how Cockpit discovers, ranks, monitors, and explains source coverage for a watched Subject without turning the user into a feed administrator.
 
-## 13. Awareness without task management
+## 14. Awareness without task management
 
 Some incoming information matters because it should register mentally, not because Cockpit needs to create a task.
 
@@ -397,7 +419,7 @@ The product goal is situational awareness:
 
 If an email remains unresolved, Mail can remain responsible for the actual action queue.
 
-## 14. The Personal Model — "You"
+## 15. The Personal Model — "You"
 
 Cockpit should maintain an explicit, inspectable, correctable model of what it believes about the user.
 
@@ -433,7 +455,7 @@ and allow the user to reinforce, correct, narrow, or forget a belief.
 
 This model should learn from explicit statements and from meaningful interaction evidence while avoiding false precision from isolated behavior.
 
-## 15. The emerging loop
+## 16. The emerging loop
 
 The current product hypothesis is:
 
@@ -462,7 +484,7 @@ User choices / corrections / experiences
 
 This is intentionally not a screen map.
 
-## 16. Specialist applications remain specialists
+## 17. Specialist applications remain specialists
 
 Cockpit should not become mediocre versions of Yes Chef, Galavant, a wine cellar application, a music application, and every other domain tool.
 
@@ -476,7 +498,7 @@ A Burgundy restaurant discovered by Cockpit may become a Galavant idea rather th
 
 The exact cross-app handoff contract is unresolved and should be designed from real workflows.
 
-## 17. AI role
+## 18. AI role
 
 AI is appropriate for interpretation, summarization, fuzzy extraction, classification, comparison, and proposing personal-model updates.
 
@@ -488,7 +510,7 @@ Cockpit should preserve the architectural rule:
 
 Examples include proposed dispositions, extracted Subjects, inferred personal-model claims, and proposed source actions. The exact amount of review can vary by reversibility and consequence.
 
-## 18. Current product responsibilities
+## 19. Current product responsibilities
 
 It is useful to think of Cockpit as having three responsibilities, without assuming three tabs or screens:
 
@@ -506,23 +528,31 @@ Given Subjects, evidence, current context, and the Personal Model, what is unusu
 
 These are responsibilities, not navigation decisions.
 
-## 19. Open design investigations
+## 20. Open design investigations
 
 ### A. Daily / Disposition
 
-The basic email boundary is now established: Mail remains the action queue; Cockpit reduces noise and highlights what matters.
+The basic email boundary is now established:
+
+- Mail remains the action queue.
+- Cockpit reasons over the current Inbox, not just newly arrived messages.
+- Personal is a curated relationship set with Contacts used as evidence/suggestion input.
+- Archive is the default source disposition for `Clear`.
+- Trash is an explicit configured/learned policy for deliberately disposable categories such as marketplace mail.
+- Cockpit becomes the primary reading history for newsletters it manages.
+- Transactional messages may be understood in Cockpit yet deliberately remain in Inbox.
+- Transactional handling policies may evolve over time from explicit user preferences and repeated behavior.
+- Daily is primarily a morning review with sparse, selective intraday surfacing.
 
 Remaining questions include:
 
-- How should `Personal` be bootstrapped and learned?
-- What classes of incoming mail deserve purpose-built Daily experiences versus generic triage?
-- How should the user distinguish `Clear -> Archive` from `Clear -> Trash` without adding friction?
+- What additional classes of incoming mail deserve purpose-built Daily experiences versus generic triage?
 - Which Gmail/Cockpit policies should live per sender, per newsletter, per category, or globally?
 - How long must Cockpit retain enough source material to undo or audit a classification/clearing judgment?
-- How should messages arriving after the morning Daily session be surfaced?
 - Should `mark read` be independent from clearing, and which system owns read/unread semantics?
 - How should threads/conversations behave when earlier messages were cleared but a new reply arrives?
 - What should happen when Cockpit was wrong?
+- How should initial onboarding handle an existing Inbox that may contain years of accumulated messages without making the first Cockpit experience unusable?
 
 Do not assume Gmail folders or labels are Cockpit's canonical workflow state.
 
@@ -558,7 +588,7 @@ Define claim families, evidence/provenance, confidence, temporal scope, contradi
 
 This should be designed for inspectability rather than merely prompt quality.
 
-## 20. Deliberately deferred
+## 21. Deliberately deferred
 
 Do not yet design:
 
@@ -574,7 +604,7 @@ Do not yet design:
 
 We need real Cockpit workflows before these abstractions can be justified.
 
-## 21. Product north star
+## 22. Product north star
 
 Cockpit should quietly reduce information burden while building a useful, user-owned understanding of what matters.
 
