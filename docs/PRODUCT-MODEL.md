@@ -1,7 +1,7 @@
 # Cockpit Product Model
 
 **Status:** Working product model / decisions plus open questions  
-**Date:** 2026-09-05
+**Date:** 2026-09-06
 
 ## Purpose
 
@@ -146,15 +146,16 @@ They share one key characteristic: they are evidence of real-world transactions 
 
 Cockpit should make them easy to scan and selectively clear. Understanding a transactional message does **not** imply that it can safely leave Inbox: Cockpit may summarize an airline change, bill, or statement while deliberately leaving the source message in Mail's action queue.
 
-Over time, transactional sources/categories should be able to acquire explicit handling policies based on how the user wants to deal with them. For example, a user may teach Cockpit that routine delivery confirmations can be cleared after summarization while a particular class of bills should remain in Inbox until handled. These policies should emerge from real behavior rather than from one giant `Business` ontology.
+Over time, transactional sources/categories should acquire explicit **handling policies** describing both the Cockpit experience and the desired source disposition. A policy is richer than `Archive` versus `Keep`.
 
 Examples:
 
-- receipt -> likely acknowledge / archive,
-- flight schedule change -> potentially trip-relevant and may remain in Inbox,
-- statement -> often archival but policy-dependent,
-- bill -> may require action and remain in Inbox,
-- reservation confirmation -> may reinforce known plans and then be clearable.
+- Amazon shipping notices -> summarize, then clear,
+- Amex statements -> show amount/date, leave in Inbox,
+- airline itinerary changes -> explain what changed, leave until explicitly cleared,
+- restaurant confirmations -> extract reservation context, then clear.
+
+These policies should emerge from explicit user preferences and repeated real behavior rather than from one giant `Business` ontology.
 
 ## 5. Clearing email
 
@@ -199,6 +200,28 @@ Examples:
 - receipt: archive in Gmail + retain extracted transaction metadata if useful,
 - personal email: leave in Inbox + surface prominently in Cockpit.
 
+### Read/unread is not disposition
+
+Gmail read/unread state is not Cockpit's canonical attention state.
+
+Reading a message in Cockpit may mark it read upstream, but `read` must not imply `cleared`. A personal message can be read and still deliberately remain in Inbox. Conversely, a marketplace batch can be understood and cleared without requiring the user to open every underlying message individually.
+
+For email attention, Inbox membership is the meaningful durable state; read/unread is primarily presentation and source-state plumbing.
+
+### Threads re-enter naturally
+
+Cockpit should not maintain a parallel thread-resolution system.
+
+If a conversation is handled and archived in Mail, then a later reply that causes the conversation to re-enter Inbox naturally makes it part of Cockpit's current attention set again. Cockpit may retain prior understanding for context, but the upstream Inbox remains authoritative for whether the email conversation is currently unresolved.
+
+### Recent Clears
+
+Cockpit should retain a modest recent history of clearing decisions so mistakes are understandable and recoverable without creating a permanent forensic ledger.
+
+A `Recent Clears` experience should make it possible, for an appropriate bounded period, to see what Cockpit cleared, when, under which handling policy, and to restore/reconsider source messages where the provider still permits it.
+
+This becomes especially important as Trash policies and learned automation are introduced.
+
 ### Learned clearing policies
 
 Cockpit may eventually propose narrow automation based on repeated explicit user behavior, for example:
@@ -227,7 +250,17 @@ The current product bias is therefore:
 
 > Morning review by default; selective interruption by exception.
 
-## 7. Sources and artifacts
+## 7. Onboarding is not steady state
+
+Cockpit's long-term Daily semantics should not be distorted to accommodate a historically messy Inbox.
+
+The steady-state model is that current Inbox membership represents the current email action/attention queue. A first-time user may instead have years of accumulated Inbox messages that do not carry that meaning.
+
+Cockpit should therefore treat initial Inbox cleanup/bootstrap as an explicit onboarding concern rather than interpreting a large historical Inbox as thousands of current obligations.
+
+The exact onboarding workflow is deferred until implementation/product design, but it should establish a trustworthy baseline from which the steady-state invariant can hold.
+
+## 8. Sources and artifacts
 
 Cockpit must distinguish where information came from from what Cockpit actually received or captured.
 
@@ -249,7 +282,7 @@ An Artifact can exist at different levels of custody. Cockpit may know that an A
 
 Most incoming Artifacts should be understandable and disposable without becoming rich permanent domain objects.
 
-## 8. Attention is not custody
+## 9. Attention is not custody
 
 Cockpit understanding content and Cockpit preserving content are separate decisions.
 
@@ -269,7 +302,7 @@ A paid recipe newsletter illustrates why custody matters. If Cockpit tells the u
 
 A pointer is not a preserved artifact.
 
-## 9. Knowledge and content are different storage responsibilities
+## 10. Knowledge and content are different storage responsibilities
 
 Cockpit's canonical knowledge store should remain relatively lightweight. Potentially large original content has a separate lifecycle.
 
@@ -295,7 +328,7 @@ Artifact content
 
 The existence of an Artifact in Cockpit must not imply that all of its content downloads to every device.
 
-## 10. Cloud custody and local availability are independent
+## 11. Cloud custody and local availability are independent
 
 Artifact storage has at least two independent dimensions.
 
@@ -324,7 +357,7 @@ A preserved Artifact can therefore be absent on an iPhone, cached on a Mac, and 
 
 Cockpit should be able to verify its own offline-readiness claims from app-controlled local storage rather than merely infer them from an opaque cloud-download state.
 
-## 11. Artifact Library boundary
+## 12. Artifact Library boundary
 
 The need for explicit custody and device availability establishes a real subsystem boundary, but not a new product or shared package.
 
@@ -352,7 +385,7 @@ The current storage hypothesis is CloudKit assets for canonical preserved bytes,
 
 Cockpit should use system viewers such as Quick Look and media frameworks where appropriate rather than become a universal document/media viewer.
 
-## 12. Signals, subjects, and opportunities
+## 13. Signals, subjects, and opportunities
 
 Incoming material may produce knowledge beyond the Artifact itself.
 
@@ -378,7 +411,7 @@ An **Opportunity** is the relationship between something potentially interesting
 
 Opportunity should not become Cockpit's center of gravity. It is an output of a broader system that first handles mundane incoming information well.
 
-## 13. Subject Watching / source fan-out
+## 14. Subject Watching / source fan-out
 
 Cockpit should track Subjects rather than force the user to manage feeds individually.
 
@@ -403,7 +436,7 @@ This is particularly important for hostile or incomplete platforms such as socia
 
 The open question is how Cockpit discovers, ranks, monitors, and explains source coverage for a watched Subject without turning the user into a feed administrator.
 
-## 14. Awareness without task management
+## 15. Awareness without task management
 
 Some incoming information matters because it should register mentally, not because Cockpit needs to create a task.
 
@@ -419,7 +452,7 @@ The product goal is situational awareness:
 
 If an email remains unresolved, Mail can remain responsible for the actual action queue.
 
-## 15. The Personal Model — "You"
+## 16. The Personal Model — "You"
 
 Cockpit should maintain an explicit, inspectable, correctable model of what it believes about the user.
 
@@ -455,7 +488,7 @@ and allow the user to reinforce, correct, narrow, or forget a belief.
 
 This model should learn from explicit statements and from meaningful interaction evidence while avoiding false precision from isolated behavior.
 
-## 16. The emerging loop
+## 17. The emerging loop
 
 The current product hypothesis is:
 
@@ -484,7 +517,7 @@ User choices / corrections / experiences
 
 This is intentionally not a screen map.
 
-## 17. Specialist applications remain specialists
+## 18. Specialist applications remain specialists
 
 Cockpit should not become mediocre versions of Yes Chef, Galavant, a wine cellar application, a music application, and every other domain tool.
 
@@ -498,7 +531,7 @@ A Burgundy restaurant discovered by Cockpit may become a Galavant idea rather th
 
 The exact cross-app handoff contract is unresolved and should be designed from real workflows.
 
-## 18. AI role
+## 19. AI role
 
 AI is appropriate for interpretation, summarization, fuzzy extraction, classification, comparison, and proposing personal-model updates.
 
@@ -510,7 +543,7 @@ Cockpit should preserve the architectural rule:
 
 Examples include proposed dispositions, extracted Subjects, inferred personal-model claims, and proposed source actions. The exact amount of review can vary by reversibility and consequence.
 
-## 19. Current product responsibilities
+## 20. Current product responsibilities
 
 It is useful to think of Cockpit as having three responsibilities, without assuming three tabs or screens:
 
@@ -528,11 +561,11 @@ Given Subjects, evidence, current context, and the Personal Model, what is unusu
 
 These are responsibilities, not navigation decisions.
 
-## 20. Open design investigations
+## 21. Open design investigations
 
-### A. Daily / Disposition
+### A. Daily / Disposition — current decisions
 
-The basic email boundary is now established:
+The email boundary and initial disposition model are sufficiently defined to move forward:
 
 - Mail remains the action queue.
 - Cockpit reasons over the current Inbox, not just newly arrived messages.
@@ -541,20 +574,14 @@ The basic email boundary is now established:
 - Trash is an explicit configured/learned policy for deliberately disposable categories such as marketplace mail.
 - Cockpit becomes the primary reading history for newsletters it manages.
 - Transactional messages may be understood in Cockpit yet deliberately remain in Inbox.
-- Transactional handling policies may evolve over time from explicit user preferences and repeated behavior.
+- Transactional handling policies describe both the Cockpit experience and the source disposition.
+- Gmail read/unread is not Cockpit's canonical attention state; Inbox membership is.
+- A new reply naturally re-enters Cockpit when its conversation re-enters Inbox; Cockpit does not maintain parallel thread-resolution state.
+- Cockpit keeps a bounded `Recent Clears` history for recovery/audit rather than a permanent forensic ledger.
 - Daily is primarily a morning review with sparse, selective intraday surfacing.
+- Initial historical-Inbox cleanup is an onboarding problem, not a reason to weaken steady-state semantics.
 
-Remaining questions include:
-
-- What additional classes of incoming mail deserve purpose-built Daily experiences versus generic triage?
-- Which Gmail/Cockpit policies should live per sender, per newsletter, per category, or globally?
-- How long must Cockpit retain enough source material to undo or audit a classification/clearing judgment?
-- Should `mark read` be independent from clearing, and which system owns read/unread semantics?
-- How should threads/conversations behave when earlier messages were cleared but a new reply arrives?
-- What should happen when Cockpit was wrong?
-- How should initial onboarding handle an existing Inbox that may contain years of accumulated messages without making the first Cockpit experience unusable?
-
-Do not assume Gmail folders or labels are Cockpit's canonical workflow state.
+Further refinements should now be driven by implementation and real usage rather than continued abstract taxonomy design.
 
 ### B. Source actions and agency
 
@@ -588,7 +615,7 @@ Define claim families, evidence/provenance, confidence, temporal scope, contradi
 
 This should be designed for inspectability rather than merely prompt quality.
 
-## 21. Deliberately deferred
+## 22. Deliberately deferred
 
 Do not yet design:
 
@@ -604,7 +631,7 @@ Do not yet design:
 
 We need real Cockpit workflows before these abstractions can be justified.
 
-## 22. Product north star
+## 23. Product north star
 
 Cockpit should quietly reduce information burden while building a useful, user-owned understanding of what matters.
 
