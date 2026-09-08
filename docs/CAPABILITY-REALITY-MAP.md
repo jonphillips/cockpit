@@ -5,6 +5,8 @@
 
 This document prevents conceptual nouns from being mistaken for already-required infrastructure. It classifies current capabilities as **V1**, **Deferred**, or **Evidence required**.
 
+Shapes live in `docs/IMPLEMENTATION-CONTRACT.md`; this map only says what is in and out.
+
 ---
 
 ## 1. Product shell
@@ -50,6 +52,10 @@ This document prevents conceptual nouns from being mistaken for already-required
 |---|---|
 | Artifact | V1 foundational concept |
 | ContentPiece | V1 foundational concept |
+| Derived (UUIDv5) ContentPiece identity | V1 architecture |
+| `Edition` / `EditionEntry` as materialized entities | V1 architecture |
+| `EditionEntry.rationale` as the why-surfaced record | V1 |
+| Normalized text stored for every textual ContentPiece | V1 architecture |
 | Edition/Later/Library memberships around same ContentPiece | V1 invariant |
 | Conservative deterministic deduplication | V1 |
 | Rich generic Artifact↔ContentPiece graph | Evidence required |
@@ -63,11 +69,14 @@ This document prevents conceptual nouns from being mistaken for already-required
 
 | Capability | Reality |
 |---|---|
-| Finite morning-oriented Edition | V1 |
+| Finite morning-oriented Edition, composed once daily | V1 |
 | Reader | V1 |
 | Seen | V1 |
-| Clear | V1 |
+| Dismiss (Edition resolution; `Clear` is Today's) | V1 |
 | Essential protection | V1 |
+| Essential backlog relief valve | V1 |
+| Batched judgment pass per `docs/JUDGMENT-CONTRACT.md` | V1 |
+| Judgment evaluation harness + labelled fixture set | V1 from Phase 1 |
 | Save for Later | V1 |
 | Add to Library | V1 |
 | Personal Knowledge affects relevance/explanation | V1 proof |
@@ -135,6 +144,8 @@ This document prevents conceptual nouns from being mistaken for already-required
 
 | Capability | Reality |
 |---|---|
+| Gmail OAuth viability spike (`gmail.modify`, day-8 token check) | V1, Phase 0 |
+| IMAP + app password as fallback transport | Evidence required — only if the spike fails |
 | Read current Inbox | V1 |
 | Summarize/classify | V1 |
 | Worth Seeing / personal-consequential attention | V1 |
@@ -157,8 +168,9 @@ This document prevents conceptual nouns from being mistaken for already-required
 
 | Capability | Reality |
 |---|---|
-| Fact / Taste / Interest | V1 |
-| Direct teaching | V1 |
+| Fact / Taste / Interest | V1 from Phase 1 |
+| Direct teaching | V1 from Phase 1 |
+| Jon Brain import before the first Edition | V1, Phase 1 |
 | Teach from ContentPiece / why it matters | V1 |
 | Correction/supersession | V1 |
 | Provenance | V1 |
@@ -181,9 +193,10 @@ This document prevents conceptual nouns from being mistaken for already-required
 | Capability | Reality |
 |---|---|
 | Find as outbound product concept | V1 |
-| Lightweight Pending Find | V1 |
+| Find extraction sharing the judgment call | V1 from Phase 1 |
+| Lightweight Pending Find | V1 from Phase 1 |
 | Broad descriptive kind/hints | V1 |
-| One real receiver handoff | V1 |
+| One real receiver handoff | V1, Phase 6 |
 | Receiver-owned canonical identity/validation | V1 law |
 | Universal Find schema hierarchy | Rejected |
 | Product/restaurant/wine canonical models in Cockpit | Rejected |
@@ -222,7 +235,20 @@ This document prevents conceptual nouns from being mistaken for already-required
 
 ---
 
-## 13. Implementation rule
+## 13. Execution and processing
+
+| Capability | Reality |
+|---|---|
+| On-device ingestion, judgment, enrichment | V1 architecture |
+| Edition materialized at first launch after day boundary | V1 |
+| `BGProcessingTask` opportunistic pre-warm | V1, never relied upon |
+| Designated ingesting device | V1 |
+| Server / hosted worker / ingest service | Rejected for V1; reopenable at Gate 1 on cost and latency evidence |
+| Composition cost and latency recorded on `Edition` | V1 |
+
+---
+
+## 14. Implementation rule
 
 A `Deferred` or `Evidence required` capability must not quietly enter V1 because it looks architecturally elegant.
 

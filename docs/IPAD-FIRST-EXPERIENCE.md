@@ -93,7 +93,7 @@ Provider plumbing and detailed Gmail status should stay secondary unless somethi
 
 Reader should make ContentPiece substance primary and keep product actions accessible:
 
-- Clear;
+- Dismiss;
 - Save for Later;
 - Add to Library;
 - Offline until / Keep Offline;

@@ -91,7 +91,7 @@ A Find is not automatically Library material. When a specialist app exists, Cock
 
 ## 4. Edition semantics
 
-Edition is not an accumulating unread queue.
+Edition is not an accumulating unread queue. It is a materialized entity composed once per day at first launch after the day boundary, then stable — see `docs/IMPLEMENTATION-CONTRACT.md` §3 and `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md` D1.
 
 A morning edition combines:
 
@@ -103,7 +103,9 @@ still-relevant carryover
 Essential material not explicitly resolved
 ```
 
-Opening means **Seen**, not Clear. Seen content may become visually quieter but remains eligible until resolved or naturally aged according to policy.
+Opening means **Seen**, not resolved. Seen content may become visually quieter but remains eligible until resolved or naturally aged according to policy.
+
+Edition's resolution action is **Dismiss**. `Clear` belongs to Today's Gmail attention, below. Unresolved Essential material moves to a visible Essential backlog rather than aging out or bloating the daily package.
 
 Substantive primary material from an Essential Stream cannot silently age away.
 
@@ -296,7 +298,7 @@ Cockpit may use it to notice that a restaurant opening matters now without claim
 
 1. **Cockpit tells Jon what came into his world, what matters, what can safely be ignored, and what is worth returning to.**
 2. **Today is orientation/attention; Edition is reading/browsing/enrichment.**
-3. **Edition is finite and rolling, not an infinite feed or unread backlog.**
+3. **Edition is finite and rolling, not an infinite feed or unread backlog.** Unresolved Essential material moves to a visible backlog rather than breaking finiteness.
 4. **Later is explicit deferred attention and never silently expires.**
 5. **Library contains ContentPieces, not universal domain things.**
 6. **Finds belong with specialist apps when an owner exists.**
@@ -309,6 +311,8 @@ Cockpit may use it to notice that a restaurant opening matters now without claim
 13. **Knowledge does not grant agency.**
 14. **Reliable upstream custody, Cockpit-owned payload custody, and device-local offline availability are separate.**
 15. **No productivity theater and no universal ontology.**
+16. **Edition resolves with Dismiss; Today's Gmail attention resolves with Clear.**
+17. **Edition is composed once per day and then stable; it is a materialized package, not a live query.**
 
 ---
 

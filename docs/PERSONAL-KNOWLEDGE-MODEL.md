@@ -7,6 +7,8 @@ Personal Knowledge is Cockpit's durable explicit understanding of Jon.
 
 It exists to make judgments materially better without turning Cockpit into a behavioral surveillance warehouse or a profile-maintenance chore.
 
+Personal Knowledge is built in **Phase 1**, alongside the first Edition rather than after it. Judgment tuned against an empty profile is judgment that has to be tuned twice. How claims reach the model is specified in `docs/JUDGMENT-CONTRACT.md` §2.
+
 ---
 
 ## 1. Governing principle
@@ -16,6 +18,8 @@ It exists to make judgments materially better without turning Cockpit into a beh
 Jon may have decades of experience demonstrating that opens, clicks, dwell time, saves, and browsing frequency are ambiguous. Cockpit should respect that ambiguity.
 
 Behavior may influence transient ranking or cause Cockpit to ask a useful question. It does not silently become durable truth.
+
+Concretely, the judgment pass never receives clickstream, dwell time, or open history. Admitting them there would launder weak behavioral signal into ranking through the back door while the letter of this principle was preserved.
 
 ---
 

@@ -7,6 +7,10 @@ This ledger records decisions that cut across multiple product documents. It exi
 
 If another live document conflicts with this ledger, this ledger wins until the conflict is explicitly resolved and both are updated.
 
+The ledger states **intent**. `docs/IMPLEMENTATION-CONTRACT.md` states **shape**. They answer different questions; where both speak to the same thing, the ledger governs what the product means and the contract governs what the code looks like.
+
+Sections 13 to 17 were added on review, and amend earlier sections where noted.
+
 ---
 
 ## 1. Product shell and vocabulary — RESOLVED
@@ -64,6 +68,8 @@ Edition participation, Later membership, and Library membership attach to the sa
 
 Deduplication is conservative and provenance-preserving. Deterministic strong identity such as canonical URL or provider stable ID should be used when available. Cockpit should tolerate occasional duplicates rather than perform uncertain destructive merges.
 
+**Amended by §13.** ContentPiece identity is *derived* from that strong identity rather than randomly assigned, so the common cases converge on one row without any merge operation at all. Merging remains reserved for the genuinely uncertain cases, where the conservative posture above still applies.
+
 ### Explicit non-models
 
 Do not create a universal `Item`, `Thing`, or cross-domain entity solely to unify articles, restaurants, wines, products, recipes, events, and other unrelated concepts.
@@ -120,9 +126,9 @@ Optional automatic Library admission is explicit, prospective, and independent o
 
 Edition is a finite rolling personalized newspaper, not an infinite feed and not an accumulating unread queue.
 
-Opening a ContentPiece means **Seen**, not Clear.
+Opening a ContentPiece means **Seen**, not resolved.
 
-Edition state is a relationship to a ContentPiece. V1 must support admission, Seen, Clear, natural aging/carryover, Essential protection, and resolution through Save for Later. Exact persistence windows and visual treatment should be learned from use.
+**Amended by §14 and §15.** Edition is a materialized entity composed once per day, not a live query over per-ContentPiece flags. Its resolution action is **Dismiss**, not Clear. V1 must support admission, Seen, Dismiss, carryover, Essential protection, the Essential backlog, and resolution through Save for Later. The states and legal transitions are settled in `docs/IMPLEMENTATION-CONTRACT.md` §3; only the durations, sizes, and visual treatment are learned from use.
 
 ### Later
 
@@ -157,6 +163,12 @@ External hosted media such as YouTube or podcasts does not imply permanent dupli
 
 For web/RSS/text material, preserve normalized readable substance when it materially improves durability, search, or offline behavior; do not make duplicate permanent payload storage a universal requirement when a reliable source already holds the substance.
 
+### Normalized text
+
+**Amended by §16.** `normalizedText` is stored for every ContentPiece with textual substance, unconditionally, and indexed for search. The earlier conditional phrasing was always true for anything searchable and only licensed inconsistent implementation.
+
+Promise-based custody continues to govern **payloads** — media, PDFs, uploaded sole-source files, exact layout fidelity. Text is not a payload.
+
 ### Device availability
 
 Device-local availability is independent of Edition, Later, Library, and source custody.
@@ -183,7 +195,7 @@ Cockpit owns its own attention state. Gmail read/unread remains separate provide
 - **Archive**
 - **Trash**
 
-These must be implementation-distinct from Edition Clear even if the UI word is shared contextually.
+The UI word is no longer shared: Edition resolves with `Dismiss`. See §15.
 
 Valuable editorial source material commonly Archives. Disposable operational/promotional mail may Trash. Cockpit does not need permanent `Delete Forever` authority in V1; Gmail's Trash lifecycle is sufficient.
 
@@ -289,6 +301,72 @@ The shell is complete, but Edition and Today may be substantially deeper than La
 
 ---
 
+## 13. Execution model and derived identity — RESOLVED
+
+Ingestion, judgment, and enrichment run **on device**. No server, no hosted worker.
+
+The morning Edition was considered as the product requirement that might justify one, and rejected: putting Gmail ingest on a third-party server converts a defensible personal-use exemption for restricted scopes into a plausible annual security-assessment obligation, which is a four-figure recurring cost for a single-user app.
+
+Morning stability is achieved by *materializing* the Edition at first launch after the day boundary, not by composing it early. `BGProcessingTask` pre-warms opportunistically and is never relied upon.
+
+One device is designated as ingester to avoid duplicated model cost. Correctness does not depend on it: `ContentPiece.id` is a UUIDv5 over a canonical identity string, so concurrent ingest on two devices converges on one row rather than producing duplicates.
+
+Composition cost and latency are recorded and reviewed at Gate 1. Budget: under $1.00 and under 60 seconds. Exceeding it materially reopens this decision with evidence.
+
+Gmail authorization viability is spiked in Phase 0, not discovered in Phase 3.
+
+Detail: `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md`.
+
+---
+
+## 14. Edition is a materialized entity — RESOLVED
+
+`Edition` and `EditionEntry` are real tables.
+
+Edition was previously modeled only as per-ContentPiece state, which is a live query. A live query cannot hold a package stable through the day, cannot answer what was seen on a given date, and leaves nowhere durable to record why a piece was surfaced — which `EDITION-EXPERIENCE.md` §7 requires.
+
+`EditionEntry.rationale` is the sanctioned record of a surfacing decision, written for Jon rather than for a debugger. It is not the beginning of a `Signal`/`Observation` evidence graph and gains no query surface beyond its own Edition. The explicit non-models in `V1-SCOPE-AND-SEQUENCING.md` §2 stand.
+
+`Edition.targetSize` defaults to 20. "Finite" with no number gives judgment no objective.
+
+---
+
+## 15. Essential relief valve, and Dismiss — RESOLVED
+
+Two corrections to Edition vocabulary and semantics.
+
+**Essential versus finite.** Product Law 3 (Edition is finite) and Product Law 9 (Essential material cannot silently age away) are in direct tension: an Essential Stream that outpaces reading produces a monotonically growing unresolved set inside the surface that is supposed to feel calm. Within months, Edition acquires the permanent guilt column that Later was carefully designed to avoid.
+
+Resolution: an unresolved Essential entry carried more than 14 times moves to a distinct `essentialBacklog` section, reachable and visible but outside the daily package and outside `targetSize`. Nothing silently ages away; the daily Edition stays finite. The threshold is tunable.
+
+**Dismiss, not Clear.** Edition's resolution action is `Dismiss`. Today's Gmail attention action remains `Clear`. Four documents previously carried warnings that the two operations must be implementation-distinct; when a spec has to repeat a warning four times, the word is wrong. Those warnings are removed.
+
+---
+
+## 16. Normalized text — RESOLVED
+
+Stored for every ContentPiece with textual substance, at ingest, unconditionally, and indexed.
+
+Library search is a V1 requirement, so the earlier condition "when it materially improves durability, search, or offline use" was always satisfied for anything Library could contain, and served only to license inconsistent implementation. A long article is roughly 30KB.
+
+Syncs through CloudKit for Library members; device-local otherwise. Promise-based custody is unchanged and continues to govern payloads.
+
+This removes an entire class of degradation state: loss of provider access can no longer cost Cockpit the text of something it retained.
+
+---
+
+## 17. Judgment has a contract and an evaluation harness — RESOLVED
+
+Judgment — the pass that turns candidate ContentPieces into an Edition — is the component the product promise rests on and was previously specified only as a word in a pipeline diagram.
+
+It is now governed by `docs/JUDGMENT-CONTRACT.md`: batched once per composition rather than scored per piece, strict structured output, rationale and subjects persisted rather than re-derived, and Find extraction sharing the same call.
+
+An evaluation harness exists from Phase 1: 200 real ContentPieces from Jon's own Streams, labelled by Jon, run on every prompt or model change. False-quiet on Essential material is the metric that matters, because it is the one failure that breaks a promise rather than producing a mediocre edition.
+
+This is also how improving models get cashed in deliberately rather than by impression. Single-user ground truth is a structural advantage worth spending effort on.
+
+---
+
 # Deliberately deferred decisions
 
 These are **not unresolved blockers**. They should wait for implementation/use evidence.
@@ -296,10 +374,10 @@ These are **not unresolved blockers**. They should wait for implementation/use e
 ## Edition
 
 - exact Seen treatment;
-- exact aging/carryover windows;
+- exact carryover budget, Essential backlog threshold, and target size — the numbers, not the states;
 - section ordering and card density;
 - midday admission volume;
-- Essential review tooling;
+- Essential backlog review tooling beyond a plain reachable list;
 - Reader geometry details.
 
 ## Later
@@ -358,8 +436,9 @@ These are **not unresolved blockers**. They should wait for implementation/use e
 The following questions should be answered through vertical slices and daily use, not another abstract design round:
 
 - whether Artifact ↔ ContentPiece multiplicity needs rich persistence beyond observed cases;
-- which deterministic deduplication rules are actually required;
-- exact Edition state representation;
+- which canonicalization rules the derived-identity function actually needs;
+- what composition really costs in dollars and seconds, and whether that reopens §13;
+- whether the judgment agreement rate is good enough to trust, and what moves it;
 - whether normalized source text deserves durable preservation for particular source classes;
 - whether Subjects + full-text search are sufficient before embeddings;
 - how quickly Later becomes a backlog and whether cleanup is needed at all;

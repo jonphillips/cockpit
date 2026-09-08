@@ -11,6 +11,8 @@ It answers:
 
 Edition is the user-facing destination name. `Content` remains a broader subsystem/domain word, not a competing navigation label.
 
+Edition is a materialized entity composed once per day, not a live query. Shape and state machine: `docs/IMPLEMENTATION-CONTRACT.md` §3. How an Edition gets composed: `docs/JUDGMENT-CONTRACT.md`.
+
 ---
 
 ## 1. Edition is not an infinite feed
@@ -47,17 +49,17 @@ Important, Essential, or time-sensitive material may arrive during the day when 
 
 ## 3. ContentPiece state in Edition
 
-Opening a ContentPiece means **Seen**, not Clear.
+Opening a ContentPiece means **Seen**, not resolved.
 
-Seen should make content quieter without implying the user has resolved it.
+Seen should make content quieter without implying the user has dealt with it.
 
-`Clear` means the ContentPiece no longer needs to remain in the active Edition attention set. Edition Clear is not Gmail Clear and must not be implemented as one universal command.
+**`Dismiss`** means the ContentPiece no longer needs to remain in the active Edition attention set. Edition uses `Dismiss`; Today's Gmail attention action uses `Clear`. They were previously both called Clear, which forced four documents to warn that the two must be implementation-distinct. Different words, different operations, no warning needed.
 
-`Save for Later` records explicit deferred attention and resolves the immediate Edition relationship as appropriate.
+`Save for Later` records explicit deferred attention and resolves the immediate Edition relationship.
 
-`Add to Library` records durable retained reference and is independent of Later/Edition state.
+`Add to Library` records durable retained reference and is independent of Later/Edition state. It never changes Edition entry state.
 
-Exact internal state representation should be learned from the first RSS slice rather than frozen prematurely.
+The states and legal transitions are settled in `docs/IMPLEMENTATION-CONTRACT.md` §3. The durations — carryover budget, backlog threshold, target size — are tuned from use.
 
 ---
 
@@ -71,7 +73,15 @@ Its core product promise is:
 
 Matthew Yglesias is the canonical example: if Jon wants to be a completist, Cockpit may visually quiet a Seen post but may not quietly forget it merely because several editions passed.
 
-For mixed Streams, Essential protects substantive primary publication material rather than making every incidental extracted Find immortal.
+For mixed Streams, Essential protects substantive primary publication material rather than making every incidental extracted Find immortal. What counts as substantive primary material is defined in `docs/IMPLEMENTATION-CONTRACT.md` §1 and returned by the judgment pass with a correctable reason.
+
+### The relief valve
+
+Essential as stated collides with Product Law 3. A Stream that publishes faster than Jon reads produces an unresolved set that grows without bound — inside the surface that is supposed to feel finite and calm. Left alone, Edition acquires the permanent guilt column that Later was carefully designed to avoid.
+
+So: an unresolved Essential entry carried more than 14 times moves to a distinct **Essential backlog** group. It is reachable and visible, it still requires explicit disposition, and it is not part of the daily package or the size target.
+
+Nothing silently ages away, and the daily Edition stays finite. Both halves of the promise survive. The threshold is a starting number and is tuned from use.
 
 ---
 
@@ -103,7 +113,7 @@ A V1 Reader should make the important product actions obvious without turning in
 Core actions:
 
 - Seen happens naturally through reading/opening;
-- Clear;
+- Dismiss;
 - Save for Later;
 - Add to Library;
 - Offline until [date];
@@ -120,6 +130,8 @@ Provider/transport plumbing should remain secondary.
 ## 7. Provenance and explanation
 
 Cockpit should preserve meaningful source context and be able to explain why a ContentPiece was surfaced when that explanation is useful.
+
+This is why `EditionEntry.rationale` exists: an explanation cannot be reconstructed from state flags after the fact, so the reason is written at composition time and stored. It is addressed to Jon, states product logic rather than model internals, and is correctable from the same interaction.
 
 Examples:
 
@@ -167,7 +179,7 @@ Automatic Library admission does not imply automatic historical backfill.
 - finite Edition feels materially calmer than an infinite feed;
 - several real Streams can contribute useful material;
 - Essential prevents silent loss without making Edition oppressive;
-- Seen and Clear feel meaningfully distinct;
+- Seen and Dismiss feel meaningfully distinct;
 - Later and Library actions map cleanly to the same ContentPiece;
 - Personal Knowledge can change relevance/explanation;
 - Reader/provenance feels trustworthy.
@@ -179,8 +191,8 @@ Automatic Library admission does not imply automatic historical backfill.
 Do not decide abstractly:
 
 - exact Seen visual treatment;
-- exact aging/carryover durations;
-- exact edition size;
+- exact carryover budget and Essential backlog threshold — the numbers, not the states;
+- exact edition size, starting from 20;
 - section ordering;
 - card density/hero treatment;
 - midday admission volume;

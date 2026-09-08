@@ -41,15 +41,17 @@ V1 includes:
 - Reader;
 - provenance/source context;
 - Seen;
-- Clear;
+- Dismiss;
 - natural aging/carryover;
+- Essential backlog relief valve;
 - Essential protection from silent aging;
 - Save for Later;
 - Add to Library;
 - contextual Stream Handling access;
+- judgment per `docs/JUDGMENT-CONTRACT.md`, with the evaluation harness standing up in the same phase;
 - enough ranking/judgment to demonstrate Personal Knowledge can change relevance.
 
-Exact persistence windows, card density, section ordering, and midday behavior should be tuned through use.
+Exact persistence windows, card density, section ordering, and midday behavior should be tuned through use. The Edition states and transitions themselves are settled, not tuned.
 
 ### Later
 
@@ -118,8 +120,8 @@ V1 does not derive durable Personal Knowledge from passive clickstream behavior.
 
 V1 includes:
 
-- extraction/recognition of useful domain opportunities from a ContentPiece;
-- lightweight Pending Finds when no owner exists;
+- extraction/recognition of useful domain opportunities from a ContentPiece, from Phase 1, sharing the judgment call;
+- lightweight Pending Finds when no owner exists, from Phase 1;
 - enough descriptive/provenance/evidence data to keep an orphan Find useful;
 - exactly one complete real handoff to a specialist Jon Universe app;
 - receiver-owned identity, validation, deduplication, and canonical persistence.
@@ -143,21 +145,24 @@ Trip-aware preparation, bulk travel download, and Stream-wide offline rules wait
 
 ## 2. Initial persistence spine
 
-Do not design the entire V1 schema before implementation. The first slice needs only the minimum concepts required to support observed behavior.
+The concrete schema is in `docs/IMPLEMENTATION-CONTRACT.md` §2. It is deliberately minimal and is expected to change at the gates.
 
-Likely foundational Cockpit-local concepts:
+Foundational Cockpit-local concepts:
 
 - `InterestArea`
 - `Stream`
 - `Artifact`
-- `ContentPiece`
-- Edition participation/state
+- `ContentPiece` — identity derived, not random (ADR-0001 D3)
+- `Edition` and `EditionEntry` — materialized, not a live query (ADR-0001 D5)
 - Later membership
 - Library membership
+- `LocalAvailability`
 - `PersonalKnowledgeClaim`
-- durable `Find` only once independent lifecycle/handoff requires it
+- `PendingFind`
 
 Exact names in code are implementation decisions, but the domain distinctions are normative.
+
+Note the two corrections against earlier drafts of this plan. Edition is now a real entity rather than per-ContentPiece state, because the product promises a stable daily package and an explanation for why a piece appeared. And `PendingFind` is in the first slice rather than deferred, because Find extraction shares the judgment call and costs almost nothing, while the orphan-Find population is the evidence that tells the Jon Universe what app to build next — evidence that only accumulates with time.
 
 ### Explicit non-models at bootstrap
 
@@ -180,63 +185,72 @@ A concept earns a durable model when real behavior needs stable identity, lifecy
 
 ## 3. Implementation sequence
 
-### Phase 0 — minimum architecture ADR
+### Phase 0 — implementation contract, ADR-0001, and the Gmail auth spike
 
-Before feature work hardens persistence, record only:
+Before feature work hardens persistence:
 
-- Artifact versus ContentPiece identity;
-- provenance expectations;
-- Edition/Later/Library membership invariants;
-- lifecycle/deletion constraints;
-- uploaded-payload custody promise;
-- initial Personal Knowledge claim shape.
+1. Write `docs/IMPLEMENTATION-CONTRACT.md` — schema, Edition state machine, invariants, and definitions of `Subjects`, `substantive primary material`, `qualifying`, and `judgment`. **Done.**
+2. Write `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md` — execution model, ingest ownership, derived identity, normalized-text rule, CloudKit posture. **Done.**
+3. Write `docs/JUDGMENT-CONTRACT.md` and freeze the evaluation fixture set. **Contract done; fixtures pending real Streams.**
+4. **Run the Gmail authorization spike** (ADR-0001 D7). One day. Create the OAuth client for `gmail.modify`, publish unverified under the personal-use exemption, obtain a refresh token, and check on day 8 whether it survives. Unverified apps expire tokens after seven days and the exemption's behaviour in production is reported inconsistently. If it fails, evaluate IMAP as the transport before Today is designed around the Gmail API.
 
-Do not attempt the final schema for every future source.
+Do not attempt the final schema for every future source. Do settle identity, execution, and provider viability, because those are the decisions that are expensive to reverse.
 
-### Phase 1 — RSS/Atom → Edition → Later/Library → Offline
+The Gmail spike sits in Phase 0 rather than Phase 3 for one reason: failing it in Phase 3 wastes a phase.
 
-Build the safest complete product spine first:
+### Phase 1 — RSS/Atom → Personal Knowledge → judgment → Edition → Later/Library/Finds → Offline
+
+Build the complete product spine, including the two things that make Cockpit distinctive:
 
 ```text
 known human URL
 → feed autodiscovery
 → Stream
 → ingest Artifact
-→ ContentPiece
-→ basic judgment
-→ Edition
+→ ContentPiece (normalized text stored)
+→ Personal Knowledge: direct teaching + Jon Brain bulk import
+→ judgment (per `docs/JUDGMENT-CONTRACT.md`)
+→ Edition + EditionEntries, composed once daily
 → Reader
-→ Seen / Clear
-→ Later / Library
+→ Seen / Dismiss / carryover / Essential
+→ Later / Library / Pending Finds
 → Offline until / Keep Offline
 ```
 
 This phase should use several real Streams, not only fixtures.
+
+**Personal Knowledge moves into Phase 1** from Phase 2. It is a table, a paste box, and a reconciliation pass, and it has no dependency on Edition. Building it second means judgment gets built and tuned against no preferences and then rebuilt against them. Import the Jon Brain dump before the first Edition is ever composed.
+
+**Pending Find extraction moves into Phase 1** from Phase 6. Extraction shares the judgment call, so the marginal cost is near zero. Persist PendingFinds and give them a minimal list. Handoff to a specialist app stays in Phase 6 — this is extraction only, with no receiver, no admission boundary, and no cross-app work.
+
+Stand up the evaluation harness in this phase, not later. Once several real Streams are running, freeze 200 real ContentPieces, label them, and get the first agreement number. It is what makes every subsequent prompt and model change measurable rather than a matter of taste.
 
 #### Architecture Gate 1
 
 Stop and inspect:
 
 - Did Artifact and ContentPiece boundaries hold?
+- Did derived identity actually converge across devices and across Streams?
 - What real deduplication cases appeared?
 - Did any Artifact yield multiple meaningful outputs?
-- What Edition state is actually required?
-- What source text must be retained?
+- Which Edition states and transitions were actually exercised, and did the carryover budget and Essential backlog threshold feel right?
 - Is Subjects + text search enough for early Library retrieval?
 - Does Stream/Handling/Essential feel correct?
+- **What did composition actually cost, in dollars and in seconds?** This is the evidence that reopens the on-device execution decision in ADR-0001 D1. If composition is a minute-long foreground wait every morning, the server question is live again.
+- **What is the judgment agreement rate, and the false-quiet rate on Essential material?**
+- Are Pending Finds accumulating, and what shape are the orphans?
 
 Change the model now if reality disagrees.
 
-### Phase 2 — Personal Knowledge changes judgment
+### Phase 2 — Personal Knowledge deepens and demonstrably changes judgment
 
-Add:
+Basic teaching and Jon Brain import land in Phase 1. Phase 2 adds the parts that need a running Edition to be worth building:
 
-- direct teaching;
-- correction;
-- “why this matters” teaching from a ContentPiece;
-- Jon Brain paste/import;
-- synthesis/reconciliation against existing claims;
-- one visible relevance/explanation change driven by PK.
+- correction and supersession;
+- “why this matters” teaching from a ContentPiece in the Reader;
+- LLM consolidation, deduplication, and rollup of explicit claims;
+- confirmation flow for a Cockpit hypothesis;
+- one visible, correctable relevance/explanation change driven by PK.
 
 #### Architecture Gate 2
 
@@ -247,6 +261,8 @@ Ask:
 - Is provenance sufficient and useful?
 - Is the LLM overgeneralizing?
 - Does bulk import reconcile cleanly without schema inflation?
+- How many claims exist, and is the full-projection threshold in `docs/JUDGMENT-CONTRACT.md` §2 still holding?
+- Did the eval agreement rate move when PK grew? If it did not, PK is decorative and something is wrong.
 
 Do not add salience/confidence/trajectory machinery without evidence.
 
@@ -312,7 +328,9 @@ This is a critical architecture test because it proves Transport, Artifact, Cont
 
 Stop before Finds/handoffs. If the model is fighting actual email + RSS behavior, fix it while Cockpit is still pre-production.
 
-### Phase 6 — Finds and first specialist handoff
+### Phase 6 — First specialist handoff
+
+Find extraction and Pending Finds already exist from Phase 1. This phase adds the receiver.
 
 Prove two outcomes:
 

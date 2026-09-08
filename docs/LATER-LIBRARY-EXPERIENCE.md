@@ -78,7 +78,7 @@ It does not contain canonical restaurants, wines, products, recipes, hotels, peo
 
 ### Retrieval posture
 
-Start with ordinary text search, metadata, provenance, and lightweight Subjects.
+Start with ordinary text search over stored `normalizedText`, plus metadata, provenance, and lightweight Subjects. Subjects are short lowercase strings on the ContentPiece, not entities — see `docs/IMPLEMENTATION-CONTRACT.md` §1.
 
 Do not introduce embeddings/vector infrastructure merely because semantic retrieval sounds attractive. Add it when real Library corpus queries expose a meaningful gap.
 
@@ -156,9 +156,9 @@ For Gmail-backed material with substantive content in Gmail, Cockpit may retain 
 
 Cockpit must preserve payloads durably.
 
-### Web/RSS text
+### Text
 
-Cockpit may retain normalized readable text when useful for durability/search/offline, without promising exact source presentation.
+Cockpit stores normalized readable text for every ContentPiece with textual substance, unconditionally, and indexes it for search. It does not promise exact source presentation. See `docs/DECISIONS.md` §16.
 
 ### Hosted media
 
@@ -208,9 +208,9 @@ Do not solve the missing app by putting the product itself into Library or inven
 
 Library should preserve enough semantic understanding to support useful browsing and search without turning Subjects into a universal entity graph.
 
-Subjects may be lightweight derived enrichment attached to ContentPieces.
+Subjects are short lowercase topical strings attached to ContentPieces by the judgment pass, three to eight per piece, stored as a JSON array and mirrored into the FTS index. Not entities, not a controlled vocabulary.
 
-Do not build alias/merge/hierarchy machinery until actual retrieval failures require it.
+Do not build alias/merge/hierarchy machinery until actual retrieval failures require it. A Subject never gains an ID, a detail screen, or a merge operation in V1.
 
 ---
 
