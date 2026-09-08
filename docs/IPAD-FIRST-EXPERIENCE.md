@@ -1,86 +1,36 @@
 # Cockpit iPad-First Experience
 
 **Status:** Working product/interaction decision  
-**Date:** 2026-09-07
+**Date:** 2026-09-08
 
 ## Purpose
 
-Cockpit is deliberately **iPad first**.
+This document captures the iPad-first interaction model for Cockpit.
 
-The primary product context is not a quick phone glance. It is an extended morning session, typically with an iPad, Magic Keyboard, and trackpad, during which Jon spends substantial time catching up on email, news, newsletters, market information, travel ideas, cultural material, and other incoming information.
+It reflects a material product constraint: Cockpit's canonical use is not a few-second phone check. It is often an extended morning session on an iPad with Magic Keyboard and trackpad, followed by lighter companion use on iPhone.
 
-The iPhone is important, but it is a **companion** rather than a compressed copy of the iPad application.
-
-The governing product decision is:
-
-> **Cockpit on iPad is the primary reading, judgment, and learning environment. Cockpit on iPhone is the companion for awareness, capture, lightweight triage, and fast action.**
-
-This changes the interaction model materially. The iPad experience should exploit persistence, simultaneous context, rich reading surfaces, keyboard/trackpad navigation, and domain-specific analysis rather than merely showing wider versions of iPhone cards.
-
-This document extends:
+It should be read alongside:
 
 - `docs/PRODUCT-MODEL.md`
 - `docs/EMAIL-INTELLIGENCE-MODEL.md`
 - `docs/PERSONAL-KNOWLEDGE-MODEL.md`
-- `docs/CAPABILITY-REALITY-MAP.md`
+- `docs/TODAY-EXPERIENCE.md`
+- `docs/CONTENT-EXPERIENCE.md`
+- `docs/CONTENT-STREAM-MODEL.md`
 
-It is a product/interaction model, not a final pixel specification.
-
----
-
-## 1. Canonical use case: the morning desk
-
-Cockpit should be designed around an ordinary but substantial session:
-
-1. Jon sits down with the iPad and keyboard in the morning.
-2. Cockpit has reduced a large incoming stream into a small number of things that need attention or are genuinely worth seeing.
-3. Jon scans the briefing.
-4. He reads selected material without losing his place in the briefing.
-5. He compares choices where a domain warrants it.
-6. He occasionally corrects Cockpit or explains why something matters.
-7. He may keep something, hand it to a specialist app, or clear source email.
-8. He leaves with an informed sense of what came into his world rather than a feeling that he completed a productivity ritual.
-
-The experience should support an hour of use gracefully, but should not require an hour. A quiet day may take five minutes.
-
-### Product principle
-
-> **Design for a satisfying reading session, not an inbox-clearing sprint.**
-
-No streaks, completion scores, gamified triage counts, or congratulatory Inbox Zero ceremony are needed.
+The newer Content Stream model uses `Stream` for recurring content the user follows. `Source` remains correct for upstream/provider/provenance semantics.
 
 ---
 
-## 2. Platform asymmetry is intentional
+## 1. Platform doctrine
 
-Cockpit should not pursue feature symmetry between iPad and iPhone merely for conceptual cleanliness.
+> **Cockpit on iPad is the primary reading, judgment, and learning environment. Cockpit on iPhone is the companion for awareness, capture, lightweight triage, and fast action.**
 
-### iPad owns
+The two platforms should share semantics, not feature symmetry.
 
-- the full Daily briefing,
-- sustained reading,
-- persistent master-detail inspection,
-- contextual AI commentary,
-- explicit learning/correction,
-- deep `Skipped` inspection,
-- rich domain views such as Wine Market or Events,
-- source Handling review/editing,
-- deeper Personal Knowledge inspection,
-- keyboard/trackpad accelerated workflows,
-- side-by-side comparison where it materially improves judgment.
+The iPad should own the experiences that benefit from continuity, density, comparison, reading, keyboard/trackpad navigation, and contextual explanation.
 
-### iPhone owns
-
-- quick situational awareness,
-- `Need Your Attention`,
-- top Finds,
-- Capture,
-- fast Keep / Not Interested / Clear,
-- lightweight specialist Handoff,
-- reading when convenient,
-- urgent/time-sensitive information when Cockpit has a legitimate reason to surface it.
-
-The iPhone may expose reduced versions of richer iPad features, but should not contort itself to reproduce the full workspace.
+The iPhone should own immediacy.
 
 ### Product principle
 
@@ -88,287 +38,270 @@ The iPhone may expose reduced versions of richer iPad features, but should not c
 
 ---
 
-## 3. The iPad shell: persistent workspace
+## 2. Canonical use case: the morning desk
 
-The canonical iPad interaction should be a persistent workspace rather than repeated push/pop navigation through full-screen cards.
+The defining session is roughly:
 
-A representative structure:
+1. Sit down with iPad + Magic Keyboard.
+2. Cockpit has reduced a large incoming world into a manageable Today briefing and Content edition.
+3. Scan what needs attention.
+4. Notice what especially deserves to register.
+5. Move into Content and read selected material without losing position.
+6. Compare where a domain warrants it.
+7. Occasionally correct Cockpit or explain why something matters.
+8. Keep, Clear, hand off, or simply let ordinary material age naturally.
+9. Leave informed rather than feeling that a productivity queue was completed.
+
+The session may last an hour.
+
+Cockpit should also work for a five-minute check, but the extended reading/judgment session is the canonical design pressure.
+
+### Product principle
+
+> **Design for a satisfying reading session, not an inbox-clearing sprint.**
+
+---
+
+## 3. Platform asymmetry
+
+### iPad owns
+
+- full Today briefing,
+- full Content edition,
+- sustained reading,
+- persistent master-detail inspection,
+- contextual AI commentary,
+- explicit learning/correction,
+- deep Handled Quietly / skipped inspection,
+- rich domain views such as Wine Market and Events,
+- Interest Area / Stream management,
+- deeper Personal Knowledge inspection,
+- keyboard/trackpad accelerated workflows,
+- side-by-side comparison where useful.
+
+### iPhone owns
+
+- quick situational awareness,
+- Need Your Attention,
+- the strongest few Finds,
+- Capture,
+- fast Keep / Not Interested / Clear,
+- lightweight specialist Handoff,
+- reading when convenient,
+- sparse time-sensitive information.
+
+Deep Stream Handling, broad skipped review, rich comparative views, and extensive Brain inspection should remain iPad-primary unless actual phone usage proves otherwise.
+
+---
+
+## 4. Primary shell: a persistent workspace
+
+A conventional bottom-tab model should not be assumed for iPad.
+
+A sidebar-oriented shell is the stronger hypothesis because it supports workspace continuity and keyboard/trackpad navigation.
+
+Only two recurring product modes have clearly earned primary prominence so far:
 
 ```text
-+-------------------------+------------------------------------------+
-| DAILY · Sep 7           |                                          |
-|                         |  Selected material                       |
-| NEED ATTENTION        6 |                                          |
-|                         |  Why I showed you this                    |
-| FOR YOU                 |                                          |
-|   Travel              2 |  Cockpit's take                          |
-|   Cooking             3 |                                          |
-|   Wine Market         4 |  Original source / rich domain view      |
-|   Reading             5 |                                          |
-|   Development         1 |                                          |
-|                         |                                          |
-| HANDLED QUIETLY      46 |                                          |
-+-------------------------+------------------------------------------+
+Today
+Content
 ```
 
-The exact widths and navigation controls remain design questions, but the interaction invariant is important:
+Secondary access should exist for:
+
+- Interest Area / Following / Stream management,
+- You / Personal Knowledge,
+- Settings,
+- retained/Kept material if it earns a separate destination,
+- future capabilities such as Agents, Watches, Tasks, or other genuinely recurring modes once their execution harnesses and product value are real.
+
+The exact UI label for Stream management remains open. `Following` may be friendlier than `Streams`; the domain noun remains Stream.
+
+### Navigation principle
+
+> **Top-level navigation is for recurring modes of use, not important internal concepts.**
+
+The sidebar should deliberately leave room to grow rather than fill itself with every important subsystem.
+
+---
+
+## 5. Today workspace
+
+Today is orientation and attention, not the entire Content experience.
+
+A representative generous-width layout:
+
+```text
+┌─────────────┬───────────────────────────────┬──────────────────────────────┐
+│ Sidebar     │ Today briefing                │ Selected detail / Reader     │
+│             │                               │                              │
+│ Today       │ calendar / context            │ Why this is here             │
+│ Content     │ attention                     │ Cockpit's take               │
+│             │ worth seeing                  │ original/source material     │
+│             │ domain teasers                │ actions / commentary         │
+│             │ handled quietly               │                              │
+└─────────────┴───────────────────────────────┴──────────────────────────────┘
+```
+
+### Core invariant
 
 > **Selecting something should normally replace the inspection surface without destroying the user's position in the briefing.**
 
-This makes scanning and reading fluid rather than modal.
+Today should feel like a personalized editorial front page rather than a chronological feed.
+
+Domain modules should appear dynamically when they have value rather than occupy permanent empty furniture.
 
 ---
 
-## 4. Daily should feel editorial, not tabular
+## 6. Content workspace
 
-The Daily screen should not treat every source artifact or generated Find equally.
+Content is the leisurely newspaper.
 
-Cockpit should make an editorial judgment about what deserves prominence.
+At generous widths it should support:
 
-A day's composition might be:
+- newspaper-like scanning,
+- For You,
+- Essentials,
+- dynamic Interest Area sections,
+- publisher/creator-aware identity and imagery,
+- Seen state without forced clearing,
+- persistent Reader/inspection,
+- quick Keep / Clear / Tell You…,
+- contextual Stream Handling.
+
+A rough composition:
 
 ```text
-GOOD MORNING
-
-6 things need your attention
-
-TODAY'S BEST FINDS
-
-Anne-Sophie Pic has a new Paris restaurant
-Travel · Paris by Mouth
-
-Xcode's headless MCP server matters for your app workflow
-Development · iOS Code Review
-
-A Legion release was buried in a comics-store blast
-Culture · Ultimate Comics
-
-WINE MARKET
-4 worth seeing from 23 offers
-
-COOKING
-3 candidates
-
-READING
-5 strong matches
-
-EVENTS
-2 plausible hits
+┌─────────────┬────────────────────────────────────────────────────────────┐
+│ Sidebar     │ CONTENT · Today's Edition                                 │
+│             │                                                            │
+│ Today       │ FOR YOU                                                    │
+│ Content     │ strongest discoveries / selective hero imagery            │
+│             │                                                            │
+│             │ ESSENTIALS                                                 │
+│             │ Opinion & Commentary                                       │
+│             │ Arts & Culture                                             │
+│             │ Food & Wine                                                │
+│             │ Travel & Places                                            │
+│             │ Technology & Making                                        │
+│             │ Watch / Listen                                             │
+└─────────────┴────────────────────────────────────────────────────────────┘
 ```
 
-The layout may use cards, rows, modules, typography, or other visual hierarchy, but the principle is:
-
-> **Daily is a personalized front page, not a chronological feed.**
-
-Domains should appear dynamically when they have something worthwhile to contribute. Empty modules should ordinarily not consume space.
+Interest Areas organize editorial intent and Stream management, but the edition remains free to place an Item where its meaning is most useful.
 
 ---
 
-## 5. Three top-level Daily outcomes
+## 7. The Reader / inspection surface is first-class
 
-Even with rich editorial composition, the user should be able to understand the whole morning through three concepts.
+The right-hand Reader should not merely be a web view bolted onto a list.
 
-### Need Your Attention
+It should preserve provenance while adding useful Cockpit interpretation.
 
-Material where upstream attention state still matters:
+A common structure is:
 
-- personal correspondence,
-- consequential business mail,
-- changed reservations,
-- payment/subscription issues,
-- tickets or deadlines,
-- ambiguous material Cockpit is not willing to clear automatically.
+1. **Why I showed you this**
+2. **Cockpit's take**
+3. **Original / source material**
+4. relevant actions
 
-These may remain relatively mail-like because the original communication itself matters.
+The UI should make clear which assertions come from the original material and which are Cockpit interpretation.
 
-### Worth Seeing / For You
+### Reader modes
 
-Cockpit-generated value:
+Different content shapes should produce different Reader behavior.
 
-- Finds,
-- market briefs,
-- extracted restaurant/hotel ideas,
-- recipe candidates,
-- event matches,
-- reading recommendations,
-- development/platform changes,
-- mixed-source nuggets.
+#### Important correspondence
 
-The parent email may be secondary or invisible.
+- concise context,
+- why it deserves attention,
+- original message/thread material,
+- upstream attention/source actions where permitted.
 
-### Handled Quietly
+#### Full-text publication Stream
 
-Material Cockpit processed but did not elevate.
+- brief orientation,
+- then largely intact source material,
+- clear Publisher/author identity,
+- Stream Handling available contextually.
 
-This should be compact in Daily and fully inspectable when desired.
+#### Link-list / digest Stream
 
-### Product principle
+- extracted candidates,
+- why selected,
+- lightweight access to screened-out links where useful,
+- original issue provenance.
 
-> **Everything came in; Cockpit reduced it to attention, interest, or quiet handling.**
-
----
-
-## 6. The Reader / Inspection surface
-
-The right-hand iPad surface should be a first-class Cockpit Reader rather than merely a web view.
-
-Its job is to preserve provenance while adding judgment.
-
-A typical Find view should distinguish three layers clearly.
-
-### Why I showed you this
-
-Personalized rationale.
-
-Example:
-
-> New Paris dining from a major chef, with enough specificity and critical context to look like a plausible future trip consideration rather than generic travel news.
-
-### Cockpit's take
-
-A concise interpretation appropriate to the source and task.
-
-Example:
-
-> Anne-Sophie Pic has opened Utopic at Fondation Cartier, with a full restaurant following. Paris by Mouth describes the project in enough detail that it looks worth tracking for a future Paris trip.
-
-### Original source
-
-The actual publication/email/article material, faithfully rendered or opened in a web surface as appropriate.
-
-### Product principle
-
-> **AI interpretation should add a layer above the source, not erase the source.**
-
-The interface must make it visually obvious which assertions come from the source and which are Cockpit's inference or synthesis.
-
----
-
-## 7. Source shape determines the Reader mode
-
-The Reader is one conceptual surface with multiple content modes.
-
-### Full-text newsletter
-
-Examples: Kitchen Projects, author essays.
-
-Cockpit provides orientation and relevance guidance, then renders the newsletter largely intact.
-
-The user subscribed partly because the writer is worth reading; Cockpit should not replace the writer with an unnecessary AI rewrite.
-
-### Link-list / digest
-
-Example: Best of Journalism.
-
-The Reader should present extracted contained links as individual candidates:
-
-```text
-3 FOR YOU
-
-Strong match
-Anna Gàt on Phantom Thread
-Reason: ...
-
-Possible match
-Why We Like Things — What Silicon Valley Gets Wrong About Taste
-Reason: ...
-
-17 SKIPPED
-...
-```
-
-Full article enrichment should be selective and progressive-cost.
-
-### Mixed newsletter
-
-Example: Feed Me.
-
-The Reader can show:
+#### Mixed Stream
 
 - short issue brief,
-- primary story,
-- separately mined Finds,
-- lower-value sections available in original source.
+- mined Finds surfaced independently,
+- original issue available for trust/context.
 
-An incidental restaurant mention may outrank the nominal headline story for Jon.
+#### Rich domain view
 
-### Structured domain stream
+- task-specific presentation such as Wine Market comparison or Events matching rather than forcing everything into article chrome.
 
-Examples: wine offers, Ticketmaster events.
-
-The right pane should become a domain-specific analysis view rather than pretending the source is prose to summarize.
+Full-screen immersive reading should be available when desired, but should not be the default navigation transition for every Item.
 
 ---
 
-## 8. Contextual commentary: the iPad learning loop
+## 8. Contextual commentary and learning
 
-The iPad should make it easy to react to the currently selected material without leaving it.
+A promising iPad interaction is a lightweight commentary rail or composer tied to the selected material.
 
-This is not a general-purpose chatbot bolted onto the app.
+This should not become a generic chatbot sitting beside every screen.
 
-It is **contextual commentary grounded in the selected Artifact/Find/source**.
+The user should be able to say things like:
 
-A lightweight commentary rail, inspector composer, or bottom input area should allow text or dictation such as:
-
-> PTA is one of my favorite directors, and I like keeping current with slightly pretentious film criticism.
+> PTA is one of my favorite directors. And I like keeping current with slightly pretentious film criticism.
 
 or:
 
-> I don't care about high-altitude cooking.
+> Don't show every Paris bistro opening; I only care when something is genuinely distinctive.
 
-or:
+Cockpit can interpret the explanation as:
 
-> I like this hotel idea because the location would let us walk to serious restaurants rather than drive after dinner.
+- evidence for Personal Knowledge,
+- a correction to existing knowledge,
+- Stream Handling guidance,
+- Interest Area guidance,
+- temporary/current-context input,
+- or some combination where warranted.
 
-Cockpit can interpret that response as:
-
-- immediate filtering guidance,
-- evidence for an existing Claim,
-- a new Fact/Taste/Interest candidate,
-- evidence toward a richer synthesized conclusion,
-- source-specific Handling correction.
-
-The user should not have to classify the response manually.
+The user should not have to classify it manually.
 
 ### Product principle
 
 > **The user explains meaning; Cockpit decides how that meaning should generalize.**
 
-### Governance
+Governance should remain lightweight:
 
-The interaction should remain lightweight:
-
-- explicit user statements are strong evidence,
-- Cockpit may acknowledge how it interpreted them,
+- explicit statements are strong evidence,
+- Cockpit may briefly acknowledge its interpretation,
 - Undo should be readily available,
-- richer Personal Knowledge governance remains available in `You`,
-- a random reaction should not automatically become a permanent isolated claim when it is better treated as supporting evidence.
+- richer Personal Knowledge governance remains available secondarily,
+- incidental reactions should not automatically become permanent isolated claims.
 
 ---
 
-## 9. `Not interested` and `Tell You` are different
+## 9. `Not Interested` and `Tell You…` are different
 
 The product should not interrogate the user every time something is dismissed.
 
-### Not interested
+### Not Interested
 
-Immediate ranking/filtering feedback.
+Immediate filtering/ranking feedback.
 
 Tap and move on.
 
 No mandatory reason.
 
-### Tell You
+### Tell You…
 
 Optional semantic correction or explanation.
 
-Use it when the user believes there is something worth teaching:
-
-> I never care about safari travel.
-
-> PTA is one of my favorite directors.
-
-> This particular kind of recipe is interesting because it solves entertaining prep, not because I love the ingredient.
+Use it when there is something worth teaching.
 
 ### Product principle
 
@@ -376,15 +309,13 @@ Use it when the user believes there is something worth teaching:
 
 ---
 
-## 10. `Handled Quietly` / Skipped is a trust surface
+## 10. Handled Quietly / Skipped is a trust surface
 
-Skipped material should not be a forensic/debug screen or a second Inbox.
+Skipped material should not become a forensic/debug screen or second Inbox.
 
-It is a low-friction transparency surface that answers:
+It is a low-friction transparency surface answering:
 
-> What did Cockpit decide I did not need to see, and why?
-
-On iPad, the larger workspace can make this useful without making it prominent.
+> **What did Cockpit decide I did not need to see, and why?**
 
 Representative layout:
 
@@ -406,13 +337,13 @@ Generic luggage sale
 No relevant product
 ```
 
-Selecting a row shows the underlying source and current rationale in the Reader.
+Selecting a row shows the underlying source/provenance and current rationale in the Reader.
 
 A correction such as:
 
 > This should not have been skipped — PTA is one of my favorite directors.
 
-is especially high-value evidence because it exposes a mismatch between Cockpit's current understanding and the user's actual preference.
+is especially high-value evidence because it reveals a mismatch between Cockpit's current understanding and the user's actual preference.
 
 ### Product principle
 
@@ -437,11 +368,11 @@ A market view may show:
 - merchant,
 - price,
 - why Cockpit thinks it matters,
-- source rationale/reviews,
+- original rationale/reviews,
 - allocation status,
-- perhaps later external enrichment such as cellar relevance when a real integration exists.
+- perhaps later cellar relevance when a real integration exists.
 
-The user should be able to compare several plausible offers without opening 20 retailer messages.
+The user should be able to compare several plausible offers without opening twenty retailer messages.
 
 ### Cooking
 
@@ -459,89 +390,115 @@ Actions may include `Read` and receiver-owned `Add to Yes Chef` Handoff.
 A Find may expose:
 
 - place/hotel/restaurant,
-- location,
-- source rationale,
-- critical references,
-- why it fits current Taste/Interest,
-- `Add to Galavant` or destination-specific consideration Handoff.
-
-Cockpit should not turn this into a shadow travel database.
+- why the originating Stream or publication thought it mattered,
+- Cockpit's fit judgment,
+- supporting critical references,
+- `Add to Galavant`.
 
 ### Events
 
-A comparison view may include:
+A view may include:
 
 - performer/event,
 - venue,
 - date,
-- location/distance where useful,
+- location/distance,
 - why matched,
-- ticket/source link.
+- ticket/provider link.
 
-### Development / capability intelligence
+### Development
 
-A source may yield only the subset that materially changes what the app family can do.
+Development intelligence should surface changes that materially affect what Cockpit or the app family can realistically do, with implementation implications made explicit.
 
-The view should make the implementation implication explicit rather than merely summarize technical news.
+A Stream may yield only the subset that materially changes the app-family harness.
 
 ---
 
-## 12. Source Handling as an editable editorial instruction
+## 12. Interest Area and Stream management on iPad
 
-On iPad, source Handling should feel like editing an instruction to a trusted editor, not configuring a rules engine.
+Stream management is important administration for Content, not a primary morning mode.
 
-Example:
+The user should normally manage Streams **through Interest Areas** because Interest Areas describe why Cockpit consumes them.
+
+A representative view:
+
+```text
+TRAVEL & PLACES
+
+Following
+
+NYT Travel
+The New York Times · RSS
+Screen for distinctive, relevant travel intelligence
+
+Paris by Mouth
+Paris by Mouth · Email
+Mine for restaurants, chefs and meaningful Paris changes
+
++ Follow another stream
+```
+
+The management experience should show only what the user needs to understand:
+
+- Stream name,
+- Publisher/Creator identity,
+- Essential status where applicable,
+- concise human-language Handling,
+- cadence/last activity as quiet metadata where useful,
+- abnormal health state.
+
+Deeper detail may expose:
+
+- Transport,
+- provider/source disposition for email,
+- custody behavior,
+- pause/stop following,
+- move to another Interest Area.
+
+### Human-language Handling
+
+Settings should read like editorial intent, for example:
 
 ```text
 PARIS BY MOUTH
+Travel & Places
 
-HOW I HANDLE THIS
-
-I mine this newsletter for restaurants, chefs, openings and food
+HOW I HANDLE THIS STREAM
+I mine this publication for restaurants, chefs, openings and food
 experiences you might plausibly want to visit. I preserve why Paris
-by Mouth cares about them, including useful critical context,
-neighborhood and price.
+by Mouth thought the place mattered rather than reducing it to a name.
 
-I generally ignore broad Paris promotion and items without a
-specific reason to care.
-
-[ Change how I handle this... ]
+[ Change how I handle this… ]
 ```
-
-The user can edit conversationally:
-
-> Don't surface every bistro opening just because we like Paris. I mostly want things that sound genuinely distinctive.
-
-Cockpit should synthesize a revised Handling instruction and make the change understandable.
-
-Domain-specific widgets may expose a few meaningful controls, but the prose policy remains primary.
 
 ### Product principle
 
 > **Settings should express intent, not expose the machinery used to satisfy it.**
 
+`Source` remains correct for original/provider material and source actions. `Stream` is the recurring Content object being followed.
+
 ---
 
 ## 13. Keyboard and trackpad are first-class input
 
-A Magic Keyboard/trackpad user should be able to move rapidly through Daily without reaching for the screen constantly.
+A Magic Keyboard/trackpad user should be able to move rapidly through Today and Content without constantly reaching for the screen.
 
 Exact shortcuts remain to be designed, but the interaction model should support:
 
-- next/previous surfaced item,
+- next/previous surfaced Item,
 - next/previous section,
 - open/select,
 - Keep,
 - Clear where applicable,
 - Not Interested,
-- Tell You,
+- Tell You…,
 - open original,
-- source Handling,
+- Stream Handling,
 - specialist Handoff where a destination is obvious,
 - focus commentary input,
-- dismiss/return focus to briefing.
+- dismiss/return focus to briefing or edition.
 
-Possible letter shortcuts can be explored (`J/K`, etc.), but should not be committed until they coexist cleanly with text input and system conventions.
+Possible letter shortcuts can be explored (`J/K`, etc.) but should not be committed until they coexist cleanly with text input and system conventions.
 
 Pointer interactions should provide:
 
@@ -556,26 +513,26 @@ Pointer interactions should provide:
 
 ---
 
-## 14. Drag and drop is a promising specialist handoff affordance
+## 14. Drag and drop is a promising specialist Handoff affordance
 
 The semantic Handoff model already says:
 
 > Put this into the specialist's incoming queue; do not perform the specialist workflow inside Cockpit.
 
-On iPad, drag and drop may become a particularly natural expression of this model.
+On iPad, drag and drop may become a natural expression of this model.
 
 Examples:
 
 - restaurant Find -> Galavant,
 - recipe candidate -> Yes Chef,
 - article/report -> retained Reading destination,
-- source material dragged into another app window where the OS/app contract makes this reliable.
+- faithful source material dragged into another app window where the OS/app contract makes this reliable.
 
 This should be evaluated after receiver-owned admission doors exist. Do not build generic drag infrastructure before there is a concrete consumer.
 
 ### Product principle
 
-> **The iPad may make handoff tactile, but specialist sovereignty remains unchanged.**
+> **The iPad may make Handoff tactile, but specialist sovereignty remains unchanged.**
 
 ---
 
@@ -587,59 +544,41 @@ The workspace should adapt continuously to available width.
 
 Broad behavior:
 
-- generous widths: persistent briefing + Reader + optional inspector/commentary rail,
-- medium widths: briefing + Reader, secondary inspector collapses,
-- narrow/windowed widths: navigation/briefing can become a sidebar or overlay while Reader remains primary,
+- generous widths: persistent briefing/edition + Reader + optional inspector/commentary rail,
+- medium widths: briefing/edition + Reader; secondary inspector collapses,
+- narrow/windowed widths: navigation/briefing can become sidebar or overlay while Reader remains primary,
 - iPhone-sized widths: companion interaction model rather than forced preservation of desktop-style panes.
 
-Do not encode the product model in fixed device size assumptions.
+Do not encode the product model in fixed device-size assumptions.
 
 ---
 
-## 16. Navigation hypothesis
+## 16. Keep should remain modest initially
 
-A conventional bottom-tab model should not be assumed for iPad.
-
-A sidebar-oriented shell is a stronger initial hypothesis because it supports persistent workspace navigation and keyboard/trackpad interaction.
-
-Potential top-level destinations include:
-
-- **Today** — the current Daily briefing,
-- **Reading / Kept** — retained material worth returning to,
-- **You** — Personal Knowledge stewardship and Notices,
-- **Sources** — source/Handling management,
-- **Recent** — potentially recent Clears/history if a real product need earns it.
-
-`Capture` may be better represented as a global action/command than a navigation destination.
-
-These names and counts are not yet decisions. The important point is that iPad navigation should optimize for workspace continuity rather than mobile tab symmetry.
-
----
-
-## 17. Reading / Keep should remain modest initially
-
-The iPad experience makes a Reading surface tempting, but the system should not prematurely become a universal read-it-later product.
+The iPad experience makes a Reading/Kept surface tempting, but Cockpit should not prematurely become a universal read-it-later product.
 
 Initial semantics can remain simple:
 
-- ephemeral Daily Find,
-- `Keep` when Jon wants the material retained,
-- source custody according to policy,
+- ephemeral edition Item,
+- `Keep` when Jon wants durable custody,
+- underlying source custody according to policy,
 - later revisit from an appropriate retained-material surface.
 
 The product can earn a richer Reading model from actual use.
 
 ---
 
-## 18. Morning completion without productivity theater
+## 17. Completion without productivity theater
 
-Cockpit should provide a sense of settled awareness without turning the morning into a task-completion ritual.
+Today and Content should provide different but related senses of settling.
 
-An appropriate end state might say:
+Today may end with:
 
 > You're caught up. Gmail still has 5 messages deliberately left in Inbox for your attention.
 
-The briefing remains available for reading and reconsideration.
+Content may end with:
+
+> You're through today's edition. 4 things kept for later.
 
 Avoid:
 
@@ -647,6 +586,7 @@ Avoid:
 - streaks,
 - confetti,
 - productivity scores,
+- giant unread counters,
 - pressure to clear every category,
 - artificial task state for interesting material.
 
@@ -656,22 +596,21 @@ Avoid:
 
 ---
 
-## 19. iPhone companion experience
+## 18. iPhone companion experience
 
-The iPhone should preserve the semantic model while aggressively reducing the interaction burden.
+The iPhone should preserve the semantic model while aggressively reducing interaction burden.
 
-A likely iPhone Daily includes:
+A likely iPhone experience emphasizes:
 
 - Need Your Attention,
-- Today's best few Finds,
+- today's best few Finds,
+- Essentials,
 - small summaries of domains with something worthwhile,
 - Keep,
 - Not Interested,
 - quick Clear where safe,
 - destination-specific Handoff,
 - Capture.
-
-Deep source-policy editing, broad Skipped review, large comparison tables, and extensive Personal Knowledge inspection can remain iPad-primary unless real phone usage proves otherwise.
 
 The phone should excel when Jon is away from the iPad and encounters something in the world:
 
@@ -685,95 +624,74 @@ The phone should excel when Jon is away from the iPad and encounters something i
 
 ---
 
-## 20. The core interaction grammar
+## 19. The core interaction grammar
 
 Despite sophisticated processing, the user's interaction grammar should remain small.
 
-At the item level:
+At the Item level:
 
 ```text
 Cockpit surfaced something
-        |
-        v
+        ↓
 Why is it here?
-        |
-        v
-Inspect source if desired
-        |
-        v
+        ↓
+Inspect original if desired
+        ↓
 Keep / Clear / Handoff
-        |
-        v
-Wrong or incomplete?
-Not Interested / Tell You
+        ↓
+Wrong?
+Not Interested / Tell You…
 ```
 
-At the Daily level:
+At the morning level:
 
 ```text
 Everything came in
-        |
-        +-> Need my attention
-        |
-        +-> Worth seeing
-        |
-        +-> Handled quietly
+        ↓
+Need my attention
+Worth seeing
+Handled quietly
+        ↓
+Content edition
+        ↓
+Read / watch / browse / keep / clear naturally
 ```
 
-The machinery may be sophisticated. The experience should not feel sophisticated in the burdensome sense.
+The sophistication belongs in processing, not in expanding the user's command vocabulary.
 
 ---
 
-## 21. North-star behavior
+## 20. Design laws
 
-A representative north-star interaction is:
-
-> A meaningful fact is buried deep inside a source Jon trusts. Cockpit knows it intersects strongly with his interests, extracts it without making him read the entire source, preserves the source's rationale, gives it appropriate prominence in the morning briefing, and lets Jon either act on it or explain why it matters so future judgment improves.
-
-The Anne-Sophie Pic / Paris by Mouth example demonstrates the desired effect well: Cockpit should routinely catch exactly the kind of specific, high-value detail a human subscriber can easily miss while skimming a long newsletter.
-
-This is much more ambitious and useful than:
-
-> AI summarizes my inbox.
-
----
-
-## 22. Design laws
-
-1. **iPad is the primary Cockpit experience; iPhone is a companion.**
-2. **The canonical session is an extended morning reading/judgment session.**
-3. **Daily is a personalized editorial front page, not a chronological feed.**
-4. **Persistent master-detail context should minimize navigation churn.**
-5. **The Reader preserves provenance while adding Cockpit interpretation.**
-6. **Contextual commentary is grounded in the selected material, not a generic chatbot.**
-7. **User explanations are high-value learning evidence; dismissals may remain lightweight.**
-8. **Handled Quietly is inspectable for trust but should not become another inbox.**
-9. **Rich domain views are allowed when the domain earns them; do not force universal presentation.**
-10. **Handling should be edited as human intent, not administered as a rules taxonomy.**
-11. **Keyboard/trackpad fluency is first-class iPad ergonomics.**
-12. **Do not demand feature symmetry between iPad and iPhone.**
-13. **No productivity theater: the goal is informed calm.**
-14. **The sophistication belongs in the processing, not in user burden.**
+1. **iPad is primary; iPhone is companion.**
+2. **The canonical session is extended morning reading and judgment.**
+3. **Today is orientation/attention; Content is the leisurely newspaper.**
+4. **Persistent master-detail should minimize navigation churn.**
+5. **The Reader preserves provenance while adding interpretation.**
+6. **Contextual commentary is grounded in selected material, not a generic chatbot.**
+7. **User explanations are high-value learning; dismissals can stay lightweight.**
+8. **Handled Quietly is inspectable but not another Inbox.**
+9. **Rich domain views are earned where structure adds value.**
+10. **Interest Areas organize Stream management; Publisher/Creator and Transport remain secondary dimensions.**
+11. **Stream Handling expresses editorial intent in human language.**
+12. **`Source` remains reserved for upstream/provider/provenance semantics.**
+13. **Keyboard/trackpad interaction is first-class.**
+14. **Platform symmetry is not a requirement.**
+15. **No productivity theater; the goal is informed calm.**
+16. **Sophistication belongs in processing, not burden.**
+17. **Top-level navigation is for recurring modes, not every important subsystem.**
+18. **Leave room for future Agents/Watches/Tasks rather than inventing them before their harnesses exist.**
 
 ---
 
-## 23. Next design work
+## 21. Next UI validation
 
-This document intentionally stops short of committing final navigation or pixels.
+The broad interaction model is sufficiently stable. The next useful work is visual/interaction validation rather than more ontology.
 
-The next useful design work is concrete:
+1. Sketch the Interest Area / Following management surface using real NYT, YouTube, and email Streams.
+2. Draw one representative Content edition at a real iPad width.
+3. Draw one Reader state for each of four shapes: important correspondence, full-text publication, link-list/mixed publication, and rich domain view.
+4. Validate the sparse `Today` + `Content` primary navigation with secondary management access.
+5. Test Seen, Clear, Keep, and persistent Reader behavior with keyboard/trackpad interaction.
 
-1. Jon independently sketches the experience from his own instincts.
-2. Compare that sketch against the principles above rather than treating this document as a wireframe mandate.
-3. Resolve the iPad shell/navigation model.
-4. Design the canonical `Today` screen at one representative width.
-5. Design four representative Reader modes:
-   - important correspondence,
-   - full-text newsletter,
-   - link-list newsletter,
-   - rich domain view.
-6. Design the commentary/learning interaction.
-7. Design `Handled Quietly` and source Handling editing.
-8. Only then translate the experience into implementation slices.
-
-The product should continue to resist abstraction that is not earned by a named interaction.
+The product should then move toward implementation slices and allow real use to resolve the remaining geometry and naming questions.
