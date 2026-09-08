@@ -5,7 +5,7 @@
 
 ## Purpose
 
-This document captures the current design for Cockpit's **Content** experience: how Cockpit turns newsletters, RSS feeds, YouTube channels, publication streams, and other bounded content sources into a personalized daily newspaper that can be enjoyed, gradually cleared, and allowed to recede without becoming another backlog.
+This document captures the current design for Cockpit's **Content** experience: how Cockpit turns newsletters, RSS/Atom feeds, YouTube channels, publication feeds, and other bounded recurring inputs into a personalized daily newspaper that can be enjoyed, gradually cleared, and allowed to recede without becoming another backlog.
 
 It extends:
 
@@ -14,8 +14,11 @@ It extends:
 - `docs/IPAD-FIRST-EXPERIENCE.md`
 - `docs/TODAY-EXPERIENCE.md`
 - `docs/PERSONAL-KNOWLEDGE-MODEL.md`
+- `docs/CONTENT-STREAM-MODEL.md`
 
-This is a product and interaction model, not a pixel specification. Exact typography, card density, imagery, persistence windows, and source-management layout remain open to implementation and visual design.
+The Stream model owns recurring-content vocabulary and management semantics. This document owns the reading/browsing experience produced from those Streams.
+
+This is a product and interaction model, not a pixel specification. Exact typography, card density, imagery, persistence windows, and management layout remain open to implementation and visual design.
 
 ---
 
@@ -41,15 +44,15 @@ The strongest contrast is:
 - **Today** asks what happened, what needs attention, and what especially deserves to register.
 - **Content** asks what is worth consuming now or over the next several days.
 
-A newsletter may arrive through Gmail but belong entirely in Content once Cockpit has ingested it. An NYT story may arrive through RSS. A YouTube video may arrive through a channel feed. The transport should remain visible as provenance but should not organize the main experience.
+A newsletter may arrive through Gmail but belong entirely in Content once Cockpit has ingested it. An NYT story may arrive through RSS. A YouTube video may arrive through a channel feed. Transport should remain inspectable as provenance but should not organize the main experience.
 
-### Product principle
+### Product principles
 
-> **Sources organize ingestion. Content organizes meaning.**
-
-And, consistently with Today:
+> **Streams organize recurring ingestion intent. Content organizes meaning.**
 
 > **Transport determines ingestion and source actions. Intent determines the product surface.**
+
+`Source` remains correct language for upstream provider artifacts, provenance, original material, and provider mutations. The recurring thing the user follows is a **Stream**.
 
 ---
 
@@ -83,7 +86,7 @@ Screened from 18 incoming items
 
 Raw arrivals are Cockpit's workload.
 
-The user should interact with the **edition Cockpit produced**, not with every artifact that entered the system.
+The user should interact with the **edition Cockpit produced**, not with every Artifact that entered the system.
 
 ### Product law
 
@@ -111,13 +114,13 @@ TODAY'S CONTENT EDITION
 
 The edition should feel coherent and finite enough to make progress through during a morning reading session.
 
-However, a new edition does **not** mean everything from yesterday disappears.
+A new edition does **not** mean everything from yesterday disappears.
 
 ### Core principle
 
 > **The edition has a daily boundary. Individual stories do not all have a one-day lifespan.**
 
-The right metaphor is that the newspaper **rolls forward** rather than resets.
+The newspaper **rolls forward** rather than resets.
 
 ### Edition law
 
@@ -132,8 +135,6 @@ And:
 ## 4. Different material deserves different hang time
 
 Not all content has the same temporal shape.
-
-Examples:
 
 ### Ephemeral daily news
 
@@ -151,7 +152,7 @@ A worthwhile essay may reasonably remain for several editions because its value 
 ```text
 Tuesday: New
 Wednesday: Seen / still available
-Thursday: still eligible if Cockpit believes it remains worth reading
+Thursday: still eligible if worth carrying
 ```
 
 ### Weekly features
@@ -170,29 +171,27 @@ An event's relevance may persist according to event date and availability rather
 
 ### Essentials
 
-Essential sources are different again: their new substantive material should never silently disappear merely because it aged.
+Material from an Essential Stream is different again: substantive primary material should never silently disappear merely because it aged.
 
-These distinctions should be driven primarily by source/subsource Handling and content shape, with AI available for semantic judgment where useful.
+These distinctions should be driven primarily by Stream Handling, cadence, content shape, and deterministic persistence defaults, with AI available for semantic judgment where useful.
 
-The system should not require the user to manually assign expiration dates to individual stories.
+The user should not manually assign expiration dates to ordinary stories.
 
 ---
 
 ## 5. Essentials
 
-Some writers or publications matter because of the user's relationship to the source itself, not just because each individual item happens to score highly against current interests.
+Some writers or publications matter because of the user's relationship to the **Stream itself**, not just because each individual Item happens to score highly against current interests.
 
-Matthew Yglesias is the canonical example: if a source is one the user intends to follow comprehensively, Cockpit should not re-audition every post for relevance.
+Matthew Yglesias is the canonical example: if a Stream is one the user intends to follow comprehensively, Cockpit should not re-audition every post for relevance.
 
-The current preferred term is **Essential**.
+The preferred term is **Essential**.
 
 ### Meaning
 
-> **Essential means Cockpit should not quietly remove new substantive material from the active Content experience until the user explicitly deals with it.**
+> **Essential means Cockpit should not quietly remove substantive primary material from that Stream until the user explicitly deals with it.**
 
-This is stronger than ordinary curation.
-
-Examples of possible source Handling:
+Example Stream Handling:
 
 ```text
 MATTHEW YGLESIAS
@@ -202,7 +201,7 @@ Do not auto-clear them.
 Give enough orientation to decide whether to read now, later, or clear.
 ```
 
-An Essential item may move through states such as:
+An Essential Item may move through:
 
 ```text
 New
@@ -214,23 +213,26 @@ Clear OR Keep
 
 but aging alone should not remove it.
 
+For mixed newsletters, Essential should protect the primary publication Artifact without necessarily making every incidental extracted Find immortal.
+
 ### Personalization principle
 
 > **Personalization should know when not to filter.**
 
-Cockpit should distinguish between:
+Cockpit should be able to represent at least these behavioral postures through Handling:
 
-1. **Essential** — always surface substantive new material; explicit disposition required.
-2. **Curated source** — follow the source but screen selectively.
-3. **Discovery source** — the source itself is not important; surface only individual strong matches.
+1. **Essential** — always surface substantive primary material; explicit disposition required.
+2. **Permissive / curated** — follow the Stream and surface much of its substantive output.
+3. **Selective** — screen meaningfully.
+4. **Aggressive / discovery** — surface only unusually strong matches.
 
-This distinction belongs primarily in Handling, not in a complicated user-visible taxonomy.
+These are useful product concepts, not necessarily a prominent user-facing enum.
 
 ---
 
 ## 6. Presentation hierarchy
 
-Content should be organized primarily by **editorial importance and subject**, not source.
+Content should be organized primarily by **editorial importance and Interest Area**, not Publisher or Transport.
 
 A useful working hierarchy is:
 
@@ -252,13 +254,13 @@ TECHNOLOGY & MAKING
 WATCH / LISTEN
 ```
 
-These are editorial lanes, not fixed database facets.
+The topical sections correspond naturally to Interest Areas, but the edition remains editorial rather than mechanically mirroring the management tree.
 
-Sections should appear only when they have worthwhile material. The exact set will evolve as actual usage shows which distinctions are useful.
+Sections should appear only when they have worthwhile material. The exact set will evolve as real use shows which distinctions matter.
 
 ### For You
 
-`For You` contains the strongest cross-source judgments Cockpit made for the edition.
+`For You` contains the strongest cross-Stream judgments Cockpit made for the edition.
 
 These are not necessarily the most important news stories. They are the things Cockpit believes are unusually likely to interest, delight, teach, or matter to the user.
 
@@ -266,47 +268,53 @@ A story may qualify because of:
 
 - a strong Personal Knowledge match,
 - unusual timeliness,
-- a known current planning context,
+- current planning context,
 - a subject or creator the user strongly cares about,
-- an incidental nugget mined from a broader source,
+- an incidental nugget mined from a broader Stream,
 - an unusually good opportunity.
 
 `For You` should remain small enough that placement there means something.
 
 ### Essentials
 
-`Essentials` provides predictable visibility for sources the user has explicitly or behaviorally established as must-see.
+`Essentials` provides predictable visibility for Streams the user has established as must-see.
 
-Unlike the rest of the newspaper, this area may benefit from some ordering stability and muscle memory.
+Unlike the rest of the newspaper, this area may benefit from ordering stability and muscle memory.
 
-### Subject sections
+### Interest Area sections
 
-The remaining lanes organize meaning rather than source transport.
+The remaining lanes organize meaning rather than Transport.
 
 A Paris by Mouth restaurant opening, NYT Travel article, and YouTube hotel video may all belong under `Travel & Places`.
 
-A Feed Me restaurant nugget, NYT Cooking article, and wine editorial may all appear under `Food & Wine`.
+A Feed Me restaurant nugget, NYT Food article, and wine editorial may all appear under `Food & Wine`.
 
-The database may know that a piece has multiple semantic memberships. The UI should usually choose one primary visual placement per edition rather than duplicate the same story everywhere.
+A Stream has one primary Interest Area for management, but an individual Item may be routed elsewhere when its meaning warrants it.
+
+The system may know that a piece has multiple semantic memberships. The UI should usually choose one primary visual placement per edition rather than duplicate the same story everywhere.
+
+### Product principle
+
+> **Interest Areas organize editorial intent; the edition remains free to exercise editorial judgment.**
 
 ---
 
-## 7. Source identity remains visible
+## 7. Publisher, creator, and provenance remain visible
 
-Although source does not organize Content, source identity matters for trust, taste, and provenance.
+Although Publisher does not organize Content, identity and provenance matter for trust, taste, and credibility.
 
-Content should be **source-savvy**.
+Content should be **publisher-savvy and provenance-rich**.
 
 A story should make it easy to see:
 
-- publication or channel,
-- author/creator where meaningful,
-- source icon/logo/avatar when available,
+- Publisher or channel/creator,
+- author where meaningful,
+- recognizable icon/logo/avatar when available,
 - publication time,
-- whether the source is email, RSS, YouTube, or another transport when deeper provenance is inspected,
-- original source material or link.
+- original source material or link,
+- deeper Transport/provenance detail when inspected.
 
-The goal is a mixed-source newspaper that still feels grounded in recognizable publications and creators rather than AI-generated slurry.
+The goal is a mixed-publication newspaper that feels grounded in recognizable voices and evidence rather than AI-generated slurry.
 
 ### Visual language
 
@@ -319,7 +327,7 @@ The Content experience should likely combine:
 
 Travel, food, architecture, film, music, and place-oriented stories may benefit strongly from imagery.
 
-The app should not require every story to carry a giant generic image simply to make the page look busy.
+Do not require every story to carry a giant generic image merely to make the page look busy.
 
 ---
 
@@ -327,37 +335,37 @@ The app should not require every story to carry a giant generic image simply to 
 
 A core emotional requirement is the **joy of gradually clearing the paper** without converting Content into a task-management system.
 
-The Content edition should visibly settle as the user moves through it.
+The edition should visibly settle as the user moves through it.
 
 ### New
 
-An item that has not yet been opened in Cockpit.
+An Item that has not yet been opened in Cockpit.
 
-It should carry normal visual prominence.
+It carries normal visual prominence.
 
 ### Seen
 
-Opening/tapping an item should mark it as **Seen**.
+Opening/tapping an Item should mark it **Seen**.
 
 Seen does **not** mean Clear.
 
-The item remains in the edition but should become visually subdued — for example, grayed or otherwise reduced in prominence — so the user can tell at a glance:
+The Item remains in the edition but becomes visually subdued so the user can tell:
 
 > **I already looked at this.**
 
-The exact visual treatment is not yet specified.
+The exact visual treatment remains open.
 
 ### Clear
 
 Clear means:
 
-> **I am done considering this item in the active newspaper.**
+> **I am done considering this Item in the active newspaper.**
 
-It removes the item from the active edition.
+It removes the Item from the active edition.
 
-For ordinary Content this is not necessarily the same as mutating the original provider. Source disposition follows the source's Handling policy and ingestion transport.
+For ordinary Content this is not necessarily the same as mutating the original provider Artifact. Upstream source disposition follows Transport/provider policy and custody requirements.
 
-For email-delivered publications, Cockpit may already have archived the source email after successful custody/processing.
+For email-delivered Streams, Cockpit may already have archived the provider message after successful processing/custody.
 
 ### Keep
 
@@ -365,17 +373,15 @@ Keep means:
 
 > **This deserves durable custody beyond the active edition. I want to be able to return to it later.**
 
-Kept material exits the ordinary aging rules of the newspaper and enters a retained collection.
+Kept material exits ordinary newspaper aging and enters a retained collection.
 
-The full design of `Kept`, `Reading`, or `Watch Later` has not yet been earned and should not be prematurely expanded into a universal knowledge-management system.
+The full design of `Kept`, `Reading`, or `Watch Later` has not yet been earned and should not prematurely become a universal knowledge-management system.
 
 ### Natural aging
 
-The user does not have to explicitly Clear every ordinary item.
+The user does not have to explicitly Clear every ordinary Item.
 
-Non-Essential material may naturally leave future editions according to its persistence policy.
-
-This is essential to preventing accumulation guilt.
+Non-Essential material may naturally leave future editions according to Stream/item persistence policy.
 
 ### Product principle
 
@@ -403,7 +409,7 @@ Clear section
 
 `Clear section` means the user does not want the remaining surfaced candidates carried forward in the active edition.
 
-It should not imply that the user manually reviewed all thirty source artifacts; only the three surfaced candidates were ever promoted into the edition.
+It does not imply that the user reviewed all thirty upstream Artifacts; only the three surfaced candidates became part of the edition.
 
 Essential material should not be swept away by broad section clearing unless the interaction makes that consequence explicit and deliberate.
 
@@ -413,7 +419,7 @@ Essential material should not be swept away by broad section clearing unless the
 
 Content should permit a satisfying sense of being through the day's paper.
 
-An end state may say something like:
+An end state may say:
 
 ```text
 You're through today's edition.
@@ -443,17 +449,17 @@ The early-morning edition is the canonical psychological boundary.
 
 Content can still receive new material during the day, but Cockpit should avoid making the newspaper feel endlessly replenishing.
 
-The initial product stance is:
+Initial stance:
 
 - the morning edition establishes the day's main reading surface,
-- ordinary low-urgency arrivals do not need to constantly reshuffle the page,
-- Essential new material may enter when it arrives,
+- ordinary low-urgency arrivals do not constantly reshuffle it,
+- new Essential material may enter when it arrives,
 - unusually strong or time-sensitive discoveries may enter selectively,
 - everything else can wait for the next edition.
 
 Exact refresh policy remains an implementation/design question.
 
-The governing goal is stability:
+### Governing goal
 
 > **A morning newspaper should not turn into an infinite feed by lunch.**
 
@@ -461,17 +467,17 @@ The governing goal is stability:
 
 ## 12. Old unresolved material
 
-Over time, some Essential or otherwise persistent material may linger.
+Over time, Essential or otherwise persistent material may linger.
 
 This does not require a new conceptual category.
 
-A future tool may offer an occasional review session such as:
+A future tool may offer an occasional review such as:
 
 ```text
 5 Essentials have been hanging around for more than a week.
 ```
 
-Cockpit might then produce slightly richer summaries to help decide:
+Cockpit might then produce richer summaries to help decide:
 
 - Read,
 - Keep,
@@ -485,75 +491,70 @@ This is a useful future resolution tool, not a reason to complicate the core edi
 
 ---
 
-## 13. Content source model
+## 13. Content management model
 
-The underlying source model is intentionally simple:
+The recurring-content model is defined in `docs/CONTENT-STREAM-MODEL.md`.
+
+Its user-facing structure is:
 
 ```text
-SOURCE FAMILY
+INTEREST AREA
       ↓
-SUBSOURCE / STREAM
+STREAMS FOLLOWED FOR THAT AREA
       ↓
-HANDLING
-      ↓
-INGEST / SCREEN / EXTRACT / ENRICH
+PROCESS / SCREEN / EXTRACT / ENRICH
       ↓
 CONTENT EDITION
 ```
 
 Examples:
 
-### New York Times
-
 ```text
-New York Times
-   ├── Movies
-   ├── Food
-   ├── Travel
-   ├── Technology
-   ├── Opinion / Culture
-   └── selected writers
+TRAVEL & PLACES
+- NYT Travel
+- Paris by Mouth
+- Fathom
+- selected YouTube travel channel
 ```
 
-### YouTube
-
 ```text
-YouTube
-   ├── Point-Free
-   ├── cooking creator
-   ├── film channel
-   ├── woodworking creator
-   └── other deliberately selected channels
+FOOD & WINE
+- NYT Food
+- Kitchen Projects
+- Feed Me
+- Vinous
+- selected cooking/wine channels
 ```
 
-The V1 goal should not be to import every YouTube subscription accumulated over many years. The Content source list should represent deliberately useful streams Cockpit is expected to curate.
+The primary management question is not:
 
-### Email publications
+> Which New York Times feeds do I administer?
 
-```text
-Email publications
-   ├── Slow Boring
-   ├── Feed Me
-   ├── Kitchen Projects
-   ├── Paris by Mouth
-   └── Best of Journalism
-```
+It is:
 
-Once these are recognized as managed Content sources, Gmail is simply their delivery transport.
+> What should Cockpit be following for Travel & Places, Food & Wine, Arts & Culture, and the other Interest Areas I care about?
+
+Publisher/Creator remains a useful secondary lens. For example, an NYT inspector can show all NYT Streams currently followed across different Interest Areas.
+
+### Product principle
+
+> **Publishers describe where information comes from. Interest Areas describe why Cockpit is consuming it. Why should usually win.**
 
 ---
 
-## 14. Handling for Content
+## 14. Stream Handling for Content
 
 Personal Knowledge answers broadly:
 
 > **What does Cockpit know about the user?**
 
-Content Handling answers something narrower:
+Interest Area guidance answers:
 
-> **Why do I follow this source, and how should Cockpit deal with it?**
+> **What editorial job should this area generally do?**
 
-That distinction should keep source management lightweight.
+Stream Handling answers something narrower:
+
+> **Why do I follow this Stream, and how should Cockpit deal with it?**
 
 Examples:
 
@@ -585,66 +586,63 @@ Brief the main issue and mine it for incidental restaurants,
 media, food, travel, or cultural nuggets I would otherwise miss.
 ```
 
-```text
-BEST OF JOURNALISM
-Treat as a link collection.
-Screen the linked pieces against what you know about me
-rather than asking me to browse the whole list.
-```
-
-The user should not have to maintain detailed topic filter forms.
+The user should not maintain detailed topic-filter forms.
 
 ### Product principle
 
-> **Jon Brain supplies most personalization. Handling supplies source-specific intent.**
+> **Jon Brain supplies broad personalization. Interest Areas and Stream Handling supply recurring editorial intent.**
 
 ---
 
 ## 15. Handling inheritance
 
-The internal model may benefit from a simple inheritance structure:
+A useful conceptual decision stack is:
 
 ```text
-general Cockpit judgment
+Cockpit product defaults
         +
-source-family default
+Interest Area guidance
         +
-specific stream instruction
+Stream Handling
         +
-Personal Knowledge
+relevant Personal Knowledge
+        +
+Item-specific meaning/current context
         ↓
-processing / ranking / persistence decision
+processing / ranking / placement / persistence
 ```
+
+Explicit narrower user intent should win when there is conflict.
 
 For example:
 
 ```text
-YouTube default:
-Screen uploads against my interests.
+Technology & Making:
+Favor changes that materially affect AI, Apple development, or making.
 
-Point-Free override:
+Point-Free:
 Be unusually permissive with substantive releases.
 ```
 
 Or:
 
 ```text
-NYT default:
-Surface unusually relevant journalism rather than comprehensive coverage.
+Food & Wine:
+Favor useful technique and distinctive food/wine intelligence.
 
-NYT Food override:
-Give strong technique/features more hang time because the section is weekly.
+NYT Food:
+Give strong feature pieces more hang time because the Stream is weekly-ish.
 ```
 
-This is an implementation model, not necessarily a UI users need to see directly.
+This decision stack should not become a visible rules engine.
 
 ---
 
-## 16. Source management experience
+## 16. Stream management is secondary administration
 
-Sources are important infrastructure but are not themselves a primary recurring mode of use.
+Stream management is important but is not itself a primary recurring mode of use.
 
-The primary navigation may remain almost comically sparse:
+The primary app may remain almost comically sparse:
 
 ```text
 Today
@@ -653,130 +651,152 @@ Content
 
 with secondary access to:
 
-- Sources,
+- Interest Areas / Following / Stream management,
 - You / Personal Knowledge,
 - Settings,
 - future capabilities that eventually earn first-class status.
+
+The exact user-facing label for the management surface remains open. `Following` may be friendlier than `Streams`; the domain noun remains Stream.
 
 ### Navigation principle
 
 > **Top-level navigation is for recurring modes of use, not important internal concepts.**
 
-`Sources` is administration for Content.
+A standalone management surface should answer:
 
-A standalone Sources surface should answer:
+> **What is Cockpit following for each Interest Area, and what does Cockpit think each Stream is for?**
 
-> **What am I following, and what does Cockpit currently think it should do with each source?**
-
-Likely groupings may include:
+A representative Interest Area view:
 
 ```text
-PUBLICATIONS & FEEDS
+TRAVEL & PLACES
 
-YOUTUBE
+Following
 
-EMAIL PUBLICATIONS
+NYT Travel
+The New York Times · RSS
+Handling: screen for distinctive, relevant travel intelligence
+
+Paris by Mouth
+Paris by Mouth · Email
+Handling: mine for restaurants, chefs and meaningful Paris changes
+
++ Follow another stream
 ```
 
-Each source row can show:
+A normal row/card should need little more than:
 
-- source name,
-- source identity/icon,
-- Essential status where applicable,
-- concise human-language Handling summary,
-- health/status if ingestion is failing,
-- `Change how I handle this…`,
-- stop following / remove.
+- Stream name,
+- Publisher/Creator identity,
+- Essential indicator where applicable,
+- concise Handling summary,
+- cadence/last activity as quiet metadata where useful,
+- health only when abnormal.
 
-The user should not routinely need this screen during the morning reading session.
+The user should not routinely need this surface during the morning reading session.
 
 ---
 
-## 17. Source setup should be light
+## 17. Stream setup should be light
 
-Adding a source should not become taxonomy configuration.
+Adding a Stream should not become taxonomy configuration.
+
+A useful flow is:
+
+```text
+choose/add recurring stream
+        ↓
+resolve Publisher/Creator + Transport
+        ↓
+assign/propose primary Interest Area
+        ↓
+Cockpit proposes concise Handling
+        ↓
+optionally mark Essential
+        ↓
+Follow
+```
+
+The user should normally not configure cadence, content shape, persistence duration, extraction strategy, or ranking weights.
 
 ### NYT example
 
-Cockpit may present available streams with some descriptive color:
+Cockpit may show available NYT Streams with descriptive color:
 
 ```text
 NEW YORK TIMES
 
-✓ Movies — reviews, essays, filmmaker coverage
-✓ Food — cooking, restaurants, food culture
-✓ Travel — destinations, hotels, travel reporting
-○ Sports
-○ Style
+Travel — destinations, hotels, travel reporting
+Food — cooking, restaurants, food culture
+Movies — reviews, essays, filmmaker coverage
+Technology — technology reporting
 ...
-
-Cockpit will filter selected streams using what it knows about you.
 ```
+
+but adding one should assign it into an Interest Area such as `Travel & Places` or `Arts & Culture`.
 
 ### YouTube example
 
-The natural subsource is the channel.
+The Stream is the channel.
 
-Cockpit should allow the user to deliberately add a manageable set of channels rather than mechanically importing an enormous historic subscription list.
+Cockpit should let the user deliberately select a manageable set rather than mechanically importing an enormous historic subscription list.
 
 ### Email publication example
 
-Cockpit may infer from Gmail behavior:
+A known newsletter can be explicitly followed as a Stream and assigned to an Interest Area.
+
+Automatic discovery such as:
 
 > This looks like a recurring publication. Treat it as Content?
 
-Then propose a Handling instruction rather than ask the user to configure a large form.
+is valuable later, but it hides meaningful source-discovery functionality and is not a V1 prerequisite.
 
 ### Product principle
 
-> **Source setup should express intent, not expose ingestion machinery.**
+> **Stream setup should express editorial intent, not expose ingestion machinery.**
 
 ---
 
-## 18. Contextual source management
+## 18. Contextual Stream management
 
-Most source management should be available where the source is already being consumed.
+Most Stream management should also be available where the Stream is being consumed.
 
-While reading a Point-Free item:
+While reading a Point-Free Item:
 
 ```text
-How I handle Point-Free
+POINT-FREE
+Technology & Making
+
+How I handle this Stream
 Be fairly permissive with substantive releases.
 
 Change this…
 ```
 
-While reading an NYT Movies piece:
+While reading an NYT Movies Item:
 
 ```text
-How I handle NYT Movies
+NYT MOVIES
+Arts & Culture
+
+How I handle this Stream
 Screen aggressively for serious criticism and strong known-interest matches.
 
 Change this…
 ```
 
-While reading an email newsletter:
-
-```text
-How I handle Kitchen Projects
-Mine substantive technique.
-Archive source email after successful ingestion.
-
-Change this…
-```
-
-This should reduce dependence on a centralized Sources control panel.
+For email-delivered Streams, transport/source-disposition details can remain available in deeper inspection without conflating them with Stream editorial intent.
 
 ---
 
 ## 19. Content processing model
 
-The Content experience inherits the progressive-cost intelligence model already established for email.
+The Content experience inherits the progressive-cost intelligence model established for email.
 
 A useful general pipeline is:
 
 ```text
-bounded source material arrives
+bounded Stream material arrives
         ↓
 deterministic extraction / metadata
         ↓
@@ -788,7 +808,7 @@ promising / ambiguous candidates
         ↓
 selective enrichment where necessary
         ↓
-small number of surfaced Content items
+small number of surfaced Content Items
 ```
 
 ### Product principle
@@ -816,7 +836,7 @@ The richer material belongs in Content for reading/browsing.
 Examples:
 
 ```text
-Paris by Mouth email
+Paris by Mouth Stream
       ↓
 Cockpit mines Anne-Sophie Pic restaurant news
       ↓
@@ -824,11 +844,11 @@ TODAY
 Worth Seeing teaser
       ↓
 CONTENT
-Travel & Places story / retained source context
+Travel & Places Item / retained source context
 ```
 
 ```text
-24 wine retailer emails
+24 wine retailer messages/feeds
       ↓
 Cockpit derives Wine Market intelligence
       ↓
@@ -840,7 +860,7 @@ full curated Wine Market view
 ```
 
 ```text
-30 YouTube uploads
+30 YouTube uploads across followed Streams
       ↓
 Cockpit screens down to 3
       ↓
@@ -864,11 +884,11 @@ Content is designed first for iPad with Magic Keyboard and trackpad.
 The page should support:
 
 - newspaper-like scanning,
-- source-aware visual hierarchy,
-- keyboard navigation through sections/items,
+- Publisher/Creator-aware visual hierarchy,
+- keyboard navigation through sections/Items,
 - persistent detail/reader behavior where useful,
 - optional immersive full-screen reading,
-- quick Keep / Clear / Tell You… / source Handling actions,
+- quick Keep / Clear / Tell You… / Stream Handling actions,
 - easy transition among sections without losing position.
 
 A likely high-level composition is:
@@ -889,7 +909,7 @@ A likely high-level composition is:
 └───────────────┴───────────────────────────────────────────────┘
 ```
 
-At generous widths, selecting an item may open a persistent Reader or inspection zone without losing the edition. Exact layout remains open.
+At generous widths, selecting an Item may open a persistent Reader or inspection zone without losing the edition. Exact layout remains open.
 
 ---
 
@@ -900,19 +920,17 @@ The iPhone version of Content should not attempt to recreate the full iPad newsp
 Likely emphasis:
 
 - Essentials,
-- strongest For You items,
+- strongest For You Items,
 - compact section browsing,
 - quick Keep,
 - quick Clear,
-- reading/watch handoff when convenient.
+- convenient reading/watch handoff.
 
-Deep source management, broad retrospective browsing, and rich comparative market views can remain iPad-primary unless real usage proves otherwise.
+Deep Stream management, broad retrospective browsing, and rich comparative market views can remain iPad-primary unless real usage proves otherwise.
 
 ---
 
 ## 23. What Content must not become
-
-Cockpit should actively resist several failure modes.
 
 ### Not an unread counter machine
 
@@ -928,13 +946,13 @@ The whole point of Cockpit is that most incoming material never becomes the user
 
 Content should have an edition boundary and a sense of completion.
 
-### Not a source taxonomy browser by default
+### Not a Publisher/Stream browser by default
 
-Browsing by source may exist, but it is a secondary lens.
+Browsing by Publisher or Stream may exist, but it is a secondary lens. The newspaper is organized around editorial value and meaning.
 
 ### Not a preference-database editor
 
-Jon Brain and Handling should absorb natural-language guidance without asking the user to maintain fine-grained topic forms.
+Personal Knowledge, Interest Area guidance, and Stream Handling should absorb natural-language guidance without asking the user to maintain fine-grained topic forms.
 
 ### Not a read-it-later warehouse
 
@@ -949,78 +967,78 @@ Seen, Clear, and Keep support reading rhythm. They should not turn every article
 ## 24. Design laws
 
 1. **Content is a personalized newspaper, not an inbox or feed reader.**
-2. **Sources organize ingestion; Content organizes meaning.**
-3. **Cockpit's backlog is not the user's backlog.**
-4. **The edition has a daily boundary; individual stories have different lifespans.**
-5. **An edition rolls forward rather than resetting.**
-6. **Essentials require explicit user disposition and never silently age away.**
-7. **Personalization must know when not to filter.**
-8. **Opening means Seen, not Clear.**
-9. **Seen material becomes visually quieter but remains available.**
-10. **Clear removes something from the active newspaper; Keep grants durable custody.**
-11. **Natural aging is a feature, not data loss, for non-Essential material.**
-12. **Subject/editorial meaning drives presentation; source remains visible as provenance.**
-13. **Sections are dynamic editorial lanes, not rigid ontology.**
-14. **One item should normally have one primary visual placement per edition.**
-15. **Source Handling explains why the source is followed and how aggressively Cockpit should filter it.**
-16. **Personal Knowledge supplies most personalization; source-specific configuration should remain light.**
-17. **Source management is secondary administration, not the main Content experience.**
-18. **Source setup should express intent rather than expose machinery.**
-19. **The morning edition should remain psychologically stable rather than become an infinite feed by lunch.**
-20. **Completion should feel like finishing a newspaper, not achieving Inbox Zero.**
+2. **Streams organize recurring ingestion intent; Content organizes meaning.**
+3. **Interest Areas describe why Cockpit follows Streams.**
+4. **Publisher/Creator describes who produced material; Transport describes how it arrived.**
+5. **`Source` remains reserved for upstream/provenance semantics rather than the recurring-content management noun.**
+6. **Cockpit's backlog is not the user's backlog.**
+7. **The edition has a daily boundary; individual stories have different lifespans.**
+8. **An edition rolls forward rather than resetting.**
+9. **Essentials require explicit user disposition and never silently age away.**
+10. **Personalization must know when not to filter.**
+11. **Opening means Seen, not Clear.**
+12. **Seen material becomes visually quieter but remains available.**
+13. **Clear removes something from the active newspaper; Keep grants durable custody.**
+14. **Natural aging is a feature, not data loss, for non-Essential material.**
+15. **Editorial meaning and Interest Areas drive presentation; Publisher/provenance remains visible.**
+16. **Sections are dynamic editorial lanes, not rigid ontology.**
+17. **One Item should normally have one primary visual placement per edition.**
+18. **A Stream has one primary Interest Area, but its Items may be routed elsewhere.**
+19. **Stream Handling explains why the Stream is followed and how Cockpit should deal with it.**
+20. **Personal Knowledge supplies broad personalization; Stream-specific configuration should remain light.**
+21. **Stream management is secondary administration, not the main Content experience.**
+22. **Stream setup should express intent rather than expose machinery.**
+23. **The morning edition should remain psychologically stable rather than become an infinite feed by lunch.**
+24. **Completion should feel like finishing a newspaper, not achieving Inbox Zero.**
 
 ---
 
 ## 25. Open questions / validate in UI
 
-The product model is considered sufficiently resolved to proceed. The following should remain explicit validation questions rather than block further design.
+The product model is sufficiently resolved to proceed. These should remain validation questions rather than block design.
 
 ### Exact visual treatment of Seen
 
-We know Seen should be subdued while remaining in place. Exact typography, opacity, icons, and section-collapse behavior remain open.
+We know Seen should be subdued while remaining in place. Exact typography, opacity, icons, and collapse behavior remain open.
 
 ### Persistence defaults
 
-The model is settled, but exact values are not.
+The model is settled; exact values are not.
 
-Need implementation evidence for defaults such as:
-
-- daily-news lifespan,
-- commentary lifespan,
-- weekly-feature lifespan,
-- technical/instructional lifespan,
-- event-driven lifespan.
-
-These should be editable via Handling where necessary but should not become routine user configuration.
+Need implementation evidence for daily-news, commentary, weekly-feature, technical/instructional, and event-driven defaults.
 
 ### Midday admission
 
-Need to test how much new material can enter an already-established edition without undermining the sense of a finite newspaper.
+Need to test how much new material can enter an established edition without undermining the finite-newspaper feeling.
 
 ### Kept experience
 
-Keep must exist, but the eventual shape of the retained collection remains deliberately underdesigned.
+Keep must exist, but the retained collection remains deliberately underdesigned.
 
 ### Duplicate semantic membership
 
-Current recommendation: allow multiple semantic classifications internally but only one primary visual appearance in an edition. Validate whether cross-section references are ever useful enough to break this rule.
+Current recommendation: allow multiple classifications internally but only one primary visual appearance in an edition.
 
 ### Essential review tool
 
-The concept of occasional aging review is promising but should wait until unresolved Essential content becomes a real behavior rather than a hypothetical feature.
+Occasional aging review is promising but should wait until unresolved Essential material becomes real behavior.
+
+### Management label
+
+The domain noun is `Stream`. The best user-facing label for the secondary management surface may be `Following`, `Streams`, or something else and should be resolved in UI work.
 
 ---
 
 ## 26. Recommended next design work
 
-Content itself is now coherent enough that further abstract discussion is likely to produce diminishing returns.
+Further abstract Content discussion is now likely to produce diminishing returns.
 
-The next useful design work should focus on adjacent surfaces and concrete interaction slices:
+Next useful work:
 
-1. **Resolve the top-level iPad shell/navigation** around the now-strong `Today` + `Content` distinction.
-2. **Design one representative Content edition at a real iPad width**, including For You, Essentials, two or three topical sections, Seen state, and Clear/Keep behavior.
-3. **Design Sources management as a secondary surface**, including NYT stream selection, YouTube channel selection, and email-publication handling.
-4. **Design one full Reader interaction** from Content, including provenance, Cockpit commentary, Keep, Clear, Tell You…, and source Handling.
-5. **Define the first concrete V1 source slice** so implementation can test the edition model against real incoming material rather than mocks.
+1. Design the Interest Area / Following management screen using real NYT, YouTube, and email Streams.
+2. Design one representative Content edition at a real iPad width, including For You, Essentials, topical areas, Seen state, and Clear/Keep.
+3. Design one full Reader interaction including provenance, Cockpit commentary, Keep, Clear, Tell You…, and Stream Handling.
+4. Resolve the top-level iPad shell around the strong `Today` + `Content` distinction while keeping management secondary.
+5. Define the first concrete V1 Stream slice so implementation tests the model against real incoming material rather than mocks.
 
 At that point, remaining questions should be resolved by building and using the product rather than extending the ontology.
