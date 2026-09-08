@@ -1,293 +1,213 @@
 # Cockpit Platform Adoption
 
-**Status:** Living document  
-**Date:** 2026-09-05
+**Status:** Normative living document  
+**Date:** 2026-09-08
 
-## Purpose
+This document records Cockpit's relationship with `jon-platform`. It is not a Cockpit feature backlog and not a jon-platform backlog.
 
-This document records Cockpit's relationship with `jon-platform`.
+The governing rule is:
 
-It is not a Cockpit feature backlog and not a jon-platform backlog.
+> **App domain belongs in the app. Shared infrastructure and proven cross-app abstractions belong in jon-platform.**
 
-Its purpose is to answer:
+And:
 
-- Which platform capabilities does Cockpit use?
-- Which capabilities has Cockpit deliberately not adopted?
-- Which possible shared abstractions is Cockpit providing new evidence for?
-- Which Cockpit work is blocked by a jon-platform decision?
-- Which jon-platform changes require consumer-compatibility verification?
+> **First use establishes a requirement. Repeated use may establish an abstraction.**
 
-This document prevents architectural decisions from disappearing into chat history or being rediscovered by future agents.
+---
 
-## Adoption matrix
+## 1. Adoption matrix
 
 | Platform capability | Cockpit disposition | Timing | Notes |
 |---|---|---|---|
 | House Swift architecture | ADOPT | Immediate | `@Observable`, Dependencies, functional core, thin views |
-| SQLiteData | ADOPT | Persistence bootstrap | Canonical local store |
-| CloudKit architecture | ADOPT | Schema design | Design ownership/FK graph before schema hardens |
-| `CloudSyncKit` | ADOPT | Persistence bootstrap | App owns configuration and `makeSyncEngine` |
+| SQLiteData conventions | ADOPT | Persistence bootstrap | Canonical local knowledge store |
+| CloudKit architecture | ADOPT | Schema design | Respect ownership/FK constraints before schema hardens |
+| `CloudSyncKit` | ADOPT | Persistence bootstrap | Cockpit owns container/configuration/schema/presentation |
 | `LLMClientKit` | ADOPT | First model use | No Cockpit-specific provider transport |
-| `WebExtractorKit` | DEFER | First concrete web workflow | Do not add speculatively |
-| `LLMHandoffKit` | BLOCKED | Only if external handoff becomes a Cockpit requirement | Current session spine remains Galavant-shaped; Yes Chef intentionally consumes only the neutral marker helper |
-| Semantic-fidelity doctrine | ADOPT | Immediate | Required for significant ingest/AI boundaries |
-| Actionable-AI doctrine | ADOPT | First AI action | AI proposes; human-approved deterministic code writes |
-| Shared chat presentation | WATCH | Unknown | Cockpit has not established that chat is a core UI |
-| Prompt/profile seam | WATCH | Profile design | Cockpit may provide extraction-trigger evidence |
-| Model provenance seam | WATCH | AI architecture matures | Do not create an independent Cockpit provenance framework |
-| HTML boilerplate filtering seam | WATCH | Web ingestion | Cockpit may become additional consumer |
-| Shared sync-health presentation | WATCH | Settings implementation | Reuse reducer; do not assume UI/model convergence |
+| Semantic-fidelity doctrine | ADOPT | Immediate | Required at significant ingest/AI boundaries |
+| Actionable-AI doctrine | ADOPT | First AI action | AI proposes/interprets; deterministic app operation writes/mutates |
+| `WebExtractorKit` | DEFER | First concrete rendered-web/capture requirement | Feed autodiscovery alone does not justify a browser dependency |
+| `LLMHandoffKit` full session/persistence model | DO NOT ADOPT CURRENT FORM | Only if a real external-LLM handoff requires reconsideration | Current semantics remain Galavant-shaped |
+| Shared prompt/profile seam | WATCH | After real Cockpit PK use | Cockpit PK remains app-local first |
+| Model-call provenance seam | WATCH | When existing metadata becomes insufficient | Do not invent parallel Cockpit framework |
+| HTML boilerplate filtering seam | WATCH | If real web ingestion proves same need | Add evidence to platform seam ledger |
+| Shared sync-health presentation | WATCH | Settings implementation | Reuse neutral reducer where appropriate; app owns UI semantics |
+| New Cockpit-derived shared packages | REJECT FIRST USE | N/A | No ContentStreamKit, PersonalKnowledgeKit, FamilyContextKit, JonLibraryKit from one consumer |
 
-## Disposition definitions
+---
+
+## 2. Disposition meanings
 
 ### ADOPT
 
-The platform capability is sufficiently proven and appropriate for Cockpit. Cockpit should consume it rather than create an alternative.
+The capability is proven/domain-neutral enough that Cockpit should consume it instead of creating an alternative.
 
 ### DEFER
 
-The capability is acceptable but Cockpit has not yet earned the requirement. Do not introduce the dependency merely because future use seems likely.
+The capability is acceptable but the concrete Cockpit requirement has not fired. Do not add the dependency speculatively.
 
 ### WATCH
 
-There is evidence of a possible cross-app abstraction, but not enough evidence to design or extract it now. Relevant Cockpit implementation should remain app-specific while evidence is added to jon-platform's seam ledger.
+There is plausible cross-app evidence, but Cockpit should remain app-local until repeated real use clarifies the shared shape.
 
-### BLOCKED
+### DO NOT ADOPT CURRENT FORM
 
-Cockpit should not consume the capability in its current form. A real Cockpit requirement may trigger jon-platform work. Blocked does not mean "fix immediately."
+The available package/API carries semantics Cockpit should not inherit. A future concrete requirement may justify additive/neutralizing platform work.
 
-### REJECT
+### REJECT FIRST USE
 
-Cockpit has deliberately chosen not to follow a platform capability or proposal. A rejection should include rationale.
+Do not extract a new platform abstraction from Cockpit's first implementation merely because future reuse is imaginable.
 
-# Work ownership
+---
 
-## Cockpit backlog
+## 3. Cockpit domain stays in Cockpit
 
-Cockpit's backlog owns work necessary to make Cockpit a good product: canonical domain model, product vocabulary, core loop, relevance/ranking, source model, ingestion, temporal semantics, household semantics, Cockpit AI behavior, Cockpit prompts/schemas, Cockpit UI, and iPhone/iPad behavior.
+The following are Cockpit product/domain semantics and should begin app-local:
 
-Cockpit issues should not contain generic jon-platform cleanup unless Cockpit is genuinely blocked by it.
+- Interest Area;
+- Stream and Stream Handling;
+- Essential;
+- Artifact / ContentPiece / Find distinctions;
+- Edition/Later/Library semantics;
+- custody promises and local offline policy;
+- Personal Knowledge claims/provenance/correction;
+- Gmail disposition policy semantics;
+- relevance/ranking/editorial logic;
+- Pending Finds;
+- receiver-specific handoff composition;
+- navigation/device composition;
+- Cockpit prompts/structured-output schemas/actions.
 
-## jon-platform backlog
+The fact that another app could one day have a concept called “content,” “knowledge,” “handoff,” or “context” is not extraction evidence.
 
-jon-platform owns work intrinsic to the health or correctness of the shared platform: package defects, stale architecture documentation, package/API documentation drift, tracked build products, broken ADR references, shared test gaps, and generic package correctness.
+---
 
-A Cockpit audit may discover these issues, but they remain jon-platform work.
+## 4. Platform work ownership
 
-## Cross-repository dependency
+### Cockpit backlog
 
-When Cockpit requires a jon-platform change, create one authoritative jon-platform issue/PR and reference it from Cockpit.
+Owns work needed to make Cockpit a good product and to implement Cockpit-local boundaries.
 
-Cockpit representation:
+### jon-platform backlog
 
-> BLOCKED BY: jon-platform #NN — neutral external-LLM handoff boundary
+Owns shared-package correctness, stale platform docs, platform defects, package/API drift, shared tests, and changes that are intrinsically platform concerns.
 
-jon-platform representation:
+When Cockpit discovers a platform issue, keep one authoritative issue/PR in jon-platform and reference it from Cockpit if blocking.
 
-> Existing consumer: Galavant  
-> Existing partial consumer: Yes Chef  
-> Proposed consumer: Cockpit  
-> Cockpit dependency: cockpit #NN
+Do not maintain two drifting descriptions of the same shared work.
 
-Do not maintain two independent descriptions of the same platform work.
+---
 
-# Consumer compatibility policy
+## 5. Consumer compatibility
 
-Every compatibility-sensitive jon-platform change must identify its known consumers.
+Compatibility-sensitive jon-platform changes must consider known consumers:
 
-Current consumer set:
+- Galavant;
+- Yes Chef;
+- Cockpit once using the changed capability.
 
-- Galavant
-- Yes Chef
-- Cockpit, once adopted
+Preferred migration order:
 
-The PR description should contain:
+1. add neutral/new capability;
+2. preserve existing behavior;
+3. add tests;
+4. migrate existing consumers deliberately;
+5. verify builds/tests/important behavior;
+6. adopt in Cockpit;
+7. deprecate/remove old API only after migration.
 
-## Consumer impact
+A coordinated breaking migration is allowed only when preserving compatibility is materially worse and the consumer migration plan is explicit.
 
-### Galavant
+---
 
-- Current usage:
-- API/compile impact:
-- Behavioral impact:
-- Migration required:
-- Verification performed:
+## 6. Current seams to watch
 
-### Yes Chef
+### Personal Knowledge / prompt context
 
-- Current usage:
-- API/compile impact:
-- Behavioral impact:
-- Migration required:
-- Verification performed:
+Cockpit will generate task-specific model context from structured explicit Personal Knowledge and Current Context.
 
-### Cockpit
+**Disposition:** WATCH.
 
-- Current/proposed usage:
-- Capability unlocked:
-- Migration required:
-- Verification performed:
+Trigger for shared abstraction: a second real app needs materially the same durable PK semantics or projection behavior and comparison shows a genuinely neutral seam.
 
-A consumer that does not use the changed package should be explicitly marked `Not affected`.
+Do not create `PersonalKnowledgeKit` from Cockpit alone.
 
-# Migration strategies
+### Current Context sharing
 
-## 1. Additive — preferred
+Specialist apps may eventually publish small context projections consumed by Cockpit.
 
-1. Add new API/capability.
-2. Preserve existing API and behavior.
-3. Add tests.
-4. Migrate consumers independently.
-5. Deprecate old API if appropriate.
-6. Remove only after all consumers have migrated.
+**Disposition:** WATCH / app-local concrete integration first.
 
-This is the normal strategy for Cockpit-driven platform evolution.
+Trigger: at least two real producer/consumer relationships reveal repeated neutral mechanics.
 
-## 2. Deprecate and migrate
+Do not create `FamilyContextKit` first.
 
-1. Introduce replacement.
-2. Mark old API deprecated.
-3. Migrate Galavant.
-4. Migrate Yes Chef where applicable.
-5. Migrate Cockpit.
-6. Verify all consumers.
-7. Remove obsolete API in a later platform change.
+### Artifact/payload storage
 
-## 3. Coordinated breaking migration
+Cockpit may need a local seam for uploaded payload custody and explicit offline availability.
 
-Use only when preserving the old API creates greater risk or complexity than a coordinated change.
+**Disposition:** app-local.
 
-Requirements:
+Trigger for sharing: another real app demonstrates the same mechanical storage/availability contract independent of Cockpit semantics.
 
-- explicit rationale,
-- identified consumer PRs,
-- consumer verification,
-- coordinated merge/order plan,
-- no period in which an unknowingly broken consumer is treated as healthy.
+Do not create `JonLibraryKit` first.
 
-# Compatibility verification target
+### External handoff
 
-The desired long-term invariant is:
+Current `LLMHandoffKit` has Galavant-shaped session/persistence semantics. Yes Chef already consumes only the neutral portion it actually shares.
 
-> A jon-platform change is not considered fully green merely because jon-platform's package tests pass; known consumers must remain compatible.
+Cockpit's V1 Jon Brain workflow is copy/paste natural-language teaching and does **not** establish a requirement for `LLMHandoffKit`.
 
-The ideal CI gate eventually verifies Galavant, Yes Chef, and Cockpit against the proposed jon-platform revision.
+Cockpit's first specialist-app Find handoff should also be implemented directly against the receiver-owned admission boundary, not through a generalized package.
 
-Until that automation exists, compatibility-sensitive PRs require explicit consumer verification.
+Reconsider shared handoff infrastructure only after multiple real receivers expose common mechanics.
 
-# Cockpit-generated platform evidence
+### Web extraction
 
-## Prompt/profile layering
+Generic RSS/Atom autodiscovery should be implemented with the lightest deterministic mechanics required.
 
-Existing applications already have related concepts for standing user preference/context injected into model prompts. Cockpit is likely to need a rich personal preference/interest context.
+Adopt `WebExtractorKit` only when Cockpit needs rendered DOM/persistent browsing/capture behavior that the package actually owns.
 
-**Current disposition:** WATCH.
+---
 
-### Trigger
-
-When Cockpit has implemented a real profile/context mechanism and its layering semantics can be compared with the existing consumers.
-
-### Do not do yet
-
-Do not invent a generalized profile object based on what Cockpit is expected to need. Cockpit's actual model should provide the evidence.
-
-## Model-call provenance
-
-Existing apps have growing need to understand model tier, context, budget, effort, and degradation. Cockpit may create substantial model traffic.
-
-**Current disposition:** WATCH.
-
-### Trigger
-
-When the already-recorded provenance design has proven itself in an existing consumer or Cockpit develops a concrete requirement that cannot be handled by existing response metadata.
-
-### Do not do yet
-
-Do not create `CockpitModelProvenance` as a parallel architecture.
-
-## HTML boilerplate filtering
-
-Multiple apps have evidence for deterministic removal of link-heavy/non-content blocks before extraction. Cockpit may become another web-ingestion consumer.
-
-**Current disposition:** WATCH.
-
-### Trigger
-
-Cockpit implements web ingestion and demonstrates the same filtering requirement, or an existing consumer requires shared tuning first.
-
-## External LLM handoff
-
-`LLMHandoffKit` currently contains a Galavant-shaped session/persistence model. Yes Chef already performed a convergence review and adopted only `HandoffContractMarker`, leaving its SQLiteData `AIHandoff` session model and `Learning` return model app-specific because those semantics genuinely differ.
-
-**Current disposition:** BLOCKED for Cockpit full-package adoption.
-
-### Trigger
-
-Cockpit develops a concrete external ChatGPT/Claude handoff workflow.
-
-At that point Cockpit supplies another real consumer from which to determine whether a broader neutral spine exists beyond the already-shared marker helper.
-
-### Required platform questions
-
-- What belongs in a domain-neutral session?
-- Should payloads be opaque to the package?
-- How are app-specific candidate/entity relationships represented?
-- How is the handoff marker namespaced?
-- How is contract/version negotiation represented?
-- How is storage namespaced or delegated?
-- How are UUID/time dependencies injected?
-- How is Galavant compatibility preserved?
-- Which Yes Chef behavior is genuinely shared versus merely conceptually similar?
-
-Do not answer these questions speculatively before Cockpit has a use case.
-
-# Platform-change workflow
+## 7. Platform-change workflow
 
 When Cockpit appears to need a jon-platform change:
 
-1. Confirm that Cockpit cannot reasonably implement the requirement app-side.
-2. Search jon-platform docs, packages, ADRs, and seam ledger.
-3. Identify existing consumers of the affected package/API.
-4. Add Cockpit evidence to `SEAM-LEDGER.md` if the abstraction is not yet proven.
-5. If the extraction trigger has not fired, implement in Cockpit.
-6. If the trigger has fired, write the platform decision/ADR where architecturally significant.
-7. Prefer additive implementation.
-8. Add or update platform tests.
-9. Verify existing consumers.
-10. Adopt the platform change in Cockpit.
-11. Remove/deprecate old APIs only after consumer migration.
+1. confirm the requirement cannot reasonably remain app-local;
+2. inspect the relevant jon-platform package/docs/ADR/seam ledger;
+3. identify existing consumers;
+4. add Cockpit evidence to the platform seam ledger if the abstraction is not proven;
+5. if the extraction trigger has not fired, implement locally;
+6. if the trigger has fired, define the neutral requirement from all real consumers;
+7. prefer additive implementation/migration;
+8. add/update platform tests;
+9. verify consumers;
+10. adopt in Cockpit;
+11. remove obsolete APIs only after migration.
 
-# Anti-patterns
+---
+
+## 8. Anti-patterns
 
 Do not:
 
-- change jon-platform merely to make a Cockpit call site prettier,
-- add Cockpit domain vocabulary to a shared package,
-- copy shared package code into Cockpit,
-- create a Cockpit variant of an existing shared client,
-- generalize a first-use Cockpit abstraction,
-- merge a breaking platform API and discover consumer failures later,
-- make Cockpit depend on undocumented platform behavior,
-- allow platform TODOs to disappear into Cockpit's feature backlog,
-- allow Cockpit blockers to disappear into a generic jon-platform cleanup list.
+- change jon-platform just to make a Cockpit call site prettier;
+- add Cockpit domain vocabulary to a shared package;
+- copy shared package code into Cockpit;
+- create a Cockpit-specific duplicate of an existing neutral client;
+- generalize a first-use Cockpit abstraction;
+- let a package name convince Cockpit to adopt domain leakage;
+- merge breaking platform changes without consumer verification;
+- let platform cleanup disappear into Cockpit's feature backlog;
+- let a real Cockpit blocker disappear into a generic platform wishlist.
 
-# Current blockers
+---
 
-There are currently **no jon-platform blockers to beginning Cockpit**.
+## 9. Current blockers
 
-Cockpit can proceed with product/domain architecture using the existing platform.
+There are currently **no jon-platform blockers to beginning Cockpit V1**.
 
-`LLMHandoffKit` is blocked for full Cockpit adoption, but external LLM handoff is not currently an established Cockpit requirement and therefore does not block application development.
+Cockpit should begin with the vertical sequence in `docs/V1-SCOPE-AND-SEQUENCING.md` using existing proven platform capabilities.
 
-# Next review
-
-Revisit this document when one of the following occurs:
-
-- Cockpit canonical domain/schema is approved.
-- Cockpit implements its first AI context/profile.
-- Cockpit implements its first web-ingestion workflow.
-- Cockpit develops an external LLM handoff requirement.
-- Cockpit identifies a platform API that must change rather than merely be consumed.
-- A jon-platform package introduces a breaking/deprecated API relevant to Cockpit.
-
-The purpose of each review is not to seek abstractions. It is to ask whether new evidence has changed any disposition in the adoption matrix.
+No new shared package is required before the first RSS → Edition → Later/Library slice.

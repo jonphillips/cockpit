@@ -1,353 +1,179 @@
 # Jon Brain Handoff
 
-**Status:** Working product/architecture decision  
-**Date:** 2026-09-06
+**Status:** Normative V1 workflow  
+**Date:** 2026-09-08
 
-## Purpose
+V1 supports a deliberately simple, human-mediated way to bootstrap Cockpit Personal Knowledge from ChatGPT or another AI system.
 
-Cockpit's Personal Knowledge system should be designed for the integration model we ultimately want, not constrained by today's weakest transport.
+This is **not** a direct integration with ChatGPT memory/accounts. Clipboard is the initial transport.
 
-The long-term desired interaction is simple:
+---
+
+## 1. Goal
+
+Jon already has substantial explicit durable personal context in AI conversations. Cockpit should not require relearning all of it one claim at a time.
+
+The V1 workflow is:
 
 ```text
-rich conversational system
-        |
-        | "Jon Brain Handoff"
-        v
-semantic personal-knowledge payload
-        |
-        v
-shared Personal Knowledge
+ChatGPT / another AI
+→ produce explicit synthesized personal claims
+→ Jon copies them
+→ Cockpit “Teach / Import Personal Knowledge”
+→ semantic reconciliation against current PK
+→ review meaningful changes
+→ commit durable Personal Knowledge
 ```
 
-Today, the transport may be manual copy/paste or Share Sheet text. In the future, it may be a ChatGPT plugin/app/MCP action, App Intent, agent tool, or another direct mobile-capable integration.
+Authority remains clear:
 
-The durable contract should therefore be semantic rather than transport-specific.
-
-### Product principle
-
-> Design for the system we wish existed; use manual transport in the meantime. The transport can improve without changing the meaning of the handoff.
-
-This document defines that manual semantic contract now so Cockpit can support a real workflow immediately while remaining poised for better desktop and mobile integration later.
+- external AI proposes what it understands;
+- Jon explicitly transfers the material;
+- Cockpit reconciles it with Cockpit's own canonical Personal Knowledge;
+- Cockpit remains authoritative for its durable PK state.
 
 ---
 
-## 1. A Jon Brain Handoff is not a conversation summary
+## 2. Standing ChatGPT convention
 
-The phrase **"Jon Brain Handoff"** means:
+Jon may place the following instruction in ChatGPT's standing personal instructions/memory guidance:
 
-> Extract durable or currently useful personal knowledge from this conversation that may matter outside the conversation.
+> When I say **“Jon Brain”**, produce a compact, copyable export of durable things you currently understand about me that would be useful to another personal AI system.
+>
+> Use one bullet per distinct claim and prefix each bullet with exactly one of:
+>
+> - **[Fact]** — durable factual information or constraints
+> - **[Taste]** — durable preferences, likes, dislikes, or decision tendencies
+> - **[Interest]** — subjects or domains I have explicitly stated or confirmed meaningful interest in
+>
+> Rules:
+>
+> - Include only information grounded in things I have explicitly told you, explicitly corrected, or clearly confirmed in conversation.
+> - Do not infer durable knowledge merely from clicks, browsing behavior, frequency of questions, or other weak behavioral signals.
+> - Synthesize and deduplicate overlapping statements rather than reproduce conversation history.
+> - Preserve important scope and nuance. Do not turn a contextual preference into a broad universal claim.
+> - Prefer the current understanding when I have corrected or refined something previously.
+> - Exclude temporary Current Context such as where I am today, a trip happening this week, or a short-lived task unless I specifically ask for it.
+> - Exclude sensitive information unless I explicitly ask you to include it in that export.
+> - Return only copyable bullets unless I request explanation.
+> - Aim for useful semantic claims rather than exhaustive trivia.
+>
+> Example:
+>
+> - [Fact] Home airport is RDU.
+> - [Taste] Prefers smaller, characterful countryside luxury hotels over large corporate-feeling properties.
+> - [Taste] For dry Riesling, generally prefers some fruit and generosity rather than severe austerity.
+> - [Interest] Has a meaningful ongoing interest in Burgundy travel and wine.
 
-It does **not** mean:
-
-- summarize everything discussed,
-- preserve every factual detail,
-- infer personality from incidental behavior,
-- recreate the conversation in condensed form,
-- dump every recommendation, destination, restaurant, recipe, or product mentioned,
-- turn one-off situational choices into durable preferences.
-
-The handoff should be conservative and intentionally sparse.
-
-A good handoff contains only knowledge that is plausibly useful to Cockpit or another app-family consumer later.
-
----
-
-## 2. Why conversational evidence is different
-
-Rich conversation provides higher-quality personal evidence than passive behavioral tracking because the user can state, refine, qualify, contradict, and explain preferences in context.
-
-For example, conversation can distinguish:
-
-- "I like fruit in white wine" from "I want something lighter tonight."
-- "We prefer countryside hotels" from "this airport-night hotel can be utilitarian."
-- "Six nights in Burgundy feels like too much" from "Jon dislikes Burgundy."
-
-Cockpit should not pretend passive interaction telemetry provides the same semantic fidelity.
-
-### Personal Knowledge doctrine
-
-> Durable Personal Knowledge should be grounded primarily in explicit statements, corrections, and intentional preference-bearing acts. Passive behavior may influence temporary relevance, but it should rarely become durable identity without confirmation.
-
-A rich ChatGPT conversation is therefore a particularly valuable source of candidate Personal Knowledge because it contains semantic evidence Cockpit itself may never observe.
+The exact wording may evolve outside Cockpit. The product contract is the natural-language claim set, not a proprietary export schema.
 
 ---
 
-## 3. The manual protocol
+## 3. Cockpit import surface
 
-The manual V1 protocol is plain text.
+V1 should expose a simple natural-language bulk-teaching surface, conceptually:
 
-It uses three possible sections:
+> **Teach Cockpit / Import Personal Knowledge**
 
-- **Remember** — strong enough to become durable Personal Knowledge.
-- **Maybe** — useful but genuinely uncertain; should not silently become durable Personal Knowledge.
-- **Temporary** — current context that may affect relevance now but should not become durable identity.
+Paste text.
 
-Empty sections are omitted.
+Cockpit should accept ordinary bullet prose and not require a versioned JSON format.
 
-Each bullet should:
-
-- express one atomic idea,
-- stand alone outside the source conversation,
-- identify who it describes when relevant,
-- preserve important scope and context,
-- avoid fake numerical confidence,
-- indicate evidence basis using one of:
-  - `[explicit]`
-  - `[strong inference]`
-  - `[current context]`
-
-Example:
-
-```text
-JON BRAIN HANDOFF
-
-Remember
-- [explicit] Jon prefers travel days that feel full but not rushed.
-- [explicit] Jon and Wendy strongly value excellent dining when choosing travel lodging, especially when it reduces driving after dinner.
-- [explicit] Wendy prefers white wines with some fruit and does not enjoy very austere styles.
-
-Maybe
-- [strong inference] Jon may increasingly prefer shorter tasting-menu experiences over very long Michelin tasting menus.
-
-Temporary
-- [current context] Jon and Wendy are currently traveling in the Dolomites.
-```
+The `[Fact]`, `[Taste]`, `[Interest]` prefixes are helpful hints for the initial workflow, not a permanent protocol requirement. Cockpit should be capable of interpreting equivalent natural-language claims from another AI or document.
 
 ---
 
-## 4. Canonical ChatGPT instruction text
+## 4. Reconciliation behavior
 
-The following text is the canonical manual instruction Jon can place in ChatGPT personal instructions or reuse elsewhere.
+Cockpit compares incoming claims semantically against existing Personal Knowledge.
 
-```text
-When Jon says **“Jon Brain Handoff”**, extract personal knowledge from the current conversation that may be useful to Jon’s broader personal knowledge system and other apps.
+Possible outcomes:
 
-This is **not a conversation summary**. Be conservative. Include only information that is likely to matter beyond the immediate conversation.
+### Duplicate / reinforcement
 
-Output exactly:
+No new user decision needed. Preserve useful provenance if appropriate.
 
-**JON BRAIN HANDOFF**
+### Clerical consolidation
 
-Then include only the applicable sections below:
+Cockpit may automatically merge/rephrase compatible explicit claims when semantic meaning is preserved.
 
-**Remember**
-- Durable facts, preferences, aversions, interests, relationships, expertise, constraints, or recurring tendencies that are explicit or exceptionally well-supported.
-- Prefer things Jon explicitly stated, clarified, or corrected.
-- Use one standalone idea per bullet.
-- Prefix each bullet with `[explicit]` or, only when unusually well-supported, `[strong inference]`.
-- State who the belief describes when relevant: Jon, Wendy, Jon and Wendy, another person, etc.
-- Preserve important scope. Do not turn a trip-specific or situational choice into a general preference.
+### Refinement
 
-**Maybe**
-- Strong but genuinely uncertain interpretations that could be useful if Jon confirms them.
-- Prefix each with `[strong inference]`.
-- Do not include weak behavioral guesses.
+An incoming claim materially improves scope/precision of an existing understanding.
 
-**Temporary**
-- Current interests, plans, circumstances, or situational preferences that are useful now but should not become durable identity.
-- Prefix each with `[current context]`.
-- Include a date/window when it materially defines the context.
+Show the meaningful change when review is warranted.
 
-Rules:
-- Do not infer durable preferences merely from clicks, reads, questions, purchases, saves, or one-off choices.
-- Do not treat non-engagement as negative preference evidence.
-- Do not invent confidence scores.
-- Do not repeat incidental facts just because they appeared in the conversation.
-- Do not include sensitive personal information unless Jon explicitly made it relevant and it is clearly useful to the intended personal knowledge system.
-- Favor 3–10 excellent bullets over exhaustive extraction.
-- Preserve tensions and context rather than flattening them. For example, “likes fruit in wine but wants something lighter tonight” should not become “likes rich wine.”
-- If nothing in the conversation deserves durable or temporary personal knowledge, output `No Jon Brain additions from this conversation.`
-- Output only the handoff, with no explanation before or after it.
-```
+### New substantive claim
 
-This instruction should be treated as the source of truth for the manual handoff format until explicitly revised.
+Show for acceptance before it becomes durable Personal Knowledge.
+
+### Contradiction / correction
+
+Surface clearly. Jon decides/corrects; accepted correction supersedes the old current understanding while preserving provenance.
+
+The UI should avoid forcing review of dozens of obvious duplicates merely because the import contained many bullets.
 
 ---
 
-## 5. Cockpit's manual receiving experience
+## 5. Example reconciliation
 
-Cockpit should make explicit teaching extremely easy.
+Existing Cockpit claim:
 
-A likely `You` affordance is conceptually:
+> Prefers small luxury hotels.
 
-> **Teach Jon Brain**  
-> Paste or type anything you want the app family to know.
+Imported Jon Brain claim:
 
-For a pasted Jon Brain Handoff, Cockpit should parse the sections and preserve provenance that the source was a conversational handoff.
+> Prefers smaller, characterful countryside luxury hotels over large corporate-feeling properties.
 
-Conceptually:
+Desired behavior:
 
-```text
-source: ChatGPT handoff
-basis: explicit | strong inference | current context
-importedAt: ...
-```
+> **Refine existing Taste**
+>
+> From: Prefers small luxury hotels.
+>
+> To: Prefers smaller, characterful countryside luxury hotels over large corporate-feeling properties.
 
-The exact storage schema remains part of the broader Personal Knowledge design and is not fixed here.
-
-### Suggested admission semantics
-
-- `Remember` + `[explicit]` — normally eligible for direct admission with lightweight Undo/correction.
-- `Remember` + `[strong inference]` — retain inferred provenance; exact review policy remains open.
-- `Maybe` — should remain a proposed belief until Jon confirms or promotes it.
-- `Temporary` — should enter temporary/current relevance context, not durable identity.
-
-The manual import should not force Jon to edit ontology fields, scopes, or internal schema.
-
-AI may translate the handoff into structured Personal Knowledge; Cockpit owns the deterministic canonical mutation.
+Cockpit should not create two near-duplicate durable claims.
 
 ---
 
-## 6. Manual transport is temporary; the contract is not
+## 6. What the LLM may do automatically
 
-The desired evolution is:
+During import, the LLM may:
 
-### Today
+- parse natural language;
+- identify Fact/Taste/Interest intent;
+- detect semantic duplicates;
+- consolidate compatible claims;
+- preserve/propose appropriate scope;
+- generate a cleaner wording;
+- identify possible contradictions.
 
-```text
-ChatGPT conversation
-       |
-       | "Jon Brain Handoff"
-       v
-plain-text handoff
-       |
-       | copy / paste / share
-       v
-Cockpit
-```
+It may not silently turn ambiguous text into materially broader durable claims.
 
-### Future
-
-```text
-ChatGPT conversation
-       |
-       | "Jon Brain Handoff"
-       v
-direct Cockpit / Personal Knowledge action
-       |
-       v
-shared Personal Knowledge
-```
-
-Possible future transports include:
-
-- ChatGPT app/plugin integration,
-- MCP or agent tool invocation,
-- mobile Share Sheet improvements,
-- App Intent or equivalent system action,
-- direct Personal Knowledge service/API,
-- other future conversational assistants.
-
-The product should not depend on any particular one of these mechanisms.
-
-### Architectural principle
-
-> The semantic payload is the product contract; copy/paste, Share Sheet, plugin, MCP, App Intent, or agent invocation are replaceable transports.
+Canonical writes remain deterministic application operations after the relevant explicit user authority/review.
 
 ---
 
-## 7. Mobile is a first-class requirement
+## 7. Why V1 stays manual
 
-Jon spends substantial time using ChatGPT and the app family on iPad and iPhone.
+Do not add for V1:
 
-The long-term handoff design should therefore not assume:
+- ChatGPT account authentication;
+- direct access to ChatGPT memory/profile data;
+- two-way Personal Knowledge synchronization;
+- a formal `JonBrainExport` JSON protocol;
+- shared external-AI handoff infrastructure;
+- background synchronization between AI systems.
 
-- desktop-only workflows,
-- exported archives,
-- filesystem manipulation,
-- command-line tooling,
-- manually downloaded JSON,
-- a Mac being awake.
-
-The target interaction should become as close as possible to:
-
-```text
-Jon: "Jon Brain Handoff."
-
-ChatGPT: [extracts candidate knowledge]
-
-[Add to Jon Brain]
-```
-
-One deliberate action should be sufficient to transmit the semantic handoff when platform integration eventually permits it.
-
-Manual text exists to bridge the present gap, not to define the final UX.
+The manual copy/paste boundary is useful because it is explicit, inspectable, portable, and keeps ownership unambiguous while Cockpit's PK model is still being proven.
 
 ---
 
-## 8. Do not bulk-mine conversation history by default
+## 8. Product test
 
-A future integration with richer ChatGPT history or memory access should not automatically turn all historical conversations into Personal Knowledge.
+A successful Jon Brain import should feel like:
 
-The same conservative doctrine applies even when transport becomes powerful.
+> “Cockpit learned a meaningful amount about me without making me curate dozens of duplicate profile rows.”
 
-Prefer:
-
-- deliberate handoff from a conversation,
-- explicit import of a memory/profile summary,
-- narrowly reviewed candidate extraction,
-- user-triggered retrospective analysis.
-
-Avoid:
-
-- silently ingesting every historical conversation,
-- creating durable claims from incidental discussion,
-- treating model-generated summaries as authoritative without provenance,
-- converting chat history into a behavioral surveillance warehouse.
-
-Better integration should reduce friction, not lower the evidence standard.
-
----
-
-## 9. Relationship to shared Personal Knowledge
-
-The Jon Brain Handoff is a producer-neutral contribution mechanism into the app family's emerging Personal Knowledge model.
-
-ChatGPT is only one possible producer.
-
-Other future producers might include:
-
-- Cockpit's own explicit teaching UI,
-- Galavant when a travel-specific learning earns cross-domain meaning,
-- Yes Chef when a cooking preference earns cross-domain meaning,
-- another conversational assistant,
-- a future family application.
-
-Cockpit remains the primary Jon-facing stewardship surface for inspection, correction, and understanding.
-
-The underlying durable knowledge should remain capable of becoming app-family shared infrastructure, as documented in `PERSONAL-KNOWLEDGE-BOUNDARY.md`.
-
-A future `PersonalKnowledgeKit` may eventually own common ingestion/provenance/projection mechanics once a second real app participates. This document does not require that package now.
-
----
-
-## 10. Settled decisions
-
-1. `Jon Brain Handoff` is a semantic Personal Knowledge extraction command, not a conversation summary.
-2. Manual text is the V1 transport.
-3. The canonical text format uses `Remember`, `Maybe`, and `Temporary` sections.
-4. The extraction standard is conservative; explicit semantic evidence outranks passive behavioral inference.
-5. Cockpit should provide an easy `Teach Jon Brain`-style entry point.
-6. The system is designed for eventual direct conversational integration rather than optimized around copy/paste limitations.
-7. Mobile is a first-class target for the future direct handoff.
-8. Better integration must reduce friction without lowering Personal Knowledge evidence standards.
-9. The semantic contract should survive future plugin/MCP/agent/App Intent transport changes.
-10. Do not build a bespoke ChatGPT-only canonical knowledge model; ChatGPT contributes into the broader shared Personal Knowledge system.
-
----
-
-## 11. Open questions
-
-These remain intentionally unresolved:
-
-1. Exact Cockpit import UI and whether manual paste should auto-detect the handoff format.
-2. Whether `[strong inference]` under `Remember` should require explicit confirmation in V1.
-3. How `Temporary` context is stored and naturally expires.
-4. Whether handoffs should carry source conversation metadata when a future direct integration can provide it.
-5. How corrections propagate back to a conversational source, if ever.
-6. Exact structured API/tool payload when direct integration becomes possible.
-7. Whether a future ChatGPT action writes directly into shared Personal Knowledge infrastructure or through a Cockpit-owned service endpoint.
-8. When the second app-family participant is sufficient to extract ingestion/provenance mechanics into `PersonalKnowledgeKit`.
-
-These should be decided from working Cockpit ingestion plus the actual integration capabilities available at implementation time rather than predicted from today's ChatGPT transport limitations.
+It should not let the imported text dictate or expand the Personal Knowledge schema merely because external AI phrased something richly.

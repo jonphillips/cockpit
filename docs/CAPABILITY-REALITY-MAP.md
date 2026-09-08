@@ -1,496 +1,229 @@
 # Cockpit Capability Reality Map
 
-**Status:** Working product/architecture decision  
+**Status:** Normative scope/reality map  
 **Date:** 2026-09-08
 
-## Purpose
-
-Cockpit should be future-ready without pretending that current mobile/agent harnesses can do things they cannot yet reliably do.
-
-The product should separate two kinds of future-proofing:
-
-1. **Knowledge can be built ahead of future agents** because durable understanding compounds over time.
-2. **Agency should not be designed ahead of proven harnesses** because execution, background runtime, provider access, notification delivery, and app-to-app integration remain volatile and platform-dependent.
-
-The governing principle is:
-
-> **Be future-ready in what Cockpit knows; be conservative in what Cockpit claims it can do.**
-
-Cockpit should commit near-term only to capabilities with a credible provider/source, transport, execution boundary, and user experience using tools that can realistically be implemented now or with an explicit manual bridge.
-
-This document identifies six near-term capabilities that meet that standard and parks more speculative agentic behaviors until their harnesses are real.
-
-### Terminology note
-
-For recurring Content, the current product noun is **Stream**; see `docs/CONTENT-STREAM-MODEL.md`.
-
-`Source` remains correct when discussing upstream provider material, provenance, evidence, source actions, or the external origin/access required by an agentic capability.
+This document prevents conceptual nouns from being mistaken for already-required infrastructure. It classifies current capabilities as **V1**, **Deferred**, or **Evidence required**.
 
 ---
 
-## 1. Capability reality tiers
+## 1. Product shell
 
-When considering a new Cockpit behavior, classify it before designing architecture around it.
-
-### Tier A — Works now
-
-The app can perform the behavior with normal app runtime, known APIs, deterministic operations, or model calls initiated while Cockpit is active.
-
-Examples:
-
-- classify and summarize fetched email,
-- extract structured information from supplied source material,
-- reason against the Jon Brain,
-- parse a known RSS/Atom Stream,
-- persist a captured Item,
-- hand material to another app through a receiver-owned admission door when available.
-
-### Tier B — Works now with a manual bridge
-
-The semantic workflow is real, but Transport remains manual until a better platform integration appears.
-
-Examples:
-
-- `Jon Brain Handoff` copied/shared from ChatGPT into Cockpit,
-- pasting a URL or selected text into Capture,
-- sharing a podcast episode plus a short dictated description of what should be found.
-
-The manual bridge is acceptable when the semantic contract is stable and likely future automation merely replaces Transport.
-
-### Tier C — Works as a user-initiated operation
-
-Cockpit can do the work when the user explicitly invokes it, but should not imply reliable ambient/background behavior.
-
-Examples:
-
-- “Review this Galavant trip with Jon Brain,”
-- “Find the report they were discussing and add it to Reading,”
-- “Refresh my followed Streams now,”
-- “Filter this music Stream against my Interests.”
-
-### Tier D — Needs a specific harness/integration
-
-The product idea is coherent, but reliable implementation depends on an external capability not yet proven.
-
-Examples:
-
-- continuous provider-specific ticket monitoring,
-- immediate background alerts from arbitrary external sites,
-- direct ChatGPT-to-Cockpit Personal Knowledge writes without manual Transport,
-- ambient querying of specialist apps when they are not running unless a shared publication mechanism exists.
-
-### Tier E — Future/agentic hypothesis
-
-The product idea may become useful, but there is not yet enough execution reality to warrant a subsystem.
-
-Examples:
-
-- general autonomous web monitoring,
-- broad proactive life management,
-- inferred behavioral nudging without an explicit mandate,
-- open-ended “agent” workflows whose source, runtime, authority, and completion semantics are undefined.
-
-### Architectural rule
-
-> **No new subsystem should be justified primarily by a Tier D/E story when a Tier A/B/C consumer has not yet earned it.**
+| Capability | Reality |
+|---|---|
+| Today | V1 |
+| Edition | V1 |
+| Later | V1, intentionally simple |
+| Library | V1, intentionally simple |
+| Settings | V1 |
+| Following under Settings | V1 |
+| Separate primary `Content` destination | Superseded by Edition |
+| Separate primary `Following` destination | No |
 
 ---
 
-## 2. Six near-term capabilities
+## 2. Streams / Following
 
-The current realistic Cockpit product can be described through six capabilities.
-
-1. **Daily / Today** — intelligently triage what came in.
-2. **Know** — build and synthesize durable Personal Knowledge.
-3. **Advise** — reason against explicit supplied context using what Cockpit knows.
-4. **Handoff** — send material into specialist-owned incoming queues.
-5. **Curate** — intelligently filter bounded known Streams.
-6. **Capture & Enrich** — accept fuzzy low-friction capture and resolve it into useful material later in the workflow.
-
-These do not require a general autonomous agent.
-
-They do create substrate a future agent would want: durable knowledge, explicit Streams and provider provenance, faithful Artifacts, semantic Subjects, Handling/source-action policies, user intent, and safe deterministic mutation boundaries.
-
----
-
-## 3. Today — intelligent triage
-
-### User problem
-
-A significant amount of information arrives through email and other channels. The user wants to know:
-
-> **What came into my world, what matters, and what can I safely ignore?**
-
-### Near-term capability
-
-Cockpit can:
-
-- fetch current Inbox/provider material,
-- classify and summarize,
-- distinguish important/personal/consequential material from noise,
-- extract structured meaning where useful,
-- preserve source material where Cockpit assumes custody,
-- apply Handling Policies,
-- execute approved source actions such as archive/Clear,
-- surface especially important Items before the user moves on with the day.
-
-### Harness reality
-
-This is a real application workflow with concrete provider APIs and deterministic mutation boundaries.
-
-### Non-goal
-
-Today should not become a generalized task manager or pretend that all life activity can be represented as due dates and completion state.
+| Capability | Reality |
+|---|---|
+| Interest Areas | V1 |
+| Streams | V1 |
+| One primary Interest Area per Stream | V1 |
+| Human-language Stream Handling | V1 |
+| Essential Stream posture | V1 |
+| Global Add Stream | V1 |
+| RSS/Atom autodiscovery from known human URL | V1 |
+| Narrow provider resolvers | V1 where justified |
+| Pause / Stop Following | V1 |
+| Basic abnormal health | V1 |
+| Prospective auto-Library policy | V1 after manual Library works |
+| Autonomous recommendations for new Streams | Deferred |
+| Publisher-wide catalog/browser | Deferred |
+| Historic YouTube/newsletter subscription cleanup | Deferred |
+| Mailbox-wide automatic newsletter discovery | Deferred |
 
 ---
 
-## 4. Know — the Jon Brain
+## 3. Content spine
 
-### User problem
-
-The more the app family genuinely understands about Jon, Wendy, and their preferences/interests/facts, the better judgment it can provide now and the better positioned it becomes for future capabilities.
-
-### Near-term capability
-
-Cockpit maintains and synthesizes:
-
-- **Facts** — useful durable factual knowledge,
-- **Taste** — synthesized preferences, tradeoffs, aversions, and tendencies,
-- **Interest** — subjects/entities with durable or evolving salience,
-- provenance/evidence sufficient to explain why a conclusion exists,
-- AI-generated Notices that identify patterns, changes, tensions, or potentially useful insights,
-- a periodic/monthly review that surfaces only meaningful changes or ambiguities.
-
-The Brain stores synthesized conclusions rather than conversational exhaust.
-
-### Primary evidence
-
-High-value evidence includes:
-
-- explicit statements and corrections,
-- `Jon Brain Handoff` material from rich conversations,
-- explicit reactions such as “love this,” “wrong for us,” “more like this,”
-- semantically meaningful commitments such as reservations, tickets, purchases, bids, bookings, saves, and specialist-domain outcomes,
-- specialist-app learnings promoted only when they have cross-domain meaning.
-
-Passive clicks, reads, dwell time, scroll depth, and unexplained non-engagement are weak evidence and should ordinarily not become durable Personal Knowledge.
-
-### Harness reality
-
-Cockpit can build this today using direct teaching, manual ChatGPT handoffs, AI synthesis, and a small number of high-semantic-value integrations.
-
-Future ChatGPT/plugin/MCP/mobile integration should replace manual Transport without changing the semantic contract.
-
-### Product principle
-
-> **Knowledge can be built ahead of future agents because understanding compounds even when agency is still limited.**
+| Capability | Reality |
+|---|---|
+| Artifact | V1 foundational concept |
+| ContentPiece | V1 foundational concept |
+| Edition/Later/Library memberships around same ContentPiece | V1 invariant |
+| Conservative deterministic deduplication | V1 |
+| Rich generic Artifact↔ContentPiece graph | Evidence required |
+| Universal `Item` / `Thing` | Rejected |
+| Universal cross-domain entity graph | Rejected |
+| Canonical Restaurant/Product/Wine/Recipe models in Cockpit | Rejected |
 
 ---
 
-## 5. Advise — user-initiated reasoning against supplied context
+## 4. Edition
 
-### User problem
-
-Much of the value of the Jon Brain does not require ambient agency. The user can deliberately ask an app to reason using its own domain context plus relevant Personal Knowledge.
-
-Examples:
-
-- “Review this Burgundy itinerary using what you know about us.”
-- “Look at these three hotels through Jon Brain.”
-- “Does this Yes Chef menu fit how we actually like to entertain?”
-- “Which of these wines is most aligned with what we’ve learned about our preferences?”
-
-### Near-term capability
-
-A specialist app or Cockpit can assemble:
-
-```text
-explicit user request
-+ supplied domain context
-+ relevant Personal Knowledge projection
-+ app-local preferences/context
-        ↓
-AI reasoning
-```
-
-The output is advisory unless a separately authorized deterministic operation follows.
-
-### Harness reality
-
-This is a Tier A/C capability: the user supplies the context or initiates the reasoning operation. It avoids unreliable background runtime and generalized agent machinery.
-
-### Architectural consequence
-
-Do not require a general `CurrentContext` subsystem merely to support advice. If a feature needs trip/calendar/menu context, assemble exactly the context that named consumer requires.
-
-### Product principle
-
-> **No new context ontology without a named consumer and a demonstrated decision it improves.**
+| Capability | Reality |
+|---|---|
+| Finite morning-oriented Edition | V1 |
+| Reader | V1 |
+| Seen | V1 |
+| Clear | V1 |
+| Essential protection | V1 |
+| Save for Later | V1 |
+| Add to Library | V1 |
+| Personal Knowledge affects relevance/explanation | V1 proof |
+| Exact aging windows | Evidence required |
+| Rich section taxonomy | Evidence required |
+| Midday refresh system | Deferred/evidence required |
+| Hero/card optimization | Evidence required |
 
 ---
 
-## 6. Handoff — frictionless send-to-specialist queues
+## 5. Later
 
-### User problem
-
-Cockpit often operates in triage/reading mode. Discovering something useful should not force the user to leave that mode and perform domain-specific work immediately.
-
-Examples:
-
-- recipe material -> Yes Chef incoming queue,
-- restaurant/place -> Galavant consideration queue,
-- future domain material -> receiver-owned pending/review boundary.
-
-### Near-term capability
-
-Cockpit sends:
-
-- faithful source material,
-- provenance,
-- Cockpit interpretation/rationale,
-- user intent.
-
-The receiving specialist owns:
-
-- incoming queue semantics,
-- identity,
-- exact POI/domain resolution,
-- deduplication,
-- validation,
-- review/admission,
-- canonical commit.
-
-App Intents or equivalent receiver-owned doors are the likely implementation mechanism where available.
-
-### Harness reality
-
-This is a bounded, user-initiated operation and does not require an autonomous agent.
-
-### Product principle
-
-> **Handoff means “put this somewhere useful for later specialist work,” not “interrupt triage and finish the specialist workflow now.”**
+| Capability | Reality |
+|---|---|
+| Explicit Save for Later | V1 |
+| No silent expiry | V1 law |
+| Simple browse/open/remove | V1 |
+| Add to Library | V1 |
+| Offline controls | V1 |
+| Cleanup assistant | Deferred until backlog exists |
+| Sophisticated filters/facets | Deferred |
+| Backlog analytics/reminders | Rejected for V1 |
 
 ---
 
-## 7. Curate — bounded Stream intelligence
+## 6. Library
 
-### User problem
-
-Cockpit can provide significant value without scouring the entire internet if the user deliberately follows a bounded Stream and gives Cockpit an editorial purpose.
-
-The core question is:
-
-> **Given this known Stream, what deserves my attention?**
-
-### Near-term capability
-
-Cockpit can ingest a known Stream and apply:
-
-```text
-Stream
-  +
-Interest Area guidance
-  +
-Stream Handling
-  +
-relevant Personal Knowledge when applicable
-       ↓
-AI curation / extraction / ranking
-```
-
-This is deterministic ingestion plus model judgment over a bounded corpus.
-
-The recurring-content model is defined in `docs/CONTENT-STREAM-MODEL.md`.
-
-### Example A — OpenAI capability Stream
-
-An OpenAI release-notes RSS/Atom Stream could be followed under `Technology & Making` with a specific Handling instruction:
-
-> Surface product/platform changes that materially expand what Cockpit or the Jon app family could realistically do, especially mobile integration, plugins/apps/MCP, app-to-app communication, background/agent capability, model/tool APIs, and Apple-platform relevance.
-
-This filter is not primarily Personal Knowledge. It is declared Stream purpose/Handling.
-
-The output should distinguish:
-
-- actual new harness capability,
-- marketing/announcement noise,
-- desktop-only capability with no mobile relevance,
-- capability that exists in theory but lacks a usable integration path for Cockpit.
-
-### Example B — music/news Stream
-
-A music/news Stream can be filtered largely against Jon Brain Interests:
-
-- strong artist interests,
-- genre interests,
-- emerging interests,
-- known dislikes/low-salience areas where useful.
-
-Cockpit should surface relevant Items and may provide an inspectable `Skipped` / `Handled Quietly` view.
-
-The skipped view creates an explicit correction loop:
-
-> “Why did you reject Fontaines D.C.? I definitely care about them.”
-
-That correction is strong Personal Knowledge evidence.
-
-Silence about a skipped Item is not evidence that the filter was correct forever.
-
-### Harness reality
-
-RSS/Atom, email publications, YouTube channel feeds, and other bounded integrations are ordinary fetch/parse workflows when a concrete Transport exists. AI can classify and rank while the app is active or during refresh opportunities the platform actually permits.
-
-### Important limitation
-
-Do not casually promise “continuous monitoring” on iOS.
-
-Near-term semantics should be phrased in terms such as:
-
-- refresh during the morning edition build,
-- refresh when Cockpit is opened,
-- refresh during permitted background opportunities,
-- refresh on explicit user request.
-
-Reliable immediate alerts require a specific push/cloud/background harness and should be treated as a separate capability once proven.
-
-### Product principle
-
-> **Bounded-Stream intelligence is real now; generalized ambient web monitoring is not required.**
+| Capability | Reality |
+|---|---|
+| ContentPieces only | V1 law |
+| Explicit Add to Library | V1 |
+| Metadata/provenance/summary | V1 |
+| Ordinary text search | V1 |
+| Lightweight Subjects | V1 if useful |
+| Removal | V1 |
+| Offline controls | V1 |
+| Uploaded-payload custody | V1 |
+| One prospective Stream auto-Library policy | V1 after manual flow |
+| Vector/embedding retrieval | Evidence required |
+| Folders/collections | Deferred |
+| Rich facets | Evidence required |
+| Universal entity graph | Rejected |
 
 ---
 
-## 8. Capture & Enrich — fuzzy capture without stopping the moment
+## 7. Custody / offline
 
-### User problem
-
-The user often encounters something worth keeping while doing something else and does not want to stop to identify, research, categorize, and file it.
-
-Example:
-
-> Listening to a podcast about the Clippers and hearing mention of “the Wachtell report.”
-
-The desired interaction is closer to:
-
-> “Cockpit — read later: Wachtell report on the Clippers investigation.”
-
-than:
-
-> Find the correct URL, verify the document, download the PDF, classify it, and then save it.
-
-### Near-term capability
-
-Cockpit should support a low-friction capture object that may begin incomplete:
-
-```text
-raw human notion
-"Wachtell Clippers report"
-        ↓
-capture safely now
-        ↓
-AI/web enrichment when execution is available
-        ├── resolve likely identity
-        ├── find authoritative source
-        ├── attach URL / metadata
-        ├── retrieve/preserve source content where policy allows
-        └── classify destination/use
-        ↓
-retained Cockpit material / specialist queue
-```
-
-The enrichment step must remain lossless-or-loud when exact identity matters. If Cockpit finds multiple plausible targets, preserve ambiguity or ask at the consequential boundary rather than silently choosing the wrong document.
-
-### Mobile entry doors
-
-Likely capture doors include:
-
-- Share Sheet,
-- App Intent / Shortcut,
-- Siri/voice invocation where practical,
-- quick-capture control,
-- paste,
-- typed/dictated note.
-
-The semantic operation is:
-
-> **Capture this notion for later enrichment.**
-
-The user should not be required to supply a fully formed URL.
-
-### Podcast caveat
-
-Sharing a podcast episode does not automatically imply that iOS gives Cockpit the exact transcript sentence or current playback-position transcript context.
-
-Use only the context actually supplied by the provider/OS plus a short user phrase when necessary.
-
-### Harness reality
-
-This is a Tier A/B/C workflow: capture is immediate and deterministic; enrichment can occur during active/user-initiated execution. Better future agents/background systems can automate the same semantic enrichment step later.
-
-### Product principle
-
-> **Capture first; enrich later. Do not make the user finish the research task merely to remember that the research task exists.**
+| Capability | Reality |
+|---|---|
+| Reliable upstream source may remain authoritative | V1 architecture |
+| Gmail Archive as authoritative source for ordinary Gmail-backed material | V1 architecture |
+| Lightweight Cockpit understanding separate from payload | V1 |
+| Uploaded sole-source payload preservation | V1 |
+| Automatic local cache | V1 implementation concern |
+| Offline until [date] | V1 |
+| Keep Offline | V1 |
+| Trip-aware offline package | Deferred |
+| Bulk Edition/Later offline | Deferred |
+| Stream-wide offline rules | Deferred |
+| Exact CloudKit Asset design | Evidence/spike required |
 
 ---
 
-## 9. What remains deliberately parked
+## 8. Gmail / Today
 
-The following should not yet become first-class subsystems simply because they sound like future-agent features.
-
-### Watch
-
-A future Watch is an explicit standing monitoring mandate such as:
-
-> Tell me if this specific condition becomes true.
-
-It requires a credible execution/source/notification harness.
-
-Interest alone does not grant monitoring authority.
-
-### Nudge
-
-A future Nudge is explicit requested behavioral help.
-
-Do not infer standing behavioral mandates from passive data or ordinary Interests.
-
-### Broad Current Context
-
-Do not create a universal context ontology ahead of named consumers. Assemble exactly the context needed for a concrete decision.
-
-### Autonomous discovery
-
-Do not assume a general agent constantly scans the open web and discovers what the user should care about.
-
-Bounded Streams and explicit Capture already provide substantial value with honest harnesses.
+| Capability | Reality |
+|---|---|
+| Read current Inbox | V1 |
+| Summarize/classify | V1 |
+| Worth Seeing / personal-consequential attention | V1 |
+| Leave / Archive / Trash | V1 after read-only spike + ADR |
+| Stream-specific email disposition | V1 |
+| Small explicit non-Stream policies | V1 where useful |
+| Processing/disposition barrier | V1 correctness law |
+| Recent dispositions / Undo | V1 |
+| Read/unread as Cockpit attention state | Rejected |
+| Learned silent deletion | Rejected for V1 |
+| AI policy suggestions | Deferred |
+| Generic rules engine | Deferred/rejected absent evidence |
+| Delete Forever | Not V1 |
+| Auto-unsubscribe | Not V1 |
+| General compose/reply | Not V1 |
 
 ---
 
-## 10. Product/architecture laws
+## 9. Personal Knowledge
 
-1. **Be future-ready in what Cockpit knows; conservative in what Cockpit claims it can do.**
-2. **Knowledge can be designed ahead of agents because knowledge is durable; agent substrate should wait for real harnesses.**
-3. **No new subsystem should be justified mainly by a speculative Tier D/E consumer.**
-4. **Today, Know, Advise, Handoff, Curate, and Capture & Enrich are credible near-term capabilities.**
-5. **Curate operates over bounded known Streams, not an imaginary omniscient web agent.**
-6. **Stream is the recurring Content noun; source remains the provider/provenance/action noun.**
-7. **No new context ontology without a named consumer and demonstrated decision it improves.**
-8. **AI can interpret/reason/propose; canonical and external mutations go through deterministic app operations under current intent or approved policy.**
-9. **Manual Transport bridges are acceptable when the semantic contract is durable.**
-10. **Do not promise background continuity without a concrete scheduler/push/runtime harness.**
+| Capability | Reality |
+|---|---|
+| Fact / Taste / Interest | V1 |
+| Direct teaching | V1 |
+| Teach from ContentPiece / why it matters | V1 |
+| Correction/supersession | V1 |
+| Provenance | V1 |
+| Confirm hypothesis before durable inference | V1 |
+| Jon Brain natural-language bulk import | V1 |
+| LLM dedupe/consolidation/rollup of explicit claims | V1 |
+| PK demonstrably affects relevance | V1 proof |
+| Clickstream becomes durable PK | Rejected |
+| Numeric confidence model | Deferred/likely unnecessary |
+| Interest trajectories | Deferred |
+| Monthly review | Deferred |
+| Rich Notices inbox | Deferred |
+| General contradiction engine | Deferred |
+| Shared PersonalKnowledgeKit | Evidence required from second app |
 
 ---
 
-## 11. Implementation posture
+## 10. Finds / Jon Universe
 
-The next implementation architecture should be tested against concrete V1 slices rather than generalized agent stories.
+| Capability | Reality |
+|---|---|
+| Find as outbound product concept | V1 |
+| Lightweight Pending Find | V1 |
+| Broad descriptive kind/hints | V1 |
+| One real receiver handoff | V1 |
+| Receiver-owned canonical identity/validation | V1 law |
+| Universal Find schema hierarchy | Rejected |
+| Product/restaurant/wine canonical models in Cockpit | Rejected |
+| Second receiver | Post-V1/evidence |
+| Generic family queue/handoff kit | Evidence required from repeated consumers |
+| New Shopping/Consumption/Cellar app | Wait for orphan Find evidence |
 
-Good proving slices include:
+---
 
-- one real Gmail Today loop,
-- one real Content Interest Area with one or two Streams,
-- one Personal Knowledge storage/synthesis loop,
-- one fuzzy Capture & Enrich flow,
-- one receiver-owned specialist Handoff.
+## 11. Cross-app context
 
-A Stream implementation should be narrow enough to expose the actual ingestion/refresh/persistence seams without prematurely requiring a universal `ContentStreamKit` in `jon-platform`.
+| Capability | Reality |
+|---|---|
+| Small read-only Current Context projection from specialist app | V1 only when needed by a concrete slice |
+| Galavant/current travel context affecting relevance | Strong future/near-V1 candidate |
+| Family-wide context store | Deferred |
+| Shared universal envelope | Deferred |
+| Cross-app canonical entity graph | Rejected |
 
-First use in Cockpit is evidence, not proof of a platform abstraction.
+---
+
+## 12. jon-platform
+
+| Capability | Reality |
+|---|---|
+| House Swift architecture | Adopt |
+| SQLiteData conventions | Adopt |
+| CloudKit / CloudSyncKit | Adopt |
+| Point-Free Dependencies | Adopt |
+| LLMClientKit | Adopt |
+| Semantic-fidelity doctrine | Adopt |
+| Actionable-AI doctrine | Adopt |
+| WebExtractorKit | Only when concrete web workflow earns it |
+| LLMHandoffKit full session/persistence model | Do not adopt current Galavant-shaped form |
+| New ContentStreamKit / PersonalKnowledgeKit / FamilyContextKit / JonLibraryKit | Do not create from first Cockpit use |
+
+---
+
+## 13. Implementation rule
+
+A `Deferred` or `Evidence required` capability must not quietly enter V1 because it looks architecturally elegant.
+
+Promote it only when a real vertical slice demonstrates a concrete requirement, then update `docs/DECISIONS.md` and the relevant focused document.
