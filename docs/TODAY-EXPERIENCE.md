@@ -1,11 +1,11 @@
 # Cockpit Today Experience
 
 **Status:** Working product/interaction decision  
-**Date:** 2026-09-07
+**Date:** 2026-09-08
 
 ## Purpose
 
-This document captures the current design for Cockpit's **Today** surface after working through the real Gmail corpus, the iPad-first product decision, and the distinction between attention/workflow material and leisurely Content.
+This document captures the current design for Cockpit's **Today** surface after working through the real Gmail corpus, the iPad-first product decision, the distinction between attention/workflow material and leisurely Content, and the newer Content Stream / Interest Area model.
 
 It extends:
 
@@ -13,6 +13,8 @@ It extends:
 - `docs/EMAIL-INTELLIGENCE-MODEL.md`
 - `docs/IPAD-FIRST-EXPERIENCE.md`
 - `docs/PERSONAL-KNOWLEDGE-MODEL.md`
+- `docs/CONTENT-EXPERIENCE.md`
+- `docs/CONTENT-STREAM-MODEL.md`
 
 The design is intentionally detailed enough to guide product implementation, but it is not a pixel specification. Exact layout, card dimensions, typography, and iconography remain open to visual design.
 
@@ -26,18 +28,20 @@ Its job is not to reproduce Gmail, an RSS reader, a calendar app, or a task mana
 
 > **What needs my attention today, what especially deserves to register, and what can I safely ignore?**
 
-Today should feel like a personal editorial front page assembled from multiple sources and interpreted through Cockpit's Handling Policies and Personal Knowledge.
+Today should feel like a personal editorial front page assembled from multiple incoming channels and Content Streams, interpreted through Handling and Personal Knowledge.
 
 The most important distinction is:
 
 - **Today** is for orientation, attention, and the best current discoveries.
-- **Content** is for leisurely browsing, reading, watching, enrichment, and revisiting material after the morning triage moment.
+- **Content** is for leisurely browsing, reading, watching, enrichment, and revisiting material after the morning orientation moment.
 
-A newsletter may arrive through Gmail but ultimately belong in Content. A wine offer may arrive through Gmail, disappear as an email, and emerge on Today as a derived Wine Market teaser. Transport does not determine the product surface.
+A newsletter may arrive through Gmail but ultimately belong in Content. A wine offer may arrive through Gmail, disappear as an email, and emerge on Today as a derived Wine Market teaser. A strong Item from an RSS or YouTube Stream may deserve a Today teaser without making Today an RSS or video browser.
 
 ### Product principle
 
 > **Transport determines ingestion and source actions. Intent determines the product surface.**
+
+`Source` remains appropriate for upstream/provider/provenance semantics. Recurring Content inputs are **Streams**.
 
 ---
 
@@ -66,30 +70,38 @@ No streaks, completion scores, or Inbox Zero ceremony are needed.
 
 ## 3. Overall iPad composition
 
-The current mental model is a sparse app sidebar plus a Today workspace.
+The current mental model is a deliberately sparse app shell plus a Today workspace.
 
-The sidebar is expected to begin with very few recurring modes, likely something close to:
+Only two recurring modes have clearly earned primary prominence so far:
 
 ```text
 Today
 Content
-Sources
 ```
 
-The sidebar should deliberately leave room for future capabilities that may earn first-class status, such as Agents, Watches, Tasks, or other genuinely recurring modes once their product value and execution harnesses are real.
+Secondary access should exist for things such as:
+
+- Interest Area / Following / Stream management,
+- You / Personal Knowledge,
+- Settings,
+- future capabilities that eventually earn first-class status.
+
+The exact user-facing name of Stream management remains open. The domain noun is `Stream`; `Following` may prove friendlier in UI.
+
+The sidebar should deliberately leave room for future capabilities such as Agents, Watches, Tasks, or other genuinely recurring modes once their product value and execution harnesses are real.
 
 ### Navigation principle
 
 > **Top-level navigation is for recurring modes of use, not important internal concepts.**
 
-Personal Knowledge is foundational but does not require a permanent top-level `You` destination. It should appear contextually where its judgment matters and remain accessible through a secondary `You`/profile/settings area for periodic review.
+Personal Knowledge is foundational but does not require a permanent top-level `You` destination. Stream management is foundational to Content but does not require a permanent primary destination either.
 
 ### Today workspace
 
 The Today workspace should support:
 
 - an editorial overview,
-- direct selection of modules/finds,
+- direct selection of modules/Finds,
 - a persistent detail/reader area,
 - optional full-screen reading when desired.
 
@@ -101,7 +113,7 @@ A rough structural model is:
 │             │                               │                              │
 │ Today       │ date / context                │ Why this is here             │
 │ Content     │ attention                     │ Cockpit's take               │
-│ Sources     │ worth seeing                  │ original/source material     │
+│             │ worth seeing                  │ original/source material     │
 │             │ market/event teasers          │ actions / commentary         │
 │             │ handled quietly               │                              │
 └─────────────┴───────────────────────────────┴──────────────────────────────┘
@@ -156,7 +168,7 @@ It should prominently surface material that may still deserve human attention, i
 - changed reservations,
 - account/payment problems,
 - tickets or confirmations with consequential changes,
-- source messages Cockpit is not confident it can safely clear.
+- provider messages Cockpit is not confident it can safely clear.
 
 ### Personal
 
@@ -186,13 +198,13 @@ Membership expires soon
 
 The user should understand the real-world consequence without Cockpit manufacturing a parallel task-completion state.
 
-`Clear` still means the upstream source no longer needs Inbox attention. It does not mean the real-world obligation was completed.
+`Clear` still means the upstream provider message no longer needs Inbox attention. It does not mean the real-world obligation was completed.
 
 ---
 
 ## 6. Worth Seeing Today
 
-Today needs a first-class editorial area for discoveries that are neither personal mail nor one of the predefined domain widgets.
+Today needs a first-class editorial area for discoveries that are neither personal mail nor one of the named domain widgets.
 
 This is the place for:
 
@@ -215,7 +227,7 @@ Xcode headless MCP materially changes app-development workflows
 iOS Code Review · strong development match
 ```
 
-The area should contain very few items. It represents Cockpit's strongest editorial judgment, not another queue.
+The area should contain very few Items. It represents Cockpit's strongest editorial judgment, not another queue.
 
 ### Product principle
 
@@ -225,7 +237,7 @@ The area should contain very few items. It represents Cockpit's strongest editor
 
 ## 7. Derived intelligence modules
 
-Today may also show domain-specific intelligence modules generated by processing many source artifacts.
+Today may also show domain-specific intelligence modules generated by processing many upstream Artifacts and/or Streams.
 
 Examples include:
 
@@ -317,7 +329,7 @@ Potential labels include:
 - Worth knowing about
 - Probably your thing
 
-The labels are domain/editorial language, not a universal enum requirement.
+These are domain/editorial language, not a universal enum requirement.
 
 ### Interaction
 
@@ -350,7 +362,7 @@ Music
 
 If a domain has nothing worth saying, it should usually disappear rather than show an empty module.
 
-Some modules may eventually earn more persistent placement through observed utility, but the default design should remain editorial and adaptive.
+Some modules may eventually earn persistent placement through observed utility, but the default should remain editorial and adaptive.
 
 ### Product principle
 
@@ -381,7 +393,7 @@ It exists because Cockpit must be inspectable. It supports moments such as:
 
 > “Wait, why did you skip that Phantom Thread piece?”
 
-The skipped/quiet view can then reveal lightweight reasoning and provide explicit correction opportunities.
+The skipped/quiet view can reveal lightweight reasoning and provide explicit correction opportunities.
 
 Silence about skipped material is not learning evidence.
 
@@ -391,9 +403,7 @@ Explicit disagreement is.
 
 ## 10. Persistent detail / reader behavior
 
-The earlier sketch assumed that selecting a module might take over the full screen. On iPad, the preferred default is instead persistent master-detail behavior.
-
-Selecting a Find should generally preserve Today while opening a contextual detail pane.
+On iPad, the preferred default is persistent master-detail behavior rather than replacing the entire Today surface whenever something is selected.
 
 Example:
 
@@ -408,7 +418,7 @@ Example:
 │  > Anne-Sophie Pic         │ ...                              │
 │  Phantom Thread            │                                  │
 │                            │ ORIGINAL                         │
-│ Wine Market                │ Paris by Mouth source content    │
+│ Wine Market                │ Paris by Mouth source material   │
 │ Events                     │                                  │
 │                            │ Add to Galavant · Keep           │
 │ Handled quietly            │ Not for me · Tell You…           │
@@ -421,11 +431,12 @@ The detail pane may contain:
 - Cockpit's take,
 - original/source material,
 - Keep,
-- Clear where source attention semantics apply,
+- Clear where upstream attention semantics apply,
 - specialist Handoff,
 - Not interested,
-- Tell You…, 
-- source Handling access.
+- Tell You…,
+- Stream Handling access for recurring Content,
+- provider/source-action detail where relevant.
 
 Full-screen reading should remain available as an optional immersive mode, especially for long-form material, but should not be the default navigation model.
 
@@ -444,7 +455,7 @@ Examples:
 - “This restaurant matters because I follow the chef.”
 - “Don't show every Paris bistro opening; I only care if something is genuinely distinctive.”
 
-`Tell You…` should allow natural-language text or dictation without asking the user to classify the input as Fact, Taste, Interest, Handling, or temporary guidance.
+`Tell You…` should allow natural-language text or dictation without asking the user to classify the input as Fact, Taste, Interest, Stream Handling, or temporary guidance.
 
 Cockpit decides how the evidence should be used and distilled, while preserving provenance and allowing correction.
 
@@ -466,7 +477,7 @@ The product should eventually support shortcuts for actions such as:
 - specialist Handoff where a sensible shortcut exists,
 - toggle/enter immersive reading.
 
-Exact key assignments remain open. The important decision is that keyboard/trackpad efficiency is a core interaction requirement rather than an afterthought.
+Exact key assignments remain open. Keyboard/trackpad efficiency is a core interaction requirement rather than an afterthought.
 
 ---
 
@@ -477,7 +488,7 @@ Today should not become the permanent home of everything Cockpit discovers.
 A useful lifecycle is:
 
 ```text
-incoming source material
+incoming provider material / Stream Artifacts
        ↓
 processing / interpretation
        ↓
@@ -486,16 +497,14 @@ Today teaser or attention item when currently important
 Content for ongoing reading/browsing/consumption
 ```
 
-Examples:
-
-### Newsletter
+### Newsletter Stream
 
 ```text
 Kitchen Projects email arrives
        ↓
-ingest + process
+ingest + process according to Stream Handling
        ↓
-archive Gmail according to Handling
+archive Gmail according to upstream source-disposition policy
        ↓
 Today: perhaps one useful technique / issue teaser
        ↓
@@ -505,11 +514,11 @@ Content: issue remains available to read
 ### Wine
 
 ```text
-23 merchant emails
+23 merchant messages
        ↓
 collapse into market intelligence
        ↓
-source email cleared according to Handling
+provider email cleared according to Handling/policy
        ↓
 Today: 1–2 tempting Wine Market teasers
        ↓
@@ -519,7 +528,7 @@ Content/market view: full curated set
 ### Events
 
 ```text
-Ticketmaster / venue feeds
+Ticketing / venue Streams or messages
        ↓
 parse + match
        ↓
@@ -538,7 +547,7 @@ Content/events view: richer browseable set
 
 Today should settle rather than celebrate completion.
 
-If the user has handled the important current material, a calm end state may say something like:
+If the user has handled the important current material, a calm end state may say:
 
 ```text
 You're caught up.
@@ -559,14 +568,14 @@ The iPhone should not attempt to recreate the full Today workspace.
 Its Today experience should emphasize:
 
 - Need Your Attention,
-- the very best Worth Seeing items,
+- the very best Worth Seeing Items,
 - compact market/event teasers,
 - Capture,
 - quick Keep / Not Interested / Clear,
 - lightweight Handoff,
 - optional reading when convenient.
 
-Deep skipped review, rich market comparison, source Handling editing, sustained contextual commentary, and complex browsing can remain primarily iPad experiences.
+Deep skipped review, rich market comparison, Stream Handling editing, sustained contextual commentary, and complex browsing can remain primarily iPad experiences.
 
 Platform asymmetry is intentional.
 
@@ -574,7 +583,7 @@ Platform asymmetry is intentional.
 
 ## 16. Open questions
 
-The following remain deliberately unresolved and should not block moving on to the other primary surfaces.
+The following remain deliberately unresolved and should not block moving on.
 
 ### Naming
 
@@ -597,15 +606,19 @@ Dynamic editorial composition is the default. Usage may prove that specific modu
 
 ### Detail-pane geometry
 
-Need visual prototyping across common iPad widths and window states to determine when the reader appears as a trailing pane, wider replacement region, sheet, or optional full-screen view.
+Need visual prototyping across common iPad widths and window states to determine when the Reader appears as a trailing pane, wider replacement region, sheet, or optional full-screen view.
 
 ### Attention grouping names
 
-`Personal` and `Business` are useful current labels, but exact naming and whether Business should be broadened to `Consequential`, `Needs Attention`, or another concept remain open.
+`Personal` and `Business` are useful current labels, but exact naming and whether Business should become `Consequential`, `Needs Attention`, or another concept remain open.
 
 ### `Handled Quietly` wording
 
 The concept is settled; the final user-facing phrase is not.
+
+### Stream management destination label
+
+Stream is the domain term, but the secondary UI destination may be better named `Following` or something else. This should be resolved in the management sketch rather than by ontology.
 
 ---
 
@@ -617,7 +630,7 @@ A successful ordinary Monday morning should feel roughly like this:
 2. Personal and consequential material is obvious and hard to miss.
 3. Cockpit surfaces perhaps one to three especially interesting discoveries that would otherwise have been buried.
 4. Market/event/domain modules provide concrete teaser Finds rather than generic counts.
-5. The user can understand that substantial source volume was compressed without reviewing it.
+5. The user can understand that substantial upstream/Stream volume was compressed without reviewing it.
 6. Selecting something preserves the Today context while opening a rich explanation/source view.
 7. The user can correct Cockpit at the moment a judgment is wrong.
 8. Quietly handled material remains inspectable without becoming another obligation.
@@ -626,4 +639,4 @@ A successful ordinary Monday morning should feel roughly like this:
 
 ### North-star interaction
 
-> **Cockpit should make it normal for an important or delightful thing buried deep in a noisy source stream to become obvious at exactly the moment Jon is catching up on his world.**
+> **Cockpit should make it normal for an important or delightful thing buried deep in a noisy incoming Stream to become obvious at exactly the moment Jon is catching up on his world.**
