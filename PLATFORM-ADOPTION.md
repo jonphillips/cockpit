@@ -76,7 +76,7 @@ The following are Cockpit product/domain semantics and should begin app-local:
 - Pending Finds;
 - receiver-specific handoff composition;
 - navigation/device composition;
-- Cockpit prompts/structured-output schemas/actions.
+- Cockpit prompts/structured-output schemas/actions, including the judgment prompt and its evaluation fixtures (`docs/JUDGMENT-CONTRACT.md`).
 
 The fact that another app could one day have a concept called “content,” “knowledge,” “handoff,” or “context” is not extraction evidence.
 

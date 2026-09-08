@@ -5,6 +5,8 @@
 
 V1 supports a deliberately simple, human-mediated way to bootstrap Cockpit Personal Knowledge from ChatGPT or another AI system.
 
+This lands in **Phase 1**, before the first Edition is composed. It is the cheapest way to give judgment real taste to work with on day one instead of month two.
+
 This is **not** a direct integration with ChatGPT memory/accounts. Clipboard is the initial transport.
 
 ---

@@ -11,6 +11,8 @@ Cockpit is explicitly not a productivity system, task manager, universal persona
 
 For product semantics see `docs/PRODUCT-MODEL.md`. For cross-cutting ratified decisions see `docs/DECISIONS.md`.
 
+For the concrete schema, Edition state machine, invariants, and definitions of load-bearing words, see `docs/IMPLEMENTATION-CONTRACT.md`. This document states boundaries and reasoning; the contract states shapes. Where a shape appears in both, the contract is authoritative.
+
 ---
 
 ## 2. House architecture
@@ -50,6 +52,18 @@ Cloud synchronization uses SQLiteData + CloudKit and `CloudSyncKit` where synchr
 Potentially large source payloads do not automatically belong in ordinary SQLiteData synchronization. Payload custody and per-device availability are separate responsibilities.
 
 Do not introduce a custom server database, app account system, or synchronization service without a product requirement that cannot reasonably fit the local-first architecture.
+
+The morning Edition is the obvious candidate for that exception and it was considered explicitly. It is rejected for V1, primarily because putting Gmail ingest on a server converts a defensible personal-use exemption for restricted scopes into a plausible annual security-assessment obligation. See `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md` D1.
+
+### Execution model
+
+All ingestion, judgment, and enrichment run on device.
+
+An Edition is composed once per day, at first launch after the day boundary, and is then stable. `BGProcessingTask` is an opportunistic pre-warm and is never relied upon; when it has not run, composition happens in the foreground behind a visible state.
+
+One device is designated as the ingester to avoid duplicated model cost. Correctness does not depend on that designation, because ContentPiece identity is derived (ADR-0001 D3) and concurrent ingest converges rather than duplicating.
+
+Composition cost and latency are recorded on `Edition` and are the evidence that reopens the server question at Gate 1. Budget: under $1.00 and under 60 seconds per composition.
 
 ---
 
@@ -101,14 +115,20 @@ Conceptually:
 
 ```text
 ContentPiece
-    ├── Edition participation/state
+    ├── EditionEntry (participation in a specific Edition)
     ├── Later membership
     └── Library membership
 ```
 
 Removing one membership must not destroy a ContentPiece still required by another membership, provenance, history, or retained Find.
 
-Edition must eventually support admission, Seen, Clear, natural aging/carryover, Essential protection, and resolution through Save for Later. Exact schema/state representation should be learned from the RSS vertical slice rather than fully designed in advance.
+### Edition is a materialized entity
+
+`Edition` and `EditionEntry` are real tables, not a live query over flagged ContentPieces. A computed query cannot deliver morning stability, cannot answer what was seen on a given day, and leaves nowhere durable to record why a piece was surfaced.
+
+`EditionEntry.rationale` is the sanctioned record of a surfacing decision. It satisfies the explanation requirement in `docs/EDITION-EXPERIENCE.md` §7 without opening a general evidence graph, and it gains no query surface beyond its own Edition.
+
+Edition supports admission, Seen, Dismiss, carryover, Essential protection, the Essential backlog relief valve, and resolution through Save for Later. The **states and legal transitions are settled** in `docs/IMPLEMENTATION-CONTRACT.md` §3; the **durations and sizes** — carryover budget, backlog threshold, target size — are tunable and learned from use. Those are different categories and only the second is deferred.
 
 Later and Library are simpler durable memberships.
 
@@ -185,6 +205,12 @@ All model access goes through `LLMClientKit`.
 Model output is not canonical application truth merely because it is plausible.
 
 Use deterministic computation where sufficient. Use AI where fuzzy interpretation/synthesis creates real value.
+
+### Judgment
+
+Judgment — the pass that turns candidate ContentPieces into an Edition — is the highest-variance component in Cockpit and the one the product promise rests on. It has its own contract: `docs/JUDGMENT-CONTRACT.md`, covering invocation, inputs, structured output, prompt, persistence, evaluation harness, and cost budget.
+
+Two rules from it are architectural. Judgment is **batched per composition**, because the model is selecting a finite package against a size target rather than scoring items independently; per-piece scoring followed by a sort produces a ranked feed, which is the product Cockpit is explicitly not. And judgment output is **persisted, not re-derived** — a past Edition explains itself from what was stored.
 
 ---
 
@@ -321,6 +347,7 @@ Make deterministic core behavior cheap to test, especially:
 - custody/local-availability transitions;
 - semantic-fidelity boundaries;
 - model response decoding;
+- judgment evaluation against the frozen fixture set, with false-quiet on Essential material as the metric that matters (`docs/JUDGMENT-CONTRACT.md` §6);
 - Personal Knowledge reconciliation/supersession;
 - Gmail disposition barriers/retries/undo;
 - cross-app handoff boundaries;

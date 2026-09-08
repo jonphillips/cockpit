@@ -129,6 +129,8 @@ Essential is a Stream-level posture. Its binding consequence is:
 
 > **Substantive primary material cannot silently age away from Edition.**
 
+Unresolved Essential material that outlives the daily package moves to a visible Essential backlog rather than either aging out or bloating Edition. See `docs/EDITION-EXPERIENCE.md` §4.
+
 Essential is not an Interest Area and should not leak into the hierarchy as though it were one. A derived “Essentials” filter/group is fine.
 
 ### Cadence and content shape
@@ -212,6 +214,8 @@ Gmail disposition: Archive after safe processing
 ## 7. Automatic Library admission
 
 A Stream may eventually carry an explicit prospective policy to add qualifying future ContentPieces to Library automatically.
+
+A future ContentPiece **qualifies** when it is substantive primary material from the Stream carrying the policy. Nothing else — this is deliberately not a rules language. Both terms are defined in `docs/IMPLEMENTATION-CONTRACT.md` §1.
 
 This is independent of Edition admission.
 

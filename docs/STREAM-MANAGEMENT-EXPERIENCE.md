@@ -225,7 +225,7 @@ Interest Area: Technology & Making
 How Cockpit handles this Stream…
 ```
 
-This should remain secondary to reading actions such as Clear, Later, Library, offline, Tell Cockpit, and Find/handoff.
+This should remain secondary to reading actions such as Dismiss, Later, Library, offline, Tell Cockpit, and Find/handoff.
 
 ---
 

@@ -76,6 +76,8 @@ V1 should not prebuild a generic relationship framework before actual cases requ
 
 Strong deterministic identity should unify obvious duplicates while preserving all provenance. Uncertain identity should remain uncertain rather than be destructively merged.
 
+In practice this is achieved by *derivation* rather than by merging: `ContentPiece.id` is a UUIDv5 over a canonical identity string, so the same item arriving through two Streams — or ingested independently on two devices — lands on one row without any merge operation. See `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md` D3. Merging remains reserved for genuinely uncertain cases, where the conservative posture above still applies.
+
 ---
 
 ## 4. Edition, Later, and Library memberships
@@ -250,11 +252,13 @@ If the user uploads a PDF/document and Cockpit accepts it into Library without a
 
 A summary/pointer is not sufficient.
 
-### Web/RSS textual material
+### Textual material
 
-Cockpit may retain normalized readable substance when it materially improves durability, search, reprocessing, or offline use.
+Cockpit stores `normalizedText` for **every** ContentPiece with textual substance, at ingest, unconditionally, and indexes it.
 
-It should not promise Internet-Archive-style preservation of exact HTML/layout/assets unless a product requirement explicitly needs that fidelity.
+The earlier conditional — retain it "when it materially improves durability, search, or offline use" — was always satisfied for anything Library could hold, since Library search is a V1 requirement. A long article is roughly 30KB. The condition bought nothing and licensed inconsistent implementation.
+
+Cockpit still does not promise Internet-Archive-style preservation of exact HTML, layout, or assets unless a product requirement explicitly needs that fidelity. Text is not a payload; the promise-based custody model below governs payloads.
 
 ### Hosted media
 

@@ -4,15 +4,20 @@ This file is normative guidance for implementation and architecture agents worki
 
 ## Read first
 
-Before changing product/domain architecture or persistence, read:
+Every session, read:
 
-1. `README.md`
-2. `docs/DECISIONS.md`
-3. `ARCHITECTURE.md`
-4. `docs/PRODUCT-MODEL.md`
-5. `docs/V1-SCOPE-AND-SEQUENCING.md`
-6. the focused document for the feature being changed
-7. `PLATFORM-ADOPTION.md` when shared infrastructure is involved
+1. `docs/IMPLEMENTATION-CONTRACT.md` — schema, Edition state machine, invariants, definitions
+2. `docs/V1-SCOPE-AND-SEQUENCING.md` — what phase we are in and what its gate asks
+
+Then, only as the work requires:
+
+3. `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md` when touching persistence, identity, sync, or ingest
+4. `docs/JUDGMENT-CONTRACT.md` when touching relevance, ranking, extraction, or any model call
+5. `docs/DECISIONS.md` when a cross-cutting product decision appears to be in question
+6. the focused essay in `docs/` for the area being changed
+7. `ARCHITECTURE.md` and `PLATFORM-ADOPTION.md` when shared infrastructure or platform boundaries are involved
+
+Do not read the whole corpus before every task. It is roughly 25,000 words and reading it wholesale costs more context than the work. The contract exists so that it does not have to be read.
 
 Documents under `docs/archive/` are historical evidence only. They must not be used to resurrect superseded product language or architecture.
 
@@ -44,6 +49,8 @@ Stable representation of distinct published/received material such as an article
 
 Edition, Later, and Library operate on the same ContentPiece identity.
 
+ContentPiece identity is derived, not random — UUIDv5 over a canonical identity string, so two devices ingesting the same item converge on one row. See `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md` D3.
+
 Do not introduce a universal `Item`/`Thing` to unify ContentPieces with restaurants, products, wines, recipes, events, people, or other domain concepts.
 
 ### Find
@@ -55,7 +62,8 @@ A Pending Find may preserve enough descriptive/provenance/evidence data to survi
 ## Product laws
 
 - Today is orientation/attention.
-- Edition is a finite rolling personalized newspaper, not an infinite feed or unread backlog.
+- Edition is a finite rolling personalized newspaper, not an infinite feed or unread backlog. It is a materialized entity composed once per day, not a live query.
+- Edition's resolution action is `Dismiss`. Today's Gmail attention action is `Clear`. They are different words for different operations.
 - Later is explicit deferred attention; nothing enters automatically and nothing silently expires.
 - Library is durable retained ContentPieces, not a universal knowledge base.
 - Essential is a Stream-level promise that substantive primary material cannot silently age away.
@@ -156,9 +164,11 @@ known URL
 → Stream
 → Artifact
 → ContentPiece
+→ Personal Knowledge + Jon Brain import
+→ judgment
 → Edition
 → Reader
-→ Later / Library
+→ Later / Library / Pending Finds
 → Offline
 ```
 

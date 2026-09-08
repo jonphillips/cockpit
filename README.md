@@ -19,7 +19,7 @@ Settings
 ```
 
 - **Today** — what happened, what deserves attention, and what especially should register.
-- **Edition** — a finite rolling personalized newspaper assembled from followed Streams.
+- **Edition** — a finite rolling personalized newspaper assembled from followed Streams, materialized once per day.
 - **Later** — explicit deferred attention; nothing enters automatically and nothing silently expires.
 - **Library** — durable retained **ContentPieces** for reference, retrieval, and enrichment.
 - **Settings** — Following, Interest Areas, Personal Knowledge / You, integrations, and app settings.
@@ -48,16 +48,27 @@ The live repository documentation describes the current system. Older design gen
 When live documents appear to conflict, use this precedence:
 
 1. `docs/DECISIONS.md` — ratified cross-cutting decisions and explicit deferrals.
-2. `ARCHITECTURE.md` — software boundaries and architectural invariants.
-3. `docs/PRODUCT-MODEL.md` — product responsibilities and vocabulary.
-4. `docs/V1-SCOPE-AND-SEQUENCING.md` — what V1 actually builds and in what order.
-5. Focused live documents in `docs/` — detailed behavior for their named area.
-6. `PLATFORM-ADOPTION.md` — relationship to `jon-platform`.
-7. Archive material — historical context only.
+2. `docs/IMPLEMENTATION-CONTRACT.md` — schema, state machines, invariants, and the definitions of load-bearing words.
+3. `ARCHITECTURE.md` — software boundaries and architectural invariants.
+4. `docs/PRODUCT-MODEL.md` — product responsibilities and vocabulary.
+5. `docs/V1-SCOPE-AND-SEQUENCING.md` — what V1 actually builds and in what order.
+6. Focused live documents in `docs/` — detailed behavior for their named area.
+7. `PLATFORM-ADOPTION.md` — relationship to `jon-platform`.
+8. Archive material — historical context only.
+
+Where `docs/DECISIONS.md` states product intent and `docs/IMPLEMENTATION-CONTRACT.md` states a shape, they are answering different questions and do not conflict. If they do conflict, the ledger wins on intent and the contract wins on shape; correct whichever is wrong in the same change.
 
 A later, more specific live document may refine an earlier broad statement, but it must not silently redefine a cross-cutting decision. If a real conflict is discovered, update the decision ledger and the affected documents together.
 
 ## Live document map
+
+### Implementation
+
+These three are the documents implementation agents work from. The essays below them are product reasoning, consulted by name when their area is being changed.
+
+- [`docs/IMPLEMENTATION-CONTRACT.md`](docs/IMPLEMENTATION-CONTRACT.md) — the compact contract: schema, Edition state machine, invariants, and definitions of `Subjects`, `substantive primary material`, `qualifying`, and `judgment`. Read every session.
+- [`docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md`](docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md) — Phase 0 ADR: execution model, ingest ownership, derived identity, CloudKit posture, Gmail authorization spike.
+- [`docs/JUDGMENT-CONTRACT.md`](docs/JUDGMENT-CONTRACT.md) — how ContentPieces become an Edition: invocation, inputs, structured output, prompt, evaluation harness, cost budget.
 
 ### Product and architecture
 
@@ -107,11 +118,15 @@ known URL
 → Stream
 → Artifact
 → ContentPiece
+→ Personal Knowledge (incl. Jon Brain import)
+→ judgment
 → Edition
 → Reader
-→ Later / Library
+→ Later / Library / Pending Finds
 → offline availability
 ```
+
+Personal Knowledge and Find extraction are inside the first slice, not after it. Judgment built against no preferences is judgment that has to be rebuilt, and Finds are what distinguish Cockpit from a feed reader — the orphan-Find population should start accumulating from day one.
 
 Then stop and review the architecture before adding Gmail. See `docs/V1-SCOPE-AND-SEQUENCING.md`.
 

@@ -11,6 +11,8 @@ It answers:
 
 Today is not a task dashboard and not a second email inbox.
 
+Today's substance depends on Gmail, which lands in Phase 3. Until then Today should carry the day's Edition summary and Essential backlog status rather than sit empty — the shell is being lived in from Phase 1 and a dead primary destination teaches the wrong thing about the app.
+
 ---
 
 ## 1. Morning orientation
@@ -102,7 +104,7 @@ Provider disposition is independently:
 - Archive;
 - Trash.
 
-`Clear` in Edition is a different operation and must be implementation-distinct.
+Edition's equivalent action is called `Dismiss`. Different words for different operations, so no shared command and no ambiguity.
 
 Examples:
 
