@@ -25,7 +25,7 @@ state; this ledger is the at-a-glance summary.
 
 - [x] **S1 — Persistence spine** · [#2](https://github.com/jonphillips/cockpit/pull/2) · merged
 - [x] **S2 — Later and Library, normalized-text custody, CloudKit sync** · [#6](https://github.com/jonphillips/cockpit/pull/6) · merged
-- [ ] **S3 — Add Stream, live acquisition, and abnormal health**
+- [x] **S3 — Add Stream, live acquisition, and abnormal health**
 - [ ] **S4 — Judgment fixture set, harvested from history**
 
 ---

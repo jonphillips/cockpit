@@ -151,6 +151,7 @@ enum CockpitMigrations {
       ).execute(db)
     }
     registerDestinations(in: &migrator)
+    registerLiveStreams(in: &migrator)
     return migrator
   }
 }

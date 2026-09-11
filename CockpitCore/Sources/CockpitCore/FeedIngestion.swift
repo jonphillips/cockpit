@@ -2,25 +2,6 @@ import Dependencies
 import Foundation
 import SQLiteData
 
-public struct FeedClient: Sendable {
-  public var load: @Sendable (URL) async throws -> Data
-
-  public init(load: @escaping @Sendable (URL) async throws -> Data) {
-    self.load = load
-  }
-
-  public static let live = Self { url in
-    let (data, response) = try await URLSession.shared.data(from: url)
-    guard let response = response as? HTTPURLResponse else {
-      throw FeedDiscoveryError.invalidResponse(url)
-    }
-    guard (200..<300).contains(response.statusCode) else {
-      throw FeedDiscoveryError.unsuccessfulResponse(url, response.statusCode)
-    }
-    return data
-  }
-}
-
 public enum FeedDiscoveryError: Error, Equatable, Sendable {
   case invalidURL(String)
   case invalidResponse(URL)
@@ -90,7 +71,7 @@ public struct FeedIngestor {
     do {
       discovery = try await FeedDiscovery.discover(from: streamURL, using: client)
     } catch {
-      await markFailed(stream: stream, in: database)
+      await markFailed(stream: stream, error: error, in: database)
       throw error
     }
     let acquiredAt = now()
@@ -115,20 +96,27 @@ public struct FeedIngestor {
           .update {
             $0.lastReceivedAt = #bind(acquiredAt)
             $0.health = #bind(StreamHealth.healthy)
+            $0.consecutiveFailureCount = #bind(0)
+            $0.lastFailureDescription = #bind(nil)
           }
           .execute(db)
         return pieces
       }
     } catch {
-      await markFailed(stream: stream, in: database)
+      await markFailed(stream: stream, error: error, in: database)
       throw error
     }
   }
 
-  private func markFailed(stream: Stream, in database: any DatabaseWriter) async {
+  private func markFailed(stream: Stream, error: any Error, in database: any DatabaseWriter) async {
+    let description = String(reflecting: error)
     try? await database.write { db in
       try Stream.find(stream.id)
-        .update { $0.health = #bind(StreamHealth.failed) }
+        .update {
+          $0.health = #bind(StreamHealth.failed)
+          $0.consecutiveFailureCount = $0.consecutiveFailureCount + 1
+          $0.lastFailureDescription = #bind(description)
+        }
         .execute(db)
     }
   }

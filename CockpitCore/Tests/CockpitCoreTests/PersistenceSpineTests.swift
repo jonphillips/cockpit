@@ -282,10 +282,12 @@ struct PersistenceSpineTests {
     await #expect(throws: FeedDiscoveryError.self) {
       try await ingestor.ingest(stream: stream, into: database)
     }
-    let health = try await database.read { db in
-      try CockpitCore.Stream.find(stream.id).fetchOne(db)?.health
+    let failedStream = try await database.read { db in
+      try CockpitCore.Stream.find(stream.id).fetchOne(db)
     }
-    expectNoDifference(health, .failed)
+    expectNoDifference(failedStream?.health, .failed)
+    expectNoDifference(failedStream?.consecutiveFailureCount, 1)
+    #expect(failedStream?.lastFailureDescription?.contains("noAlternateFeed") == true)
   }
 
   private func insert(stream: CockpitCore.Stream) async throws {

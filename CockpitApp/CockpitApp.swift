@@ -18,10 +18,19 @@ struct CockpitApp: App {
 
   var body: some Scene {
     WindowGroup {
-      ContentPieceListView()
+      CockpitRootView()
         .onOpenURL { url in
           _ = GIDSignIn.sharedInstance.handle(url)
         }
     }
+  }
+}
+
+private struct CockpitRootView: View {
+  @State private var followingModel = FollowingModel()
+
+  var body: some View {
+    ContentPieceListView(followingModel: followingModel)
+      .task { await followingModel.acquireOnLaunchOrRefresh() }
   }
 }

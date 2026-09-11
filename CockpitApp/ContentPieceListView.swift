@@ -2,6 +2,7 @@ import CockpitCore
 import SwiftUI
 
 struct ContentPieceListView: View {
+  let followingModel: FollowingModel
   @State private var model = ContentPieceListModel()
   @State private var gmailAuthorizationProbe = GmailAuthorizationProbe()
   @State private var isPresentingGmailAuthorizationProbe = false
@@ -32,7 +33,12 @@ struct ContentPieceListView: View {
       }
       .navigationTitle(model.destination == .all ? "Content Pieces" : model.destination.rawValue)
       .toolbar {
-        ToolbarItem(placement: .topBarTrailing) {
+        ToolbarItemGroup(placement: .topBarTrailing) {
+          NavigationLink {
+            FollowingView(model: followingModel)
+          } label: {
+            Label("Following", systemImage: "dot.radiowaves.left.and.right")
+          }
           Button("Gmail authorization probe", systemImage: "envelope.badge") {
             isPresentingGmailAuthorizationProbe = true
           }

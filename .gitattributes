@@ -1,0 +1,2 @@
+# Captured upstream feed bytes are test evidence, including the publisher's original whitespace.
+CockpitCore/Tests/CockpitCoreTests/Fixtures/streams/*.xml -whitespace
