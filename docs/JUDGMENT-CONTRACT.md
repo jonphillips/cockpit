@@ -29,7 +29,7 @@ If the candidate set exceeds roughly 120 pieces, split into batches by Interest 
 
 ## 2. Inputs
 
-**Per candidate:** id, kind, title, creator, publisher, publishedAt, first ~1500 characters of `normalizedText`, Stream name, Stream `handling`, Stream `isEssential`, Interest Area name and guidance, and — for carried entries — how many times carried and current `entryState`.
+**Per candidate:** id, kind, title, creator, publisher, publishedAt, first ~1500 characters of `normalizedText`, Stream name, Stream `handling` and `handlingGuidance`, Stream `isEssential`, Interest Area name and guidance, and — for carried entries — how many times carried and current `entryState`.
 
 **Personal Knowledge projection:** the full set of current claims rendered as labelled prose, grouped Fact / Taste / Interest. Full set until the claim count exceeds 150; past that, retrieve a relevant subset by subject overlap and record which claims were included. This threshold is a guess and is measured at Gate 2.
 
@@ -95,7 +95,8 @@ Current situation:
   {current context projections}
 
 Streams and why he follows them:
-  {stream name, handling, essential, interest area, guidance}
+  {stream name, handling, stream handlingGuidance, essential,
+   interest area name, interest area guidance}
 
 Candidates:
   {candidates}
@@ -123,6 +124,8 @@ Re-judgment happens only on explicit user action ("reconsider this"), on a promp
 This exists from Phase 1. It is the highest-leverage artifact in the project and the mechanism by which improving models are actually cashed in.
 
 **Fixture set.** 200 real ContentPieces drawn from Jon's actual Streams across at least two weeks, frozen in `Tests/Fixtures/judgment/`. Real material, not synthetic.
+
+"Across at least two weeks" constrains the **span of the corpus, not when it is collected**. Harvesting two weeks of history is not a weaker substitute for waiting two weeks; it is the better source, because history already carries evidence of what Jon did with each item. Nothing about this fixture set is gated on the calendar. This paragraph exists because the original sentence was once read as a schedule and produced a fourteen-day gate that should never have existed.
 
 **Labels.** Jon labels each `surface` / `quiet` / `never`, plus `isSubstantivePrimary`. Single-user ground truth is a genuine structural advantage here: no product company can get this.
 

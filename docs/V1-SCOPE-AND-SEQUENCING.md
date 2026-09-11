@@ -192,7 +192,7 @@ Before feature work hardens persistence:
 1. Write `docs/IMPLEMENTATION-CONTRACT.md` — schema, Edition state machine, invariants, and definitions of `Subjects`, `substantive primary material`, `qualifying`, and `judgment`. **Done.**
 2. Write `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md` — execution model, ingest ownership, derived identity, normalized-text rule, CloudKit posture. **Done.**
 3. Write `docs/JUDGMENT-CONTRACT.md` and freeze the evaluation fixture set. **Contract done; fixtures pending real Streams.**
-4. **Run the Gmail authorization spike** (ADR-0001 D7). One day. Create the OAuth client for `gmail.modify`, publish unverified under the personal-use exemption, obtain a refresh token, and check on day 8 whether it survives. Unverified apps expire tokens after seven days and the exemption's behaviour in production is reported inconsistently. If it fails, evaluate IMAP as the transport before Today is designed around the Gmail API.
+4. **Run the Gmail authorization spike** (ADR-0001 D7). One day. Create the OAuth client for `gmail.modify`, publish unverified under the personal-use exemption, and obtain a refresh token. **Done 2026-09-11.** Token longevity needs no dedicated check: the seven-day expiry belongs to Testing status, and a published client's refresh tokens do not expire on a timer. The first slice that reads mail confirms it in passing. If it does fail, evaluate IMAP as the transport before Today is designed around the Gmail API.
 
 Do not attempt the final schema for every future source. Do settle identity, execution, and provider viability, because those are the decisions that are expensive to reverse.
 
