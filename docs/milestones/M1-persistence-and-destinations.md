@@ -26,7 +26,7 @@ state; this ledger is the at-a-glance summary.
 - [x] **S1 — Persistence spine** · [#2](https://github.com/jonphillips/cockpit/pull/2) · merged
 - [ ] **S2 — Later and Library, normalized-text custody, CloudKit sync**
 - [ ] **S3 — Add Stream, live acquisition, and abnormal health**
-- [ ] **S4 — Judgment fixture freeze** *(gated on wall clock, not on S3 review)*
+- [ ] **S4 — Judgment fixture set, harvested from history**
 
 ---
 
@@ -193,17 +193,18 @@ on device today cannot acquire a single ContentPiece — the inspection list has
 in the only place that matters. S3 is not "add more Streams." It is the first time the engine runs
 outside a test.
 
-### The clock this slice starts
+### Why this is separate from the fixture set
 
 `docs/JUDGMENT-CONTRACT.md` §6 requires the eval fixture set to be 200 real ContentPieces "drawn
-from Jon's actual Streams across at least two weeks." That is wall-clock time, not work. M2 cannot
-tune judgment until the fixtures exist, the fixtures cannot exist until real Streams have been
-accumulating for a fortnight, and no amount of engineering shortens the wait.
+from Jon's actual Streams across at least two weeks." That constrains the **span of the corpus,
+not when it is collected** — history satisfies it exactly as well as the future does, and better,
+because history already carries evidence of what Jon did with each item. S4 harvests backwards.
+Nothing waits.
 
-So S3's real deliverable is **starting that accumulation and not losing any of it**. Everything
-else in the slice serves that, and that is why fixture capture is S4's job rather than this one's:
-capture is a half-day of work that cannot begin for two weeks. Shipping S3 sooner is worth more
-than shipping it complete.
+What S3 still owns is accumulation from here on, and not losing it. A feed's backfill is shallow —
+most publish between ten and fifty recent items — so the first poll of five Streams is itself a
+partial backfill, and everything after it is content that exists nowhere else once it scrolls out.
+That is why done-criterion 6 is the load-bearing one.
 
 ### Scope
 
@@ -215,6 +216,23 @@ one would leak in.
 
 Interest Areas are assignable and creatable by name from this flow, because zero exist today and a
 Stream with no Interest Area cannot be judged later.
+
+**Seed the five Streams from work already done.** `docs/archive/2026-09-08-pre-normalization/EMAIL-INTELLIGENCE-MODEL.md`
+§11 holds **fifty hand-written Handling drafts** in Jon's own voice, inferred from a real one-week
+Gmail corpus. Many name publications with public feeds — Slow Boring, Astral Codex Ten, Noahpinion,
+Techmeme, Derek Thompson, Benedict Evans, Point-Free. Choose the five from that list and lift their
+Handling text rather than inventing intent.
+
+`AGENTS.md` bars archived documents from resurrecting *superseded product language or
+architecture*. It calls them historical evidence, which is what this is: corpus-derived data about
+what Jon follows and why. Using it as data is in bounds; copying superseded architecture out of the
+same file is not. The drafts were written before the Dismiss/Clear correction in contract §4, so
+read the vocabulary before pasting it.
+
+The normalization pass that created the live `docs/EMAIL-INTELLIGENCE-MODEL.md` dropped all fifty.
+That was a mistake of category rather than judgment — they are seed data, not prose, and an essay
+was the wrong home. Rehome them as part of this slice, in whatever form Add Stream actually
+consumes.
 
 **Acquisition actually runs.** Poll every active Stream on app launch, and on an explicit
 pull-to-refresh. Foreground only. **No `BGProcessingTask`** — D1 introduces it as an opportunistic
@@ -284,34 +302,85 @@ Stream cadence inference. The auto-Library policy. Fixture export, which is S4.
 
 ---
 
-## S4 — Judgment fixture freeze *(gated on wall clock)*
+## S4 — Judgment fixture set, harvested from history
 
-**Branch:** `m1/s4-fixture-freeze` · **PR title:** `M1 · S4 — Fixture freeze`
+**Branch:** `m1/s4-fixture-set` · **PR title:** `M1 · S4 — Fixture set`
 
-**Cannot start until S3 has been accumulating for at least 14 days and the database holds at least
-200 ContentPieces.** This gate is calendar time. If the count is short at 14 days, the honest
-finding is that five Streams are too few for the volume `docs/JUDGMENT-CONTRACT.md` §7 assumes,
-and that is itself the result — report it rather than padding the set with synthetic material.
+**Gated on data, not on the calendar.** §6's "across at least two weeks" describes the span of the
+corpus. Two weeks of Jon's Gmail already exists, and so does the record of what he did with every
+message in it. There is nothing to wait for.
+
+### What history gives that the future does not
+
+Gmail retains disposition. For any message in the last fortnight it is possible to ask whether it
+is still in the inbox, was archived, or was trashed, and whether it was ever read. That is evidence
+about real decisions Jon already made, on material he actually received — and it is *free*, where
+the equivalent from live accumulation would be two weeks of waiting followed by the same labelling
+pass.
+
+### The line this slice must not cross
+
+Disposition is a **prior on the label, never a label and never a judgment input.**
+
+The mapping is suggestive and nowhere near exact. Trashed is close to certain `never`. Archived and
+read reads as `surface`; archived and unread reads as `quiet` — but archiving is also how a busy
+person clears a screen, and a message still sitting in the inbox after two weeks may be important
+or may be inbox rot. Only Jon can settle those, and §6's ground truth is his label, not his
+behaviour.
+
+So: seed each fixture's label from disposition, have Jon confirm or correct it, and store **only
+the confirmed label**. Where his correction disagrees with the prior, that disagreement is the most
+interesting row in the set — it is a case where what he did and what he meant came apart, which is
+the thing a personal editor exists to fix. Record the prior alongside the label so those rows stay
+findable.
+
+And the hard boundary: `docs/JUDGMENT-CONTRACT.md` §2 forbids judgment from receiving clickstream
+or open history, and Product Law 12 keeps behaviour out of Personal Knowledge. Disposition may
+**seed an eval label for confirmation**. It may never enter the judgment prompt, be written to a
+`PersonalKnowledgeClaim`, or reach composition. This is exactly the seam where behavioural data
+launders itself into ranking, and it is being opened deliberately, once, for a labelling
+convenience.
 
 ### Scope
 
-**Export.** A deterministic export from the live database into `Tests/Fixtures/judgment/` — real
-ContentPieces carrying exactly the fields §2 names as judgment inputs, and nothing else. Committed,
-frozen, and re-runnable without re-fetching anything.
+**Harvest.** A one-time read-only pull of the last two weeks of Gmail, capturing each message's
+content plus its disposition and read state. It reuses the OAuth the D7 probe already established.
 
-**Label format.** A stable file Jon fills in: `surface` / `quiet` / `never` plus
-`isSubstantivePrimary` per piece, keyed by ContentPiece ID so a re-export does not orphan the
-labels.
+It is a **development tool, not app code** — a test or tool target, run once, never shipped and
+never on a launch path. Gmail ingest remains out of M1. This is a data-acquisition script that
+happens to speak to Gmail, and the distinction has to survive contact with the keyboard: nothing it
+produces may be imported by `CockpitApp` or `CockpitCore`.
+
+**Top up from RSS.** S3's first polls carry whatever backfill the five feeds publish. Use it. If
+Gmail plus feed backfill still falls short of 200, say so plainly rather than padding with
+synthetic material — a short set is a real finding about corpus volume against §7's assumptions.
+
+**Export.** Deterministic, into `Tests/Fixtures/judgment/`. Real ContentPieces carrying exactly the
+fields §2 names as judgment inputs, and nothing else. Frozen, committed, and re-runnable without
+re-fetching.
+
+**Label file.** Keyed by ContentPiece ID so a re-export does not orphan the labels. Carries the
+confirmed label, `isSubstantivePrimary`, and the disposition prior that seeded it.
 
 **Harness skeleton.** `swift test --filter JudgmentEval` reads fixtures and labels and reports the
 six metrics §6 names, over a **stubbed** judge. M1 contains no model calls; M2 plugs the real call
-into a harness that already computes the numbers. False-quiet rate on Essential material is the
-metric that matters and should be the one that is hardest to misread in the output.
+into a harness that already computes numbers. False-quiet rate on Essential material is the metric
+that matters and should be the hardest one to misread in the output.
+
+### Hazards specific to this slice
+
+**The harvest is the largest single scope risk in M1.** If the Gmail work turns out to be more than
+a script — pagination, MIME bodies, threading — stop and split it rather than absorbing it. A slice
+that quietly becomes Gmail ingest has broken the milestone's one firm boundary.
+
+**Two weeks of Gmail is personal mail, not just newsletters.** The harvest is scoped to editorial
+material; correspondence, transactional, and account mail are not fixtures and should not be
+written to disk. `docs/EMAIL-INTELLIGENCE-MODEL.md` §7 and §9 draw that line.
 
 ### Out of scope
 
-The judgment prompt, any model call, `docs/eval-log.md` entries (there is nothing to log until a
-model runs), and Edition composition.
+The judgment prompt, any model call, Gmail disposition writes of any kind, Today, the attention
+model, `docs/eval-log.md` entries (nothing to log until a model runs), and Edition composition.
 
 ---
 
@@ -358,9 +427,10 @@ Not a device pass, but the same shape: work only Jon can do, gating the slice af
 measured against, and single-user ground truth is the structural advantage no product company can
 buy — which also means nobody else can produce it.
 
-Budget it honestly: 200 pieces at even ten seconds each is over half an hour of uninterrupted
-attention, and the pieces that are hard to call are the ones that matter most. M2's first slice
-does not start until the labels exist.
+S4 seeds every label from Gmail disposition first, so this is a pass of confirmation and
+correction rather than 200 cold judgments. Budget it honestly anyway — the rows where the seed is
+wrong are exactly the rows that carry the most information, and they are the ones that will take
+real thought. M2's first slice does not start until the labels exist.
 
 ---
 
@@ -392,6 +462,16 @@ the behaviour behind it.
 ---
 
 ## Amendments
+
+**2026-09-11 — The fixture set is harvested from history, not awaited.** S4 was first written with
+a fourteen-day calendar gate, on the reading that §6's "across at least two weeks" described when
+fixtures could be collected. It describes the **span of the corpus**. Jon raised it: two weeks of
+his Gmail already exists, and so does the record of what he did with every message — still in the
+inbox, archived, trashed, read or not. History is strictly better than waiting, because it arrives
+already carrying evidence of real decisions. The gate is now data availability, and S4 can start as
+soon as S3 lands. The same correction surfaced fifty corpus-derived Handling drafts sitting unused
+in the archive, which now seed S3's five Streams. Recorded because the error is a general one: a
+constraint on a property of the data was read as a constraint on the schedule.
 
 **2026-09-11 — S3 firmed up and split; S4 added.** The provisional S3 bundled a feature with a
 data deliverable that cannot begin for a fortnight: `docs/JUDGMENT-CONTRACT.md` §6 requires
