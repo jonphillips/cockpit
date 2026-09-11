@@ -134,7 +134,6 @@ public struct ContentPiece: Codable, Equatable, Identifiable, Sendable {
   public var publishedAt: Date?
   public var canonicalURL: String?
   public var summary: String?
-  public var normalizedText: String?
   public var subjects: String?
   public var isSubstantivePrimary: Bool?
   public var createdAt: Date
@@ -148,7 +147,6 @@ public struct ContentPiece: Codable, Equatable, Identifiable, Sendable {
     publishedAt: Date? = nil,
     canonicalURL: String? = nil,
     summary: String? = nil,
-    normalizedText: String? = nil,
     subjects: String? = nil,
     isSubstantivePrimary: Bool? = nil,
     createdAt: Date
@@ -161,7 +159,6 @@ public struct ContentPiece: Codable, Equatable, Identifiable, Sendable {
     self.publishedAt = publishedAt
     self.canonicalURL = canonicalURL
     self.summary = summary
-    self.normalizedText = normalizedText
     self.subjects = subjects
     self.isSubstantivePrimary = isSubstantivePrimary
     self.createdAt = createdAt

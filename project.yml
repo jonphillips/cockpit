@@ -54,6 +54,7 @@ targets:
               - com.googleusercontent.apps.305782585157-80plee5p6augqkg5l5ps60bft7fe8r29
         GIDClientID: 305782585157-80plee5p6augqkg5l5ps60bft7fe8r29.apps.googleusercontent.com
         UILaunchScreen: {}
+        UIBackgroundModes: [remote-notification]
     dependencies:
       - package: CockpitCore
         product: CockpitCore

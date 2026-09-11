@@ -29,7 +29,6 @@ struct PersistenceSpineTests {
             kind: .article,
             title: "A piece",
             publisher: "Publisher",
-            normalizedText: "A piece",
             createdAt: createdAt
           )
         )
@@ -141,7 +140,10 @@ struct PersistenceSpineTests {
 
     let pieces = try await ingestor.ingest(stream: stream, into: database)
 
-    expectNoDifference(pieces.map(\.normalizedText), ["Readable body."])
+    let text = try await database.read { db in
+      try NormalizedTextOperations.text(for: pieces[0].id, in: db)
+    }
+    expectNoDifference(text, "Readable body.")
   }
 
   @Test("Ingest preserves judgment and prior normalized text when a later poll has no body")
@@ -186,7 +188,10 @@ struct PersistenceSpineTests {
     expectNoDifference(piece.summary, "Judged summary")
     expectNoDifference(piece.subjects, "[\"swift\"]")
     expectNoDifference(piece.isSubstantivePrimary, true)
-    expectNoDifference(piece.normalizedText, "Readable body")
+    let text = try await database.read { db in
+      try NormalizedTextOperations.text(for: piece.id, in: db)
+    }
+    expectNoDifference(text, "Readable body")
   }
 
   @Test("Identity convergence: repeat and cross-Stream ingest create one ContentPiece")
@@ -281,13 +286,6 @@ struct PersistenceSpineTests {
       try CockpitCore.Stream.find(stream.id).fetchOne(db)?.health
     }
     expectNoDifference(health, .failed)
-  }
-
-  @Test("D6 prevents inline ContentPiece text from entering CloudKit sync")
-  func cloudSyncIsBlockedUntilLibraryTextIsChildBacked() {
-    #expect(throws: CockpitCloudSyncError.self) {
-      try CockpitCloudSync.makeSyncEngine(for: database, startImmediately: false)
-    }
   }
 
   private func insert(stream: CockpitCore.Stream) async throws {

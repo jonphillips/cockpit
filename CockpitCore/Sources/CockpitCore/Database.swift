@@ -4,26 +4,6 @@ import Dependencies
 import Foundation
 import SQLiteData
 
-public enum CockpitCloudSync {
-  public static let configuration = CloudSyncConfiguration(
-    containerIdentifier: "iCloud.com.jonphillips.cockpit",
-    enabledDefaultsKey: "CockpitCloudKitSyncEnabled",
-    enabledEnvironmentKey: "COCKPIT_CLOUDKIT_SYNC_ENABLED",
-    enabledLaunchArgument: "-CockpitCloudKitSyncEnabled"
-  )
-
-  public static func makeSyncEngine(
-    for database: any DatabaseWriter,
-    startImmediately: Bool
-  ) throws -> SyncEngine {
-    throw CockpitCloudSyncError.normalizedTextRequiresLibraryChildRecord
-  }
-}
-
-public enum CockpitCloudSyncError: Error, Equatable, Sendable {
-  case normalizedTextRequiresLibraryChildRecord
-}
-
 public enum CockpitStorage {
   public static func liveDatabasePath() -> String {
     let directory = URL.applicationSupportDirectory.appending(
@@ -39,8 +19,8 @@ extension DependencyValues {
     @Dependency(\.context) var context
     var configuration = Configuration()
     configuration.prepareDatabase { db in
-      guard context == .live else { return }
-      try? db.attachMetadatabase(containerIdentifier: CockpitCloudSync.configuration.containerIdentifier)
+      db.add(function: SyncEngine.$isSynchronizing)
+      try db.attachMetadatabase(containerIdentifier: CockpitCloudSync.configuration.containerIdentifier)
     }
     let database: any DatabaseWriter = if context == .live {
       try SQLiteData.defaultDatabase(
@@ -49,6 +29,14 @@ extension DependencyValues {
     } else {
       try SQLiteData.defaultDatabase(configuration: configuration)
     }
+    try CockpitMigrations.makeMigrator().migrate(database)
+    defaultDatabase = database
+    defaultSyncEngine = try CockpitCloudSync.makeSyncEngine(for: database)
+  }
+}
+
+enum CockpitMigrations {
+  static func makeMigrator() -> DatabaseMigrator {
     var migrator = DatabaseMigrator()
     migrator.registerMigration("Create persistence spine tables") { db in
       try #sql(
@@ -162,7 +150,7 @@ extension DependencyValues {
         """
       ).execute(db)
     }
-    try migrator.migrate(database)
-    defaultDatabase = database
+    registerDestinations(in: &migrator)
+    return migrator
   }
 }
