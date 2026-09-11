@@ -25,7 +25,8 @@ state; this ledger is the at-a-glance summary.
 
 - [x] **S1 — Persistence spine** · [#2](https://github.com/jonphillips/cockpit/pull/2) · merged
 - [ ] **S2 — Later and Library, normalized-text custody, CloudKit sync**
-- [ ] **S3 — Live Streams and judgment fixture capture** *(provisional; firms up when S2 lands)*
+- [ ] **S3 — Add Stream, live acquisition, and abnormal health**
+- [ ] **S4 — Judgment fixture freeze** *(gated on wall clock, not on S3 review)*
 
 ---
 
@@ -44,6 +45,14 @@ test that asserted the bug *was* the correct behaviour. Write adversarial fixtur
 real database for anything you assert. If you state a fact about git, the toolchain, or an API,
 check it first — an S1 report claimed a branch name was impossible because of a ref that did not
 exist.
+
+**Read the dependency, not its name.** Both S2 defects were the same failure: our code against
+what the package actually does. A `SET NULL` foreign key was used as a semantic signal, unaware
+that SQLiteData fires the identical statement as CloudKit error recovery; and a sync enablement
+gate was declared and then never consulted, against CloudSyncKit's own doc comment saying to
+construct the engine stopped. Neither was a Swift problem and neither was catchable by a test that
+did not know to look. When you rely on a package's behaviour, read its source and cite the line in
+the PR. `.build/checkouts/` is right there.
 
 **Constants carry a rationale.** Derive a threshold from the constraint it comes from and show
 the derivation, or say plainly that you have no honest basis for the value. Surface any
@@ -165,15 +174,144 @@ the policy does not. Live Stream capture (that is S3). Anything Gmail.
 
 ---
 
-## S3 — Live Streams and judgment fixture capture *(provisional)*
+## S3 — Add Stream, live acquisition, and abnormal health
 
-Firms up when S2 lands. Expected shape: the Add Stream operation (paste a human-facing URL,
-autodiscovery, proposed publisher and Interest Area), five real Streams rather than fixtures,
-basic abnormal health surfacing, and capture of the frozen fixture set that
-`docs/JUDGMENT-CONTRACT.md` needs before M2 can tune judgment.
+**Branch:** `m1/s3-live-streams` · **PR title:** `M1 · S3 — Live Streams`
 
-S1 could not do this because the identity namespace was unresolved. It is now fixed in ADR-0001
-D3, so the blocker is gone.
+### Read first
+
+`AGENTS.md`; `docs/IMPLEMENTATION-CONTRACT.md` §2; `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md`
+D1, D2, D3; `docs/CONTENT-STREAM-MODEL.md` (Health); `docs/STREAM-MANAGEMENT-EXPERIENCE.md`;
+`docs/V1-SCOPE-AND-SEQUENCING.md` §1 Following/Streams; `docs/JUDGMENT-CONTRACT.md` §6;
+`docs/handoff-2-report.md`.
+
+### This slice is larger than its name
+
+Nothing in the shipping app has ever called `FeedIngestor.ingest`. S1 built the acquisition
+engine and tested it thoroughly; it was never wired to a launch, a button, or a schedule. Cockpit
+on device today cannot acquire a single ContentPiece — the inspection list has always been empty
+in the only place that matters. S3 is not "add more Streams." It is the first time the engine runs
+outside a test.
+
+### The clock this slice starts
+
+`docs/JUDGMENT-CONTRACT.md` §6 requires the eval fixture set to be 200 real ContentPieces "drawn
+from Jon's actual Streams across at least two weeks." That is wall-clock time, not work. M2 cannot
+tune judgment until the fixtures exist, the fixtures cannot exist until real Streams have been
+accumulating for a fortnight, and no amount of engineering shortens the wait.
+
+So S3's real deliverable is **starting that accumulation and not losing any of it**. Everything
+else in the slice serves that, and that is why fixture capture is S4's job rather than this one's:
+capture is a half-day of work that cannot begin for two weeks. Shipping S3 sooner is worth more
+than shipping it complete.
+
+### Scope
+
+**Add Stream.** One global operation. Paste a human-facing URL → `FeedDiscovery.discover` (exists,
+S1) → propose name, publisher, transport and a primary Interest Area → Jon confirms or edits →
+the Stream row is written. The proposal is **deterministic**: parsed feed metadata and the URL,
+nothing else. No model call — M1 contains no intelligence, and this is exactly the kind of place
+one would leak in.
+
+Interest Areas are assignable and creatable by name from this flow, because zero exist today and a
+Stream with no Interest Area cannot be judged later.
+
+**Acquisition actually runs.** Poll every active Stream on app launch, and on an explicit
+pull-to-refresh. Foreground only. **No `BGProcessingTask`** — D1 introduces it as an opportunistic
+pre-warm for Edition composition, which does not exist yet. Registering background work with no
+consumer is scheduling for its own sake.
+
+**Five real Streams.** Real feeds replace synthetic ones as the evidence that this works. Capture
+each feed's actual bytes once into `Tests/Fixtures/streams/`, commit them, and test discovery and
+parsing against those recorded bytes. See the hazards below: capture is a scripted one-time fetch,
+not a reason to open the app.
+
+**Stop and pause.** `StreamFollowState` gains `paused` and `stopped`; the poll loop honours both.
+This is not scope creep. Adding five real Streams without an off switch means a misbehaving feed
+can only be removed by deleting a row by hand, and V1 scope §1 names pause/stop anyway.
+
+**Abnormal health, evidence-based only.** `failed` already exists and is written from a real fetch
+or parse failure. Surface abnormal health in the Following list and keep healthy Streams quiet.
+Record consecutive failure count and lean on `lastReceivedAt`. Do **not** introduce a `stale`
+state in this slice — see Constants.
+
+**Protect the fixture pool.** Nothing prunes Artifacts or `rawSourceText` during M1. Those rows are
+device-local regenerable evidence in the general case, but an item that has scrolled out of its
+feed is not regenerable, and they are the raw material S4 freezes.
+
+### Done-criteria
+
+1. Add Stream works end to end from the UI: paste a URL, see a proposal, edit it, confirm, and the
+   Stream persists with an Interest Area. Persistence lives in an `@Observable` model; the lint
+   gate still passes.
+2. Five real Streams are followed, and each one's feed bytes are committed under
+   `Tests/Fixtures/streams/`. Discovery and parsing are tested against those recorded bytes, and a
+   test fails if a fixture file is missing. At least one fixture is a feed that S1's synthetic
+   cases do not resemble — a real feed's malformed dates, entity-escaped bodies, or missing GUIDs.
+3. Acquisition runs on app launch and on explicit refresh, both through one tested entry point.
+   Re-polling is idempotent over the real fixtures: invariants 1 and 2 are re-asserted against
+   recorded real feeds rather than synthetic ones.
+4. A `paused` or `stopped` Stream is not polled. Tested.
+5. Abnormal health is visible in Following and healthy Streams are silent. A fetch failure sets
+   `failed` and preserves the original error (S1 behaviour, re-asserted through the live path).
+6. **The fixture pool survives feed turnover.** Poll a Stream, then poll it again with an entry
+   removed from the feed, and assert the older ContentPiece, its Artifact, and its `rawSourceText`
+   are all still present. This is the adversarial fixture for the one failure that would silently
+   cost two weeks.
+7. `docs/handoff-3-report.md`, in the established voice.
+
+### Hazards specific to this slice
+
+**Autodiscovery against real sites is the device-testing trap.** "Paste a URL and see what
+happens" is inherently interactive, and this slice is where the boundary in `AGENTS.md` is hardest
+to hold. Capture each feed's bytes once with a scripted fetch — `curl` into
+`Tests/Fixtures/streams/` — and verify everything against those files. Never by driving the app.
+
+**Real feeds break in ways fixtures do not.** S1's parser met synthetic RSS, RDF and Atom. Five
+real publishers will produce at least one thing it has not seen. Expect to fix the parser, and
+commit the byte fixture that proved the fix.
+
+**Losing accumulated content costs two weeks, not an afternoon.** Any change that deletes or
+rewrites Artifacts is a fixture-pool risk for the rest of M1. S1's deduplication migration already
+deletes Artifact rows; nothing in S3 may add a second such path.
+
+### Out of scope — do not build to "prepare" for these
+
+Judgment and any model call. Edition. The designated-ingesting-device setting (D2 — there is one
+device). `BGProcessingTask`. Email-delivered Streams and anything Gmail. A publisher catalog,
+source recommendations, or mailbox-wide newsletter discovery — V1 scope §1 excludes all three.
+Stream cadence inference. The auto-Library policy. Fixture export, which is S4.
+
+---
+
+## S4 — Judgment fixture freeze *(gated on wall clock)*
+
+**Branch:** `m1/s4-fixture-freeze` · **PR title:** `M1 · S4 — Fixture freeze`
+
+**Cannot start until S3 has been accumulating for at least 14 days and the database holds at least
+200 ContentPieces.** This gate is calendar time. If the count is short at 14 days, the honest
+finding is that five Streams are too few for the volume `docs/JUDGMENT-CONTRACT.md` §7 assumes,
+and that is itself the result — report it rather than padding the set with synthetic material.
+
+### Scope
+
+**Export.** A deterministic export from the live database into `Tests/Fixtures/judgment/` — real
+ContentPieces carrying exactly the fields §2 names as judgment inputs, and nothing else. Committed,
+frozen, and re-runnable without re-fetching anything.
+
+**Label format.** A stable file Jon fills in: `surface` / `quiet` / `never` plus
+`isSubstantivePrimary` per piece, keyed by ContentPiece ID so a re-export does not orphan the
+labels.
+
+**Harness skeleton.** `swift test --filter JudgmentEval` reads fixtures and labels and reports the
+six metrics §6 names, over a **stubbed** judge. M1 contains no model calls; M2 plugs the real call
+into a harness that already computes the numbers. False-quiet rate on Essential material is the
+metric that matters and should be the one that is hardest to misread in the output.
+
+### Out of scope
+
+The judgment prompt, any model call, `docs/eval-log.md` entries (there is nothing to log until a
+model runs), and Edition composition.
 
 ---
 
@@ -206,6 +344,24 @@ still small enough to throw away.
 Multi-device sync stays unverified until the app is on a second device, which is not an M1
 deliverable. S2's handoff report says so and that remains the honest position.
 
+One correction to the risk as S2 stated it: nothing in the shipping app has ever called
+`FeedIngestor.ingest`, so the iPad database almost certainly holds no ContentPieces at all. The
+migration is still one-way and step 1 still applies, but it is migrating an empty table. The real
+exposure in this pass is step 4, not step 2.
+
+### After S4 — the labelling pass
+
+Not a device pass, but the same shape: work only Jon can do, gating the slice after it.
+
+`docs/JUDGMENT-CONTRACT.md` §6 needs each of the 200 frozen fixtures labelled `surface` / `quiet` /
+`never`, plus `isSubstantivePrimary`. This is the ground truth every judgment decision in M2 is
+measured against, and single-user ground truth is the structural advantage no product company can
+buy — which also means nobody else can produce it.
+
+Budget it honestly: 200 pieces at even ten seconds each is over half an hour of uninterrupted
+attention, and the pieces that are hard to call are the ones that matter most. M2's first slice
+does not start until the labels exist.
+
 ---
 
 ## Constants
@@ -219,6 +375,7 @@ Two constraint-derived values are in scope, and both must be derived rather than
 |---|---|
 | Identity namespace `4577b834-26f2-58c0-bed6-e73143426dff` | `uuid5(DNS, "cockpit.jonphillips.com")` — reproducible and auditable, not a random literal. Fixed in ADR-0001 D3. Already landed; listed as the worked example of the rule. |
 | Any normalized-text chunking or size threshold in S2 | CloudKit's **documented** per-record limit, cited in the PR with a link. Do not pick a round number that "seems safe." If no chunking is needed, say that and show why. |
+| A Stream staleness threshold in S3 | **There is no honest basis for one yet, so S3 introduces none.** A weekly newsletter is not stale at eight days; a daily is stale at three. Staleness is only meaningful against a Stream's own observed cadence, and cadence is not observable until content has been accumulating. S3 surfaces `failed`, which is evidence — a fetch or parse actually failed — and records consecutive failures and `lastReceivedAt` as the raw material a later threshold can be derived from. This is the rule working in the direction it is usually not: the right move is to ship no constant. |
 
 The SwiftLint drift-gate thresholds are constants too, but they live in `.swiftlint.yml` with
 their derivation in comments, and are re-baselined there rather than here.
@@ -235,6 +392,13 @@ the behaviour behind it.
 ---
 
 ## Amendments
+
+**2026-09-11 — S3 firmed up and split; S4 added.** The provisional S3 bundled a feature with a
+data deliverable that cannot begin for a fortnight: `docs/JUDGMENT-CONTRACT.md` §6 requires
+fixtures drawn across at least two weeks of real accumulation. Holding S3 open for a wall-clock
+dependency would have delayed the thing that starts the clock. S3 is now the Add Stream operation
+and live acquisition; S4 is the fixture freeze, gated on calendar time rather than on review.
+Firming it up also surfaced that nothing has ever called `FeedIngestor.ingest` outside a test.
 
 **2026-09-11 — Device testing ruled out; Jon's device pass added.** The S2 migration hazard said
 review "sees the diff and not the device," which an executor reasonably read as licence to verify
