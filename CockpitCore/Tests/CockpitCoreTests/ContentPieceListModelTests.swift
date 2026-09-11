@@ -14,6 +14,21 @@ import Testing
 struct ContentPieceListModelTests {
   @Dependency(\.defaultDatabase) var database
 
+  @Test("Invariant 12: an orphan synced Library membership never surfaces in destination reads")
+  func orphanLibraryMembershipDoesNotSurface() async throws {
+    try await database.write { db in
+      try LibraryMembership.insert {
+        LibraryMembership.Draft(contentPieceID: UUID(-1), addedAt: .distantPast, admittedBy: "explicit")
+      }.execute(db)
+      expectNoDifference(try LibraryMembership.fetchCount(db), 1)
+      expectNoDifference(try ContentPieceListRequest().fetch(db).rows.count, 0)
+    }
+    let model = ContentPieceListModel()
+    model.destination = .library
+    try await model.$content.load()
+    #expect(model.rows.isEmpty)
+  }
+
   @Test("UI actions add and remove both destinations and observed rows follow writes")
   func destinations() async throws {
     try await database.write { db in
