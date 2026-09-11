@@ -124,6 +124,8 @@ This exists from Phase 1. It is the highest-leverage artifact in the project and
 
 **Fixture set.** 200 real ContentPieces drawn from Jon's actual Streams across at least two weeks, frozen in `Tests/Fixtures/judgment/`. Real material, not synthetic.
 
+"Across at least two weeks" constrains the **span of the corpus, not when it is collected**. Harvesting two weeks of history is not a weaker substitute for waiting two weeks; it is the better source, because history already carries evidence of what Jon did with each item. Nothing about this fixture set is gated on the calendar. This paragraph exists because the original sentence was once read as a schedule and produced a fourteen-day gate that should never have existed.
+
 **Labels.** Jon labels each `surface` / `quiet` / `never`, plus `isSubstantivePrimary`. Single-user ground truth is a genuine structural advantage here: no product company can get this.
 
 **Harness.** `swift test --filter JudgmentEval` runs the fixture set against the current prompt and model and reports agreement rate, false-quiet rate on Essential material, false-surface rate, substantive-primary accuracy, mean pieces admitted vs target, and cost per composition.

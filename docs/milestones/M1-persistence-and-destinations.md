@@ -457,6 +457,14 @@ the behaviour behind it.
 
 ## Amendments
 
+**2026-09-11 — D7's day-8 check retired.** Raised by Jon while reviewing S4's sequencing. The
+seven-day refresh-token expiry belongs to Testing status; the client has been published to
+Production since 2026-09-11, so nothing expires on a timer and there was never anything for S4 to
+wait behind or protect. Recorded because the failure has the same shape as the one below: a
+procedure written under one configuration, kept after the configuration changed, then treated as a
+constraint by a reader who did not check whether it still applied. Amended in ADR-0001 D7,
+`docs/V1-SCOPE-AND-SEQUENCING.md` §3, `docs/CAPABILITY-REALITY-MAP.md` §8 and `docs/eval-log.md`.
+
 **2026-09-11 — The fixture set is harvested from history, not awaited.** S4 was first written with
 a fourteen-day calendar gate, on the reading that §6's "across at least two weeks" described when
 fixtures could be collected. It describes the **span of the corpus**. Jon raised it: two weeks of

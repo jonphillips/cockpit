@@ -83,6 +83,8 @@ AppliedDisposition(id, providerMessageID, action, policyID,
 
 `ContentPiece.id` is derived, not random: a UUIDv5 using Cockpit's fixed namespace `4577b834-26f2-58c0-bed6-e73143426dff` over the canonical identity string (canonical URL, else provider stable ID, else RSS GUID, else content hash). Two devices that independently ingest the same item must arrive at the same primary key. See `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md`.
 
+`LibraryMembership.admittedBy` records what admitted the piece. In M1 the only sanctioned value is `explicit`, meaning direct human admission. The deferred auto-Library policy defines its own value in the slice that introduces it, and until then nothing else writes this column. Ratified from M1 S2, which raised it correctly: the column was named here without ever saying what writes it.
+
 `LocalAvailability.mode` is one of `cache`, `until`, `pinned`.
 `ContentPiece.kind` is a display noun: `article`, `newsletter`, `video`, `podcast`, `report`, `pdf`, `post`.
 
