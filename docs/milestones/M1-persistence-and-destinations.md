@@ -410,9 +410,13 @@ still small enough to throw away.
 2. **Launch once and confirm the migration completed** — existing ContentPieces still list, and
    their readable text survived the move out of the inline column.
 3. **Confirm sync is still off.** It must not start unbidden; the engine is constructed stopped and
-   starts only through the enablement gate.
-4. **Then turn sync on deliberately** and let the container take its schema. This is the moment
-   `PLATFORM-ADOPTION.md` §1 is about — after it, the record graph is expensive to change.
+   starts only through the enablement gate. Launching normally is the check — no records should
+   reach the container.
+4. **Then turn sync on deliberately**: launch once from Xcode with the `-CockpitCloudKitSyncEnabled`
+   argument. `CloudSync.persistManualEnablementFromLaunchEnvironment` writes that through to the
+   defaults domain, so later Home Screen launches keep syncing without the flag. Passing it is the
+   deliberate act — after the container takes its schema, the record graph is expensive to change,
+   which is what `PLATFORM-ADOPTION.md` §1 is about.
 
 Multi-device sync stays unverified until the app is on a second device, which is not an M1
 deliverable. S2's handoff report says so and that remains the honest position.
