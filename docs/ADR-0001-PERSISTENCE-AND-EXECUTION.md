@@ -110,11 +110,17 @@ One day of work, before any Gmail feature exists:
 1. Create the OAuth client, request `gmail.modify`.
 2. Move the app from testing to production, unverified, under the personal-use exemption.
 3. Complete the flow, store the refresh token.
-4. **Check on day 8 whether the refresh token still works.**
+4. **Let the first real Gmail operation answer whether the refresh token still works.**
 
-Unverified apps expire OAuth tokens after seven days, and developers report refresh tokens continuing to expire after moving to production under the personal-use exemption. If that happens here, a morning-ritual app needs weekly re-authorization, which is a product problem, not an implementation detail.
+Steps 1-3 are the expensive part and were completed on 2026-09-11. Step 4 no longer has a waiting period, and the reason is worth recording because the original wording caused one.
 
-If the token dies, evaluate IMAP with an app password as the transport before building Today. IMAP maps cleanly onto Leave / Archive / Trash through label manipulation and sidesteps restricted scopes entirely. Verify current app-password availability at that point.
+The seven-day refresh-token expiry is a property of **Testing** status, not of being unverified. Once a client is published to Production its refresh tokens have indefinite lifetime, subject only to ordinary revocation: the user revoking access, roughly six months of inactivity, a password change, or exceeding the per-client token cap. Reports of production tokens continuing to expire under the personal-use exemption are anecdotal and are not what Google documents.
+
+So there is nothing to schedule and nothing to wait for. Access tokens last about an hour, so any Gmail call made later than that exercises the refresh path. The first slice that reads mail answers this for free, and answers it sooner than a dedicated check would, because it is doing the work anyway.
+
+This does not soften the constraint that actually binds. Restricted Gmail scopes normally require full verification including a security assessment; avoiding that is exactly why D1 keeps all processing on device under the personal-use exemption. That is a different question from token lifetime and is unchanged.
+
+If the token does die, evaluate IMAP with an app password as the transport before building Today. IMAP maps cleanly onto Leave / Archive / Trash through label manipulation and sidesteps restricted scopes entirely. Verify current app-password availability at that point.
 
 Failing this spike changes Phase 3–5 substantially. Failing it in Phase 3 wastes a phase.
 

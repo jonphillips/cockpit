@@ -144,7 +144,7 @@ Shapes live in `docs/IMPLEMENTATION-CONTRACT.md`; this map only says what is in 
 
 | Capability | Reality |
 |---|---|
-| Gmail OAuth viability spike (`gmail.modify`, day-8 token check) | V1, Phase 0 |
+| Gmail OAuth viability spike (`gmail.modify`, production-published client) | V1, Phase 0 — done 2026-09-11 |
 | IMAP + app password as fallback transport | Evidence required — only if the spike fails |
 | Read current Inbox | V1 |
 | Summarize/classify | V1 |
