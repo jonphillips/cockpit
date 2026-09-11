@@ -183,7 +183,7 @@ the policy does not. Live Stream capture (that is S3). Anything Gmail.
 `AGENTS.md`; `docs/IMPLEMENTATION-CONTRACT.md` §2; `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md`
 D1, D2, D3; `docs/CONTENT-STREAM-MODEL.md` (Health); `docs/STREAM-MANAGEMENT-EXPERIENCE.md`;
 `docs/V1-SCOPE-AND-SEQUENCING.md` §1 Following/Streams; `docs/JUDGMENT-CONTRACT.md` §6;
-`docs/handoff-2-report.md`.
+`docs/stream-handling-seeds.md`; `docs/handoff-2-report.md`.
 
 ### This slice is larger than its name
 
@@ -217,22 +217,16 @@ one would leak in.
 Interest Areas are assignable and creatable by name from this flow, because zero exist today and a
 Stream with no Interest Area cannot be judged later.
 
-**Seed the five Streams from work already done.** `docs/archive/2026-09-08-pre-normalization/EMAIL-INTELLIGENCE-MODEL.md`
-§11 holds **fifty hand-written Handling drafts** in Jon's own voice, inferred from a real one-week
-Gmail corpus. Many name publications with public feeds — Slow Boring, Astral Codex Ten, Noahpinion,
-Techmeme, Derek Thompson, Benedict Evans, Point-Free. Choose the five from that list and lift their
-Handling text rather than inventing intent.
+**Seed the five Streams from work already done.** `docs/stream-handling-seeds.md` holds Jon's own
+Handling text for twenty-one feed-backed publications, extracted from a real one-week Gmail corpus,
+along with the proposed five and why each was chosen for feed shape. Use it. Do not go back to the
+archived source it came from — the extraction has already been done, and the archive carries
+superseded architecture the extraction deliberately left behind.
 
-`AGENTS.md` bars archived documents from resurrecting *superseded product language or
-architecture*. It calls them historical evidence, which is what this is: corpus-derived data about
-what Jon follows and why. Using it as data is in bounds; copying superseded architecture out of the
-same file is not. The drafts were written before the Dismiss/Clear correction in contract §4, so
-read the vocabulary before pasting it.
-
-The normalization pass that created the live `docs/EMAIL-INTELLIGENCE-MODEL.md` dropped all fifty.
-That was a mistake of category rather than judgment — they are seed data, not prose, and an essay
-was the wrong home. Rehome them as part of this slice, in whatever form Add Stream actually
-consumes.
+That file also carries **one open contract question that blocks the Handling proposal step**: there
+is nowhere in the schema to put this prose. `Stream.handling` is an enum with a single case, and
+`guidance` lives on InterestArea. Read it before building Add Stream, and escalate per the standing
+rule if it is still unsettled when you get there.
 
 **Acquisition actually runs.** Poll every active Stream on app launch, and on an explicit
 pull-to-refresh. Foreground only. **No `BGProcessingTask`** — D1 introduces it as an opportunistic
