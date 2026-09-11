@@ -7,6 +7,7 @@ let package = Package(
   platforms: [.iOS("27.0"), .macOS("26.0")],
   products: [
     .library(name: "CockpitCore", targets: ["CockpitCore"]),
+    .executable(name: "JudgmentFixtureHarvest", targets: ["JudgmentFixtureHarvest"]),
   ],
   dependencies: [
     .package(url: "https://github.com/pointfreeco/sqlite-data", from: "1.8.0"),
@@ -25,10 +26,19 @@ let package = Package(
         .product(name: "StructuredQueries", package: "swift-structured-queries"),
       ]
     ),
+    .target(name: "JudgmentFixtureSupport"),
+    .executableTarget(
+      name: "JudgmentFixtureHarvest",
+      dependencies: [
+        "CockpitCore",
+        "JudgmentFixtureSupport",
+      ]
+    ),
     .testTarget(
       name: "CockpitCoreTests",
       dependencies: [
         "CockpitCore",
+        "JudgmentFixtureSupport",
         .product(name: "CustomDump", package: "swift-custom-dump"),
         .product(name: "DependenciesTestSupport", package: "swift-dependencies"),
       ],
