@@ -1,0 +1,62 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cockpit — Privacy Policy</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { max-width: 42rem; margin: 3rem auto; padding: 0 1.25rem;
+         font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  h1 { font-size: 1.6rem; margin-bottom: .25rem; }
+  h2 { font-size: 1.1rem; margin-top: 2rem; }
+  .date { opacity: .65; font-size: .9rem; }
+  code { font-size: .95em; }
+</style>
+
+<h1>Cockpit — Privacy Policy</h1>
+<p class="date">Last updated: 11 September 2026</p>
+
+<p>Cockpit is a personal application built and used by one person, Jon Phillips. It is not
+offered to the public, has no other users, and has no accounts to create. Questions:
+<a href="mailto:jon@jonphillips.com">jon@jonphillips.com</a>.</p>
+
+<h2>What Cockpit handles</h2>
+<ul>
+  <li><strong>Google account identity.</strong> The email address and basic profile returned by
+      Google Sign-In, used only to identify which mailbox is connected.</li>
+  <li><strong>Gmail content.</strong> Under the <code>gmail.modify</code> scope, Cockpit reads
+      message content and metadata from the connected mailbox, and applies labels, archives, or
+      trashes messages only at the user's direction. It never sends mail.</li>
+  <li><strong>Web content.</strong> Articles and posts from the RSS and Atom feeds the user
+      chooses to follow.</li>
+</ul>
+
+<h2>Where it is stored</h2>
+<p>Cockpit runs on the user's own Apple devices. There is no Cockpit server, no hosted ingest,
+and no developer-side database. Content is stored locally on the device and synchronized only
+through the user's own private Apple iCloud (CloudKit) container, which the developer has no
+access to.</p>
+
+<h2>Who else sees it</h2>
+<p>One exception to the above. Cockpit uses a large language model to select and summarize each
+day's reading. Text derived from feeds — and, where a mailbox is connected, from email messages —
+may be sent to a model provider's API (Anthropic and/or OpenAI) for that purpose, or handled
+entirely on-device where an on-device model is used. This happens only to produce results shown
+to the user. Cockpit sends that content under standard API terms, which do not grant the provider
+rights to train models on it. Nothing is sold, shared for advertising, or disclosed to anyone
+else, and no data is used to train any model by Cockpit or its developer.</p>
+
+<h2>Google user data</h2>
+<p>Cockpit's use and transfer of information received from Google APIs to any other app will
+adhere to the
+<a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services
+User Data Policy</a>, including the Limited Use requirements. Google user data is never used for
+advertising, never sold, and never used to develop, improve, or train generalized AI or machine
+learning models.</p>
+
+<h2>Retention, deletion, and revoking access</h2>
+<p>Content is kept until it is deleted. Access to the Google account can be revoked at any time at
+<a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>. Deleting
+the app and its iCloud container removes the stored copy.</p>
+
+<h2>Changes</h2>
+<p>If this policy changes, the date above changes with it.</p>

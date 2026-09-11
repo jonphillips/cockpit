@@ -1,0 +1,11 @@
+.DS_Store
+.build/
+.swiftpm/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+
+# XcodeGen output; project.yml is the source of truth.
+Cockpit.xcodeproj/
+CockpitApp/Info.plist
+CockpitApp/Cockpit.entitlements

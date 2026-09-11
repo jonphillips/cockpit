@@ -64,7 +64,7 @@ If the designated device has not composed by a threshold, any device may take ov
 
 ## D3 — ContentPiece identity is derived, not random.
 
-`ContentPiece.id = UUIDv5(cockpitNamespace, canonicalIdentityString)`
+`ContentPiece.id = UUIDv5(4577b834-26f2-58c0-bed6-e73143426dff, canonicalIdentityString)`
 
 Canonical identity string, first available wins:
 
