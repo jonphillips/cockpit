@@ -13,6 +13,7 @@ struct CockpitApp: App {
     prepareDependencies {
       try! $0.bootstrapDatabase()
     }
+    Task { await CockpitCloudSync.startIfEnabled() }
   }
 
   var body: some Scene {

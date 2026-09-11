@@ -231,7 +231,6 @@ extension FeedIngestor {
   }
 }
 
-
 extension String {
   fileprivate func matches(for pattern: String) -> [String] {
     guard let expression = try? NSRegularExpression(pattern: pattern) else { return [] }

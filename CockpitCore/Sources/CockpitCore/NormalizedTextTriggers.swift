@@ -4,6 +4,7 @@ enum NormalizedTextTriggers {
   static func install(in db: Database) throws {
     db.add(function: SyncEngine.$isSynchronizing)
     try promoteOnAdmission(in: db)
+    try stripOnRemoval(in: db)
     try projectLocalText(in: db)
     try receiveLibraryText(in: db)
   }
@@ -20,6 +21,24 @@ enum NormalizedTextTriggers {
         SET "libraryMembershipID" = excluded."libraryMembershipID", "utf8" = excluded."utf8"
         WHERE "libraryNormalizedTexts"."libraryMembershipID" IS NOT excluded."libraryMembershipID"
           OR "libraryNormalizedTexts"."utf8" IS NOT excluded."utf8";
+      END
+      """).execute(db)
+  }
+
+  /// Removal is signalled by the deletion, not by the foreign key going NULL.
+  /// SQLiteData issues the same `SET NULL` to recover from a CloudKit `.referenceViolation`,
+  /// and that is not a removal. It also cannot be relied on here: once the key is already
+  /// detached, deleting the membership matches no child row and fires no foreign-key action.
+  /// Unguarded by `isSynchronizing` so a membership deleted on another device converges here,
+  /// and idempotent so it never echoes a write back into the sync engine.
+  private static func stripOnRemoval(in db: Database) throws {
+    try #sql("""
+      CREATE TRIGGER "library_text_removal" AFTER DELETE ON "libraryMemberships"
+      BEGIN
+        UPDATE "libraryNormalizedTexts"
+        SET "libraryMembershipID" = NULL, "utf8" = NULL
+        WHERE "contentPieceID" = old."contentPieceID"
+          AND ("libraryMembershipID" IS NOT NULL OR "utf8" IS NOT NULL);
       END
       """).execute(db)
   }
@@ -55,8 +74,10 @@ enum NormalizedTextTriggers {
           ON CONFLICT ("contentPieceID") DO UPDATE SET "normalizedText" = excluded."normalizedText"
           WHERE "localNormalizedTexts"."normalizedText" IS NOT excluded."normalizedText";
           UPDATE "libraryNormalizedTexts" SET "utf8" = NULL
-          WHERE "contentPieceID" = new."contentPieceID" AND "libraryMembershipID" IS NULL
-            AND "utf8" IS NOT NULL;
+          WHERE "contentPieceID" = new."contentPieceID" AND "utf8" IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM "libraryMemberships" WHERE "contentPieceID" = new."contentPieceID"
+            );
         END
         """).execute(db)
     }

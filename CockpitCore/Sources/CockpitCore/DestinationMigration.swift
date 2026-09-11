@@ -16,9 +16,16 @@ extension CockpitMigrations {
   }
 
   private static func createMemberships(in db: Database) throws {
-    // Membership identity is the ContentPiece UUID. Admission checks the relationship in
-    // deterministic code; root records can arrive in either order during CloudKit sync.
-    // No cascading parent deletion or nullable membership identity is introduced.
+    // Membership identity is the ContentPiece UUID, with the relationship enforced in
+    // deterministic code rather than by a foreign key. SQLiteData crashes on a single
+    // parent foreign key declared NO ACTION or RESTRICT, CASCADE is prohibited by S2's
+    // done-criterion 7, and SET NULL cannot apply to a non-null primary key — so no
+    // foreign key is expressible here. Out-of-order arrival is not the reason: SQLiteData
+    // parks a record that violates a foreign key and retries it.
+    //
+    // `ON CONFLICT REPLACE` below binds to NOT NULL, not to the primary key, so it is not
+    // a uniqueness policy — a duplicate insert still raises UNIQUE. Inherited from S1 and
+    // left in place for consistency; do not read it as making re-admission replace a row.
     try #sql("""
       CREATE TABLE "laterMemberships" (
         "contentPieceID" TEXT PRIMARY KEY NOT NULL ON CONFLICT REPLACE,

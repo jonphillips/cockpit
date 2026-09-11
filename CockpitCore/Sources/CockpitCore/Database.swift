@@ -31,9 +31,7 @@ extension DependencyValues {
     }
     try CockpitMigrations.makeMigrator().migrate(database)
     defaultDatabase = database
-    defaultSyncEngine = try CockpitCloudSync.makeSyncEngine(
-      for: database, startImmediately: context == .live
-    )
+    defaultSyncEngine = try CockpitCloudSync.makeSyncEngine(for: database)
   }
 }
 
