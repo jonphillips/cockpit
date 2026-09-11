@@ -143,8 +143,9 @@ Not a design pass.
 
 **The migration is one-way and runs against real data.** The iPad holds live Gmail authorization
 state and may hold real rows. A migration that moves normalized text must be safe on a populated
-database. This is the one defect class the architect's review cannot catch, because review sees
-the diff and not the device.
+database. Verify it against a seeded database in `swift test`; the upgrade on Jon's actual iPad
+is his to run, and remains an unverified risk the handoff report must name. Do not go to the
+device — see `AGENTS.md`, No UI, simulator, or device testing.
 
 **CloudKit schema hardens once records exist.** `PLATFORM-ADOPTION.md` §1 says respect ownership
 and FK constraints *before* the schema hardens. Today the container is empty. This slice is the

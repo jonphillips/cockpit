@@ -202,6 +202,20 @@ Make deterministic business behavior cheap to test. Prioritize:
 
 External frameworks/services/models should sit behind injectable clients.
 
+### No UI, simulator, or device testing
+
+Agents verify through `swift test`, `swiftlint lint --strict`, and an unsigned build. Driving the
+Simulator or a device — launching the app, screenshots, taps, UI hierarchy dumps — is not an agent
+activity. It burns tokens at a rate no slice justifies and it is Jon's to do.
+
+This is not a quality compromise, it is where the boundary sits. A slice's UI work is verified by
+testing the `@Observable` model that owns the behaviour, which is the same reason views may not
+touch the database.
+
+When a slice has a defect class only a device can catch — a migration against real rows, live
+CloudKit, provider authorization — name it in the handoff report as an unverified risk and stop
+there. Never close that gap by going to the device.
+
 ## Documentation rule
 
 When implementation evidence changes a ratified decision, do not silently drift code away from docs.
