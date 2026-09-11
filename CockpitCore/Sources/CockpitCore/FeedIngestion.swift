@@ -2,32 +2,6 @@ import Dependencies
 import Foundation
 import SQLiteData
 
-public struct FeedClient: Sendable {
-  public var load: @Sendable (URL) async throws -> Data
-
-  public init(load: @escaping @Sendable (URL) async throws -> Data) {
-    self.load = load
-  }
-
-  public static let live = Self { url in
-    let (data, response) = try await URLSession.shared.data(from: url)
-    guard let response = response as? HTTPURLResponse else {
-      throw FeedDiscoveryError.invalidResponse(url)
-    }
-    guard (200..<300).contains(response.statusCode) else {
-      throw FeedDiscoveryError.unsuccessfulResponse(url, response.statusCode)
-    }
-    return data
-  }
-}
-
-public enum FeedDiscoveryError: Error, Equatable, Sendable {
-  case invalidURL(String)
-  case invalidResponse(URL)
-  case unsuccessfulResponse(URL, Int)
-  case noAlternateFeed(URL)
-}
-
 public enum FeedDiscovery {
   public static func discover(
     from url: URL,
@@ -90,7 +64,7 @@ public struct FeedIngestor {
     do {
       discovery = try await FeedDiscovery.discover(from: streamURL, using: client)
     } catch {
-      await markFailed(stream: stream, in: database)
+      await markFailed(stream: stream, error: error, in: database)
       throw error
     }
     let acquiredAt = now()
@@ -111,25 +85,36 @@ public struct FeedIngestor {
             in: db
           )
         }
-        try Stream.find(stream.id)
-          .update {
-            $0.lastReceivedAt = #bind(acquiredAt)
-            $0.health = #bind(StreamHealth.healthy)
-          }
-          .execute(db)
+        try StreamPollState.upsert {
+          StreamPollState.Draft(
+            streamID: stream.id,
+            health: .healthy,
+            lastReceivedAt: acquiredAt,
+            consecutiveFailureCount: 0,
+            lastFailureDescription: nil
+          )
+        }.execute(db)
         return pieces
       }
     } catch {
-      await markFailed(stream: stream, in: database)
+      await markFailed(stream: stream, error: error, in: database)
       throw error
     }
   }
 
-  private func markFailed(stream: Stream, in database: any DatabaseWriter) async {
+  private func markFailed(stream: Stream, error: any Error, in database: any DatabaseWriter) async {
+    let description = error.localizedDescription
     try? await database.write { db in
-      try Stream.find(stream.id)
-        .update { $0.health = #bind(StreamHealth.failed) }
-        .execute(db)
+      let previous = try StreamPollState.find(stream.id).fetchOne(db)
+      try StreamPollState.upsert {
+        StreamPollState.Draft(
+          streamID: stream.id,
+          health: .failed,
+          lastReceivedAt: previous?.lastReceivedAt,
+          consecutiveFailureCount: (previous?.consecutiveFailureCount ?? 0) + 1,
+          lastFailureDescription: description
+        )
+      }.execute(db)
     }
   }
 }
@@ -214,7 +199,12 @@ extension FeedIngestor {
         $0.streamID.eq(stream.id) && $0.providerID.is(nil) && $0.canonicalURL.eq(canonicalURL)
       }.fetchOne(db)
     } else {
-      existing = nil
+      // A feed entry without a GUID/provider ID or canonical URL still has its derived
+      // ContentPiece identity. It is the stable per-Stream fallback that keeps each re-poll
+      // from recording another indistinguishable Artifact.
+      existing = try Artifact.where {
+        $0.streamID.eq(stream.id) && $0.contentPieceID.eq(contentPieceID)
+      }.fetchOne(db)
     }
     guard existing == nil else { return }
     let artifact = Artifact(

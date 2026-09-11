@@ -31,7 +31,8 @@ let package = Package(
         "CockpitCore",
         .product(name: "CustomDump", package: "swift-custom-dump"),
         .product(name: "DependenciesTestSupport", package: "swift-dependencies"),
-      ]
+      ],
+      resources: [.copy("Fixtures")]
     ),
   ]
 )

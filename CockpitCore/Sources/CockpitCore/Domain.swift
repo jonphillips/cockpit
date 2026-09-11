@@ -12,6 +12,8 @@ public enum StreamHandling: String, Codable, QueryBindable, Sendable {
 
 public enum StreamFollowState: String, Codable, QueryBindable, Sendable {
   case active
+  case paused
+  case stopped
 }
 
 public enum StreamHealth: String, Codable, QueryBindable, Sendable {
@@ -54,10 +56,9 @@ public struct Stream: Codable, Equatable, Identifiable, Sendable {
   public var transport: StreamTransport
   public var locator: String
   public var handling: StreamHandling
+  public var handlingGuidance: String
   public var isEssential: Bool
   public var followState: StreamFollowState
-  public var health: StreamHealth
-  public var lastReceivedAt: Date?
   public var autoLibrary: Bool
 
   public init(
@@ -68,10 +69,9 @@ public struct Stream: Codable, Equatable, Identifiable, Sendable {
     transport: StreamTransport,
     locator: String,
     handling: StreamHandling = .following,
+    handlingGuidance: String = "",
     isEssential: Bool = false,
     followState: StreamFollowState = .active,
-    health: StreamHealth = .unknown,
-    lastReceivedAt: Date? = nil,
     autoLibrary: Bool = false
   ) {
     self.id = id
@@ -81,11 +81,35 @@ public struct Stream: Codable, Equatable, Identifiable, Sendable {
     self.transport = transport
     self.locator = locator
     self.handling = handling
+    self.handlingGuidance = handlingGuidance
     self.isEssential = isEssential
     self.followState = followState
+    self.autoLibrary = autoLibrary
+  }
+}
+
+/// Per-device acquisition observations. Poll health is regenerable and deliberately not synced.
+@Table
+public struct StreamPollState: Equatable, Identifiable, Sendable {
+  @Column(primaryKey: true) public let streamID: Stream.ID
+  public var health: StreamHealth
+  public var lastReceivedAt: Date?
+  public var consecutiveFailureCount: Int
+  public var lastFailureDescription: String?
+  public var id: Stream.ID { streamID }
+
+  public init(
+    streamID: Stream.ID,
+    health: StreamHealth = .unknown,
+    lastReceivedAt: Date? = nil,
+    consecutiveFailureCount: Int = 0,
+    lastFailureDescription: String? = nil
+  ) {
+    self.streamID = streamID
     self.health = health
     self.lastReceivedAt = lastReceivedAt
-    self.autoLibrary = autoLibrary
+    self.consecutiveFailureCount = consecutiveFailureCount
+    self.lastFailureDescription = lastFailureDescription
   }
 }
 
