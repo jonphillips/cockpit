@@ -50,6 +50,12 @@ the derivation, or say plainly that you have no honest basis for the value. Surf
 non-trivial constant in the PR description rather than burying it in the diff. See Constants
 below for M1's, and `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md` D3 for the worked example.
 
+**A slice enforces only the invariants whose tables exist.** `docs/IMPLEMENTATION-CONTRACT.md`
+§5 states twelve invariants as permanent truths about the finished system, not as a per-slice
+checklist. Where an invariant names a table a slice does not have, that clause is owned by the
+slice that introduces the table, and this document says so explicitly in the done-criteria. Never
+weaken the contract to fit a slice; narrow the slice's criterion and name who inherits the rest.
+
 **Green before ready.** `swift test` and `swiftlint lint --strict` pass locally, and CI is
 genuinely green before the PR leaves draft. The CI test job **skips green** when the runner's
 Swift is below the manifest floor — a skip is not a pass; check which one you got.
@@ -110,12 +116,22 @@ Not a design pass.
    populated at ingest, unconditionally, whatever table it physically lives in.
 4. Invariant 7 still holds: `mode = until` expiry would remove only `payloadRef`; normalized text
    survives. (LocalAvailability itself is out of scope — the shape must not foreclose this.)
-5. `makeSyncEngine` constructs an engine. The syncable set matches D6 exactly. Artifacts and
-   `rawSourceText` are absent from it.
+5. `makeSyncEngine` constructs an engine. It registers exactly the **intersection of D6's
+   syncable list with the tables that exist at the end of this slice** — InterestArea, Stream,
+   ContentPiece, both membership tables, and the normalized-text child record under the rule in
+   criterion 6. D6 also names Editions, EditionEntries, PersonalKnowledgeClaims, PendingFinds and
+   DispositionPolicies: those are the destination, not this slice's scope, and each later slice
+   registers its own tables as it introduces them. The exclusions are the load-bearing half —
+   Artifacts and `rawSourceText` must be absent, and a test should fail if either appears.
 6. `normalizedText` syncs for Library members only, and there is a test that would fail if a
    non-Library piece's text were sent.
-7. Invariant 3 has a test: removing Later or Library membership deletes no ContentPiece, no
-   Artifact, no provenance, and no PendingFind referencing it.
+7. Invariant 3, to the extent this slice can enforce it: removing Later or Library membership
+   deletes no ContentPiece, no Artifact, and no provenance. The invariant's PendingFind clause is
+   **not testable in this slice** — that table does not exist and is out of scope — so it is owned
+   by the slice that introduces PendingFind. What *is* enforceable now is the structural guarantee
+   behind it: membership removal deletes the membership row and nothing else, and neither
+   membership table carries an `ON DELETE CASCADE` to anything. Get that right and the PendingFind
+   clause holds for free when the table arrives.
 8. Invariant 12 has a test: Library contains ContentPieces only.
 9. No `database.write` / `database.read` in any `*View.swift` — persistence logic lives in an
    `@Observable` model. The lint gate fails the build on this.
@@ -183,3 +199,21 @@ Edition, judgment, Personal Knowledge, PendingFind handoff, Gmail ingest and dis
 offline payload custody, the auto-Library policy, and any specialist-app Find receiver. Several
 have columns or enum cases already present in the schema; a column is not a licence to implement
 the behaviour behind it.
+
+---
+
+## Amendments
+
+**2026-09-11 — S2 done-criteria 5 and 7 corrected.** Raised by the executor before implementation,
+which is the escalation rule working as intended; both defects were in this document, not in the
+corpus.
+
+Criterion 7 required a test that membership removal preserves PendingFinds, while the same slice
+forbids PendingFind and no such table exists — the invariant had been copied verbatim from
+contract §5 into a slice that cannot satisfy it. Criterion 5 required the syncable set to "match
+D6 exactly," but D6's list names five tables that belong to M2, so exact compliance was impossible
+by construction.
+
+Both are now scoped to what exists, with the remainder explicitly assigned to the slices that
+introduce those tables. The standing rule above generalises the fix. The contract itself is
+unchanged and was never at fault.
