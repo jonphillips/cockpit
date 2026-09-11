@@ -29,7 +29,7 @@ If the candidate set exceeds roughly 120 pieces, split into batches by Interest 
 
 ## 2. Inputs
 
-**Per candidate:** id, kind, title, creator, publisher, publishedAt, first ~1500 characters of `normalizedText`, Stream name, Stream `handling`, Stream `isEssential`, Interest Area name and guidance, and — for carried entries — how many times carried and current `entryState`.
+**Per candidate:** id, kind, title, creator, publisher, publishedAt, first ~1500 characters of `normalizedText`, Stream name, Stream `handling` and `handlingGuidance`, Stream `isEssential`, Interest Area name and guidance, and — for carried entries — how many times carried and current `entryState`.
 
 **Personal Knowledge projection:** the full set of current claims rendered as labelled prose, grouped Fact / Taste / Interest. Full set until the claim count exceeds 150; past that, retrieve a relevant subset by subject overlap and record which claims were included. This threshold is a guess and is measured at Gate 2.
 
@@ -95,7 +95,8 @@ Current situation:
   {current context projections}
 
 Streams and why he follows them:
-  {stream name, handling, essential, interest area, guidance}
+  {stream name, handling, stream handlingGuidance, essential,
+   interest area name, interest area guidance}
 
 Candidates:
   {candidates}

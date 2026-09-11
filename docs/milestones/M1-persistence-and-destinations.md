@@ -204,7 +204,7 @@ Nothing waits.
 What S3 still owns is accumulation from here on, and not losing it. A feed's backfill is shallow —
 most publish between ten and fifty recent items — so the first poll of five Streams is itself a
 partial backfill, and everything after it is content that exists nowhere else once it scrolls out.
-That is why done-criterion 6 is the load-bearing one.
+That is why done-criterion 7 is the load-bearing one.
 
 ### Scope
 
@@ -223,10 +223,11 @@ along with the proposed five and why each was chosen for feed shape. Use it. Do 
 archived source it came from — the extraction has already been done, and the archive carries
 superseded architecture the extraction deliberately left behind.
 
-That file also carries **one open contract question that blocks the Handling proposal step**: there
-is nowhere in the schema to put this prose. `Stream.handling` is an enum with a single case, and
-`guidance` lives on InterestArea. Read it before building Add Stream, and escalate per the standing
-rule if it is still unsettled when you get there.
+**Handling prose gets a column.** `Stream.handlingGuidance`, ratified 2026-09-11 and now in
+contract §2. The enum stays a posture; the prose carries intent, as the Stream-level parallel to
+`InterestArea.guidance`. Add it in this slice's migration and let Add Stream propose and edit it.
+It is a judgment input that M2 reads and this slice never parses — no matcher, no keywords, no
+rules language. In M1 it is text that is written, displayed, and stored.
 
 **Acquisition actually runs.** Poll every active Stream on app launch, and on an explicit
 pull-to-refresh. Foreground only. **No `BGProcessingTask`** — D1 introduces it as an opportunistic
@@ -256,21 +257,24 @@ feed is not regenerable, and they are the raw material S4 freezes.
 1. Add Stream works end to end from the UI: paste a URL, see a proposal, edit it, confirm, and the
    Stream persists with an Interest Area. Persistence lives in an `@Observable` model; the lint
    gate still passes.
-2. Five real Streams are followed, and each one's feed bytes are committed under
+2. `Stream.handlingGuidance` exists and round-trips: the migration adds it, Add Stream writes it,
+   the Following UI shows and edits it, and the five seeded Streams carry their text from
+   `docs/stream-handling-seeds.md`. Nothing in M1 reads it for behaviour.
+3. Five real Streams are followed, and each one's feed bytes are committed under
    `Tests/Fixtures/streams/`. Discovery and parsing are tested against those recorded bytes, and a
    test fails if a fixture file is missing. At least one fixture is a feed that S1's synthetic
    cases do not resemble — a real feed's malformed dates, entity-escaped bodies, or missing GUIDs.
-3. Acquisition runs on app launch and on explicit refresh, both through one tested entry point.
+4. Acquisition runs on app launch and on explicit refresh, both through one tested entry point.
    Re-polling is idempotent over the real fixtures: invariants 1 and 2 are re-asserted against
    recorded real feeds rather than synthetic ones.
-4. A `paused` or `stopped` Stream is not polled. Tested.
-5. Abnormal health is visible in Following and healthy Streams are silent. A fetch failure sets
+5. A `paused` or `stopped` Stream is not polled. Tested.
+6. Abnormal health is visible in Following and healthy Streams are silent. A fetch failure sets
    `failed` and preserves the original error (S1 behaviour, re-asserted through the live path).
-6. **The fixture pool survives feed turnover.** Poll a Stream, then poll it again with an entry
+7. **The fixture pool survives feed turnover.** Poll a Stream, then poll it again with an entry
    removed from the feed, and assert the older ContentPiece, its Artifact, and its `rawSourceText`
    are all still present. This is the adversarial fixture for the one failure that would silently
    cost two weeks.
-7. `docs/handoff-3-report.md`, in the established voice.
+8. `docs/handoff-3-report.md`, in the established voice.
 
 ### Hazards specific to this slice
 
@@ -282,6 +286,12 @@ to hold. Capture each feed's bytes once with a scripted fetch — `curl` into
 **Real feeds break in ways fixtures do not.** S1's parser met synthetic RSS, RDF and Atom. Five
 real publishers will produce at least one thing it has not seen. Expect to fix the parser, and
 commit the byte fixture that proved the fix.
+
+**Adding a column to a synced table is safe; changing one is not.** `streams` is registered with
+CloudKit as of S2, and Jon's device pass may have hardened the container before this slice lands.
+Adding `handlingGuidance` is additive and supported — CloudKit creates the field on first save.
+Removing or retyping an existing field is the direction that is expensive, so get the name and type
+right the first time rather than planning to revise it.
 
 **Losing accumulated content costs two weeks, not an afternoon.** Any change that deletes or
 rewrites Artifacts is a fixture-pool risk for the rest of M1. S1's deduplication migration already
@@ -456,6 +466,14 @@ the behaviour behind it.
 ---
 
 ## Amendments
+
+**2026-09-11 — `Stream.handlingGuidance` ratified.** Extracting the Handling seeds surfaced that
+fifty hand-written drafts of Stream-level editorial intent had nowhere to live: `handling` is a
+posture enum and `guidance` sits on InterestArea, while `docs/JUDGMENT-CONTRACT.md` §4 passed
+handling into the prompt as though it carried meaning. A prose column beside the enum, ratified by
+Jon the same day. Contract §2 and JUDGMENT-CONTRACT §2 and §4 amended; S3 adds the column. Worth
+noting how the gap stayed hidden: the requirement was demonstrated a week earlier and then
+normalized out of the corpus, so the evidence and the schema never met.
 
 **2026-09-11 — D7's day-8 check retired.** Raised by Jon while reviewing S4's sequencing. The
 seven-day refresh-token expiry belongs to Testing status; the client has been published to

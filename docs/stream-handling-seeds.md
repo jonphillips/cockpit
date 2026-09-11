@@ -19,30 +19,24 @@ carries the evidence forward and leaves the superseded architecture behind.
 
 ---
 
-## Open contract question — where does this prose live?
+## Where this prose lives — settled
 
-**Raised for the architect before S3 writes Add Stream. Blocking for the Handling proposal step.**
+`Stream.handlingGuidance`, ratified 2026-09-11 and now in `docs/IMPLEMENTATION-CONTRACT.md` §2.
 
-`docs/IMPLEMENTATION-CONTRACT.md` §2 gives `Stream` a `handling` column, and `StreamHandling` is an
-enum whose only case is `following`. `guidance` — the prose field — exists on `InterestArea`, not on
-Stream.
+`Stream.handling` stays a posture enum; `handlingGuidance` carries the intent, as the Stream-level
+parallel to `InterestArea.guidance`. It is a judgment input, not an annotation —
+`docs/JUDGMENT-CONTRACT.md` §2 and §4 pass it into the prompt — and it is never parsed. Judgment
+reads it as prose, which is what makes it safe to write freely and edit conversationally.
 
-So there is currently nowhere to put any of the text below. Meanwhile
-`docs/JUDGMENT-CONTRACT.md` §4 passes "{stream name, handling, essential, interest area, guidance}"
-into the prompt as though handling carried meaning, and `docs/V1-SCOPE-AND-SEQUENCING.md` §1 says
-Add Stream proposes "concise Handling."
-
-Fifty hand-written drafts are exactly the demonstrated requirement that AGENTS.md's persistence
-discipline asks for before a column is added. The likely resolution is a prose column on Stream
-alongside the enum — the enum stays a posture, the prose carries intent — but that is a contract
-amendment, not an executor's call. **Do not invent a column to hold this. Escalate if it has not
-been settled by the time you need it.**
+The question was open because the column was missing, and the column was missing because the
+drafts that demonstrate the requirement had been normalized out of the corpus. Extracting them
+produced the evidence that settled it.
 
 ---
 
 ## S3's five
 
-Chosen for feed shape as much as content, so the parser meets real variety early. Done-criterion 2
+Chosen for feed shape as much as content, so the parser meets real variety early. S3's done-criterion 3
 asks for at least one feed that S1's synthetic cases do not resemble; several of these qualify.
 
 | Stream | Why this one |
