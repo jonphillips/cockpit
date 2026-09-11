@@ -2,13 +2,6 @@ import Dependencies
 import Foundation
 import SQLiteData
 
-public enum FeedDiscoveryError: Error, Equatable, Sendable {
-  case invalidURL(String)
-  case invalidResponse(URL)
-  case unsuccessfulResponse(URL, Int)
-  case noAlternateFeed(URL)
-}
-
 public enum FeedDiscovery {
   public static func discover(
     from url: URL,
@@ -109,7 +102,7 @@ public struct FeedIngestor {
   }
 
   private func markFailed(stream: Stream, error: any Error, in database: any DatabaseWriter) async {
-    let description = String(reflecting: error)
+    let description = error.localizedDescription
     try? await database.write { db in
       try Stream.find(stream.id)
         .update {
@@ -202,7 +195,12 @@ extension FeedIngestor {
         $0.streamID.eq(stream.id) && $0.providerID.is(nil) && $0.canonicalURL.eq(canonicalURL)
       }.fetchOne(db)
     } else {
-      existing = nil
+      // A feed entry without a GUID/provider ID or canonical URL still has its derived
+      // ContentPiece identity. It is the stable per-Stream fallback that keeps each re-poll
+      // from recording another indistinguishable Artifact.
+      existing = try Artifact.where {
+        $0.streamID.eq(stream.id) && $0.contentPieceID.eq(contentPieceID)
+      }.fetchOne(db)
     }
     guard existing == nil else { return }
     let artifact = Artifact(

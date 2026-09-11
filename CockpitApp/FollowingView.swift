@@ -123,8 +123,9 @@ private struct AddStreamView: View {
           ToolbarItem(placement: .confirmationAction) {
             Button("Follow") {
               Task {
-                await model.followButtonTapped()
-                isPresented = false
+                if await model.followButtonTapped() {
+                  isPresented = false
+                }
               }
             }
           }

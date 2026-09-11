@@ -268,6 +268,31 @@ struct PersistenceSpineTests {
     #expect(rss.entries.first?.publishedAt != nil)
   }
 
+  @Test("An entry with no provider ID or URL records one Artifact across re-polls")
+  func keylessArtifactIsIdempotent() async throws {
+    let stream = CockpitCore.Stream(
+      id: UUID(-1), name: "Test", publisher: "Test Publisher", transport: .rss,
+      locator: "https://example.com/feed.xml"
+    )
+    try await insert(stream: stream)
+    let feed = Data(
+      """
+      <rss version="2.0"><channel><title>Test</title><item>
+      <title>A title without a stable source key</title><description>Body</description>
+      </item></channel></rss>
+      """.utf8
+    )
+    let ingestor = FeedIngestor(client: FeedClient(load: { _ in feed }))
+
+    _ = try await ingestor.ingest(stream: stream, into: database)
+    _ = try await ingestor.ingest(stream: stream, into: database)
+    let counts = try await database.read { db in
+      (try ContentPiece.fetchCount(db), try Artifact.fetchCount(db))
+    }
+    expectNoDifference(counts.0, 1)
+    expectNoDifference(counts.1, 1)
+  }
+
   @Test("An ingest failure marks its Stream unhealthy and preserves the original error")
   func failedIngestMarksStreamUnhealthy() async throws {
     let stream = CockpitCore.Stream(
@@ -287,7 +312,10 @@ struct PersistenceSpineTests {
     }
     expectNoDifference(failedStream?.health, .failed)
     expectNoDifference(failedStream?.consecutiveFailureCount, 1)
-    #expect(failedStream?.lastFailureDescription?.contains("noAlternateFeed") == true)
+    expectNoDifference(
+      failedStream?.lastFailureDescription,
+      "Cockpit couldn't find an RSS or Atom feed at this URL."
+    )
   }
 
   private func insert(stream: CockpitCore.Stream) async throws {

@@ -65,12 +65,15 @@ public final class FollowingModel {
     }
   }
 
-  public func followButtonTapped() async {
-    guard let proposedStream else { return }
+  @discardableResult
+  public func followButtonTapped() async -> Bool {
+    guard let proposedStream else { return false }
     if await save(proposedStream) {
       self.proposedStream = nil
       addURL = ""
+      return true
     }
+    return false
   }
 
   public func editButtonTapped(_ row: FollowingRequest.Row) {
