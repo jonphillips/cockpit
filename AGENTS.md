@@ -8,18 +8,25 @@ Every session, read:
 
 1. `docs/IMPLEMENTATION-CONTRACT.md` — schema, Edition state machine, invariants, definitions
 2. `docs/V1-SCOPE-AND-SEQUENCING.md` — what phase we are in and what its gate asks
+3. the active build order in `docs/milestones/` — which slice is next, its done-criteria, and the standing rules for every slice in that milestone
 
 Then, only as the work requires:
 
-3. `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md` when touching persistence, identity, sync, or ingest
-4. `docs/JUDGMENT-CONTRACT.md` when touching relevance, ranking, extraction, or any model call
-5. `docs/DECISIONS.md` when a cross-cutting product decision appears to be in question
-6. the focused essay in `docs/` for the area being changed
-7. `ARCHITECTURE.md` and `PLATFORM-ADOPTION.md` when shared infrastructure or platform boundaries are involved
+4. `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md` when touching persistence, identity, sync, or ingest
+5. `docs/JUDGMENT-CONTRACT.md` when touching relevance, ranking, extraction, or any model call
+6. `docs/DECISIONS.md` when a cross-cutting product decision appears to be in question
+7. the focused essay in `docs/` for the area being changed
+8. `ARCHITECTURE.md` and `PLATFORM-ADOPTION.md` when shared infrastructure or platform boundaries are involved
 
 Do not read the whole corpus before every task. It is roughly 25,000 words and reading it wholesale costs more context than the work. The contract exists so that it does not have to be read.
 
 Documents under `docs/archive/` are historical evidence only. They must not be used to resurrect superseded product language or architecture.
+
+## How work is assigned
+
+Slices come from the active build order in `docs/milestones/`, never from a chat message. The architect authors that document; the executor opens one branch and one PR per slice (`mN/sK-short-slug`), ticks the slice's box in the PR that completes it, and the architect reviews the PR against that slice's done-criteria. If it changes the plan it changes a doc; if it is about one slice it is a PR comment.
+
+The full protocol is `jon-platform/docs/agent-collaboration.md` — including the roles, the draft/ready/review loop, commit attribution, and what a bare "go" means. Two clauses matter often enough to repeat here: the session's repository is the scope, so the working directory selects the project and nothing else does; and a bare "go" requires stating your read of the board and your single intended next action, then waiting, before any write. Prefer an explicit assignment over a bare "go" — role, slice, verb, as in `codex: build S2`.
 
 ## Current shell
 
