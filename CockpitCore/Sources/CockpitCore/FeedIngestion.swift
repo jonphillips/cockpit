@@ -169,12 +169,15 @@ extension FeedIngestor {
       publishedAt: entry.publishedAt ?? existing?.publishedAt,
       canonicalURL: canonicalURL,
       summary: existing?.summary,
-      normalizedText: entry.normalizedText ?? existing?.normalizedText,
       subjects: existing?.subjects,
       isSubstantivePrimary: existing?.isSubstantivePrimary,
       createdAt: existing?.createdAt ?? acquiredAt
     )
     try ContentPiece.upsert { ContentPiece.Draft(piece) }.execute(db)
+    if let text = entry.normalizedText {
+      try NormalizedTextOperations.store(text, for: id, in: db)
+    }
+    try NormalizedTextOperations.supplyLibraryTextIfMissing(for: id, in: db)
     try insertArtifactIfNew(
       entry: entry,
       artifactID: artifactID,
@@ -228,13 +231,6 @@ extension FeedIngestor {
   }
 }
 
-enum FeedContentKind {
-  static func infer(from url: URL?) -> ContentKind {
-    guard let host = url?.host?.lowercased() else { return .article }
-    if host.contains("youtube.com") || host == "youtu.be" { return .video }
-    return .article
-  }
-}
 
 extension String {
   fileprivate func matches(for pattern: String) -> [String] {

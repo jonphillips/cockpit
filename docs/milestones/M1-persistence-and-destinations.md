@@ -24,7 +24,7 @@ The executor ticks its slice's box in the PR that completes it. Canonical status
 state; this ledger is the at-a-glance summary.
 
 - [x] **S1 — Persistence spine** · [#2](https://github.com/jonphillips/cockpit/pull/2) · merged
-- [ ] **S2 — Later and Library, normalized-text custody, CloudKit sync**
+- [x] **S2 — Later and Library, normalized-text custody, CloudKit sync** · [#6](https://github.com/jonphillips/cockpit/pull/6)
 - [ ] **S3 — Live Streams and judgment fixture capture** *(provisional; firms up when S2 lands)*
 
 ---
