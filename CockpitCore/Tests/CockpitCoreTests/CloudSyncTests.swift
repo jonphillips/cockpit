@@ -27,6 +27,15 @@ struct CloudSyncTests {
           locator: "https://example.com/feed"
         ))
       }.execute(db)
+      try StreamPollState.insert {
+        StreamPollState.Draft(
+          streamID: UUID(-1),
+          health: .failed,
+          lastReceivedAt: .distantPast,
+          consecutiveFailureCount: 2,
+          lastFailureDescription: "Local-only failure"
+        )
+      }.execute(db)
       for id in [memberID, localID] {
         try ContentPiece.insert {
           ContentPiece.Draft(id: id, kind: .article, title: "Piece", publisher: "Publisher", createdAt: .distantPast)
@@ -48,6 +57,7 @@ struct CloudSyncTests {
     expectNoDifference(Set(records.map(\.recordType)), Set([
       "interestAreas", "streams", "contentPieces", "laterMemberships", "libraryMemberships", "libraryNormalizedTexts"
     ]))
+    #expect(!records.map(\.recordType).contains("streamPollStates"))
     let sent = records.compactMap(\._lastKnownServerRecordAllFields)
     #expect(!sent.isEmpty)
     let textRecords = sent.filter { $0.recordType == "libraryNormalizedTexts" }

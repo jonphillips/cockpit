@@ -61,8 +61,6 @@ enum CockpitMigrations {
           "handling" TEXT NOT NULL DEFAULT 'following',
           "isEssential" INTEGER NOT NULL ON CONFLICT REPLACE DEFAULT 0,
           "followState" TEXT NOT NULL DEFAULT 'active',
-          "health" TEXT NOT NULL DEFAULT 'unknown',
-          "lastReceivedAt" TEXT,
           "autoLibrary" INTEGER NOT NULL ON CONFLICT REPLACE DEFAULT 0
         ) STRICT
         """

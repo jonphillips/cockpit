@@ -16,6 +16,22 @@ import Testing
 struct PersistenceSpineTests {
   @Dependency(\.defaultDatabase) private var database
 
+  @Test("Poll health is created only in the device-local StreamPollState table")
+  func pollHealthSchemaIsDeviceLocal() async throws {
+    let columns = try await database.read { db in
+      (
+        try #sql("SELECT name FROM pragma_table_info('streams')", as: String.self).fetchAll(db),
+        try #sql("SELECT name FROM pragma_table_info('streamPollStates')", as: String.self).fetchAll(db)
+      )
+    }
+    #expect(!columns.0.contains("health"))
+    #expect(!columns.0.contains("lastReceivedAt"))
+    #expect(columns.1.contains("health"))
+    #expect(columns.1.contains("lastReceivedAt"))
+    #expect(columns.1.contains("consecutiveFailureCount"))
+    #expect(columns.1.contains("lastFailureDescription"))
+  }
+
   @Test("Invariant 1: an Artifact has its own identity and references a ContentPiece")
   func artifactAndContentPieceHaveDistinctIdentities() async throws {
     let contentPieceID = UUID(-1)
@@ -144,6 +160,12 @@ struct PersistenceSpineTests {
       try NormalizedTextOperations.text(for: pieces[0].id, in: db)
     }
     expectNoDifference(text, "Readable body.")
+    let pollState = try await database.read { db in
+      try StreamPollState.find(stream.id).fetchOne(db)
+    }
+    expectNoDifference(pollState?.health, .healthy)
+    expectNoDifference(pollState?.lastReceivedAt, Date(timeIntervalSince1970: 0))
+    expectNoDifference(pollState?.consecutiveFailureCount, 0)
   }
 
   @Test("Ingest preserves judgment and prior normalized text when a later poll has no body")
@@ -293,7 +315,7 @@ struct PersistenceSpineTests {
     expectNoDifference(counts.1, 1)
   }
 
-  @Test("An ingest failure marks its Stream unhealthy and preserves the original error")
+  @Test("An ingest failure records device-local health and preserves the original error")
   func failedIngestMarksStreamUnhealthy() async throws {
     let stream = CockpitCore.Stream(
       id: UUID(-1), name: "Test", publisher: "Test Publisher", transport: .rss,
@@ -307,13 +329,13 @@ struct PersistenceSpineTests {
     await #expect(throws: FeedDiscoveryError.self) {
       try await ingestor.ingest(stream: stream, into: database)
     }
-    let failedStream = try await database.read { db in
-      try CockpitCore.Stream.find(stream.id).fetchOne(db)
+    let failedPollState = try await database.read { db in
+      try StreamPollState.find(stream.id).fetchOne(db)
     }
-    expectNoDifference(failedStream?.health, .failed)
-    expectNoDifference(failedStream?.consecutiveFailureCount, 1)
+    expectNoDifference(failedPollState?.health, .failed)
+    expectNoDifference(failedPollState?.consecutiveFailureCount, 1)
     expectNoDifference(
-      failedStream?.lastFailureDescription,
+      failedPollState?.lastFailureDescription,
       "Cockpit couldn't find an RSS or Atom feed at this URL."
     )
   }

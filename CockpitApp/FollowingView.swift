@@ -39,15 +39,15 @@ struct FollowingView: View {
                 .font(.subheadline)
                 .lineLimit(3)
             }
-            if row.health == .failed {
+            if row.effectiveHealth == .failed {
               Label(
                 row.lastFailureDescription ?? "Feed acquisition failed",
                 systemImage: "exclamationmark.triangle.fill"
               )
               .font(.caption)
               .foregroundStyle(.red)
-              if row.consecutiveFailureCount > 1 {
-                Text("Failed \(row.consecutiveFailureCount) consecutive times")
+              if row.failureCount > 1 {
+                Text("Failed \(row.failureCount) consecutive times")
                   .font(.caption)
                   .foregroundStyle(.secondary)
               }

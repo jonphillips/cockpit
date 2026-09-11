@@ -471,6 +471,8 @@ the behaviour behind it.
 
 ## Amendments
 
+**2026-09-11 — Poll health is device-local; migration is source-correction, and sync-enablement moves after S3.** The S3 review directed dropping `health`/`lastReceivedAt` off the synced `streams` table. The executor correctly escalated: SQLiteData 1.12 lists removing columns from a synchronized table as a disallowed migration, and its schema reconciliation only propagates newly-present columns. The decision (poll health device-local, in `StreamPollState`) stands; the mechanism was wrong. Because no device has persisted the current schema and sync has never run against data, the schema is not yet distributed, so `health`/`lastReceivedAt` are removed at their source (S1's create-table) rather than dropped by a later migration — no disallowed operation occurs. Consequence: enabling CloudKit sync freezes the schema, so the sync-enablement step of the *"After S2 merges — before S3 begins"* device pass now runs **after** S3's schema lands, against the final M1 Stream schema. The empty-container framing in the review comment was imprecise — the load-bearing fact is pre-first-sync, not container emptiness.
+
 **2026-09-11 — `Stream.handlingGuidance` ratified.** Extracting the Handling seeds surfaced that
 fifty hand-written drafts of Stream-level editorial intent had nowhere to live: `handling` is a
 posture enum and `guidance` sits on InterestArea, while `docs/JUDGMENT-CONTRACT.md` §4 passed

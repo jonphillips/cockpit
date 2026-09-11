@@ -13,10 +13,13 @@ public struct FollowingRequest: FetchKeyRequest {
     public let handlingGuidance: String
     public let isEssential: Bool
     public let followState: StreamFollowState
-    public let health: StreamHealth
+    public let health: StreamHealth?
     public let lastReceivedAt: Date?
-    public let consecutiveFailureCount: Int
+    public let consecutiveFailureCount: Int?
     public let lastFailureDescription: String?
+
+    public var effectiveHealth: StreamHealth { health ?? .unknown }
+    public var failureCount: Int { consecutiveFailureCount ?? 0 }
   }
 
   public struct Value: Equatable, Sendable {
@@ -31,6 +34,7 @@ public struct FollowingRequest: FetchKeyRequest {
     value.rows = try Stream
       .leftJoin(InterestArea.all) { $0.interestAreaID.eq($1.id) }
       .order { ($1.name, $0.name, $0.id) }
+      .leftJoin(StreamPollState.all) { $0.id.eq($2.streamID) }
       .select {
         Row.Columns(
           id: $0.id,
@@ -42,10 +46,10 @@ public struct FollowingRequest: FetchKeyRequest {
           handlingGuidance: $0.handlingGuidance,
           isEssential: $0.isEssential,
           followState: $0.followState,
-          health: $0.health,
-          lastReceivedAt: $0.lastReceivedAt,
-          consecutiveFailureCount: $0.consecutiveFailureCount,
-          lastFailureDescription: $0.lastFailureDescription
+          health: $2.health,
+          lastReceivedAt: $2.lastReceivedAt,
+          consecutiveFailureCount: $2.consecutiveFailureCount,
+          lastFailureDescription: $2.lastFailureDescription
         )
       }
       .fetchAll(db)

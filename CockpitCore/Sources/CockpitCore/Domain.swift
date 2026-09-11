@@ -59,10 +59,6 @@ public struct Stream: Codable, Equatable, Identifiable, Sendable {
   public var handlingGuidance: String
   public var isEssential: Bool
   public var followState: StreamFollowState
-  public var health: StreamHealth
-  public var lastReceivedAt: Date?
-  public var consecutiveFailureCount: Int
-  public var lastFailureDescription: String?
   public var autoLibrary: Bool
 
   public init(
@@ -76,10 +72,6 @@ public struct Stream: Codable, Equatable, Identifiable, Sendable {
     handlingGuidance: String = "",
     isEssential: Bool = false,
     followState: StreamFollowState = .active,
-    health: StreamHealth = .unknown,
-    lastReceivedAt: Date? = nil,
-    consecutiveFailureCount: Int = 0,
-    lastFailureDescription: String? = nil,
     autoLibrary: Bool = false
   ) {
     self.id = id
@@ -92,11 +84,32 @@ public struct Stream: Codable, Equatable, Identifiable, Sendable {
     self.handlingGuidance = handlingGuidance
     self.isEssential = isEssential
     self.followState = followState
+    self.autoLibrary = autoLibrary
+  }
+}
+
+/// Per-device acquisition observations. Poll health is regenerable and deliberately not synced.
+@Table
+public struct StreamPollState: Equatable, Identifiable, Sendable {
+  @Column(primaryKey: true) public let streamID: Stream.ID
+  public var health: StreamHealth
+  public var lastReceivedAt: Date?
+  public var consecutiveFailureCount: Int
+  public var lastFailureDescription: String?
+  public var id: Stream.ID { streamID }
+
+  public init(
+    streamID: Stream.ID,
+    health: StreamHealth = .unknown,
+    lastReceivedAt: Date? = nil,
+    consecutiveFailureCount: Int = 0,
+    lastFailureDescription: String? = nil
+  ) {
+    self.streamID = streamID
     self.health = health
     self.lastReceivedAt = lastReceivedAt
     self.consecutiveFailureCount = consecutiveFailureCount
     self.lastFailureDescription = lastFailureDescription
-    self.autoLibrary = autoLibrary
   }
 }
 

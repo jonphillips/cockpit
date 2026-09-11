@@ -48,8 +48,10 @@ SQLiteData tables. Names are indicative; the distinctions are normative.
 InterestArea(id, name, guidance, sortOrder)
 
 Stream(id, name, publisher, interestAreaID, transport, locator,
-       handling, handlingGuidance, isEssential, followState, health,
-       lastReceivedAt, autoLibrary)
+       handling, handlingGuidance, isEssential, followState, autoLibrary)
+
+StreamPollState(streamID, health, lastReceivedAt,
+                consecutiveFailureCount, lastFailureDescription)
 
 Artifact(id, streamID?, transport, providerID, canonicalURL,
          acquiredAt, payloadRef?, rawSourceText?, contentPieceID?)
@@ -84,6 +86,8 @@ AppliedDisposition(id, providerMessageID, action, policyID,
 `ContentPiece.id` is derived, not random: a UUIDv5 using Cockpit's fixed namespace `4577b834-26f2-58c0-bed6-e73143426dff` over the canonical identity string (canonical URL, else provider stable ID, else RSS GUID, else content hash). Two devices that independently ingest the same item must arrive at the same primary key. See `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md`.
 
 `Stream.handling` is a posture enum. `Stream.handlingGuidance` is the prose beside it: Jon's own words about why he follows this Stream and what should be done with an issue. It is the Stream-level parallel to `InterestArea.guidance` and is a judgment input, not an annotation — `docs/JUDGMENT-CONTRACT.md` §2 and §4 pass it into the prompt. It is never a rules language and is never parsed; judgment reads it as prose. Ratified 2026-09-11 on the evidence of fifty hand-written drafts in `docs/stream-handling-seeds.md`, which had nowhere to live.
+
+`StreamPollState` is the per-device record of what the last poll of a Stream observed: `health` (`unknown`, `healthy`, `failed`), `lastReceivedAt`, `consecutiveFailureCount`, and the `lastFailureDescription` from the most recent failure. It is one row per Stream, written only by the device that polled, and it is **device-local and never synced** — the same category as Artifacts and `LocalAvailability` in `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md` D6. Each device polls independently, so health is an observation of that device's own acquisition, not shared canonical state; syncing it would let two devices' independent polls overwrite each other under last-writer-wins. It is regenerable — the next successful poll repopulates it. The split is along intent versus observation: `Stream.followState` (whether to poll) stays on the synced Stream record; `StreamPollState` (what polling found) does not. Poll health is placed here from the start; earlier drafts of the schema carried `health` and `lastReceivedAt` inline on `streams`, corrected before the table shipped to any device.
 
 `LibraryMembership.admittedBy` records what admitted the piece. In M1 the only sanctioned value is `explicit`, meaning direct human admission. The deferred auto-Library policy defines its own value in the slice that introduces it, and until then nothing else writes this column. Ratified from M1 S2, which raised it correctly: the column was named here without ever saying what writes it.
 

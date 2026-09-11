@@ -85,14 +85,15 @@ public struct FeedIngestor {
             in: db
           )
         }
-        try Stream.find(stream.id)
-          .update {
-            $0.lastReceivedAt = #bind(acquiredAt)
-            $0.health = #bind(StreamHealth.healthy)
-            $0.consecutiveFailureCount = #bind(0)
-            $0.lastFailureDescription = #bind(nil)
-          }
-          .execute(db)
+        try StreamPollState.upsert {
+          StreamPollState.Draft(
+            streamID: stream.id,
+            health: .healthy,
+            lastReceivedAt: acquiredAt,
+            consecutiveFailureCount: 0,
+            lastFailureDescription: nil
+          )
+        }.execute(db)
         return pieces
       }
     } catch {
@@ -104,13 +105,16 @@ public struct FeedIngestor {
   private func markFailed(stream: Stream, error: any Error, in database: any DatabaseWriter) async {
     let description = error.localizedDescription
     try? await database.write { db in
-      try Stream.find(stream.id)
-        .update {
-          $0.health = #bind(StreamHealth.failed)
-          $0.consecutiveFailureCount = $0.consecutiveFailureCount + 1
-          $0.lastFailureDescription = #bind(description)
-        }
-        .execute(db)
+      let previous = try StreamPollState.find(stream.id).fetchOne(db)
+      try StreamPollState.upsert {
+        StreamPollState.Draft(
+          streamID: stream.id,
+          health: .failed,
+          lastReceivedAt: previous?.lastReceivedAt,
+          consecutiveFailureCount: (previous?.consecutiveFailureCount ?? 0) + 1,
+          lastFailureDescription: description
+        )
+      }.execute(db)
     }
   }
 }

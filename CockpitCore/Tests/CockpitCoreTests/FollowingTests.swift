@@ -93,6 +93,8 @@ struct FollowingTests {
       let interestArea = try InterestArea.find(try #require(stream.interestAreaID)).fetchOne(db)
       expectNoDifference(stream.handlingGuidance, "Keep the writer's original argument available.")
       expectNoDifference(interestArea?.name, "General")
+      let row = try #require(FollowingRequest().fetch(db).rows.first { $0.id == stream.id })
+      expectNoDifference(row.effectiveHealth, .unknown)
     }
     #expect(model.proposedStream == nil)
   }
