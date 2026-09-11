@@ -177,6 +177,37 @@ D3, so the blocker is gone.
 
 ---
 
+## Jon's device pass
+
+Agents stop at the device boundary (`AGENTS.md`, No UI, simulator, or device testing). This
+section is the other half of that rule: where the risks they were told to name instead get picked
+up, by whom, and when.
+
+The standing shape is that a slice's handoff report names its unverified device risks, and the
+architect turns them into a numbered pass here before the next slice starts. A device pass is a
+**gate**, not a chore — the next slice does not begin until it has run.
+
+### After S2 merges — before S3 begins
+
+S3 pours five real Streams of live content into a database and a CloudKit container that S2 has
+only ever exercised against fixtures. Both of S2's one-way steps should happen while the data is
+still small enough to throw away.
+
+1. **Back up the iPad database before first launch.** The normalized-text migration is one-way and
+   SQLite migrations are append-only: anything it gets wrong cannot be fixed by editing the
+   migration afterwards, only by adding another one on top.
+2. **Launch once and confirm the migration completed** — existing ContentPieces still list, and
+   their readable text survived the move out of the inline column.
+3. **Confirm sync is still off.** It must not start unbidden; the engine is constructed stopped and
+   starts only through the enablement gate.
+4. **Then turn sync on deliberately** and let the container take its schema. This is the moment
+   `PLATFORM-ADOPTION.md` §1 is about — after it, the record graph is expensive to change.
+
+Multi-device sync stays unverified until the app is on a second device, which is not an M1
+deliverable. S2's handoff report says so and that remains the honest position.
+
+---
+
 ## Constants
 
 M1 introduces **no tunable product constants**. The Edition numbers — carryover budget 3,
@@ -204,6 +235,12 @@ the behaviour behind it.
 ---
 
 ## Amendments
+
+**2026-09-11 — Device testing ruled out; Jon's device pass added.** The S2 migration hazard said
+review "sees the diff and not the device," which an executor reasonably read as licence to verify
+on device. Nothing in the corpus forbade it. `AGENTS.md` now draws the boundary, that hazard is
+rewritten, and the risks agents are told to name are collected into Jon's device pass above with
+an owner and a gate.
 
 **2026-09-11 — S2 done-criteria 5 and 7 corrected.** Raised by the executor before implementation,
 which is the escalation rule working as intended; both defects were in this document, not in the
