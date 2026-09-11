@@ -1,0 +1,48 @@
+# Focused drift gate — NOT a style overhaul. Only the rules that catch architectural
+# drift (growing types, fat functions, logic leaking into views), so the signal stays
+# high and PRs aren't buried in bikeshedding. Rationale and the human/agent division of
+# labor live in jon-platform docs/ios/drift-control.md.
+only_rules:
+  - file_length
+  - type_body_length
+  - function_body_length
+  - view_persistence
+
+included:
+  - CockpitApp
+  - CockpitCore/Sources
+
+excluded:
+  - CockpitCore/.build
+  # Migrations accrete forever and are sequential by nature — not a drift surface.
+  # (Same exclusion galavant applies to GalavantSchema/Database.swift.)
+  - CockpitCore/Sources/CockpitCore/Database.swift
+
+# Thresholds sit just above today's largest, measured 2026-09-11 with
+# `swiftlint lint --strict` over the M1/S1 spine: the baseline is green, and anything
+# that grows past today's worst trips the gate — that's the drift signal.
+file_length:
+  warning: 240   # worst now: Feed.swift @ 223 (the XMLParser delegate)
+  error: 400
+  ignore_comment_only_lines: true
+
+type_body_length:
+  warning: 120   # worst now: FeedXMLCollector @ 112
+  error: 260
+
+# 60 is the house ceiling, not a Cockpit-local number. FeedIngestor.ingest was 84 when
+# this gate was added; it was split into ingest / record / insertArtifactIfNew rather
+# than raising the ceiling, so Cockpit starts with no inherited debt.
+function_body_length:
+  warning: 60
+  error: 120
+
+# The "logic in the view" smell swift-style §2 names: a View doing its own persistence.
+# Models legitimately call database.write/read; views must not.
+custom_rules:
+  view_persistence:
+    name: "Persistence in a View"
+    regex: 'database\.(write|read)'
+    included: ".*View\\.swift"
+    message: "Views shouldn't touch the database — move it to a model or a tested core function (swift-style §2)."
+    severity: warning

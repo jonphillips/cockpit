@@ -1,0 +1,29 @@
+name: CI
+
+# Thin caller — the pipeline lives once in the public ci-workflows repo so every app
+# shares one source of truth. Depends only on this repo's JON_PLATFORM_PAT secret,
+# passed through via `secrets: inherit` (the reusable workflow uses it to clone the
+# private jon-platform repo for the local-path SPM deps).
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    uses: jonphillips/ci-workflows/.github/workflows/ios-ci.yml@main
+    with:
+      package-path: CockpitCore
+      # Cockpit is checked out at <work>/cockpit/cockpit with the package at its root,
+      # so CockpitCore/Package.swift reaches jon-platform via "../..", one level
+      # shallower than galavant's "../../..". Without this the clone lands where the
+      # manifest isn't looking and CloudSyncKit fails to resolve.
+      platform-relative-root: "../.."
+      test-runner: macos-26   # the package floors at the macOS 26 SDK; ubuntu can't build it
+    secrets: inherit
