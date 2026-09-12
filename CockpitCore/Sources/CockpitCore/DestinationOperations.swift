@@ -10,7 +10,7 @@ public enum DestinationOperations {
     try requireContentPiece(id, in: db)
     try LaterMembership.insert {
       LaterMembership.Draft(contentPieceID: id, addedAt: date)
-    } onConflict: { _ in
+    } onConflictDoUpdate: { _ in
     }.execute(db)
   }
 
@@ -18,7 +18,7 @@ public enum DestinationOperations {
     try requireContentPiece(id, in: db)
     try LibraryMembership.insert {
       LibraryMembership.Draft(contentPieceID: id, addedAt: date, admittedBy: "explicit")
-    } onConflict: { _ in
+    } onConflictDoUpdate: { _ in
     }.execute(db)
   }
 
