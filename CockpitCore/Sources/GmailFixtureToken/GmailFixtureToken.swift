@@ -40,8 +40,7 @@ struct GmailFixtureToken {
     let pkce = PKCE()
     let state = PKCE.randomState()
     let receiver = try LoopbackReceiver()
-    let port = try await receiver.start()
-    let redirectURI = "http://127.0.0.1:\(port)"
+    let redirectURI = "http://127.0.0.1:\(receiver.port)"
     let authURL = exchange.authorizationURL(
       redirectURI: redirectURI, challenge: pkce.challenge, state: state)
     log("Opening the browser for Google sign-in (loopback redirect on \(redirectURI))…")

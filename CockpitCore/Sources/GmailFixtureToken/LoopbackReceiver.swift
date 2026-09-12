@@ -1,61 +1,64 @@
 import Foundation
-@preconcurrency import Network
 
-/// A one-shot loopback HTTP receiver for the OAuth redirect. It binds *only* the loopback
-/// interface on an OS-assigned port, accepts a single request, extracts `code`, and replies with a
-/// small closable page. `@preconcurrency` keeps Network's un-`Sendable` types quiet under Swift 6.
-final class LoopbackReceiver: @unchecked Sendable {
-  private let listener: NWListener
-  private let queue = DispatchQueue(label: "GmailFixtureToken.loopback")
+/// A one-shot loopback HTTP receiver for the OAuth redirect, on a raw BSD socket bound to
+/// 127.0.0.1 on an OS-assigned port. `NWListener` refuses to bind in this toolchain (EINVAL on
+/// every parameterisation), and a POSIX socket is both reliable and unambiguously loopback-only.
+final class LoopbackReceiver: Sendable {
+  let port: UInt16
+  private let descriptor: Int32
 
   init() throws {
-    let parameters = NWParameters.tcp
-    parameters.requiredInterfaceType = .loopback
-    parameters.allowLocalEndpointReuse = true
-    listener = try NWListener(using: parameters)
-  }
-
-  /// Starts listening and returns the assigned loopback port.
-  func start() async throws -> UInt16 {
-    let ports = AsyncThrowingStream<UInt16, Error> { continuation in
-      listener.stateUpdateHandler = { state in
-        switch state {
-        case .ready: continuation.yield(self.listener.port?.rawValue ?? 0); continuation.finish()
-        case let .failed(error): continuation.finish(throwing: error)
-        default: break
-        }
+    let fd = socket(AF_INET, SOCK_STREAM, 0)
+    guard fd >= 0 else { throw OAuthError.listenerFailed }
+    var reuse: Int32 = 1
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
+    var address = sockaddr_in()
+    address.sin_family = sa_family_t(AF_INET)
+    address.sin_port = 0  // ephemeral
+    address.sin_addr.s_addr = inet_addr("127.0.0.1")  // loopback only
+    let bound = withUnsafePointer(to: &address) {
+      $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+        bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
       }
-      listener.start(queue: queue)
     }
-    for try await port in ports where port != 0 { return port }
-    throw OAuthError.listenerFailed
+    guard bound == 0, listen(fd, 1) == 0 else { close(fd); throw OAuthError.listenerFailed }
+    var assigned = sockaddr_in()
+    var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+    _ = withUnsafeMutablePointer(to: &assigned) {
+      $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(fd, $0, &length) }
+    }
+    descriptor = fd
+    port = UInt16(bigEndian: assigned.sin_port)
   }
 
-  /// Waits for the browser redirect, verifies `state`, and returns the authorization code.
+  /// Blocks on a background thread for the single redirect, verifies `state`, and returns `code`.
   func waitForCode(expectedState: String) async throws -> String {
-    defer { listener.cancel() }
-    let codes = AsyncThrowingStream<String, Error> { continuation in
-      listener.newConnectionHandler = { connection in
-        connection.start(queue: self.queue)
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 16_384) { data, _, _, _ in
-          let result = HTTPCallback.parse(data, expectedState: expectedState)
-          connection.send(
-            content: HTTPCallback.response(for: result),
-            completion: .contentProcessed { _ in connection.cancel() })
-          switch result {
-          case let .code(code): continuation.yield(code); continuation.finish()
-          case let .failure(error): continuation.finish(throwing: error)
-          }
-        }
+    try await withCheckedThrowingContinuation { continuation in
+      DispatchQueue.global().async {
+        continuation.resume(with: Result { try self.acceptOnce(expectedState: expectedState) })
       }
     }
-    for try await code in codes { return code }
-    throw OAuthError.noCode
+  }
+
+  private func acceptOnce(expectedState: String) throws -> String {
+    defer { close(descriptor) }
+    let client = accept(descriptor, nil, nil)
+    guard client >= 0 else { throw OAuthError.listenerFailed }
+    defer { close(client) }
+    var buffer = [UInt8](repeating: 0, count: 16_384)
+    let count = read(client, &buffer, buffer.count)
+    let data = count > 0 ? Data(buffer.prefix(count)) : nil
+    let result = HTTPCallback.parse(data, expectedState: expectedState)
+    let response = HTTPCallback.response(for: result)
+    _ = response.withUnsafeBytes { write(client, $0.baseAddress, $0.count) }
+    switch result {
+    case let .code(code): return code
+    case let .failure(error): throw error
+    }
   }
 }
 
-/// Parses the single redirect request and renders its reply. Pure, so it stays outside the
-/// Network callbacks' concurrency domain.
+/// Parses the single redirect request and renders its reply.
 enum HTTPCallback {
   enum CallbackResult {
     case code(String)
