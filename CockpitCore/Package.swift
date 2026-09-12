@@ -33,7 +33,8 @@ let package = Package(
       dependencies: [
         "CockpitCore",
         "JudgmentFixtureSupport",
-      ]
+      ],
+      resources: [.copy("Labeler.html")]
     ),
     // A Mac-only OAuth helper (system frameworks only — no CockpitCore/app dependency) that mints a
     // short-lived Gmail access token for the harvest. Never shipped, never on a launch path.

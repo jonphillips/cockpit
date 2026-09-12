@@ -22,6 +22,8 @@ struct JudgmentFixtureHarvest {
       try await DiscoverCommand(arguments: flags).run()
     case "export":
       try await ExportCommand(arguments: flags).run()
+    case "label":
+      try LabelCommand(arguments: flags).run()
     default:
       throw HarvestError.usage
     }
@@ -60,6 +62,7 @@ enum HarvestError: LocalizedError {
   case usage
   case missingAccessToken
   case httpStatus(Int, String)
+  case resourceMissing(String)
 
   var errorDescription: String? {
     switch self {
@@ -68,11 +71,14 @@ enum HarvestError: LocalizedError {
         usage:
           JudgmentFixtureHarvest discover --seeds path --out path --after YYYY-MM-DD --before YYYY-MM-DD
           JudgmentFixtureHarvest export --config path --fixtures path --labels path --after YYYY-MM-DD --before YYYY-MM-DD
+          JudgmentFixtureHarvest label --fixtures path --labels path --out labeler.html
         """
     case .missingAccessToken:
       return "GMAIL_ACCESS_TOKEN is required for Gmail access. Mint one with: swift run GmailFixtureToken --client <desktop-client.json>"
     case let .httpStatus(status, body):
       return "Gmail request failed (HTTP \(status)): \(body)"
+    case let .resourceMissing(name):
+      return "Bundled resource \(name) was not found in the executable bundle."
     }
   }
 }

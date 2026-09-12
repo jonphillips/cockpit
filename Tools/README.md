@@ -72,10 +72,30 @@ The label-side record retains the current Gmail disposition and read state, then
 unread → `quiet`, inbox → `uncertain`). The prior is never stored in a fixture and cannot reach a
 judgment prompt.
 
-Jon must confirm every `label` (`surface` / `quiet` / `never`) and `isSubstantivePrimary` in
-`labels.json` before M2 begins. The offline `JudgmentEval` test does not substitute a model call; it
-proves the frozen inputs and confirmed labels can be evaluated by a stub and reports the six contract
-metrics.
+## 3. Label — `JudgmentFixtureHarvest label`
+
+`labels.json` is keyed by opaque ContentPiece ID (so a re-harvest never orphans a confirmed label),
+which makes it unlabelable by hand. `label` generates a **local** HTML page that joins the fixtures
+with the label file so each row shows its title, publisher, text, and disposition-prior hint, and
+you set `surface` / `quiet` / `never` + `substantive primary` by click or keyboard (S/Q/N, P, J/K).
+
+```sh
+swift run --package-path CockpitCore JudgmentFixtureHarvest label \
+  --fixtures CockpitCore/Tests/CockpitCoreTests/Fixtures/judgment/fixtures.json \
+  --labels CockpitCore/Tests/CockpitCoreTests/Fixtures/judgment/labels.json \
+  --out ~/.config/cockpit/labeler.html
+```
+
+Open the file in a browser, label every row, then **Save labels.json** (the page uses the browser's
+save-file picker, or falls back to a download) over the `--labels` path above. Progress autosaves in
+the browser, so you can stop and resume. The page embeds real mail text and is written locally — it
+is never published; do not commit it. A **paywall teaser with no body is `isSubstantivePrimary =
+false`** (`docs/IMPLEMENTATION-CONTRACT.md` §1); `dispositionPrior` is a hint, not the answer.
+
+Jon must confirm every `label` and `isSubstantivePrimary` before M2 begins. The offline
+`JudgmentEval` test does not substitute a model call; it proves the frozen inputs and confirmed
+labels can be evaluated by a stub and reports the six contract metrics — `incompleteFixtures`
+reaches 0 once every row is labelled.
 
 ## Checked-in smoke config
 
