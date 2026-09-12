@@ -12,7 +12,7 @@ struct CloudSyncTests {
   @Dependency(\.defaultDatabase) var database
   @Dependency(\.defaultSyncEngine) var engine
 
-  @Test("D6: engine constructs, registers exactly six tables, and sends no non-Library text or Artifacts")
+  @Test("D6: engine syncs canonical Personal Knowledge but sends no non-Library text or Artifacts")
   func syncRegistrationAndTextExclusion() async throws {
     let memberID = UUID(-1)
     let localID = UUID(-2)
@@ -48,6 +48,14 @@ struct CloudSyncTests {
       try NormalizedTextOperations.store("LOCAL ONLY SECRET", for: localID, in: db)
       try DestinationOperations.saveForLater(localID, at: .distantPast, in: db)
       try DestinationOperations.addToLibrary(memberID, at: .distantPast, in: db)
+      try PersonalKnowledgeClaim.insert {
+        PersonalKnowledgeClaim.Draft(
+          PersonalKnowledgeClaim(
+            id: UUID(-30), kind: .interest, claim: "Burgundy travel and wine",
+            provenance: .directTeaching, createdAt: .distantPast
+          )
+        )
+      }.execute(db)
     }
     try await engine.start()
     try await engine.sendChanges()
@@ -55,7 +63,8 @@ struct CloudSyncTests {
       try SyncMetadata.fetchAll(db)
     }
     expectNoDifference(Set(records.map(\.recordType)), Set([
-      "interestAreas", "streams", "contentPieces", "laterMemberships", "libraryMemberships", "libraryNormalizedTexts"
+      "interestAreas", "streams", "contentPieces", "laterMemberships", "libraryMemberships", "libraryNormalizedTexts",
+      "personalKnowledgeClaims"
     ]))
     #expect(!records.map(\.recordType).contains("streamPollStates"))
     let sent = records.compactMap(\._lastKnownServerRecordAllFields)

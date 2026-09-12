@@ -150,6 +150,7 @@ enum CockpitMigrations {
     }
     registerDestinations(in: &migrator)
     registerLiveStreams(in: &migrator)
+    registerPersonalKnowledge(in: &migrator)
     return migrator
   }
 }

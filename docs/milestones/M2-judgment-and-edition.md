@@ -40,7 +40,7 @@ Edition is composed is the whole point of sequencing it first (`docs/V1-SCOPE-AN
 
 ## Slice ledger
 
-- [ ] **S1 — Personal Knowledge foundation and Jon Brain import**
+- [x] **S1 — Personal Knowledge foundation and Jon Brain import**
 - [ ] **S2 — Judgment engine and the first agreement number**
 - [ ] **S3 — Edition composition**
 - [ ] **S4 — Reader and resolution**
