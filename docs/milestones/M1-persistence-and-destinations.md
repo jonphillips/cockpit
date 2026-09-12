@@ -401,8 +401,9 @@ architect turns them into a numbered pass here before the next slice starts. A d
 ### After S2 merges — before S3 begins
 
 S3 pours five real Streams of live content into a database and a CloudKit container that S2 has
-only ever exercised against fixtures. Both of S2's one-way steps should happen while the data is
-still small enough to throw away.
+only ever exercised against fixtures. The migration confirmation below should happen while the data
+is still small enough to throw away. Sync-enablement — S2's other one-way step — no longer runs
+here; it defers past Architecture Gate 1 (Amendments, 2026-09-11).
 
 1. **Back up the iPad database before first launch.** The normalized-text migration is one-way and
    SQLite migrations are append-only: anything it gets wrong cannot be fixed by editing the
@@ -412,19 +413,24 @@ still small enough to throw away.
 3. **Confirm sync is still off.** It must not start unbidden; the engine is constructed stopped and
    starts only through the enablement gate. Launching normally is the check — no records should
    reach the container.
-4. **Then turn sync on deliberately**: launch once from Xcode with the `-CockpitCloudKitSyncEnabled`
-   argument. `CloudSync.persistManualEnablementFromLaunchEnvironment` writes that through to the
-   defaults domain, so later Home Screen launches keep syncing without the flag. Passing it is the
-   deliberate act — after the container takes its schema, the record graph is expensive to change,
-   which is what `PLATFORM-ADOPTION.md` §1 is about.
+4. **Leave sync off.** Enablement is deferred past Architecture Gate 1 (Amendments, 2026-09-11):
+   nothing in M1 needs it, single-device enablement verifies nothing `CloudSyncKit` has not already
+   proven on the other jon-platform apps, and enabling it fixes the synced schema (ADR-0001 D6)
+   just before the gate that may revise the `Artifact`/`ContentPiece` boundaries D6 syncs. When
+   enablement is warranted — a real second device, or the entity boundaries having survived a gate —
+   the deliberate act is a single launch from Xcode with the `-CockpitCloudKitSyncEnabled` argument;
+   `CloudSync.persistManualEnablementFromLaunchEnvironment` writes it through to the defaults domain
+   so later Home Screen launches keep syncing without the flag. After the container takes its schema
+   the record graph is expensive to change, which is what `PLATFORM-ADOPTION.md` §1 is about.
 
 Multi-device sync stays unverified until the app is on a second device, which is not an M1
 deliverable. S2's handoff report says so and that remains the honest position.
 
 One correction to the risk as S2 stated it: nothing in the shipping app has ever called
 `FeedIngestor.ingest`, so the iPad database almost certainly holds no ContentPieces at all. The
-migration is still one-way and step 1 still applies, but it is migrating an empty table. The real
-exposure in this pass is step 4, not step 2.
+migration is still one-way and step 1 still applies, but it is migrating an empty table. With
+enablement deferred (step 4), this pass carries no one-way exposure at all — it is now a health
+check.
 
 ### After S4 — the labelling pass
 
@@ -470,6 +476,8 @@ the behaviour behind it.
 ---
 
 ## Amendments
+
+**2026-09-11 — CloudKit sync-enablement defers past Architecture Gate 1.** Raised by Jon: why enable sync during M1 at all? The amendment below moved enablement to *after* S3's schema lands, but that is conditional sequencing — *if* you enable, do it then — not a reason to enable within M1. Nothing forces it. Multi-device sync is not an M1 deliverable, so enabling on one iPad verifies nothing that is actually unverified; `CloudSyncKit` is proven on Galavant and Yes Chef, so the mechanism was never the live risk. What enabling *does* is fix the synced schema (ADR-0001 D6), and removing or renaming a column on a synced table is the disallowed SQLiteData 1.12 migration the amendment below already hit — so enablement converts cheap destructive edits on `ContentPiece`, `Stream`, and the other synced core types into append-only migrations. Architecture Gate 1 is explicitly empowered to revise the `Artifact`/`ContentPiece` boundaries D6 syncs (`docs/V1-SCOPE-AND-SEQUENCING.md`, Architecture Gate 1), so freezing them immediately before that gate is backwards. Enablement therefore waits for an actual payoff — a real second device, or the entity boundaries having survived a gate. The cheap half of the *"After S2 merges — before S3 begins"* pass still runs on the next launch as a health check: back up, confirm the migration, confirm sync stayed off. It is decoupled from S4, which touches no CloudKit. The "small enough to throw away" rationale for enabling early is defeated here specifically: the database is empty, the CloudKit Development schema can be reset, and one-device enablement does not exercise the multi-device path that is the only thing left unverified. Amends the device pass above and supersedes the enablement half of the amendment below.
 
 **2026-09-11 — Poll health is device-local; migration is source-correction, and sync-enablement moves after S3.** The S3 review directed dropping `health`/`lastReceivedAt` off the synced `streams` table. The executor correctly escalated: SQLiteData 1.12 lists removing columns from a synchronized table as a disallowed migration, and its schema reconciliation only propagates newly-present columns. The decision (poll health device-local, in `StreamPollState`) stands; the mechanism was wrong. Because no device has persisted the current schema and sync has never run against data, the schema is not yet distributed, so `health`/`lastReceivedAt` are removed at their source (S1's create-table) rather than dropped by a later migration — no disallowed operation occurs. Consequence: enabling CloudKit sync freezes the schema, so the sync-enablement step of the *"After S2 merges — before S3 begins"* device pass now runs **after** S3's schema lands, against the final M1 Stream schema. The empty-container framing in the review comment was imprecise — the load-bearing fact is pre-first-sync, not container emptiness.
 
