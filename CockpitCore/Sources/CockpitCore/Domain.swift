@@ -32,6 +32,33 @@ public enum ContentKind: String, Codable, QueryBindable, Sendable {
   case post
 }
 
+public enum PersonalKnowledgeKind: String, Codable, QueryBindable, CaseIterable, Hashable, Sendable {
+  case fact
+  case taste
+  case interest
+
+  public var displayName: String { rawValue.capitalized }
+}
+
+public enum PersonalKnowledgeClaimStatus: String, Codable, QueryBindable, Hashable, Sendable {
+  case current
+  case superseded
+}
+
+public enum PersonalKnowledgeProvenance: String, Codable, QueryBindable, Hashable, Sendable {
+  case directTeaching
+  case jonBrainImport
+  case semanticConsolidation
+
+  public var displayName: String {
+    switch self {
+    case .directTeaching: "Direct teaching"
+    case .jonBrainImport: "Jon Brain import"
+    case .semanticConsolidation: "Semantically reconciled Jon Brain import"
+    }
+  }
+}
+
 @Table("interestAreas")
 public struct InterestArea: Codable, Equatable, Identifiable, Sendable {
   public let id: UUID
@@ -185,6 +212,38 @@ public struct ContentPiece: Codable, Equatable, Identifiable, Sendable {
     self.summary = summary
     self.subjects = subjects
     self.isSubstantivePrimary = isSubstantivePrimary
+    self.createdAt = createdAt
+  }
+}
+
+@Table("personalKnowledgeClaims")
+public struct PersonalKnowledgeClaim: Codable, Equatable, Identifiable, Sendable {
+  public let id: UUID
+  public var kind: PersonalKnowledgeKind
+  public var claim: String
+  public var scope: String?
+  public var provenance: PersonalKnowledgeProvenance
+  public var status: PersonalKnowledgeClaimStatus
+  public var supersededByID: UUID?
+  public var createdAt: Date
+
+  public init(
+    id: UUID,
+    kind: PersonalKnowledgeKind,
+    claim: String,
+    scope: String? = nil,
+    provenance: PersonalKnowledgeProvenance,
+    status: PersonalKnowledgeClaimStatus = .current,
+    supersededByID: UUID? = nil,
+    createdAt: Date
+  ) {
+    self.id = id
+    self.kind = kind
+    self.claim = claim
+    self.scope = scope
+    self.provenance = provenance
+    self.status = status
+    self.supersededByID = supersededByID
     self.createdAt = createdAt
   }
 }

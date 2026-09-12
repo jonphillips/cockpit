@@ -15,6 +15,7 @@ let package = Package(
     .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.0.0"),
     .package(url: "https://github.com/pointfreeco/swift-structured-queries", from: "0.31.0"),
     .package(path: "../../jon-platform/packages/CloudSyncKit"),
+    .package(path: "../../jon-platform/packages/LLMClientKit"),
     .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.0.0"),
   ],
   targets: [
@@ -23,6 +24,7 @@ let package = Package(
       dependencies: [
         .product(name: "CloudSyncKit", package: "CloudSyncKit"),
         .product(name: "Dependencies", package: "swift-dependencies"),
+        .product(name: "LLMClientKit", package: "LLMClientKit"),
         .product(name: "SQLiteData", package: "sqlite-data"),
         .product(name: "StructuredQueries", package: "swift-structured-queries"),
       ]
