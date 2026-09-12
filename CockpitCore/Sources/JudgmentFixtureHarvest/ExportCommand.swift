@@ -27,8 +27,8 @@ struct ExportCommand {
     let harvested = try await exporter.export(after: after, before: before)
     let oldLabels = try LabelStore.load(from: labelsURL)
     let labels = LabelStore.merging(oldLabels, with: harvested)
-    try JSONEncoder.fixture.encode(JudgmentFixtureExport(fixtures: harvested.fixtures)).write(to: fixturesURL)
-    try JSONEncoder.fixture.encode(JudgmentLabelExport(labels: labels)).write(to: labelsURL)
+    try OutputFile.write(JSONEncoder.fixture.encode(JudgmentFixtureExport(fixtures: harvested.fixtures)), to: fixturesURL)
+    try OutputFile.write(JSONEncoder.fixture.encode(JudgmentLabelExport(labels: labels)), to: labelsURL)
     print("Exported \(harvested.fixtures.count) judgment fixtures and preserved \(labels.count) labels.")
   }
 }

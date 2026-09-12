@@ -94,7 +94,7 @@ struct GmailReadOnlyClient {
 /// Keeps the harvest under Gmail's per-user quota (units/minute): a fixed gap between requests, plus
 /// exponential backoff-and-retry when the API reports a rate limit anyway.
 enum GmailThrottle {
-  static let spacing: UInt64 = 200_000_000  // 200ms ≈ 5 req/s; well under the documented ceiling
+  static let spacing: UInt64 = 300_000_000  // 300ms ≈ 3.3 req/s; conservative headroom under quota
   static let maxRetries = 6
 
   static func isRateLimited(status: Int, body: Data) -> Bool {

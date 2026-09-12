@@ -1,6 +1,17 @@
 import Foundation
 import JudgmentFixtureSupport
 
+/// Writes a JSON output file, creating its parent directory first. `Data.write(to:)` does not create
+/// intermediate directories, so the frozen-corpus paths (e.g. Tests/Fixtures/judgment/) fail on a
+/// clean checkout without this.
+enum OutputFile {
+  static func write(_ data: Data, to url: URL) throws {
+    try FileManager.default.createDirectory(
+      at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try data.write(to: url)
+  }
+}
+
 enum LabelStore {
   static func load(from url: URL) throws -> [JudgmentFixtureLabel] {
     guard FileManager.default.fileExists(atPath: url.path) else { return [] }

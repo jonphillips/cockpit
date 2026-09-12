@@ -37,7 +37,7 @@ struct DiscoverCommand {
     let config = HarvestConfiguration(
       rssSources: seeds.rssSeeds.map { RSSSource(fixture: $0.rssFixture!, stream: $0.sourceContext) },
       gmailSources: gmailSources)
-    try JSONEncoder.fixture.encode(config).write(to: outURL)
+    try OutputFile.write(JSONEncoder.fixture.encode(config), to: outURL)
     printSummary(config: config)
   }
 
