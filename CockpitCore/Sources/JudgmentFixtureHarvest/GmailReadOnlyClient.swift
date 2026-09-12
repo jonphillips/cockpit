@@ -72,12 +72,44 @@ struct GmailReadOnlyClient {
   private func get<Response: Decodable>(_ url: URL) async throws -> Response {
     var request = URLRequest(url: url)
     request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-    let (data, response) = try await URLSession.shared.data(for: request)
-    guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
-      let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-      throw HarvestError.httpStatus(status, String(decoding: data, as: UTF8.self))
+    var attempt = 0
+    while true {
+      try await Task.sleep(nanoseconds: GmailThrottle.spacing)  // pace under the per-minute quota
+      let (data, response) = try await URLSession.shared.data(for: request)
+      let http = response as? HTTPURLResponse
+      let status = http?.statusCode ?? -1
+      if 200..<300 ~= status {
+        return try JSONDecoder.gmail.decode(Response.self, from: data)
+      }
+      guard GmailThrottle.isRateLimited(status: status, body: data), attempt < GmailThrottle.maxRetries
+      else { throw HarvestError.httpStatus(status, String(decoding: data, as: UTF8.self)) }
+      let delay = GmailThrottle.backoff(attempt: attempt, retryAfter: http?.value(forHTTPHeaderField: "Retry-After"))
+      fputs("gmail rate limit — backing off \(delay / 1_000_000_000)s (retry \(attempt + 1)/\(GmailThrottle.maxRetries))\n", stderr)
+      try await Task.sleep(nanoseconds: delay)
+      attempt += 1
     }
-    return try JSONDecoder.gmail.decode(Response.self, from: data)
+  }
+}
+
+/// Keeps the harvest under Gmail's per-user quota (units/minute): a fixed gap between requests, plus
+/// exponential backoff-and-retry when the API reports a rate limit anyway.
+enum GmailThrottle {
+  static let spacing: UInt64 = 200_000_000  // 200ms ≈ 5 req/s; well under the documented ceiling
+  static let maxRetries = 6
+
+  static func isRateLimited(status: Int, body: Data) -> Bool {
+    if status == 429 { return true }
+    guard status == 403 else { return false }
+    let text = String(decoding: body, as: UTF8.self)
+    return text.contains("rateLimitExceeded") || text.contains("userRateLimitExceeded")
+      || text.contains("Quota exceeded")
+  }
+
+  static func backoff(attempt: Int, retryAfter: String?) -> UInt64 {
+    if let retryAfter, let seconds = Double(retryAfter), seconds > 0 {
+      return UInt64(seconds * 1_000_000_000)
+    }
+    return UInt64(min(pow(2.0, Double(attempt + 1)), 32) * 1_000_000_000)  // 2,4,8,16,32,32s
   }
 }
 
