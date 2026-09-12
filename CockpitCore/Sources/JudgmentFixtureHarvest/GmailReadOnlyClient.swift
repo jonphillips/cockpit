@@ -2,12 +2,49 @@ import CockpitCore
 import Foundation
 import JudgmentFixtureSupport
 
+/// Read-only Gmail access. Every request is a `GET`; nothing here can mutate the mailbox.
 struct GmailReadOnlyClient {
   let accessToken: String
 
+  /// Full messages for the confirmed allowlist within the window — the body-bearing pull used by
+  /// `export` once Jon has confirmed which senders are editorial.
   func messages(after: String, before: String, fromContains: [String]) async throws -> [GmailMessage] {
-    let senderTerms = fromContains.map { "from:\($0)" }.joined(separator: " ")
-    let query = "after:\(after) before:\(before) {\(senderTerms)}"
+    let senders = fromContains.map { "from:\($0)" }.joined(separator: " ")
+    let ids = try await listIDs(query: "\(Self.window(after, before)) {\(senders)}")
+    var fetched: [GmailMessage] = []
+    for id in ids {
+      fetched.append(try await message(id: id, format: "full"))
+    }
+    return fetched
+  }
+
+  /// Metadata-only sender discovery: aggregates `From` across a free-text query without ever
+  /// requesting a body. Used by `discover`; nothing it returns is written until Jon confirms.
+  func senderCandidates(
+    matching query: String, after: String, before: String, cap: Int
+  ) async throws -> [SenderCandidate] {
+    let ids = try await listIDs(query: "\(Self.window(after, before)) \(query)").prefix(cap)
+    var counts: [String: Int] = [:]
+    var samples: [String: String] = [:]
+    for id in ids {
+      let message = try await message(id: id, format: "metadata", metadataHeaders: ["From"])
+      guard let from = message.header(named: "From") else { continue }
+      let email = SenderCandidate.email(from: from)
+      counts[email, default: 0] += 1
+      samples[email] = from
+    }
+    return counts
+      .map { SenderCandidate(email: $0.key, sampleFrom: samples[$0.key] ?? $0.key, count: $0.value) }
+      .sorted { ($0.count, $1.email) > ($1.count, $0.email) }
+  }
+
+  /// Gmail's `after:`/`before:` operators want `YYYY/MM/DD`; the CLI takes ISO dashes, so translate.
+  private static func window(_ after: String, _ before: String) -> String {
+    let slash = { (date: String) in date.replacingOccurrences(of: "-", with: "/") }
+    return "after:\(slash(after)) before:\(slash(before))"
+  }
+
+  private func listIDs(query: String) async throws -> [String] {
     var ids: [String] = []
     var pageToken: String?
     repeat {
@@ -21,17 +58,15 @@ struct GmailReadOnlyClient {
       ids += page.messages?.map(\.id) ?? []
       pageToken = page.nextPageToken
     } while pageToken != nil
-
-    var fetched: [GmailMessage] = []
-    for id in ids {
-      fetched.append(try await message(id: id))
-    }
-    return fetched
+    return ids
   }
 
-  private func message(id: String) async throws -> GmailMessage {
-    let url = URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages/\(id)?format=full")!
-    return try await get(url)
+  private func message(id: String, format: String, metadataHeaders: [String] = []) async throws -> GmailMessage {
+    var components = URLComponents(
+      string: "https://gmail.googleapis.com/gmail/v1/users/me/messages/\(id)")!
+    components.queryItems = [URLQueryItem(name: "format", value: format)]
+      + metadataHeaders.map { URLQueryItem(name: "metadataHeaders", value: $0) }
+    return try await get(components.url!)
   }
 
   private func get<Response: Decodable>(_ url: URL) async throws -> Response {
@@ -46,96 +81,18 @@ struct GmailReadOnlyClient {
   }
 }
 
-struct GmailMessageList: Decodable {
-  let messages: [GmailMessageReference]?
-  let nextPageToken: String?
-}
+/// One discovered sender for a seed: the address, a sample raw `From` for Jon to eyeball, and how
+/// many messages in the window carried it.
+struct SenderCandidate {
+  let email: String
+  let sampleFrom: String
+  let count: Int
 
-struct GmailMessageReference: Decodable {
-  let id: String
-}
-
-struct GmailMessage: Decodable {
-  let id: String
-  let labelIds: [String]
-  let payload: GmailPart
-
-  func header(named name: String) -> String? {
-    payload.headers.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value
-  }
-
-  var normalizedText: String? {
-    let plain = payload.text(matching: "text/plain")
-    let html = payload.text(matching: "text/html")
-    return HTMLText.normalizedText(from: plain ?? html)
-  }
-
-  var date: Date? {
-    guard let value = header(named: "Date") else { return nil }
-    return GmailDateParser.date(from: value)
-  }
-
-  var dispositionPrior: DispositionPrior {
-    if disposition == .trashed { return .never }
-    if disposition == .archived { return readState == .unread ? .quiet : .surface }
-    return .uncertain
-  }
-
-  var disposition: GmailDisposition {
-    if labelIds.contains("TRASH") { return .trashed }
-    return labelIds.contains("INBOX") ? .inbox : .archived
-  }
-
-  var readState: GmailReadState {
-    labelIds.contains("UNREAD") ? .unread : .read
-  }
-}
-
-struct GmailPart: Decodable {
-  let mimeType: String?
-  let headers: [GmailHeader]
-  let body: GmailBody?
-  let parts: [GmailPart]?
-
-  func text(matching expectedMIMEType: String) -> String? {
-    if mimeType?.caseInsensitiveCompare(expectedMIMEType) == .orderedSame,
-      let encoded = body?.data,
-      let data = Data(base64URLEncoded: encoded),
-      let text = String(data: data, encoding: .utf8),
-      !text.isEmpty
-    {
-      return text
+  /// Extracts the address from a `From` header, falling back to the trimmed whole value.
+  static func email(from header: String) -> String {
+    if let open = header.lastIndex(of: "<"), let close = header[open...].firstIndex(of: ">") {
+      return String(header[header.index(after: open)..<close]).lowercased()
     }
-    return parts?.lazy.compactMap { $0.text(matching: expectedMIMEType) }.first
+    return header.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
   }
-}
-
-struct GmailHeader: Decodable {
-  let name: String
-  let value: String
-}
-
-struct GmailBody: Decodable {
-  let data: String?
-}
-
-enum GmailDateParser {
-  static func date(from value: String) -> Date? {
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "en_US_POSIX")
-    formatter.dateFormat = "EEE, d MMM yyyy HH:mm:ss Z"
-    return formatter.date(from: value)
-  }
-}
-
-private extension Data {
-  init?(base64URLEncoded value: String) {
-    let padding = String(repeating: "=", count: (4 - value.count % 4) % 4)
-    self.init(base64Encoded: value.replacingOccurrences(of: "-", with: "+")
-      .replacingOccurrences(of: "_", with: "/") + padding)
-  }
-}
-
-private extension JSONDecoder {
-  static let gmail = JSONDecoder()
 }

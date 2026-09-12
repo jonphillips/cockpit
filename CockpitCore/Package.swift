@@ -8,6 +8,7 @@ let package = Package(
   products: [
     .library(name: "CockpitCore", targets: ["CockpitCore"]),
     .executable(name: "JudgmentFixtureHarvest", targets: ["JudgmentFixtureHarvest"]),
+    .executable(name: "GmailFixtureToken", targets: ["GmailFixtureToken"]),
   ],
   dependencies: [
     .package(url: "https://github.com/pointfreeco/sqlite-data", from: "1.8.0"),
@@ -34,6 +35,9 @@ let package = Package(
         "JudgmentFixtureSupport",
       ]
     ),
+    // A Mac-only OAuth helper (system frameworks only — no CockpitCore/app dependency) that mints a
+    // short-lived Gmail access token for the harvest. Never shipped, never on a launch path.
+    .executableTarget(name: "GmailFixtureToken"),
     .testTarget(
       name: "CockpitCoreTests",
       dependencies: [
