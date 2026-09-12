@@ -22,6 +22,8 @@ public final class PersonalKnowledgeModel {
   @ObservationIgnored @Dependency(\.defaultDatabase) private var database
   @ObservationIgnored @Dependency(\.date.now) private var now
   @ObservationIgnored @Dependency(\.modelClient) private var modelClient
+  @ObservationIgnored @Dependency(\.apiKeyStore) private var apiKeyStore
+  @ObservationIgnored @Dependency(\.frontierPreferenceStore) private var preferenceStore
   @ObservationIgnored @Dependency(\.uuid) private var uuid
   @ObservationIgnored @Fetch(PersonalKnowledgeRequest()) public var knowledge = .init()
 
@@ -30,10 +32,32 @@ public final class PersonalKnowledgeModel {
   public var proposals: [PersonalKnowledgeProposal] = []
   public var selectedProposalIDs: Set<PersonalKnowledgeProposal.ID> = []
   public var errorMessage: String?
+  public var isReviewingImport = false
+  /// A human-readable name of the model the current/last import review actually routed to,
+  /// so the UI never misstates on-device vs. a frontier provider.
+  public var importProviderDescription: String?
 
   public init() {}
 
   public var claims: [PersonalKnowledgeRequest.Row] { knowledge.rows }
+
+  /// The claims to show as present understanding: superseded rows are retained for history
+  /// (and reconciliation) but are not current, so they never render as "Current Understanding."
+  public var currentClaims: [PersonalKnowledgeRequest.Row] {
+    knowledge.rows.filter { $0.status == .current }
+  }
+
+  /// The frontier provider a Jon Brain import should use: the user's chosen provider when
+  /// they have a key for it, otherwise the first configured provider (Anthropic-first),
+  /// otherwise nil — which lets the reconciler fall back to `.frontierPreferred` and, with
+  /// no key at all, degrade to the on-device model.
+  nonisolated static func resolveImportProvider(
+    preferred: FrontierProvider?,
+    isConfigured: (FrontierProvider) -> Bool
+  ) -> FrontierProvider? {
+    if let preferred, isConfigured(preferred) { return preferred }
+    return FrontierProvider.allCases.first(where: isConfigured)
+  }
 
   public func teachButtonTapped() async {
     let draft = directTeaching
@@ -59,9 +83,18 @@ public final class PersonalKnowledgeModel {
       errorMessage = PersonalKnowledgeOperations.Failure.emptyClaim.localizedDescription
       return
     }
+    isReviewingImport = true
+    defer { isReviewingImport = false }
     do {
+      let provider = Self.resolveImportProvider(
+        preferred: preferenceStore.preferred(),
+        isConfigured: { apiKeyStore.key($0) != nil }
+      )
+      importProviderDescription = provider?.displayName ?? "the on-device model"
       let reconciler = PersonalKnowledgeReconciler(modelClient: modelClient)
-      let proposals = try await reconciler.reconcile(importText: text, existingClaims: claims.map(\.asClaim))
+      let proposals = try await reconciler.reconcile(
+        importText: text, existingClaims: claims.map(\.asClaim), provider: provider
+      )
       self.proposals = proposals
       selectedProposalIDs = Set(proposals.filter { !$0.requiresConfirmation }.map(\.id))
       errorMessage = nil

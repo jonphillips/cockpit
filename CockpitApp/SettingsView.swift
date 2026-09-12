@@ -1,4 +1,5 @@
 import CockpitCore
+import LLMClientKit
 import SwiftUI
 
 struct SettingsView: View {
@@ -11,8 +12,84 @@ struct SettingsView: View {
           Label("Personal Knowledge", systemImage: "person.text.rectangle")
         }
       }
+
+      Section("Intelligence") {
+        NavigationLink {
+          AISettingsView()
+        } label: {
+          Label("AI Settings", systemImage: "brain")
+        }
+      }
     }
     .navigationTitle("Settings")
+  }
+}
+
+private struct AISettingsView: View {
+  @State private var model = AISettingsModel()
+
+  var body: some View {
+    @Bindable var model = model
+    List {
+      Section {
+        Picker("Active provider", selection: $model.provider) {
+          ForEach(model.providers) { provider in
+            Text(provider.displayName).tag(provider)
+          }
+        }
+        .onChange(of: model.provider) { model.persistPreferredProvider() }
+        SecureField("API key", text: $model.draftKey)
+          .textInputAutocapitalization(.never)
+          .autocorrectionDisabled()
+          .accessibilityLabel("\(model.provider.displayName) API key")
+        Button("Save Key") { model.saveButtonTapped() }
+          .disabled(model.draftKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        if model.maskedKeyForSelected == nil {
+          Text("No key saved for \(model.provider.displayName) yet — Cockpit will use whichever other provider is configured, or the on-device model.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+      } header: {
+        Text("Frontier Model")
+      } footer: {
+        Text("Cockpit uses the on-device model for everyday work. When a frontier model is needed — like reviewing a Jon Brain import — it uses the active provider above. Enter a key for each provider you want available. Keys are stored in your Keychain, synced across your own devices via iCloud, and never in a synced database table.")
+      }
+
+      if !model.maskedKeys.isEmpty {
+        Section("Configured Keys") {
+          ForEach(model.providers) { provider in
+            if let masked = model.maskedKeys[provider] {
+              HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                  Text(provider.displayName)
+                  Text(masked)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Remove", role: .destructive) {
+                  model.clearButtonTapped(provider)
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    .navigationTitle("AI Settings")
+    .onAppear { model.refresh() }
+    .safeAreaInset(edge: .bottom) {
+      if let status = model.statusMessage {
+        HStack {
+          Text(status)
+          Spacer()
+          Button("Dismiss") { model.statusMessage = nil }
+        }
+        .font(.callout)
+        .padding()
+        .background(.regularMaterial)
+      }
+    }
   }
 }
 
@@ -23,7 +100,7 @@ private struct PersonalKnowledgeView: View {
     @Bindable var model = model
     List {
       Section {
-        ForEach(model.claims) { claim in
+        ForEach(model.currentClaims) { claim in
           PersonalKnowledgeClaimRow(claim: claim)
         }
       } header: {
@@ -53,10 +130,24 @@ private struct PersonalKnowledgeView: View {
         TextEditor(text: $model.importText)
           .frame(minHeight: 150)
           .accessibilityLabel("Jon Brain import text")
-        Button("Review Import") {
-          Task { await model.reviewImportButtonTapped() }
+        HStack {
+          Button("Review Import") {
+            Task { await model.reviewImportButtonTapped() }
+          }
+          .disabled(
+            model.isReviewingImport
+              || model.importText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+          )
+          if model.isReviewingImport {
+            Spacer()
+            ProgressView()
+          }
         }
-        .disabled(model.importText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        if model.isReviewingImport {
+          Text("Reviewing with \(model.importProviderDescription ?? "the model"). This can take several seconds…")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
       }
 
       if !model.proposals.isEmpty {
@@ -91,11 +182,17 @@ private struct PersonalKnowledgeView: View {
     }
     .safeAreaInset(edge: .bottom) {
       if let error = model.errorMessage {
-        HStack {
+        HStack(alignment: .top, spacing: 8) {
+          Image(systemName: "exclamationmark.triangle.fill")
+            .foregroundStyle(.red)
+            .accessibilityHidden(true)
           Text(error)
           Spacer()
           Button("Dismiss") { model.errorMessage = nil }
         }
+        .font(.callout)
+        .padding()
+        .background(.red.opacity(0.12), in: .rect(cornerRadius: 12))
         .padding()
         .background(.regularMaterial)
       }

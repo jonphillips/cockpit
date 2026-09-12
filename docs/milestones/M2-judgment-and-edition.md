@@ -114,6 +114,18 @@ The Phase-1 half of Personal Knowledge — everything that has no dependency on 
    corrected claim preserves enough history to know the old one was superseded.
 4. The projection renders exactly what §2 specifies and nothing behavioural.
 
+### Amendment 2026-09-12 — S1 grew a model-config surface
+
+Jon's device pass proved the original slice could not actually run a real import: the reconciler
+degrades to the on-device model with no key, the on-device model cannot emit this structured schema,
+and there was no in-app way to configure a frontier key. S1 therefore added, beyond the drafted scope:
+a Settings → AI screen with a Keychain-backed API-key store (`APIKeyStore`, LLMClientKit) and an
+active-provider preference (`FrontierPreferenceStore`, Anthropic or OpenAI); in-flight/error feedback
+on the import; a decode failure that surfaces the raw response instead of vanishing; and an
+input-scaled output budget (a fixed cap truncated a ~65-claim dump mid-array). Real-model evidence:
+first-import pass-through and second-import dedup/consolidation both confirmed on device with OpenAI.
+Import cost is Gate-1 evidence to record with the composition-cost number.
+
 ### Out of scope — deferred to M3 (Personal Knowledge deepens)
 
 Correction/supersession UX, "why this matters" teaching from the Reader, the confirmation flow for a

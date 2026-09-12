@@ -114,6 +114,11 @@ struct PersonalKnowledgeTests {
     expectNoDifference(old.supersededByID, current.id)
     expectNoDifference(current.status, .current)
     expectNoDifference(current.provenance, .semanticConsolidation)
+
+    // The superseded row is retained but must not render as present understanding.
+    try await model.$knowledge.load()
+    expectNoDifference(model.claims.count, 2)
+    expectNoDifference(model.currentClaims.map(\.id), [current.id])
   }
 
   @Test("Projection contains only current labelled claims and records its subset")
@@ -142,5 +147,36 @@ struct PersonalKnowledgeTests {
     expectNoDifference(subset.includedClaimIDs, [many[0].id])
     #expect(!subset.isFullSet)
     #expect(!subset.text.contains("Other interest"))
+  }
+}
+
+@Suite
+struct PersonalKnowledgeReconcilerTests {
+  @Test("The output budget scales with the import so a large dump is not truncated")
+  func outputBudgetScales() {
+    let small = PersonalKnowledgeReconciler.outputBudget(importText: "- [Fact] One.", existingClaims: [])
+    let bigImport = (1...100).map { "- [Fact] Claim \($0)." }.joined(separator: "\n")
+    let large = PersonalKnowledgeReconciler.outputBudget(importText: bigImport, existingClaims: [])
+    #expect(small == 4_000)
+    #expect(large > small)
+    #expect(large <= 16_000)
+  }
+
+  @Test("A response the decoder can't read fails with the raw text, not silently")
+  func undecodableResponseSurfaces() async throws {
+    let reconciler = PersonalKnowledgeReconciler(
+      modelClient: StubModelClient { _ in
+        ModelResponse(text: "- [Fact] Lives in Chapel Hill.", responseFormatStatus: .fellBack)
+      }
+    )
+    do {
+      _ = try await reconciler.reconcile(importText: "anything", existingClaims: [])
+      Issue.record("expected the undecodable response to throw")
+    } catch let error as ReconciliationError {
+      expectNoDifference(
+        error,
+        .undecodableResponse(status: .fellBack, snippet: "- [Fact] Lives in Chapel Hill.")
+      )
+    }
   }
 }

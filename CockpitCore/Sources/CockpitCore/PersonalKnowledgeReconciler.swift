@@ -13,18 +13,31 @@ public struct PersonalKnowledgeReconciler: Sendable {
 
   public func reconcile(
     importText: String,
-    existingClaims: [PersonalKnowledgeClaim]
+    existingClaims: [PersonalKnowledgeClaim],
+    provider: FrontierProvider? = nil
   ) async throws -> [PersonalKnowledgeProposal] {
+    // An explicit, already-configured provider routes there directly; otherwise fall back
+    // to the resolver's Anthropic-first order (which itself degrades to on-device when no
+    // key is present).
+    let tier: ModelTier = provider.map { .frontier($0) } ?? .frontierPreferred
     let response = try await modelClient.complete(
       ModelRequest(
-        tier: .frontierPreferred,
+        tier: tier,
         system: Self.systemPrompt,
         prompt: prompt(importText: importText, existingClaims: existingClaims),
-        maxTokens: 2_000,
+        maxTokens: Self.outputBudget(importText: importText, existingClaims: existingClaims),
         responseFormat: .jsonSchema(name: "personal_knowledge_reconciliation", schema: Self.schema)
       )
     )
-    let decoded = try JSONDecoder().decode(ReconciliationResponse.self, from: Data(response.text.utf8))
+    let decoded: ReconciliationResponse
+    do {
+      decoded = try JSONDecoder().decode(ReconciliationResponse.self, from: Data(response.text.utf8))
+    } catch {
+      throw ReconciliationError.undecodableResponse(
+        status: response.responseFormatStatus,
+        snippet: String(response.text.prefix(240))
+      )
+    }
     let currentIDs = Set(existingClaims.filter { $0.status == .current }.map(\.id))
     return try decoded.proposals.map { raw in
       let replacedIDs = try raw.replacesClaimIDs.map { value -> PersonalKnowledgeClaim.ID in
@@ -53,6 +66,20 @@ public struct PersonalKnowledgeReconciler: Sendable {
         rationale: raw.rationale
       )
     }
+  }
+
+  /// The structured output must hold one JSON object per proposed claim; a fixed cap
+  /// truncates a real Jon Brain dump mid-array (a valid-JSON-but-incomplete decode
+  /// failure). Size it to the import — roughly one proposal per non-empty import line,
+  /// plus headroom for consolidations that reference existing claims, at ~120 tokens each
+  /// — floored so a tiny import still has room and capped so it stays within model limits.
+  /// `maxTokens` is only a ceiling; billing is for tokens actually generated.
+  static func outputBudget(importText: String, existingClaims: [PersonalKnowledgeClaim]) -> Int {
+    let importLines = importText.split(whereSeparator: \.isNewline).filter {
+      !$0.trimmingCharacters(in: .whitespaces).isEmpty
+    }.count
+    let estimatedProposals = importLines + existingClaims.count
+    return min(16_000, max(4_000, estimatedProposals * 120))
   }
 
   private func prompt(importText: String, existingClaims: [PersonalKnowledgeClaim]) -> String {
@@ -114,6 +141,26 @@ public struct PersonalKnowledgeReconciler: Sendable {
 public enum ReconciliationError: Error, Equatable {
   case unknownCurrentClaimID(String)
   case invalidAction
+  /// The model returned something the reconciliation decoder could not read. `status`
+  /// distinguishes an on-device fall-back to prose (`.fellBack`) from a frontier reply
+  /// that was simply malformed; `snippet` is the start of what actually came back.
+  case undecodableResponse(status: ModelResponseFormatStatus?, snippet: String)
+}
+
+extension ReconciliationError: LocalizedError {
+  public var errorDescription: String? {
+    switch self {
+    case let .unknownCurrentClaimID(value):
+      return "The model referenced a claim that is not a current one (\(value))."
+    case .invalidAction:
+      return "The model proposed an action Cockpit does not support."
+    case let .undecodableResponse(status, snippet):
+      let lead = status == .fellBack
+        ? "The model could not produce the required structured format and returned plain text instead — the on-device model cannot handle this import. Choose a frontier provider in AI Settings."
+        : "The model's response was not valid structured data."
+      return "\(lead) It began: \(snippet)"
+    }
+  }
 }
 
 public struct PersonalKnowledgeProposal: Equatable, Identifiable, Sendable {
