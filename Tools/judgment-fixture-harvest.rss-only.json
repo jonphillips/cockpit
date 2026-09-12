@@ -1,0 +1,16 @@
+{
+  "rssSources" : [
+    {
+      "fixture" : "CockpitCore/Tests/CockpitCoreTests/Fixtures/streams/slow-boring.xml",
+      "stream" : {
+        "name" : "Slow Boring",
+        "handling" : "following",
+        "handlingGuidance" : "Treat Slow Boring as a writer I generally want available rather than a publication to filter aggressively.",
+        "isEssential" : false,
+        "interestAreaName" : "Technology & Making",
+        "interestAreaGuidance" : ""
+      }
+    }
+  ],
+  "gmailSources" : []
+}

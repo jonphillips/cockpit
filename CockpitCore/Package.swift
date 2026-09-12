@@ -7,6 +7,8 @@ let package = Package(
   platforms: [.iOS("27.0"), .macOS("26.0")],
   products: [
     .library(name: "CockpitCore", targets: ["CockpitCore"]),
+    .executable(name: "JudgmentFixtureHarvest", targets: ["JudgmentFixtureHarvest"]),
+    .executable(name: "GmailFixtureToken", targets: ["GmailFixtureToken"]),
   ],
   dependencies: [
     .package(url: "https://github.com/pointfreeco/sqlite-data", from: "1.8.0"),
@@ -25,10 +27,23 @@ let package = Package(
         .product(name: "StructuredQueries", package: "swift-structured-queries"),
       ]
     ),
+    .target(name: "JudgmentFixtureSupport"),
+    .executableTarget(
+      name: "JudgmentFixtureHarvest",
+      dependencies: [
+        "CockpitCore",
+        "JudgmentFixtureSupport",
+      ],
+      resources: [.copy("Labeler.html")]
+    ),
+    // A Mac-only OAuth helper (system frameworks only — no CockpitCore/app dependency) that mints a
+    // short-lived Gmail access token for the harvest. Never shipped, never on a launch path.
+    .executableTarget(name: "GmailFixtureToken"),
     .testTarget(
       name: "CockpitCoreTests",
       dependencies: [
         "CockpitCore",
+        "JudgmentFixtureSupport",
         .product(name: "CustomDump", package: "swift-custom-dump"),
         .product(name: "DependenciesTestSupport", package: "swift-dependencies"),
       ],

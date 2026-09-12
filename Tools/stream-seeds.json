@@ -1,0 +1,96 @@
+{
+  "seeds" : [
+    {
+      "name" : "Slow Boring",
+      "handlingGuidance" : "Treat Slow Boring as a writer I generally want available rather than a publication to filter aggressively. Brief the thesis enough that I can decide whether to read now, later, or skip. Elevate an issue when it strongly intersects with an existing Interest, but do not infer that skipping an issue means I no longer care about the writer/topic.",
+      "rssFixture" : "CockpitCore/Tests/CockpitCoreTests/Fixtures/streams/slow-boring.xml"
+    },
+    {
+      "name" : "Astral Codex Ten",
+      "handlingGuidance" : "Brief substantive essays enough to decide whether to read and screen community/announcement-style posts much more aggressively. Do not treat every post from the same publication as equally valuable merely because the sender is high-signal.",
+      "rssFixture" : "CockpitCore/Tests/CockpitCoreTests/Fixtures/streams/astral-codex-ten.xml"
+    },
+    {
+      "name" : "Techmeme",
+      "handlingGuidance" : "Screen the technology stories for developments that materially intersect with my current interests—especially AI capabilities, developer tooling, Apple/mobile platforms, and changes that could affect the app family. Routine industry deal/news churn can stay suppressed. When a platform release could expand an actual harness, surface it with the concrete reason it matters.",
+      "rssFixture" : "CockpitCore/Tests/CockpitCoreTests/Fixtures/streams/techmeme.xml"
+    },
+    {
+      "name" : "Point-Free",
+      "handlingGuidance" : "Treat Point-Free as an architecture/tooling source relevant to patterns actually used in the app family. Surface library changes, techniques, or releases that could materially improve our current architecture. Do not surface every product update merely because we use Point-Free libraries. Explain the concrete seam or problem a new capability might affect.",
+      "rssFixture" : "CockpitCore/Tests/CockpitCoreTests/Fixtures/streams/point-free.xml"
+    },
+    {
+      "name" : "Benedict Evans",
+      "handlingGuidance" : "Screen the newsletter for AI/platform/technology analysis that is unusually relevant to my current thinking. Preserve the high-level argument when it is useful, but avoid surfacing every industry link. If a contained item changes the practical capability landscape for my apps, elevate it separately.",
+      "rssFixture" : "CockpitCore/Tests/CockpitCoreTests/Fixtures/streams/benedict-evans.xml"
+    },
+    {
+      "name" : "Derek Thompson",
+      "handlingGuidance" : "Treat Derek Thompson as a high-signal writer on technology, economics, culture, and social change. Brief the central argument and tell me when an issue is unusually aligned with something I have been thinking about. Keep the full original available. Use my explicit reactions to refine which of his themes matter most, rather than learning from passive opens."
+    },
+    {
+      "name" : "Noahpinion",
+      "handlingGuidance" : "Distinguish long-form essays from roundup issues. For essays, brief the thesis and relevance. For roundups, screen constituent links/topics and surface the parts most aligned with my technology/economics/culture interests. Do not force one processing style on both formats."
+    },
+    {
+      "name" : "Cartoons Hate Her",
+      "handlingGuidance" : "Treat Cartoons Hate Her as a conversational/cultural writer I may want to skim regardless of topic. Give me a concise orientation and call out when an essay overlaps strongly with my interests in culture, media, technology, or social behavior. Do not over-filter the publication into disconnected article nuggets; writer voice is part of why I subscribe."
+    },
+    {
+      "name" : "I Might Be Wrong",
+      "handlingGuidance" : "Brief the core argument/joke premise and make the full issue easy to read. Surface an issue more strongly when it intersects with topics I clearly follow. Do not reduce the source to political topic tags; the writer's perspective and style are part of the subscription value.",
+      "gmailQuery" : "\"Jeff Maurer\""
+    },
+    {
+      "name" : "Singal-Minded",
+      "handlingGuidance" : "Brief the main claim and why it may matter to me, keeping the original available. Treat media/journalism methodology and institutional-behavior stories as potentially higher signal than generic partisan controversy. Let explicit reactions, not reading time, refine the source policy."
+    },
+    {
+      "name" : "iOS Code Review",
+      "handlingGuidance" : "Surface developments that materially affect how I can build, test, architect, or operate my apps—especially agent/AI tooling, Xcode capabilities, Foundation Models, SwiftUI architecture, background execution, App Intents, and meaningful platform changes. Separate \"interesting developer news\" from an actual change in what the Cockpit/Galavant/Yes Chef harness can do. Ignore routine beta churn unless it changes a real implementation decision."
+    },
+    {
+      "name" : "The Free Press",
+      "handlingGuidance" : "Process by message shape. For a single long-form feature, brief the thesis. For multi-item front-page/digest sends, screen constituent stories and surface only strong matches. Treat subscription marketing as disposable. Preserve enough source context that I can distinguish a genuinely interesting argument from generic outrage bait."
+    },
+    {
+      "name" : "The Dispatch",
+      "handlingGuidance" : "Separate author essays, focused newsletters, and subscription promotion. Brief real editorial pieces according to writer/topic relevance; aggressively suppress generic membership marketing. The fact that multiple newsletters share a publisher should not force them into one Handling policy."
+    },
+    {
+      "name" : "Best of Journalism",
+      "handlingGuidance" : "Screen all recommended links cheaply against my Interests and Taste. Do not fetch and summarize every article. Use titles, authors/publications, metadata, and the Brain first; enrich only strong or ambiguous candidates. Surface a small number of strong matches plus worthwhile maybes, with a short explanation of why each might be for me. Keep rejected titles inspectable so I can correct missed interests. When I explain why a hit matters, treat that explanation as strong learning evidence rather than relying on click behavior."
+    },
+    {
+      "name" : "The New York Times — The Morning",
+      "handlingGuidance" : "Do not summarize a summary by default. Scan the contained items for something unusually aligned with my Interests or current concerns and tease only those hits. If nothing is specifically for me, say little or nothing. Preserve a path to the full issue. The goal is \"anything here especially for Jon?\" rather than another compressed news digest.",
+      "gmailQuery" : "\"The Morning\""
+    },
+    {
+      "name" : "Washington Post",
+      "handlingGuidance" : "Treat broad daily digests primarily as hit-detection streams. Surface a contained story only when it strongly matches an Interest or deserves attention for another explicit reason. Do not reproduce the publisher's own prioritization as if it were personalization. More focused newsletters can be briefed according to their own purpose."
+    },
+    {
+      "name" : "NextDraft",
+      "handlingGuidance" : "Treat NextDraft as a curated link digest. Brief the day's organizing theme only if useful, then screen individual stories for unusually strong matches. Do not expand every clever headline into a full summary. Keep promising links available and let the rest disappear unless I inspect skipped items."
+    },
+    {
+      "name" : "Puck",
+      "handlingGuidance" : "Treat Puck's multi-story digests as item-level material. Mine the issue for entertainment, media, sports-business, technology, or cultural stories that strongly match me rather than assuming the headline story is the relevant one. For a strong hit, preserve enough context to decide whether to open the underlying reporting. Do not summarize unrelated Puck verticals merely because they share one email."
+    },
+    {
+      "name" : "Feed Me",
+      "handlingGuidance" : "Give me a short orientation to the issue, then separately hunt for highly specific restaurant, food, media, business, and culture references that match my interests. A side mention can be more valuable than the headline story. Ignore routine fashion/beauty/lifestyle material unless something unusually intersects with my Taste or Interests. Preserve the author's specific observation or rationale around a surfaced nugget; that context is often why the mention is useful."
+    },
+    {
+      "name" : "On the House",
+      "handlingGuidance" : "Mine restaurant/hospitality intelligence for openings, chef moves, notable operators, and specific New York dining developments I might plausibly care about. Surface concrete places/changes with the source's judgment; suppress generic industry chatter unless it intersects with another Interest."
+    },
+    {
+      "name" : "What's Alan Watching?",
+      "handlingGuidance" : "Treat this as television criticism rather than generic entertainment news. Surface essays/recaps when they concern shows I watch or broader TV-industry/critical themes I care about. Keep other issues available but low priority. If I reveal a strong showrunner/director/show interest, use that explicitly rather than inferring from every recap click.",
+      "gmailQuery" : "\"Alan Sepinwall\""
+    }
+  ]
+}
