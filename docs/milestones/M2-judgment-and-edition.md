@@ -47,6 +47,35 @@ Edition is composed is the whole point of sequencing it first (`docs/V1-SCOPE-AN
 - [ ] **S5 — Content completeness and Pending Find extraction**
 - [ ] **Architecture Gate 1 — model review**
 
+## Dogfooding-first — re-prioritization note (2026-09-13)
+
+The goal for the rest of M2 is the **thinnest end-to-end morning loop Jon can actually live with**,
+not a polished judgment pass. After S2's first real eval, the priority is explicit:
+
+- **The dogfood target (v0.1):** every morning, open Cockpit → a finite composed Edition of the
+  real Streams, each entry carrying its one-line "why you're seeing this" → read, **Dismiss**, **Save
+  for Later**, **Add to Library** → nothing cared-about silently vanishes. That is **thin S3 + thin
+  S4**, and nothing else.
+- **Push straight through S3 then S4.** These are the only two slices between here and a usable
+  product. Compose the Edition **in the background before first open** (it is a materialized daily
+  entity anyway), so composition latency — 122s on a Mac in the S2 run, warm-device figure still
+  owed — never blocks the morning.
+- **S5 is cut from the dogfood path.** Content completeness and Pending Find extraction accumulate
+  value later; they are not needed to read a morning Edition. Do S5 after the loop is live, or when
+  judgment wants completeness as an input.
+- **Ship judgment at the recorded baseline; do not tune it first.** `m2-s2-v1` scored agreement
+  0.421 / essential-false-quiet 0.068 / substantive-primary 0.534 (`docs/eval-log.md`, 2026-09-13).
+  Lived use generates the taste signal that actually improves this — the surface/quiet labelling
+  re-cut, digest handling (DECISIONS §18), and prompt quality are all resolved *by* dogfooding, not
+  before it. The finite-Edition + nothing-silently-lost design makes a mediocre first Edition safe,
+  and the one promise-breaking metric (essential-false-quiet) is already low.
+- **S2 is committed as a baseline, not as "judgment is good."** Its box stays unticked until a real
+  Edition composes; the eval baseline is the measuring stick, not a done-claim. The M1 labelling gate
+  is now genuinely met (354/357 confirmed).
+
+This note changes emphasis and ordering, not the slice contracts below. If a slice's done-criteria
+conflict with it, the standing rule holds: escalate, don't silently drift.
+
 ## Standing rules for every M2 slice
 
 The M1 standing rules carry over unchanged and are not repeated in full. The four that bite hardest

@@ -383,6 +383,23 @@ It does **not** mean "keep this forever." Durable retention is an explicit human
 **Open axis — do not conflate.** "Worth keeping / durable-reference / timeless" is a **third** axis, distinct from primary-vs-accessory (this flag) and complete-vs-teaser (`bodyCompleteness`, S5). It is currently unmodeled because its only would-be machine consumer — the auto-Library policy — is deferred precisely because its criteria are unproven. When auto-Library is designed it must **not** reuse `isSubstantivePrimary` as the keep-criterion: primary-ness is not durable-worth. See "Build it and learn."
 
 Housekeeping: the "paywall teaser with no body" example in `docs/IMPLEMENTATION-CONTRACT.md` §1 is really the completeness axis. Until S5 lands, a body-less teaser is labelled not-substantive; afterward that fact belongs to `bodyCompleteness` and this flag stays purely primary-vs-accessory. A rename to `isPrimaryWork` is a candidate but is deferred (it touches schema, harness, and in-flight labels); the sharpened definition holds the field name for now.
+---
+
+## 19. Read vs. skim content, and per-digest commentary — OPEN HYPOTHESIS
+
+Raised 2026-09-13 from the M2 S2 labelling exercise. **Not resolved — to be decided by dogfooding, recorded here so a future implementation does not quietly pick one reading.**
+
+Some content is a *read* (an original argument or report — a Yglesias essay); some is a *skim* (a digest/roundup that points at other things — the NYT Morning Briefing, "top 7 things to know"). The model already distinguishes these on the `isSubstantivePrimary` axis — and §18 sharpens exactly this: a digest/aggregator is an **accessory**, not primary work, so a digest is the canonical **non-substantive-primary** piece.
+
+The open question is what a skim piece *does* in the surfaces:
+
+- **Hypothesis (to live with first):** a digest is still Edition-worthy, but as a **skim entry, not a read entry** — admitted, marked `isSubstantivePrimary = false`, and rendered by the Reader (S4) as a compact summarized card rather than a full read. It stays in the one Edition surface rather than getting its own lane, because a skim card costs little attention (so it does not consume the finite edition's read budget) and because fragmenting the morning across Today + Edition + a briefings lane should wait until lived use asks for it. Fully reversible: if a skim entry keeps wanting its own scan lane, that is the signal to split it.
+
+- **The genuinely new behavior this surfaces:** for a digest, useful AI commentary is about *what is inside it against Jon's interests* ("today's Briefing leads with X; the item likely to matter to you is the housing-policy piece"), not about what the piece is. Every other kind: the `summary` describes the piece; for a digest, the `summary`/`rationale` should describe its **contents** — a preview that lets Jon decide whether to open the source at all. This is a small per-kind addition to the judgment prompt, not new architecture, and is the strongest form of "commentary before I open it."
+
+- **Caution for later:** de-duplication. If Jon also follows sources a digest covers, the digest and the originals can crowd each other in one edition. A ranking/dedup nuance, not a launch blocker.
+
+Resolve by: living with digests as skim cards, and watching whether (a) they want a separate scan lane, (b) the contents-commentary is worth its prompt cost, and (c) dedup against directly-followed sources becomes annoying. Relates to `docs/EDITION-EXPERIENCE.md` (Reader rendering, S4) and `docs/JUDGMENT-CONTRACT.md` §3–4 (per-kind summary/rationale).
 
 ---
 
