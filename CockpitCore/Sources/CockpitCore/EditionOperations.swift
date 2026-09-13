@@ -50,6 +50,52 @@ public enum EditionOperations {
     try Edition.find(edition.id).update { $0.state = #bind(EditionState.closed) }.execute(db)
   }
 
+  /// Save for Later (EDITION-EXPERIENCE §3, IMPLEMENTATION-CONTRACT §4): resolves the Edition
+  /// relationship and records the explicit deferred-attention membership in the same write, so an
+  /// illegal transition (an already-terminal entry) rolls back before the membership is ever
+  /// written. The Reader-facing model's single entry point for this action (M2 S4).
+  public static func saveForLater(_ entryID: EditionEntry.ID, at date: Date, in db: Database) throws {
+    guard let entry = try EditionEntry.find(entryID).fetchOne(db) else {
+      throw Failure.missingEntry(entryID)
+    }
+    try transition(entryID, to: .resolved, in: db)
+    try DestinationOperations.saveForLater(entry.contentPieceID, at: date, in: db)
+  }
+
+  /// Add to Library is orthogonal to Edition state (IMPLEMENTATION-CONTRACT §3–4): it writes the
+  /// membership and never touches `entryState` (M2 S4).
+  public static func addToLibrary(_ entryID: EditionEntry.ID, at date: Date, in db: Database) throws {
+    guard let entry = try EditionEntry.find(entryID).fetchOne(db) else {
+      throw Failure.missingEntry(entryID)
+    }
+    try DestinationOperations.addToLibrary(entry.contentPieceID, at: date, in: db)
+  }
+
+  /// `isSubstantivePrimary` is inspectable and correctable from the Reader
+  /// (IMPLEMENTATION-CONTRACT §1): a deterministic, explicit user correction, never model output
+  /// (the AI boundary — judgment proposes, this code decides and persists) (M2 S4).
+  public static func correctIsSubstantivePrimary(
+    _ entryID: EditionEntry.ID, to value: Bool, in db: Database
+  ) throws {
+    guard let entry = try EditionEntry.find(entryID).fetchOne(db) else {
+      throw Failure.missingEntry(entryID)
+    }
+    try ContentPiece.find(entry.contentPieceID).update {
+      $0.isSubstantivePrimary = #bind(value)
+    }.execute(db)
+  }
+
+  /// The Stream a ContentPiece arrived through, if any — the lookup contextual Stream Handling
+  /// access from the Reader needs (EDITION-EXPERIENCE §6; DECISIONS §7). A piece may have more than
+  /// one Artifact (invariant 1); the first with a Stream wins, matching how Essential eligibility
+  /// is already read from the same table.
+  public static func streamID(for contentPieceID: ContentPiece.ID, in db: Database) throws -> Stream.ID? {
+    try Artifact
+      .where { $0.contentPieceID.eq(contentPieceID) && $0.streamID.isNot(nil) }
+      .select(\.streamID)
+      .fetchOne(db) ?? nil
+  }
+
   /// Write the judgment pass's per-piece classification back onto the ContentPiece: `subjects`
   /// (as a JSON array string), `summary`, and `isSubstantivePrimary`. Done for every classified
   /// piece whether or not it was admitted, so quiet material stays searchable (JUDGMENT-CONTRACT §3).
