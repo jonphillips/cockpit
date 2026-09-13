@@ -56,6 +56,7 @@ public enum JudgmentEvaluation {
   public static func evaluate(
     fixtures: [JudgmentFixture],
     labels: [JudgmentFixtureLabel],
+    costPerComposition: Decimal? = nil,
     judge: (JudgmentFixture) -> StubJudgment
   ) -> JudgmentEvaluationReport {
     let labelsByID = Dictionary(uniqueKeysWithValues: labels.map { ($0.id, $0) })
@@ -74,7 +75,7 @@ public enum JudgmentEvaluation {
       falseSurfaceRate: falseSurface,
       substantivePrimaryAccuracy: substantive,
       meanPiecesAdmitted: Double(rows.filter { $0.2.admits }.count),
-      costPerComposition: rows.reduce(0) { $0 + $1.2.cost },
+      costPerComposition: costPerComposition ?? rows.reduce(0) { $0 + $1.2.cost },
       incompleteFixtureCount: rows.count - complete.count
     )
   }
