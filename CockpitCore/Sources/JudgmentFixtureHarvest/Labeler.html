@@ -34,9 +34,13 @@
   .seg button.on-surface{ background:var(--ok); color:#fff; border-color:var(--ok);}
   .seg button.on-quiet{ background:var(--quiet); color:#fff; border-color:var(--quiet);}
   .seg button.on-never{ background:var(--never); color:#fff; border-color:var(--never);}
-  label.sp { margin-left:8px; display:inline-flex; gap:6px; align-items:center; cursor:pointer; user-select:none; }
+  .seg button.on-yes{ background:#1a56db; color:#fff; border-color:#1a56db;}
+  .seg button.on-no{ background:#5f6368; color:#fff; border-color:#5f6368;}
+  .seg.sp { margin-left:8px; }
   .hint { font-size:12px; opacity:.6; margin-left:auto; }
   .empty { text-align:center; opacity:.6; padding:40px; }
+  .legend { margin:0; padding:10px 16px; font-size:12.5px; line-height:1.5; opacity:.8; border-bottom:1px solid var(--line); }
+  .splabel { font-style:normal; opacity:.7; margin-right:2px; }
 </style>
 </head>
 <body>
@@ -47,6 +51,13 @@
   <button id="filter">Show: all</button>
   <button class="primary" id="save">Save labels.json</button>
 </header>
+<p class="legend">
+  <b>Surface / Quiet / Never</b> = would you want this admitted (surface), kept searchable but not shown (quiet), or excluded (never)? —
+  <b>Substantive primary</b> = is the piece the Stream's own authored publication (an original post, article, issue, episode, or report),
+  <b>Yes</b>; or an accessory to it — a link roundup with no original argument, a housekeeping notice, a paywall teaser with no body, a
+  comment digest, or a promo/fundraising message — <b>No</b>. It is the piece's nature, not how interesting it is: a dull original article is
+  still Yes; a fascinating link roundup is No. The two axes are independent.
+</p>
 <main id="list"></main>
 <script type="application/json" id="labeler-data">__LABELER_DATA__</script>
 <script>
@@ -71,15 +82,17 @@ const visible = () => order.filter(id => !unlabeledOnly || !isDone(id));
 
 function persist(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} render(); }
 function setLabel(id, v){ state[id].label = state[id].label === v ? null : v; persist(); }
-function setSP(id, v){ state[id].isSubstantivePrimary = v; persist(); }
+function setSP(id, v){ state[id].isSubstantivePrimary = state[id].isSubstantivePrimary === v ? null : v; persist(); }
 
 function esc(s){ return (s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
 
 function render(){
   const done = order.filter(isDone).length;
   const by = v => order.filter(id => state[id].label === v).length;
+  const sp = b => order.filter(id => state[id].isSubstantivePrimary === b).length;
   document.getElementById("counts").innerHTML =
-    `<b>${done}</b>/${order.length} labeled &nbsp;·&nbsp; surface ${by("surface")} · quiet ${by("quiet")} · never ${by("never")}`;
+    `<b>${done}</b>/${order.length} labeled &nbsp;·&nbsp; surface ${by("surface")} · quiet ${by("quiet")} · never ${by("never")}`
+    + ` &nbsp;·&nbsp; subst. ${sp(true)}Y / ${sp(false)}N / ${order.length - sp(true) - sp(false)}–`;
   document.getElementById("filter").textContent = unlabeledOnly ? "Show: unlabeled" : "Show: all";
   const ids = visible();
   const list = document.getElementById("list");
@@ -97,8 +110,8 @@ function render(){
       <div class="text">${esc(f.text) || "(no text captured)"}</div>
       <div class="controls">
         <span class="seg">${seg("surface")} ${seg("quiet")} ${seg("never")}</span>
-        <label class="sp"><input type="checkbox" data-act="sp" data-id="${id}" ${s.isSubstantivePrimary?"checked":""}> substantive primary</label>
-        <span class="hint">keys: S/Q/N · P · J/K</span>
+        <span class="seg sp"><em class="splabel">substantive primary?</em> <button class="${s.isSubstantivePrimary===true?"on-yes":""}" data-act="sp" data-id="${id}" data-v="yes">Yes</button> <button class="${s.isSubstantivePrimary===false?"on-no":""}" data-act="sp" data-id="${id}" data-v="no">No</button></span>
+        <span class="hint">keys: S/Q/N · Y/X · J/K</span>
       </div></article>`;
   }).join("");
 }
@@ -106,7 +119,7 @@ function render(){
 document.getElementById("list").addEventListener("click", e => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   if (el.dataset.act === "label") setLabel(el.dataset.id, el.dataset.v);
-  else if (el.dataset.act === "sp") setSP(el.dataset.id, el.checked);
+  else if (el.dataset.act === "sp") setSP(el.dataset.id, el.dataset.v === "yes");
   const card = e.target.closest(".card"); if (card) focusIdx = +card.dataset.idx;
 });
 
@@ -120,7 +133,8 @@ document.addEventListener("keydown", e => {
   else if (k === "s") setLabel(id, "surface");
   else if (k === "q") setLabel(id, "quiet");
   else if (k === "n") setLabel(id, "never");
-  else if (k === "p") setSP(id, !state[id].isSubstantivePrimary);
+  else if (k === "y" || k === "p") setSP(id, true);
+  else if (k === "x") setSP(id, false);
 });
 function scrollFocus(){ const c = document.querySelector(".card.focus"); if (c) c.scrollIntoView({block:"nearest"}); }
 
