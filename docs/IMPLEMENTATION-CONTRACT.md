@@ -62,10 +62,11 @@ ContentPiece(id, kind, title, creator, publisher, publishedAt,
              canonicalURL, summary, normalizedText, subjects,
              isSubstantivePrimary, createdAt)
 
-Edition(id, date, composedAt, state, targetSize)
+Edition(id, date, composedAt, state, targetSize,
+        estimatedCostUSD?, promptVersion?, modelName?)
 
 EditionEntry(id, editionID, contentPieceID, section, rank,
-             rationale, entryState, firstAdmittedEditionID)
+             rationale, entryState, firstAdmittedEditionID, timesCarried)
 
 LaterMembership(contentPieceID, addedAt)
 
@@ -92,6 +93,19 @@ AppliedDisposition(id, providerMessageID, action, policyID,
 `StreamPollState` is the per-device record of what the last poll of a Stream observed: `health` (`unknown`, `healthy`, `failed`), `lastReceivedAt`, `consecutiveFailureCount`, and the `lastFailureDescription` from the most recent failure. It is one row per Stream, written only by the device that polled, and it is **device-local and never synced** — the same category as Artifacts and `LocalAvailability` in `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md` D6. Each device polls independently, so health is an observation of that device's own acquisition, not shared canonical state; syncing it would let two devices' independent polls overwrite each other under last-writer-wins. It is regenerable — the next successful poll repopulates it. The split is along intent versus observation: `Stream.followState` (whether to poll) stays on the synced Stream record; `StreamPollState` (what polling found) does not. Poll health is placed here from the start; earlier drafts of the schema carried `health` and `lastReceivedAt` inline on `streams`, corrected before the table shipped to any device.
 
 `LibraryMembership.admittedBy` records what admitted the piece. In M1 the only sanctioned value is `explicit`, meaning direct human admission. The deferred auto-Library policy defines its own value in the slice that introduces it, and until then nothing else writes this column. Ratified from M1 S2, which raised it correctly: the column was named here without ever saying what writes it.
+
+`Edition` records how it was composed so a closed Edition explains itself from stored state
+(§3): `estimatedCostUSD` is the Gate-1 cost estimate from `JudgmentRun.estimatedCost` (a `Double`
+because StructuredQueries has no `Decimal` column binding, and this is an estimate, not a billed
+figure); `promptVersion` and `modelName` are the prompt version and model the pass used. Added by
+M2 S3, which the build order requires to record composition cost.
+
+`EditionEntry.timesCarried` counts the day boundaries a piece has been carried across to reach this
+entry — `0` on first admission, incremented on each re-admission. It makes the carryover budget and
+the Essential relief valve (§3) provable from a single stored row rather than by walking the carried
+chain. Added by M2 S3. One Edition per day and invariant 4 (no ContentPiece twice in one Edition)
+are enforced in composition code, not by unique indexes: SQLiteData's SyncEngine rejects uniqueness
+constraints on synchronized tables, and `Edition`/`EditionEntry` sync (ADR-0001 D6).
 
 `LocalAvailability.mode` is one of `cache`, `until`, `pinned`.
 `ContentPiece.kind` is a display noun: `article`, `newsletter`, `video`, `podcast`, `report`, `pdf`, `post`.

@@ -19,7 +19,7 @@ public enum CockpitCloudSync {
       for: database,
       tables: InterestArea.self, Stream.self, ContentPiece.self,
         LaterMembership.self, LibraryMembership.self, LibraryNormalizedText.self,
-        PersonalKnowledgeClaim.self,
+        PersonalKnowledgeClaim.self, Edition.self, EditionEntry.self,
       containerIdentifier: configuration.containerIdentifier,
       startImmediately: false
     )
