@@ -35,6 +35,11 @@ struct ContentPieceListView: View {
       .toolbar {
         ToolbarItemGroup(placement: .topBarTrailing) {
           NavigationLink {
+            SettingsView()
+          } label: {
+            Label("Settings", systemImage: "gearshape")
+          }
+          NavigationLink {
             FollowingView(model: followingModel)
           } label: {
             Label("Following", systemImage: "dot.radiowaves.left.and.right")

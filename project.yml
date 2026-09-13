@@ -16,6 +16,8 @@ packages:
     path: CockpitCore
   CloudSyncKit:
     path: ../jon-platform/packages/CloudSyncKit
+  LLMClientKit:
+    path: ../jon-platform/packages/LLMClientKit
   SQLiteData:
     url: https://github.com/pointfreeco/sqlite-data
     from: 1.8.0
@@ -60,6 +62,8 @@ targets:
         product: CockpitCore
       - package: CloudSyncKit
         product: CloudSyncKit
+      - package: LLMClientKit
+        product: LLMClientKit
       - package: SQLiteData
         product: SQLiteData
       - package: Dependencies
