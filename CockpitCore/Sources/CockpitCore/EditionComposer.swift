@@ -43,7 +43,15 @@ public struct EditionComposer: Sendable {
     let editionID = EditionDay.editionID(for: now)
 
     let plan = try await database.write { db -> EditionPlan? in
-      if try Edition.find(editionID).fetchOne(db) != nil { return nil }
+      if let existing = try Edition.find(editionID).fetchOne(db) {
+        // A `composing` row with no open/closed state is a crash between Phase 1 and Phase 3 — the
+        // model call or the entry write died. Clear the partial materialisation and re-drive rather
+        // than leave the day blocked by an empty, permanently-`composing` Edition. (The prior
+        // Edition was already finalised by the crashed run and is closed, so it is not re-finalised.)
+        guard existing.state == .composing else { return nil }
+        try EditionEntry.where { $0.editionID.eq(editionID) }.delete().execute(db)
+        try Edition.find(editionID).delete().execute(db)
+      }
       let previous = try Edition
         .where { $0.id.neq(editionID) }
         .order { $0.date.desc() }

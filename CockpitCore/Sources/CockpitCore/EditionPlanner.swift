@@ -40,7 +40,7 @@ struct EditionPlanner: Sendable {
     let newPieceIDs = try newPieceIDs(since: since, in: db)
 
     let candidatePieceIDs = Array(carriedByPiece.keys) + newPieceIDs
-    let builds = try candidateBuilds(for: candidatePieceIDs, in: db)
+    let builds = try candidateBuilds(for: candidatePieceIDs, carriedByPiece: carriedByPiece, in: db)
 
     var candidates: [JudgmentCandidate] = []
     var contexts: [ContentPiece.ID: EditionCandidateContext] = [:]
@@ -91,8 +91,12 @@ struct EditionPlanner: Sendable {
 
   /// Assemble a `JudgmentCandidate` per piece. One piece can have several (Artifact, Stream) rows;
   /// the representative Stream is an Essential one if any, so its posture is what judgment sees.
+  /// Carryovers carry their `carriedEntry` context so the judge re-judges them sighted — it can tell
+  /// a carryover from a fresh arrival and see how often it has already been shown (S2 CarriedEntryContext).
   private func candidateBuilds(
-    for pieceIDs: [ContentPiece.ID], in db: Database
+    for pieceIDs: [ContentPiece.ID],
+    carriedByPiece: [ContentPiece.ID: EditionCarriedPredecessor],
+    in db: Database
   ) throws -> [JudgmentCandidate] {
     guard !pieceIDs.isEmpty else { return [] }
     let rows = try ContentPiece
@@ -117,6 +121,13 @@ struct EditionPlanner: Sendable {
     return pieceIDs.compactMap { pieceID in
       guard let pieceRows = rowsByPiece[pieceID], let first = pieceRows.first else { return nil }
       let representative = pieceRows.first(where: { $0.streamIsEssential == true }) ?? first
+      let carriedEntry = carriedByPiece[pieceID].map {
+        // `timesCarried` is the count this candidate will carry if re-admitted (predecessor + this
+        // boundary) — the fatigue signal the judge should weigh. Its prior entry is `carried` by
+        // definition; the pre-carry seen/admitted state is not preserved through the boundary.
+        CarriedEntryContext(
+          timesCarried: $0.timesCarried + 1, entryState: EditionEntryState.carried.rawValue)
+      }
       return JudgmentCandidate(
         id: pieceID, kind: first.kind.rawValue, title: first.title, creator: first.creator,
         publisher: first.publisher, publishedAt: first.publishedAt, canonicalURL: first.canonicalURL,
@@ -128,7 +139,8 @@ struct EditionPlanner: Sendable {
           isEssential: representative.streamIsEssential ?? false),
         interestArea: InterestAreaContext(
           name: representative.interestAreaName ?? "General",
-          guidance: representative.interestAreaGuidance ?? ""))
+          guidance: representative.interestAreaGuidance ?? ""),
+        carriedEntry: carriedEntry)
     }
   }
 }

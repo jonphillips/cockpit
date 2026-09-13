@@ -70,8 +70,10 @@ public enum EditionPolicy {
 @Table("editions")
 public struct Edition: Codable, Equatable, Identifiable, Sendable {
   public let id: UUID
-  /// The start-of-day instant this Edition is the newspaper for. One Edition per day
-  /// (`EditionDay`), enforced by a unique index and by `id` being derived from the day.
+  /// The start-of-day instant this Edition is the newspaper for. One Edition per day: `id` is
+  /// derived from the day (`EditionDay`) and composition is a no-op when today's row exists. The
+  /// `date` index is deliberately not unique — SQLiteData's SyncEngine rejects uniqueness
+  /// constraints on synchronized tables, and Edition syncs (ADR-0001 D6).
   public var date: Date
   public var composedAt: Date?
   public var state: EditionState

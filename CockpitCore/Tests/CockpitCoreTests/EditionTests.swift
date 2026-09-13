@@ -5,6 +5,7 @@ import DependenciesTestSupport
 import Foundation
 import LLMClientKit
 import SQLiteData
+import Synchronization
 import Testing
 
 // MARK: - Fixtures and a prompt-driven stub
@@ -37,6 +38,32 @@ private func editionStub(
     return ModelResponse(
       text: "{\"judgments\":[\(judgments.joined(separator: ","))]}",
       usage: ModelUsage(inputTokens: 4_000, outputTokens: 1_200))
+  }
+}
+
+/// A thread-safe capture box for the prompt a stub was sent.
+private final class PromptBox: @unchecked Sendable {
+  private let lock = NSLock()
+  private var stored: String?
+  var text: String? { lock.withLock { stored } }
+  func set(_ value: String?) { lock.withLock { stored = value } }
+}
+
+/// Like `editionStub` but records the prompt it was sent, so a test can assert what the judge saw.
+private func capturingStub(into prompt: PromptBox) -> StubModelClient {
+  StubModelClient { request in
+    let text = request.messages.last?.text ?? ""
+    prompt.set(text)
+    let judgments = uuids(in: text).map { id in
+      """
+      {"contentPieceID":"\(id.uuidString)","admit":true,"isSubstantivePrimary":true,\
+      "section":"forYou","rank":1,"rationale":"why","subjects":["a","b","c"],\
+      "summary":"s","finds":[]}
+      """
+    }
+    return ModelResponse(
+      text: "{\"judgments\":[\(judgments.joined(separator: ","))]}",
+      usage: ModelUsage(inputTokens: 100, outputTokens: 50))
   }
 }
 
@@ -256,6 +283,49 @@ struct EditionTests {
 
     // firstAdmittedEditionID is preserved across the whole carried chain.
     expectNoDifference(day3.firstAdmittedEditionID, EditionDay.editionID(for: day(0)))
+  }
+
+  @Test("A carryover is re-judged sighted: its carriedEntry context reaches the prompt")
+  func carriedEntryReachesTheJudge() async throws {
+    let streamID = UUID(2201)
+    try await seedStream(id: streamID, essential: false)
+    let pieceID = UUID(2301)
+    try await seedPiece(id: pieceID, streamID: streamID, createdAt: base)
+
+    // Day 0 admits it fresh — no carryover context yet.
+    let day0Prompt = PromptBox()
+    _ = try await compose(dayIndex: 0, stub: capturingStub(into: day0Prompt))
+    #expect(day0Prompt.text?.contains("carriedEntry") != true)
+
+    // Day 1 re-judges the carryover; the prompt must carry its fatigue signal.
+    let day1Prompt = PromptBox()
+    _ = try await compose(dayIndex: 1, stub: capturingStub(into: day1Prompt))
+    let prompt = try #require(day1Prompt.text)
+    #expect(prompt.contains("\"entryState\":\"carried\""))
+    #expect(prompt.contains("\"timesCarried\":1"))
+  }
+
+  @Test("A crashed composing Edition is re-driven, not left blocking the day")
+  func recoversFromInterruptedComposition() async throws {
+    let streamID = UUID(2401)
+    try await seedStream(id: streamID, essential: false)
+    let pieceID = UUID(2501)
+    try await seedPiece(id: pieceID, streamID: streamID, createdAt: base)
+
+    // Simulate a process death between Phase 1 and Phase 3: a `composing` row with no entries.
+    let editionID = EditionDay.editionID(for: day(0))
+    let dayStart = EditionDay.start(of: day(0))
+    try await database.write { db in
+      try Edition.insert {
+        Edition.Draft(Edition(id: editionID, date: dayStart, state: .composing))
+      }.execute(db)
+    }
+
+    let result = try await compose(dayIndex: 0, stub: editionStub())
+    guard case .composed = result else { Issue.record("should re-drive the crashed compose"); return }
+    let edition = try #require(try await database.read { try Edition.find(editionID).fetchOne($0) })
+    expectNoDifference(edition.state, .open)
+    #expect(try await entry(dayIndex: 0, piece: pieceID) != nil)
   }
 
   // MARK: - Essential guarantee and relief valve
