@@ -367,6 +367,25 @@ This is also how improving models get cashed in deliberately rather than by impr
 
 ---
 
+## 18. Substantive-primary is attention-protection, not durable retention — RESOLVED
+
+Surfaced during the M1-S4 labelling pass (2026-09-13), where hand-labelling `isSubstantivePrimary` repeatedly felt like a coin flip on curated aggregators (Techmeme) and topical news. The confusion is real and is a modelling defect, not a labeller error: the name fuses axes that do not move together.
+
+`isSubstantivePrimary` answers **one** structural question: is a ContentPiece the Stream's own **primary authored work**, or an **accessory** to it (a pointer/aggregator, a housekeeping notice, a promo/fundraising message, a body-less teaser)? It is a *type* property, not a judgment of value, interest, or durability. A curated aggregator's arrangement is not by itself an "original argument"; pure curation is an accessory. Original commentary wrapped around links is primary.
+
+Its job is deliberately narrow. It gates two things and nothing else:
+
+- the **Essential guarantee** (§15): substantive-primary material from an Essential Stream is never silently `aged` out of the Edition. This is *attention* non-loss — you are guaranteed to **see** it before it goes — **not** storage.
+- **auto-Library qualification**, which is deferred to V1 Phase 2.
+
+It does **not** mean "keep this forever." Durable retention is an explicit human act — **Add to Library** — orthogonal to entry state. A topical piece (yesterday's news recap) is substantive-primary **and** ephemeral: it earns attention protection, then ages or is dismissed, and is never stored unless the user explicitly keeps it. The live system therefore already decouples primary-ness from retention; the confusion comes from the name and from the (deferred) auto-Library use reading as a storage gate.
+
+**Open axis — do not conflate.** "Worth keeping / durable-reference / timeless" is a **third** axis, distinct from primary-vs-accessory (this flag) and complete-vs-teaser (`bodyCompleteness`, S5). It is currently unmodeled because its only would-be machine consumer — the auto-Library policy — is deferred precisely because its criteria are unproven. When auto-Library is designed it must **not** reuse `isSubstantivePrimary` as the keep-criterion: primary-ness is not durable-worth. See "Build it and learn."
+
+Housekeeping: the "paywall teaser with no body" example in `docs/IMPLEMENTATION-CONTRACT.md` §1 is really the completeness axis. Until S5 lands, a body-less teaser is labelled not-substantive; afterward that fact belongs to `bodyCompleteness` and this flag stays purely primary-vs-accessory. A rename to `isPrimaryWork` is a candidate but is deferred (it touches schema, harness, and in-flight labels); the sharpened definition holds the field name for now.
+
+---
+
 # Deliberately deferred decisions
 
 These are **not unresolved blockers**. They should wait for implementation/use evidence.
@@ -445,6 +464,7 @@ The following questions should be answered through vertical slices and daily use
 - how often orphan Finds occur and what future specialist app their population suggests;
 - what Gmail message/thread semantics require after a read-only integration spike;
 - how much Personal Knowledge structure is actually necessary once it changes ranking/explanation;
+- what signal auto-Library needs to decide durable retention, given that `isSubstantivePrimary` is primary-ness, not durable/reference worth (§18);
 - which cross-app handoff fields survive contact with the first real receiver.
 
 When implementation evidence contradicts a ratified decision, stop, record the evidence, and deliberately amend this ledger rather than silently drifting the model.

@@ -30,6 +30,8 @@ Not substantive: a link roundup with no original argument, a subscriber-housekee
 
 The judgment pass returns this as a boolean with a one-line reason. It is inspectable and correctable from the Reader.
 
+This flag is the **primary-vs-accessory** axis only. It gates *attention* non-loss — the Essential guarantee in §3 — and auto-Library qualification. It does **not** mean "keep this forever": durable retention is the user's explicit **Add to Library** act. Whether a piece is *worth keeping* (durable/reference vs ephemeral) is a separate axis this field does not carry — a topical news recap is substantive primary **and** ephemeral — and auto-Library must not treat primary-ness as durable-worth (`docs/DECISIONS.md` §18). "Has a real body" is likewise a separate axis (`bodyCompleteness`, S5): a body-less teaser is not substantive today, but once completeness exists that fact belongs to it and this flag stays purely primary-vs-accessory.
+
 ### Qualifying
 
 Used only in the auto-Library policy. A future ContentPiece **qualifies** for automatic Library admission when it is substantive primary material from the Stream carrying the policy. Nothing else. This is deliberately not a rules language.
