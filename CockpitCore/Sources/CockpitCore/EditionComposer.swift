@@ -17,6 +17,20 @@ public struct EditionComposer: Sendable {
     case nothingToCompose
   }
 
+  public enum CompositionError: LocalizedError, Equatable, Sendable {
+    /// No candidate produced a valid judgment — a transport failure, or a response that decoded for
+    /// none of them. The composition was rolled back (nothing committed) and can be retried; this is
+    /// deliberately *not* a legitimate zero-entry Edition, which requires valid "declined" outcomes.
+    case judgmentFailed(String)
+
+    public var errorDescription: String? {
+      switch self {
+      case .judgmentFailed(let detail):
+        "Composition failed — no candidate could be judged (\(detail)). Nothing was saved; try again."
+      }
+    }
+  }
+
   private let engine: JudgmentEngine
   private let planner = EditionPlanner()
   private let writer = EditionEntryWriter()
@@ -80,6 +94,21 @@ public struct EditionComposer: Sendable {
       candidates: plan.candidates, personalKnowledge: plan.personalKnowledge,
       currentContext: currentContext, targetSize: targetSize)
 
+    // A wholesale judgment failure — a transport error (the whole batch times out at once), or a
+    // response that decoded for no candidate — is not a legitimate zero-entry Edition; it is a
+    // composition that did not happen. Opening it would strand the day behind an empty Edition that
+    // `composeIfNeeded` will never retry (it is a no-op once a non-`composing` Edition exists). Roll
+    // the `composing` row back so the next attempt re-drives, and surface the failure rather than
+    // silently opening nothing. A per-piece fail-closed *among* valid outcomes is the S2 contract and
+    // still commits — some material stands, so the Edition genuinely happened.
+    guard run.outcomes.contains(where: { $0.errorDescription == nil }) else {
+      try await database.write { db in
+        try EditionEntry.where { $0.editionID.eq(editionID) }.delete().execute(db)
+        try Edition.find(editionID).delete().execute(db)
+      }
+      throw CompositionError.judgmentFailed(run.outcomes.first?.errorDescription ?? "unknown error")
+    }
+
     // Phase 3 (write): back-write classifications, materialise entries, record cost, open.
     let outcomesByID = Dictionary(
       uniqueKeysWithValues: run.outcomes.map { ($0.contentPieceID, $0) })
@@ -94,5 +123,21 @@ public struct EditionComposer: Sendable {
       }.execute(db)
     }
     return .composed(editionID)
+  }
+
+  /// Explicit recomposition (IMPLEMENTATION-CONTRACT §3: re-judgment on an explicit "reconsider").
+  /// Discards today's materialised Edition — its entries included — and re-drives composition from
+  /// scratch. Distinct from `composeIfNeeded`, the once-daily materialiser that is a no-op once today
+  /// exists: this is the deliberate retry path for an Edition the user wants rebuilt (an empty one, or
+  /// one that predates a Personal Knowledge change). Carryover recomputes from the prior Edition
+  /// exactly as if today had not yet composed.
+  @discardableResult
+  public func recompose(now: Date, in database: any DatabaseWriter) async throws -> Result {
+    let editionID = EditionDay.editionID(for: now)
+    try await database.write { db in
+      try EditionEntry.where { $0.editionID.eq(editionID) }.delete().execute(db)
+      try Edition.find(editionID).delete().execute(db)
+    }
+    return try await composeIfNeeded(now: now, in: database)
   }
 }

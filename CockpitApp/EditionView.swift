@@ -3,6 +3,7 @@ import SwiftUI
 
 struct EditionView: View {
   @Bindable var model: EditionModel
+  @State private var isConfirmingRecompose = false
 
   var body: some View {
     List {
@@ -39,12 +40,13 @@ struct EditionView: View {
           "No Edition Yet", systemImage: "newspaper",
           description: Text("Compose today's Edition to see what's worth reading."))
       } else if model.entries.isEmpty {
-        ContentUnavailableView(
-          "Nothing Admitted", systemImage: "newspaper",
-          description: Text(
-            "Today's Edition composed, but nothing was admitted — either the judge declined every "
-              + "candidate, or every candidate failed to decode. Check Console for \"Fail-closed "
-              + "piece\" (subsystem com.jonphillips.cockpit, category edition-composition)."))
+        ContentUnavailableView {
+          Label("Nothing Admitted", systemImage: "newspaper")
+        } description: {
+          Text("Today's Edition composed, but nothing met the bar for admission.")
+        } actions: {
+          Button("Recompose") { isConfirmingRecompose = true }
+        }
       }
     }
     .navigationTitle("Edition")
@@ -52,12 +54,24 @@ struct EditionView: View {
       ToolbarItem(placement: .topBarTrailing) {
         if model.isComposing {
           ProgressView()
-        } else {
-          Button("Compose", systemImage: "arrow.clockwise") {
+        } else if model.edition == nil {
+          Button("Compose", systemImage: "sparkles") {
             Task { await model.composeIfNeeded() }
+          }
+        } else {
+          Button("Recompose", systemImage: "arrow.clockwise") {
+            isConfirmingRecompose = true
           }
         }
       }
+    }
+    .confirmationDialog(
+      "Recompose today's Edition?", isPresented: $isConfirmingRecompose, titleVisibility: .visible
+    ) {
+      Button("Recompose", role: .destructive) { Task { await model.recompose() } }
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("This discards today's Edition and judges the day's candidates again from scratch.")
     }
     .safeAreaInset(edge: .bottom) {
       if let error = model.errorMessage {

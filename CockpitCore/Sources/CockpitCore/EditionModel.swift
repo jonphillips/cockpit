@@ -32,13 +32,31 @@ public final class EditionModel {
   public func composeIfNeeded(
     targetSize: Int = EditionPolicy.defaultTargetSize, currentContext: String = ""
   ) async {
+    await compose(targetSize: targetSize, currentContext: currentContext, force: false)
+  }
+
+  /// Explicit "reconsider": discard today's Edition and re-drive it from scratch (the Reader/Edition
+  /// retry action). Unlike `composeIfNeeded` this is *not* a no-op when today already exists — it is
+  /// the deliberate way to rebuild a stale, empty, or previously-failed Edition
+  /// (IMPLEMENTATION-CONTRACT §3).
+  public func recompose(
+    targetSize: Int = EditionPolicy.defaultTargetSize, currentContext: String = ""
+  ) async {
+    await compose(targetSize: targetSize, currentContext: currentContext, force: true)
+  }
+
+  private func compose(targetSize: Int, currentContext: String, force: Bool) async {
     isComposing = true
     defer { isComposing = false }
     let composer = EditionComposer(
       engine: JudgmentEngine(modelClient: modelClient),
       targetSize: targetSize, currentContext: currentContext)
     do {
-      _ = try await composer.composeIfNeeded(now: now, in: database)
+      if force {
+        _ = try await composer.recompose(now: now, in: database)
+      } else {
+        _ = try await composer.composeIfNeeded(now: now, in: database)
+      }
       try await $current.load()
       errorMessage = nil
     } catch is CancellationError {

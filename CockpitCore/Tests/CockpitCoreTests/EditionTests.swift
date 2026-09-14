@@ -580,6 +580,59 @@ struct EditionTests {
     #expect(badPiece.isSubstantivePrimary == nil)
   }
 
+  @Test("A wholesale judgment failure rolls back so the day can be recomposed, not frozen empty")
+  func wholesaleJudgmentFailureIsRecoverable() async throws {
+    let streamID = UUID(4401)
+    try await seedStream(id: streamID, essential: false)
+    let pieceID = UUID(4501)
+    try await seedPiece(id: pieceID, streamID: streamID, createdAt: base)
+
+    // Every candidate fails at once — the live symptom of a timeout on the single batched judgment
+    // call. No candidate yields a valid outcome, so this is not a legitimate zero-entry Edition.
+    let failing = StubModelClient { _ in throw URLError(.timedOut) }
+    await #expect(throws: EditionComposer.CompositionError.self) {
+      _ = try await self.compose(dayIndex: 0, stub: failing)
+    }
+
+    // Nothing was frozen in place: no Edition row exists, so composeIfNeeded is free to retry.
+    let editionID = EditionDay.editionID(for: day(0))
+    #expect(try await database.read { try Edition.find(editionID).fetchOne($0) } == nil)
+
+    // The retry, now with a working judge, composes normally and admits the piece.
+    let result = try await compose(dayIndex: 0, stub: editionStub())
+    guard case .composed = result else { Issue.record("retry should compose"); return }
+    #expect(try await entry(dayIndex: 0, piece: pieceID) != nil)
+  }
+
+  @Test("Recompose discards today's Edition and re-drives it (explicit reconsider, contract §3)")
+  func recomposeRebuildsToday() async throws {
+    let streamID = UUID(4601)
+    try await seedStream(id: streamID, essential: false)
+    let pieceID = UUID(4701)
+    try await seedPiece(id: pieceID, streamID: streamID, createdAt: base)
+
+    // First compose declines everything → a legitimate but empty open Edition (the same shape a
+    // stale timeout leaves behind). composeIfNeeded is now a no-op on it.
+    let declineAll = editionStub(default: StubOutcome(admit: false, substantive: false))
+    guard case .composed = try await compose(dayIndex: 0, stub: declineAll) else {
+      Issue.record("first compose should materialise"); return
+    }
+    #expect(try await entry(dayIndex: 0, piece: pieceID) == nil)
+    guard case .alreadyComposed = try await compose(dayIndex: 0, stub: editionStub()) else {
+      Issue.record("composeIfNeeded should be a no-op once open"); return
+    }
+
+    // Recompose (now admitting) discards the empty Edition and re-drives — one Edition for the day,
+    // now with the piece admitted.
+    let composer = EditionComposer(engine: JudgmentEngine(modelClient: editionStub()))
+    guard case .composed = try await composer.recompose(now: day(0), in: database) else {
+      Issue.record("recompose should re-drive"); return
+    }
+    #expect(try await entry(dayIndex: 0, piece: pieceID) != nil)
+    let count = try await database.read { try Edition.fetchCount($0) }
+    expectNoDifference(count, 1)
+  }
+
   @Test("A closed Edition renders entirely from stored state (done-criterion 4)")
   func closedEditionRendersFromStoredState() async throws {
     let streamID = UUID(4201)
