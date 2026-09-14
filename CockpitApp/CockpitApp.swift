@@ -28,9 +28,10 @@ struct CockpitApp: App {
 
 private struct CockpitRootView: View {
   @State private var followingModel = FollowingModel()
+  @State private var editionModel = EditionModel()
 
   var body: some View {
-    ContentPieceListView(followingModel: followingModel)
+    ContentPieceListView(followingModel: followingModel, editionModel: editionModel)
       .task { await followingModel.acquireOnLaunchOrRefresh() }
   }
 }

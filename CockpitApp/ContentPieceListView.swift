@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ContentPieceListView: View {
   let followingModel: FollowingModel
+  let editionModel: EditionModel
   @State private var model = ContentPieceListModel()
   @State private var gmailAuthorizationProbe = GmailAuthorizationProbe()
   @State private var isPresentingGmailAuthorizationProbe = false
@@ -38,6 +39,11 @@ struct ContentPieceListView: View {
             SettingsView()
           } label: {
             Label("Settings", systemImage: "gearshape")
+          }
+          NavigationLink {
+            EditionView(model: editionModel)
+          } label: {
+            Label("Edition", systemImage: "newspaper")
           }
           NavigationLink {
             FollowingView(model: followingModel)
