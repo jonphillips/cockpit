@@ -31,10 +31,20 @@ struct EditionView: View {
       }
     }
     .overlay {
-      if model.edition == nil, !model.isComposing {
+      if model.isComposing {
+        // No overlay — the toolbar's ProgressView already communicates this, and a real
+        // composition can take 60–120s (S2 measurement).
+      } else if model.edition == nil {
         ContentUnavailableView(
           "No Edition Yet", systemImage: "newspaper",
           description: Text("Compose today's Edition to see what's worth reading."))
+      } else if model.entries.isEmpty {
+        ContentUnavailableView(
+          "Nothing Admitted", systemImage: "newspaper",
+          description: Text(
+            "Today's Edition composed, but nothing was admitted — either the judge declined every "
+              + "candidate, or every candidate failed to decode. Check Console for \"Fail-closed "
+              + "piece\" (subsystem com.jonphillips.cockpit, category edition-composition)."))
       }
     }
     .navigationTitle("Edition")
