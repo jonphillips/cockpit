@@ -4,6 +4,8 @@ import Foundation
 /// did not contain enough evidence for a deterministic classification and leaves the judgment pass
 /// as the fallback classifier.
 public enum BodyCompletenessDetector {
+  // These are conservative source-detection heuristics, not product policy: require enough
+  // pre-marker text to call a cutoff a real article and allow a short footer/CTA after it.
   private static let substantiveWordMinimum = 40
   private static let cutoffTailWordMaximum = 80
 
@@ -12,9 +14,12 @@ public enum BodyCompletenessDetector {
   }
 
   public static func detect(bodyHTML: String?, descriptionHTML: String?) -> BodyCompleteness? {
-    guard let bodyHTML, let bodyText = HTMLText.normalizedText(from: bodyHTML) else {
-      // RSS/Atom descriptions without a body are the source's teaser, even when the description
-      // itself is non-empty. A missing description is likewise an empty teaser.
+    // FeedEntry.normalizedText and Artifact.rawSourceText use bodyHTML ?? descriptionHTML. Use
+    // that same source here: many full-text feeds put the complete article in description/summary.
+    guard let sourceHTML = bodyHTML ?? descriptionHTML,
+      let bodyText = HTMLText.normalizedText(from: sourceHTML)
+    else {
+      // With neither body nor description, the source contains no readable body.
       return .teaser
     }
 

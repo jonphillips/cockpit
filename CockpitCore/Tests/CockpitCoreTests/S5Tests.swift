@@ -47,7 +47,12 @@ struct S5Tests {
     #expect(
       BodyCompletenessDetector.detect(
         bodyHTML: "<p>Subscribe now</p><p>\(body)</p>", descriptionHTML: nil) == .full)
-    #expect(BodyCompletenessDetector.detect(bodyHTML: nil, descriptionHTML: "<p>Summary</p>") == .teaser)
+    #expect(BodyCompletenessDetector.detect(bodyHTML: nil, descriptionHTML: "<p>Summary</p>") == .full)
+    #expect(
+      BodyCompletenessDetector.detect(
+        bodyHTML: nil,
+        descriptionHTML: "<p>\(body)</p><p>Subscribe to read</p>") == .truncated)
+    #expect(BodyCompletenessDetector.detect(bodyHTML: nil, descriptionHTML: nil) == .teaser)
   }
 
   @Test("Feed ingest stores completeness before any judgment pass")
