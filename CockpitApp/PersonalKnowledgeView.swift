@@ -25,6 +25,10 @@ struct PersonalKnowledgeView: View {
 
       PersonalKnowledgeDirectTeachingSection(model: model)
 
+      if let hypothesis = model.hypothesis {
+        PersonalKnowledgeHypothesisSection(hypothesis: hypothesis, model: model)
+      }
+
       PersonalKnowledgeStewardshipSection(model: model)
 
       Section("Jon Brain Import") {
@@ -83,7 +87,10 @@ struct PersonalKnowledgeView: View {
       PersonalKnowledgeHistorySection(model: model)
     }
     .navigationTitle("Personal Knowledge")
-    .task { try? await model.$knowledge.load() }
+    .task {
+      try? await model.$knowledge.load()
+      await model.loadHypothesis()
+    }
     .sheet(isPresented: $model.isCorrecting) {
       PersonalKnowledgeCorrectionView(model: model)
     }
@@ -113,6 +120,28 @@ struct PersonalKnowledgeView: View {
         .padding()
         .background(.regularMaterial)
       }
+    }
+  }
+}
+
+private struct PersonalKnowledgeHypothesisSection: View {
+  let hypothesis: PersonalKnowledgeHypothesisRequest.Candidate
+  let model: PersonalKnowledgeModel
+
+  var body: some View {
+    Section("A question for you") {
+      Text(
+        "You’ve deliberately saved, added to Library, or taught Cockpit about \(hypothesis.subject) \(hypothesis.explicitActionCount) times. Should Cockpit treat it as an Interest?"
+      )
+      Button("Yes, Treat It as an Interest", systemImage: "checkmark.circle") {
+        Task { await model.confirmHypothesisButtonTapped() }
+      }
+      .disabled(model.isConfirmingHypothesis)
+      Button("Not Now", role: .cancel) {
+        model.dismissHypothesisButtonTapped()
+      }
+    } footer: {
+      Text("This is only a question. Cockpit will not save anything unless you confirm it.")
     }
   }
 }
