@@ -64,4 +64,36 @@ struct ContentPieceListModelTests {
     expectNoDifference(model.rows.count, 1)
     #expect(model.errorMessage == nil)
   }
+
+  @Test("Later and Library each expose explicit removal from their browse destination")
+  func removesFromCurrentDestination() async throws {
+    let pieceID = UUID(-10)
+    try await database.write { db in
+      try ContentPiece.insert {
+        ContentPiece.Draft(
+          id: pieceID, kind: .article, title: "Piece", publisher: "Publisher", createdAt: .distantPast)
+      }.execute(db)
+      try DestinationOperations.saveForLater(pieceID, at: .distantPast, in: db)
+      try DestinationOperations.addToLibrary(pieceID, at: .distantPast, in: db)
+    }
+
+    let model = ContentPieceListModel()
+    try await model.$content.load()
+    let row = try #require(model.rows.first)
+
+    model.destination = .later
+    await model.removeFromCurrentDestination(row)
+    let afterLater = try await database.read { db in
+      try LaterMembership.find(pieceID).fetchOne(db)
+    }
+    #expect(afterLater == nil)
+
+    model.destination = .library
+    await model.removeFromCurrentDestination(row)
+    let afterLibrary = try await database.read { db in
+      try LibraryMembership.find(pieceID).fetchOne(db)
+    }
+    #expect(afterLibrary == nil)
+    #expect(model.errorMessage == nil)
+  }
 }

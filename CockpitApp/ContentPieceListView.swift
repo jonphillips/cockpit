@@ -14,6 +14,11 @@ struct ContentPieceListView: View {
         ForEach(model.rows) { row in
           ContentPieceRowView(row: row)
             .tag(row.id)
+            .swipeActions {
+              Button("Remove", systemImage: "minus.circle", role: .destructive) {
+                Task { await removeButtonTapped(row) }
+              }
+            }
         }
       }
       .overlay {
@@ -40,5 +45,12 @@ struct ContentPieceListView: View {
   private func loadDestination() async {
     model.destination = destination
     try? await model.$content.load()
+  }
+
+  private func removeButtonTapped(_ row: ContentPieceListRequest.Row) async {
+    if selectedContentPieceID == row.id {
+      selectedContentPieceID = nil
+    }
+    await model.removeFromCurrentDestination(row)
   }
 }

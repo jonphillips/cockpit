@@ -13,7 +13,6 @@ let package = Package(
   dependencies: [
     .package(url: "https://github.com/pointfreeco/sqlite-data", from: "1.8.0"),
     .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.0.0"),
-    .package(url: "https://github.com/pointfreeco/swift-navigation", from: "2.0.0"),
     .package(url: "https://github.com/pointfreeco/swift-structured-queries", from: "0.31.0"),
     .package(path: "../../jon-platform/packages/CloudSyncKit"),
     .package(path: "../../jon-platform/packages/LLMClientKit"),
@@ -28,7 +27,6 @@ let package = Package(
         .product(name: "LLMClientKit", package: "LLMClientKit"),
         .product(name: "SQLiteData", package: "sqlite-data"),
         .product(name: "StructuredQueries", package: "swift-structured-queries"),
-        .product(name: "SwiftNavigation", package: "swift-navigation"),
       ]
     ),
     .target(name: "JudgmentFixtureSupport"),

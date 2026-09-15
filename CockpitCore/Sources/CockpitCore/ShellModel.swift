@@ -1,6 +1,5 @@
 import Foundation
 import Observation
-import SwiftNavigation
 
 /// The app-level navigation state. Feature models own their own data and detail selection; this
 /// model owns only the five primary destinations and Settings' nested routes.
@@ -43,7 +42,6 @@ public final class ShellModel {
 
 /// Payload-bearing Settings destinations stay in one explicit, testable route type. `You` can
 /// optionally open a specific claim once M3's stewardship work makes that affordance real.
-@CaseBindable
 public enum SettingsRoute: Hashable, Sendable {
   case following
   case interestAreas
