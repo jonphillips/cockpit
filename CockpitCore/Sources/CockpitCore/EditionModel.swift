@@ -20,6 +20,9 @@ public final class EditionModel {
   /// it — composition can take >60s (122s measured on a Mac in the S2 run).
   public var isComposing = false
   public var errorMessage: String?
+  /// The split-view detail selection. It is separate from Edition persistence: selecting a piece
+  /// never changes its state; opening it does.
+  public var selectedEntryID: EditionEntry.ID?
 
   public init() {}
 

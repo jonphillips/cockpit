@@ -61,4 +61,25 @@ public final class ContentPieceListModel {
       errorMessage = error.localizedDescription
     }
   }
+
+  /// Later and Library are explicit memberships, so their browse surfaces must provide an equally
+  /// explicit way back out. The list's swipe action calls this rather than inferring a toggle.
+  public func removeFromCurrentDestination(_ row: ContentPieceListRequest.Row) async {
+    let currentDestination = destination
+    do {
+      try await database.write { db in
+        switch currentDestination {
+        case .all:
+          return
+        case .later:
+          try DestinationOperations.removeFromLater(row.id, in: db)
+        case .library:
+          try DestinationOperations.removeFromLibrary(row.id, in: db)
+        }
+      }
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
 }

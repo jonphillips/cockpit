@@ -2,77 +2,55 @@ import CockpitCore
 import SwiftUI
 
 struct ContentPieceListView: View {
-  let followingModel: FollowingModel
-  let editionModel: EditionModel
+  let destination: ContentPieceListModel.Destination
   @State private var model = ContentPieceListModel()
-  @State private var gmailAuthorizationProbe = GmailAuthorizationProbe()
-  @State private var isPresentingGmailAuthorizationProbe = false
+  @State private var selectedContentPieceID: ContentPiece.ID?
+
+  private var title: String { destination.rawValue }
 
   var body: some View {
-    NavigationStack {
-      VStack {
-        Picker("Destination", selection: $model.destination) {
-          ForEach(ContentPieceListModel.Destination.allCases, id: \.self) { destination in
-            Text(destination.rawValue).tag(destination)
-          }
-        }
-        .pickerStyle(.segmented)
-        .padding(.horizontal)
-
-        List(model.rows) { row in
-          ContentPieceRowView(row: row, model: model)
-        }
-        .overlay {
-          if model.rows.isEmpty {
-            ContentUnavailableView(
-              model.destination == .all ? "No Content Pieces" : "Nothing in \(model.destination.rawValue)",
-              systemImage: "newspaper",
-              description: Text("Use Save for Later or Add to Library on an ingested piece.")
-            )
-          }
+    NavigationSplitView {
+      List(selection: $selectedContentPieceID) {
+        ForEach(model.rows) { row in
+          ContentPieceRowView(row: row)
+            .tag(row.id)
+            .swipeActions {
+              Button("Remove", systemImage: "minus.circle", role: .destructive) {
+                Task { await removeButtonTapped(row) }
+              }
+            }
         }
       }
-      .navigationTitle(model.destination == .all ? "Content Pieces" : model.destination.rawValue)
-      .toolbar {
-        ToolbarItemGroup(placement: .topBarTrailing) {
-          NavigationLink {
-            SettingsView()
-          } label: {
-            Label("Settings", systemImage: "gearshape")
-          }
-          NavigationLink {
-            EditionView(model: editionModel)
-          } label: {
-            Label("Edition", systemImage: "newspaper")
-          }
-          NavigationLink {
-            FollowingView(model: followingModel)
-          } label: {
-            Label("Following", systemImage: "dot.radiowaves.left.and.right")
-          }
-          NavigationLink {
-            PendingFindListView()
-          } label: {
-            Label("Finds", systemImage: "sparkle.magnifyingglass")
-          }
-          Button("Gmail authorization probe", systemImage: "envelope.badge") {
-            isPresentingGmailAuthorizationProbe = true
-          }
+      .overlay {
+        if model.rows.isEmpty {
+          ContentUnavailableView(
+            "Nothing in \(title)", systemImage: destination == .later ? "clock" : "books.vertical",
+            description: Text(destination == .later
+              ? "Save a piece when you want to return to it."
+              : "Add a piece to keep it in your Library."))
         }
       }
-      .safeAreaInset(edge: .bottom) {
-        if let error = model.errorMessage {
-          HStack {
-            Text(error)
-            Button("Dismiss") { model.errorMessage = nil }
-          }
-          .padding()
-          .background(.regularMaterial)
-        }
-      }
-      .sheet(isPresented: $isPresentingGmailAuthorizationProbe) {
-        GmailAuthorizationProbeView(probe: gmailAuthorizationProbe)
+      .navigationTitle(title)
+    } detail: {
+      if let selectedContentPieceID {
+        ReaderView(contentPieceID: selectedContentPieceID)
+          .id(selectedContentPieceID)
+      } else {
+        ContentUnavailableView("Select a Piece", systemImage: "doc.text")
       }
     }
+    .task { await loadDestination() }
+  }
+
+  private func loadDestination() async {
+    model.destination = destination
+    try? await model.$content.load()
+  }
+
+  private func removeButtonTapped(_ row: ContentPieceListRequest.Row) async {
+    if selectedContentPieceID == row.id {
+      selectedContentPieceID = nil
+    }
+    await model.removeFromCurrentDestination(row)
   }
 }
