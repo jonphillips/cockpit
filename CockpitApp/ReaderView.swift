@@ -1,26 +1,30 @@
 import CockpitCore
+import LazyState
 import SwiftUI
 
 struct ReaderView: View {
-  @Bindable var model: EditionModel
-  let entryID: EditionEntry.ID
+  let contentPieceID: ContentPiece.ID
+  let editionContext: EditionReaderContext?
+  @LazyState private var model: ContentPieceReaderModel
   @Environment(\.dismiss) private var dismissScreen
   @Environment(\.openURL) private var openURL
 
-  private var row: CurrentEditionRequest.Row? {
-    model.entries.first { $0.id == entryID }
+  init(contentPieceID: ContentPiece.ID, editionContext: EditionReaderContext? = nil) {
+    self.contentPieceID = contentPieceID
+    self.editionContext = editionContext
+    _model = LazyState { ContentPieceReaderModel(contentPieceID: contentPieceID) }
   }
 
   var body: some View {
     ScrollView {
-      if let row {
+      if let row = model.row {
         VStack(alignment: .leading, spacing: 16) {
           VStack(alignment: .leading, spacing: 4) {
             Text(row.title).font(.title2).bold()
             Text(row.publisher).foregroundStyle(.secondary)
           }
 
-          if let rationale = row.rationale, !rationale.isEmpty {
+          if let rationale = editionContext?.rationale, !rationale.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
               Text("Why you're seeing this").font(.caption).foregroundStyle(.secondary)
               Text(rationale)
@@ -39,7 +43,7 @@ struct ReaderView: View {
               Text(isSubstantivePrimary ? "Substantive primary piece" : "Accessory / not primary")
               Spacer()
               Button("Correct") {
-                Task { await model.correctIsSubstantivePrimary(entryID, to: !isSubstantivePrimary) }
+                Task { await model.correctIsSubstantivePrimary(to: !isSubstantivePrimary) }
               }
               .font(.caption)
             }
@@ -64,17 +68,19 @@ struct ReaderView: View {
           Divider()
 
           HStack(spacing: 20) {
-            Button("Dismiss", systemImage: "xmark.circle") {
-              Task {
-                await model.dismiss(entryID)
-                dismissScreen()
+            if let editionContext {
+              Button("Dismiss", systemImage: "xmark.circle") {
+                Task {
+                  await editionContext.model.dismiss(editionContext.entryID)
+                  dismissScreen()
+                }
               }
             }
             Button("Save for Later", systemImage: "clock") {
-              Task { await model.saveForLater(entryID) }
+              Task { await saveForLaterButtonTapped() }
             }
             Button("Add to Library", systemImage: "books.vertical") {
-              Task { await model.addToLibrary(entryID) }
+              Task { await addToLibraryButtonTapped() }
             }
           }
           .buttonStyle(.bordered)
@@ -87,17 +93,49 @@ struct ReaderView: View {
     }
     .navigationTitle("Reader")
     .navigationBarTitleDisplayMode(.inline)
-    .task { await model.markSeen(entryID) }
+    .task { await readerAppeared() }
     .safeAreaInset(edge: .bottom) {
-      if let error = model.errorMessage {
+      if let error = model.errorMessage ?? editionContext?.model.errorMessage {
         HStack {
           Text(error)
           Spacer()
-          Button("Dismiss") { model.errorMessage = nil }
+          Button("Dismiss") {
+            model.errorMessage = nil
+            editionContext?.model.errorMessage = nil
+          }
         }
         .padding()
         .background(.regularMaterial)
       }
     }
   }
+
+  private func readerAppeared() async {
+    try? await model.$content.load()
+    if let editionContext {
+      await editionContext.model.markSeen(editionContext.entryID)
+    }
+  }
+
+  private func saveForLaterButtonTapped() async {
+    if let editionContext {
+      await editionContext.model.saveForLater(editionContext.entryID)
+    } else {
+      await model.saveForLater()
+    }
+  }
+
+  private func addToLibraryButtonTapped() async {
+    if let editionContext {
+      await editionContext.model.addToLibrary(editionContext.entryID)
+    } else {
+      await model.addToLibrary()
+    }
+  }
+}
+
+struct EditionReaderContext {
+  let model: EditionModel
+  let entryID: EditionEntry.ID
+  let rationale: String?
 }

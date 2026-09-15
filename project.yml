@@ -30,6 +30,9 @@ packages:
   StructuredQueries:
     url: https://github.com/pointfreeco/swift-structured-queries
     from: 0.31.0
+  LazyState:
+    url: https://github.com/pointfreeco/swiftui-lazy-state
+    from: 1.0.0
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS
     from: 9.0.0
@@ -72,6 +75,8 @@ targets:
         product: GRDB
       - package: StructuredQueries
         product: StructuredQueriesCore
+      - package: LazyState
+        product: LazyState
       - package: GoogleSignIn
         product: GoogleSignIn
       - package: GoogleSignIn

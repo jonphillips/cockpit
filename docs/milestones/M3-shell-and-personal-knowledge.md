@@ -86,7 +86,7 @@ cheap addition that could ride S1.
 
 ## Slice ledger
 
-- [ ] **S1 — iPad shell: iOS 27 tabs + split view** *(dogfooding-first; no PK dependency)*
+- [x] **S1 — iPad shell: iOS 27 tabs + split view** *(dogfooding-first; no PK dependency)*
 - [ ] **S2 — Correction, supersession, and unobtrusive consolidation**
 - [ ] **S3 — Teach from the Reader ("why this matters")**
 - [ ] **S4 — Hypothesis confirmation** *(trigger locked: explicit-action recurrence)*
