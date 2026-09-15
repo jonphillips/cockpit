@@ -324,6 +324,8 @@ Gmail Artifact
 
 This is a critical architecture test because it proves Transport, Artifact, ContentPiece, Stream Handling, source disposition, and Edition state are genuinely separate.
 
+**Read first:** `docs/DECISIONS.md` §21 (OPEN HYPOTHESIS). This is the phase where always-read newsletters (Yglesias, Puck, Sepinwall) first flow from Gmail into Edition under Stream Handling / Essential. §21 parks the open question of whether an always-read Stream should be *promoted into* the finite daily package at all, or listed **reachable-first** — do not silently assume `Essential` means "promote into Edition" when wiring this phase.
+
 #### Architecture Gate 4 — major model review
 
 Stop before Finds/handoffs. If the model is fighting actual email + RSS behavior, fix it while Cockpit is still pre-production.

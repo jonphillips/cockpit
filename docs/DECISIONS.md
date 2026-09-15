@@ -1,6 +1,6 @@
 # Cockpit Decision Ledger
 
-**Status:** Normative  
+**Status:** Normative
 **Date:** 2026-09-08
 
 This ledger records decisions that cut across multiple product documents. It exists to prevent design drift and to distinguish settled architecture from questions that should deliberately wait for implementation evidence.
@@ -403,6 +403,11 @@ Resolve by: living with digests as skim cards, and watching whether (a) they wan
 
 ---
 
+<<<<<<< HEAD
+=======
+<<<<<<< Updated upstream
+=======
+>>>>>>> 4b4aa72 (docs update)
 ## 20. The Reader renders the body Cockpit holds; Open Original is the fallback — RESOLVED
 
 Raised 2026-09-15 from the M3 S1/S3 device pass. The Reader stops at the `summary` and offers **Open Original** as the primary way to actually read a piece — so the one "investigate this item" surface repeats the sidebar card and then sends Jon out of the app to read. That is backwards: the product law is that the Reader makes **ContentPiece substance primary** (`docs/IPAD-FIRST-EXPERIENCE.md` §7), and leaving the app to read the substance is the opposite.
@@ -422,6 +427,30 @@ This is not new capability bolted on — it is surfacing what the model already 
 **Relationships.** This is the reading half of the same surface as **offline** (`Offline until [date]` / `Keep Offline`, currently M4-cutline): the body rendered inline is exactly the substance an offline promise must retain, so the two belong to one slice or adjacent ones (`docs/IPAD-FIRST-EXPERIENCE.md` §8). It also reconciles with §19: a **digest / skim** piece (non-substantive-primary) still renders as the compact contents-preview card §19 describes, **not** a full inline body — inline body is for read pieces with a real `full`/`truncated` body. And it does not touch the AI boundary: rendering held text is deterministic display, not judgment.
 
 **Not decided here:** exact typography/reader geometry (deferred, "Reader geometry details" below), HTML-vs-plain rendering fidelity, and the milestone placement of the slice (proposed M4-adjacent; see `docs/milestones/M3-shell-and-personal-knowledge.md` M4 cutline).
+
+---
+
+=======
+## 21. Always-read Streams: reachable completeness vs. Edition promotion — OPEN HYPOTHESIS
+
+Raised 2026-09-15 from Jon's product note on paid, always-read newsletters (Matthew Yglesias, Puck, Alan Sepinwall). **Not resolved — it cannot be validated until email-delivered Streams are real (Phase 5), because these Streams arrive through Gmail. Recorded here so the Phase 5 build does not quietly assume `Essential` means "promote into the daily Edition."**
+
+`Essential` currently bundles two effects that this note pulls apart:
+
+1. an **anti-forgetting guarantee** — substantive primary material cannot silently age away (Product Law 9; §15); and
+2. a **promotion effect** — Essential posture is a judgment/ranking input (`docs/EDITION-EXPERIENCE.md` §5) that pushes the Stream's pieces into the finite daily package.
+
+For a Stream Jon reads *regardless* — a paid subscription he opens every issue — effect (2) is a **cost, not a benefit**. It spends one of ~20 `targetSize` slots (§14) promoting something that needed no promotion, and Edition's scarce curation is better spent on discovery and on pieces Jon might otherwise miss or delete. In his words, Edition should "help me find things I might have missed/deleted," not re-surface what he would have read anyway. The guarantee (1) is exactly what he wants; the promotion (2) is what feels like a wasted slot.
+
+- **Hypothesis (to live with once Phase 5 makes it real):** a Stream can be **reachable-first**. Its substantive primary material is guaranteed listed and sweepable — the anti-forget half of §15 stands in full — but it does **not** consume a daily-package slot or `targetSize` budget by default. The existing `essentialBacklog` section (§15) is already this exact shape: reachable, visible, outside the package and outside `targetSize`. Today it is reached only as *overflow*, after 14 unresolved carries. The hypothesis is that for an always-read Stream this reachable list should be the **primary** treatment from the first issue, not the fallback after fourteen misses. Concretely this is a Stream-level Handling nuance ("just list these for me to sweep; don't spend Edition slots on them"), not a new entity or a new entry state.
+
+- **Guardrail — this is not a "paid" flag.** The trigger is editorial intent Jon sets ("I will read all of these"), not price or subscription state. `docs/CONTENT-PIECE-MODEL.md` already forbids inferring behavior from paid-vs-free (completeness "must not be inferred from whether a Stream is paid"); the same discipline applies here. It rides on Handling, not on a derived `isPaid`.
+
+- **Guardrail — grab-bag Streams are a separate thing.** Feed Me stays a mixed Stream whose value is the Finds pulled from each issue (`docs/CONTENT-STREAM-MODEL.md` §3). "That's okay" is already the model; this hypothesis is not about it.
+
+- **Does not weaken §15.** Nothing silently ages away. This only changes whether "reachable" *begins* as the list-first default or is only reached after overflow.
+
+Resolve by: living with Phase 5. Watch whether (a) always-read Streams promoted into Edition genuinely feel like wasted slots, (b) a list-first "sweep these" surface for a Stream is what Jon actually reaches for, and (c) it expresses as Handling without a new posture enum. If all three hold, it likely folds into §15's Essential model as a per-Stream default rather than a new axis. Relates to §15 (Essential relief valve — the existing reachable-list primitive), §14 (`targetSize`), `docs/EDITION-EXPERIENCE.md` §4–5, `docs/CONTENT-STREAM-MODEL.md` (Handling / Essential), and `docs/V1-SCOPE-AND-SEQUENCING.md` Phase 5.
 
 ---
 
