@@ -255,6 +255,59 @@ struct EditionTests {
     }
   }
 
+  @Test("Mark-Seen on open is idempotent: reopening a Seen or resolved entry never errors")
+  func markSeenIsIdempotent() async throws {
+    let editionID = EditionDay.editionID(for: base)
+    let pieceID = UUID(1451)
+    try await database.write { db in
+      try Edition.insert {
+        Edition.Draft(Edition(id: editionID, date: EditionDay.start(of: self.base), state: .open))
+      }.execute(db)
+      try ContentPiece.insert {
+        ContentPiece.Draft(
+          ContentPiece(id: pieceID, kind: .article, title: "T", publisher: "P", createdAt: self.base))
+      }.execute(db)
+    }
+    let model = EditionModel()
+
+    // admitted → seen advances and reports no error.
+    let admittedID = UUID(5501)
+    try await database.write { db in
+      try EditionEntry.insert {
+        EditionEntry.Draft(
+          EditionEntry(
+            id: admittedID, editionID: editionID, contentPieceID: pieceID, section: .forYou,
+            rank: 1, entryState: .admitted, firstAdmittedEditionID: editionID))
+      }.execute(db)
+    }
+    await model.markSeen(admittedID)
+    var after = try #require(try await database.read { try EditionEntry.find(admittedID).fetchOne($0) })
+    expectNoDifference(after.entryState, .seen)
+    #expect(model.errorMessage == nil)
+
+    // Reopening the now-Seen entry is a no-op, not the `seen → seen` illegal transition that
+    // surfaced "EditionOperations.Failure error 1" in the Reader.
+    await model.markSeen(admittedID)
+    after = try #require(try await database.read { try EditionEntry.find(admittedID).fetchOne($0) })
+    expectNoDifference(after.entryState, .seen)
+    #expect(model.errorMessage == nil)
+
+    // Opening an already-resolved/dismissed entry (e.g. reached from Later) is likewise a no-op.
+    let dismissedID = UUID(5502)
+    try await database.write { db in
+      try EditionEntry.insert {
+        EditionEntry.Draft(
+          EditionEntry(
+            id: dismissedID, editionID: editionID, contentPieceID: pieceID, section: .forYou,
+            rank: 1, entryState: .dismissed, firstAdmittedEditionID: editionID))
+      }.execute(db)
+    }
+    await model.markSeen(dismissedID)
+    after = try #require(try await database.read { try EditionEntry.find(dismissedID).fetchOne($0) })
+    expectNoDifference(after.entryState, .dismissed)
+    #expect(model.errorMessage == nil)
+  }
+
   // MARK: - Reader resolution actions (M2 S4)
 
   @Test("Save for Later resolves the entry and writes LaterMembership in one atomic write")

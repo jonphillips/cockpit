@@ -71,7 +71,7 @@ public final class EditionModel {
   /// Opening a piece in the Reader (`admitted → seen`). The Reader that triggers it is S4; the
   /// transition lives here.
   public func markSeen(_ entryID: EditionEntry.ID) async {
-    await transition(entryID, to: .seen)
+    await run { try EditionOperations.markSeen(entryID, in: $0) }
   }
 
   /// Edition's resolution action (IMPLEMENTATION-CONTRACT §4): `admitted/seen → dismissed`.

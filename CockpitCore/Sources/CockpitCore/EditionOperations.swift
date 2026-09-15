@@ -26,6 +26,18 @@ public enum EditionOperations {
     try EditionEntry.find(id).update { $0.entryState = #bind(newState) }.execute(db)
   }
 
+  /// Mark-Seen on Reader open is best-effort and idempotent (IMPLEMENTATION-CONTRACT §3): it
+  /// advances a freshly `admitted` entry to `seen` and does nothing for an entry that is already
+  /// `seen`, already resolved/dismissed/aged, or already carried. Opening a piece — including
+  /// reopening an already-Seen one in the split view, where the detail's `.task` re-fires — must
+  /// never surface a state-machine error, so this is the one mark path that treats a non-`admitted`
+  /// entry as a no-op instead of the `seen → seen` illegal transition `transition` correctly rejects.
+  public static func markSeen(_ entryID: EditionEntry.ID, in db: Database) throws {
+    guard let entry = try EditionEntry.find(entryID).fetchOne(db) else { return }
+    guard entry.entryState == .admitted else { return }
+    try transition(entryID, to: .seen, in: db)
+  }
+
   /// Close a still-open Edition at the day boundary, moving each non-terminal entry to `carried`
   /// or `aged` per §3:
   /// - an Essential substantive-primary entry is **never** aged — it is always carried (invariant 5);
