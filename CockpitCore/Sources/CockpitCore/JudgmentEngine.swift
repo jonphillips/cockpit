@@ -25,7 +25,12 @@ public struct JudgmentEngine: Sendable {
 
     let startedAt = now()
     do {
-      let response = try await modelClient.complete(
+      // Stream the pass: a composition batches every candidate into one request whose
+      // generated JSON scales with the candidate count, and a non-streaming `complete`
+      // receives no bytes until the whole body is done — so a real-corpus batch sits past
+      // the idle timeout (and Anthropic's non-streaming ceiling) and fails closed on every
+      // candidate at once. Streaming keeps bytes flowing; usage still comes back for cost.
+      let response = try await modelClient.completeStreaming(
         ModelRequest(
           tier: .frontier(.anthropic),
           system: JudgmentPrompt.system,

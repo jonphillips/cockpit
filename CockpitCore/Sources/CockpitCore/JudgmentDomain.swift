@@ -1,3 +1,4 @@
+import Dependencies
 import Foundation
 import LLMClientKit
 
@@ -7,13 +8,31 @@ public enum JudgmentModel {
   public static let modelID = "claude-sonnet-5"
   public static let displayName = "Claude Sonnet 5"
 
+  /// A judgment call batches every one of the day's candidates into a single non-streaming
+  /// request (JUDGMENT-CONTRACT: "the single structured LLM pass"), so its generation time scales
+  /// with the candidate count — 122s was measured on the S2 fixture set, and a live Following
+  /// corpus is bigger. `LLMClientKit`'s shared `URLSession.frontier` budgets 300s of *idle* time
+  /// (no bytes received) before giving up, which a non-streaming call can exceed just waiting for
+  /// the one response body — observed live as "Fail-closed piece ...: The request timed out." on
+  /// every candidate at once. That shared session is used by every LLMClientKit consumer
+  /// (Galavant, Yes Chef), so rather than widen it there, Cockpit builds its own longer-timeout
+  /// session for this one call site (jon-platform rule: app-local until a neutral seam is proven).
+  static let session: URLSession = {
+    let configuration = URLSessionConfiguration.default
+    configuration.timeoutIntervalForRequest = 900
+    configuration.timeoutIntervalForResource = 1_200
+    return URLSession(configuration: configuration)
+  }()
+
   public static func makeClient() -> any ModelClient {
-    TieredModelClient.live(modelForProvider: { provider in
-      switch provider {
-      case .anthropic: modelID
-      case .openai: provider.defaultModel
+    @Dependency(\.apiKeyStore) var keyStore
+    return TieredModelClient(onDevice: OnDeviceModelClient.live) { provider in
+      guard let key = keyStore.key(provider) else { return nil }
+      return switch provider {
+      case .anthropic: AnthropicModelClient(apiKey: key, model: modelID, session: session)
+      case .openai: OpenAIModelClient(apiKey: key, model: provider.defaultModel, session: session)
       }
-    })
+    }
   }
 }
 

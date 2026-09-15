@@ -255,6 +255,152 @@ struct EditionTests {
     }
   }
 
+  // MARK: - Reader resolution actions (M2 S4)
+
+  @Test("Save for Later resolves the entry and writes LaterMembership in one atomic write")
+  func saveForLaterWritesMembership() async throws {
+    let streamID = UUID(6001)
+    try await seedStream(id: streamID, essential: false)
+    let pieceID = UUID(6101)
+    try await seedPiece(id: pieceID, streamID: streamID, createdAt: base)
+    let editionID = EditionDay.editionID(for: base)
+    let entryID = UUID(6201)
+    try await database.write { db in
+      try Edition.insert {
+        Edition.Draft(Edition(id: editionID, date: EditionDay.start(of: self.base), state: .open))
+      }.execute(db)
+      try EditionEntry.insert {
+        EditionEntry.Draft(
+          EditionEntry(
+            id: entryID, editionID: editionID, contentPieceID: pieceID, section: .forYou, rank: 1,
+            entryState: .admitted, firstAdmittedEditionID: editionID))
+      }.execute(db)
+    }
+
+    let model = EditionModel()
+    await model.saveForLater(entryID)
+
+    #expect(model.errorMessage == nil)
+    let entry = try #require(try await database.read { try EditionEntry.find(entryID).fetchOne($0) })
+    expectNoDifference(entry.entryState, .resolved)
+    let membership = try await database.read { try LaterMembership.find(pieceID).fetchOne($0) }
+    expectNoDifference(membership?.addedAt, base)
+  }
+
+  @Test("Save for Later on an already-terminal entry is rejected and writes no membership")
+  func saveForLaterRejectsIllegalTransition() async throws {
+    let streamID = UUID(6301)
+    try await seedStream(id: streamID, essential: false)
+    let pieceID = UUID(6401)
+    try await seedPiece(id: pieceID, streamID: streamID, createdAt: base)
+    let editionID = EditionDay.editionID(for: base)
+    let entryID = UUID(6501)
+    try await database.write { db in
+      try Edition.insert {
+        Edition.Draft(Edition(id: editionID, date: EditionDay.start(of: self.base), state: .open))
+      }.execute(db)
+      try EditionEntry.insert {
+        EditionEntry.Draft(
+          EditionEntry(
+            id: entryID, editionID: editionID, contentPieceID: pieceID, section: .forYou, rank: 1,
+            entryState: .dismissed, firstAdmittedEditionID: editionID))
+      }.execute(db)
+    }
+
+    let model = EditionModel()
+    await model.saveForLater(entryID)
+
+    #expect(model.errorMessage != nil)
+    let entry = try #require(try await database.read { try EditionEntry.find(entryID).fetchOne($0) })
+    expectNoDifference(entry.entryState, .dismissed)
+    let count = try await database.read { try LaterMembership.fetchCount($0) }
+    expectNoDifference(count, 0)
+  }
+
+  @Test("Add to Library writes the membership and leaves entryState untouched (orthogonal)")
+  func addToLibraryLeavesEntryStateUnchanged() async throws {
+    let streamID = UUID(6601)
+    try await seedStream(id: streamID, essential: false)
+    let pieceID = UUID(6701)
+    try await seedPiece(id: pieceID, streamID: streamID, createdAt: base)
+    let editionID = EditionDay.editionID(for: base)
+    let entryID = UUID(6801)
+    try await database.write { db in
+      try Edition.insert {
+        Edition.Draft(Edition(id: editionID, date: EditionDay.start(of: self.base), state: .open))
+      }.execute(db)
+      try EditionEntry.insert {
+        EditionEntry.Draft(
+          EditionEntry(
+            id: entryID, editionID: editionID, contentPieceID: pieceID, section: .forYou, rank: 1,
+            entryState: .seen, firstAdmittedEditionID: editionID))
+      }.execute(db)
+    }
+
+    let model = EditionModel()
+    await model.addToLibrary(entryID)
+
+    #expect(model.errorMessage == nil)
+    let entry = try #require(try await database.read { try EditionEntry.find(entryID).fetchOne($0) })
+    expectNoDifference(entry.entryState, .seen)
+    let membership = try await database.read { try LibraryMembership.find(pieceID).fetchOne($0) }
+    expectNoDifference(membership?.admittedBy, "explicit")
+  }
+
+  @Test("isSubstantivePrimary is correctable from the Reader independent of the judged value")
+  func correctsSubstantivePrimary() async throws {
+    let streamID = UUID(6901)
+    try await seedStream(id: streamID, essential: false)
+    let pieceID = UUID(6902)
+    try await seedPiece(id: pieceID, streamID: streamID, createdAt: base)
+    try await database.write { db in
+      try ContentPiece.find(pieceID).update { $0.isSubstantivePrimary = #bind(true) }.execute(db)
+    }
+    let editionID = EditionDay.editionID(for: base)
+    let entryID = UUID(6903)
+    try await database.write { db in
+      try Edition.insert {
+        Edition.Draft(Edition(id: editionID, date: EditionDay.start(of: self.base), state: .open))
+      }.execute(db)
+      try EditionEntry.insert {
+        EditionEntry.Draft(
+          EditionEntry(
+            id: entryID, editionID: editionID, contentPieceID: pieceID, section: .forYou, rank: 1,
+            entryState: .admitted, firstAdmittedEditionID: editionID))
+      }.execute(db)
+    }
+
+    let model = EditionModel()
+    await model.correctIsSubstantivePrimary(entryID, to: false)
+
+    #expect(model.errorMessage == nil)
+    let piece = try #require(try await database.read { try ContentPiece.find(pieceID).fetchOne($0) })
+    expectNoDifference(piece.isSubstantivePrimary, false)
+  }
+
+  @Test("Contextual Stream Handling access: streamID resolves a piece back to the Stream it arrived through")
+  func resolvesStreamIDForContextualAccess() async throws {
+    let streamID = UUID(7001)
+    try await seedStream(id: streamID, essential: false)
+    let pieceID = UUID(7101)
+    try await seedPiece(id: pieceID, streamID: streamID, createdAt: base)
+
+    let resolved = try await database.read { try EditionOperations.streamID(for: pieceID, in: $0) }
+    expectNoDifference(resolved, streamID)
+
+    let orphanPieceID = UUID(7102)
+    try await database.write { db in
+      try ContentPiece.insert {
+        ContentPiece.Draft(
+          ContentPiece(
+            id: orphanPieceID, kind: .article, title: "Orphan", publisher: "Publisher",
+            createdAt: self.base))
+      }.execute(db)
+    }
+    let noStream = try await database.read { try EditionOperations.streamID(for: orphanPieceID, in: $0) }
+    #expect(noStream == nil)
+  }
+
   // MARK: - Carryover budget
 
   @Test("A non-Essential entry carries at most 3 times, then ages (contract §3)")
@@ -432,6 +578,59 @@ struct EditionTests {
     // The failed piece keeps no phantom classification.
     let badPiece = try #require(try await database.read { try ContentPiece.find(bad).fetchOne($0) })
     #expect(badPiece.isSubstantivePrimary == nil)
+  }
+
+  @Test("A wholesale judgment failure rolls back so the day can be recomposed, not frozen empty")
+  func wholesaleJudgmentFailureIsRecoverable() async throws {
+    let streamID = UUID(4401)
+    try await seedStream(id: streamID, essential: false)
+    let pieceID = UUID(4501)
+    try await seedPiece(id: pieceID, streamID: streamID, createdAt: base)
+
+    // Every candidate fails at once — the live symptom of a timeout on the single batched judgment
+    // call. No candidate yields a valid outcome, so this is not a legitimate zero-entry Edition.
+    let failing = StubModelClient { _ in throw URLError(.timedOut) }
+    await #expect(throws: EditionComposer.CompositionError.self) {
+      _ = try await self.compose(dayIndex: 0, stub: failing)
+    }
+
+    // Nothing was frozen in place: no Edition row exists, so composeIfNeeded is free to retry.
+    let editionID = EditionDay.editionID(for: day(0))
+    #expect(try await database.read { try Edition.find(editionID).fetchOne($0) } == nil)
+
+    // The retry, now with a working judge, composes normally and admits the piece.
+    let result = try await compose(dayIndex: 0, stub: editionStub())
+    guard case .composed = result else { Issue.record("retry should compose"); return }
+    #expect(try await entry(dayIndex: 0, piece: pieceID) != nil)
+  }
+
+  @Test("Recompose discards today's Edition and re-drives it (explicit reconsider, contract §3)")
+  func recomposeRebuildsToday() async throws {
+    let streamID = UUID(4601)
+    try await seedStream(id: streamID, essential: false)
+    let pieceID = UUID(4701)
+    try await seedPiece(id: pieceID, streamID: streamID, createdAt: base)
+
+    // First compose declines everything → a legitimate but empty open Edition (the same shape a
+    // stale timeout leaves behind). composeIfNeeded is now a no-op on it.
+    let declineAll = editionStub(default: StubOutcome(admit: false, substantive: false))
+    guard case .composed = try await compose(dayIndex: 0, stub: declineAll) else {
+      Issue.record("first compose should materialise"); return
+    }
+    #expect(try await entry(dayIndex: 0, piece: pieceID) == nil)
+    guard case .alreadyComposed = try await compose(dayIndex: 0, stub: editionStub()) else {
+      Issue.record("composeIfNeeded should be a no-op once open"); return
+    }
+
+    // Recompose (now admitting) discards the empty Edition and re-drives — one Edition for the day,
+    // now with the piece admitted.
+    let composer = EditionComposer(engine: JudgmentEngine(modelClient: editionStub()))
+    guard case .composed = try await composer.recompose(now: day(0), in: database) else {
+      Issue.record("recompose should re-drive"); return
+    }
+    #expect(try await entry(dayIndex: 0, piece: pieceID) != nil)
+    let count = try await database.read { try Edition.fetchCount($0) }
+    expectNoDifference(count, 1)
   }
 
   @Test("A closed Edition renders entirely from stored state (done-criterion 4)")
