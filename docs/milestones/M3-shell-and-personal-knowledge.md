@@ -186,7 +186,7 @@ Destination → view mapping (all reachable, none in the toolbar):
 | Today | thin container: the M2 Edition summary + Essential backlog | Gmail substance is M4 (`TODAY-EXPERIENCE.md` intro) |
 | Edition | `EditionView` as a `NavigationSplitView` (entry list ∥ `ReaderView` detail) | convert its internal `NavigationStack`; detail driven by `EditionModel.selectedEntryID` |
 | Later | minimal browse of `LaterMembership` (list only) | thin in S1; deep Later/offline is M4 |
-| Library | `ContentPieceListView` as list ∥ detail | see the Reader boundary below |
+| Library | `ContentPieceListView` as list ∥ detail | detail = the ContentPiece-driven Reader (see decision below) |
 | Settings | `SettingsView` + a `NavigationStack(path:)` over `SettingsRoute` | Following / Interest Areas / You / Pending Finds nest here (§4), not as peers |
 
 ### Scope
@@ -200,7 +200,8 @@ Destination → view mapping (all reachable, none in the toolbar):
 - **`NavigationSplitView` for Edition** (§5): the entry list beside the `ReaderView` detail column so
   reading exploits iPad width instead of push/pop. On compact width (iPhone) `NavigationSplitView`
   collapses to a stack on its own — the compact behaviour comes for free.
-- **Library gets the same list ∥ detail** treatment where the Reader boundary allows (below).
+- **Library and Later get the same list ∥ detail** treatment, feeding the one ContentPiece-driven
+  Reader (see decision below). No list anywhere pushes a full-width row to its own screen.
 - **Navigation state is modelled and tested.** `ShellModel.selection`, `SettingsRoute`, and
   `EditionModel.selectedEntryID` are the testable surface — including "no Edition today" and
   empty Later/Library, which must render honestly (M2's real-vs-empty distinction).
@@ -218,17 +219,47 @@ Destination → view mapping (all reachable, none in the toolbar):
   Following is **removed** — those become destinations/routes. The Gmail-probe sheet moves under
   Settings (it is developer plumbing, `IPAD-FIRST` §7's "not a debug surface" rule).
 - `EditionView`'s internal `NavigationStack { … ReaderView }` becomes the split view's two columns.
-- No feature model's public behaviour changes; this is a re-parenting of existing views plus the new
+- `EditionView`'s existing behaviour is preserved; the one substantive (non-re-parenting) change is
+  the **Reader generalisation** — re-parameterising `ReaderView` to *(ContentPiece substance +
+  optional Edition context)* and adding the ContentPiece projection that feeds the non-Edition lists
+  (see the decision below). Everything else is re-parenting existing views under the new
   `ShellModel`/route enums.
 
-### Known boundary — the Reader is Edition-bound
+### Decision — the Reader is ContentPiece-driven, with Edition context as an optional layer
 
-`ReaderView` today requires `EditionModel` + an `entryID`; it cannot yet read an arbitrary
-`ContentPiece` that is not an Edition entry. So the **Library detail column** either (a) reuses the
-Reader only for pieces that have an Edition entry and shows a lighter detail otherwise, or (b) waits on
-a small generalisation of `ReaderView` to a `ContentPiece`-driven reader. **This is the one real design
-question in S1** — resolve it in the PR (label `question-for-architect` if option (b) grows beyond a
-thin refactor); do not silently fork a second reader. Everything else here is re-parenting.
+**Ratified 2026-09-15.** There is exactly **one** Reader in Cockpit, and it is keyed on a
+`ContentPiece`, not on an Edition entry. This is the product's single "investigate one item" surface —
+the same view whether the piece was reached from Edition, Library, Later, or (in M4) Mail/Today. Every
+list is a `NavigationSplitView` (list ∥ this Reader); **no destination pushes a full-width row to a
+separate screen** — the standing anti-requirement for iPad.
+
+The factoring is small because `ReaderView` is already ~90% ContentPiece-intrinsic. Of what it renders
+today from `CurrentEditionRequest.Row`, only three things are Edition-specific:
+
+- **ContentPiece-intrinsic (the Reader core):** title, publisher, `summary`, `isSubstantivePrimary`
+  (+ its Correct action), `bodyCompleteness` badge, `canonicalURL` / Open Original. Plus the universal
+  actions **Save for Later** and **Add to Library** (membership writes, keyed on `contentPieceID`,
+  idempotent — they belong to any piece).
+- **Edition context (an optional adornment, present only when opened from an `EditionEntry`):** the
+  "why you're seeing this" **rationale**, **Dismiss** (`entryState → dismissed`), and **mark-Seen on
+  open** (`admitted → seen`). A Library/Later piece with no Edition entry simply omits these — it is
+  not "seen" in the Edition sense and cannot be Dismissed, because `entryState` is Edition-only
+  (IMPLEMENTATION-CONTRACT §3).
+
+Concrete shape for the slice:
+
+- Introduce a small **ContentPiece projection** (analogous to `CurrentEditionRequest.Row`, keyed on
+  `contentPieceID`) to feed the Reader from the non-Edition lists; the Edition path keeps its existing
+  Row (which already carries rationale) and passes the `EditionEntry` as the optional context.
+- The Reader takes *(ContentPiece substance)* + *(optional Edition context)* rather than
+  `(EditionModel, entryID)`. Edition-only affordances render only when the context is present.
+- This is deliberately foundational: M3 S3 (teach-from-Reader) and S5 (correctable rationale) both
+  build on this one Reader, so generalising it now is what keeps those slices thin.
+
+**Scope honesty:** this is slightly more than re-parenting — it adds the ContentPiece projection and
+re-parameterises the Reader — but it is bounded (the substance rendering already exists) and it is the
+thing that makes the whole shell cohere. It is the right home for the work; do not defer it and fork a
+second reader.
 
 ### Test plan
 
@@ -236,6 +267,9 @@ thin refactor); do not silently fork a second reader. Everything else here is re
 - `SettingsRoute` push/pop, including `.personalKnowledge(claimID?)` with and without a claim.
 - `EditionModel.selectedEntryID`: selecting an entry, clearing it, and the empty/absent-Edition state
   (reuse M2's real-zero-vs-no-Edition distinction).
+- The Reader with **and without** Edition context: with an `EditionEntry`, rationale / Dismiss /
+  mark-Seen fire; with a bare ContentPiece (Library/Later), those are absent and Save for Later / Add
+  to Library still write their memberships correctly (idempotent).
 - No snapshot/UI assertion of the split-view or sidebar **layout** — that is Jon's device pass.
 
 ### Done-criteria
@@ -243,8 +277,9 @@ thin refactor); do not silently fork a second reader. Everything else here is re
 1. Five destinations as one adaptive `Tab`/`TabView` (`.sidebarAdaptable`) — sidebar on iPad, tab bar
    on iPhone — with Following / Interest Areas / You / Pending Finds nested under Settings; **nothing
    primary remains in the toolbar.**
-2. Edition uses `NavigationSplitView` list ∥ `ReaderView` detail; Library uses list ∥ detail per the
-   Reader-boundary resolution recorded in the PR.
+2. The Reader is ContentPiece-driven; Edition, Library, and Later are each `NavigationSplitView`
+   list ∥ Reader. An Edition entry shows rationale / Dismiss / Seen-on-open; a Library or Later piece
+   with no Edition entry omits exactly those and still offers Save for Later / Add to Library.
 3. `ShellModel`, `SettingsRoute`, and `EditionModel.selectedEntryID` are unit-tested for the
    transitions and empty/absent states above; **the visual composition is handed to Jon's device
    pass**, not asserted by agents.
