@@ -47,6 +47,16 @@ struct ReaderView: View {
             .foregroundStyle(.secondary)
           }
 
+          if let bodyCompleteness = row.bodyCompleteness, bodyCompleteness != .full {
+            Label(bodyCompleteness.readerLabel, systemImage: bodyCompleteness == .teaser ? "rectangle.slash" : "scissors")
+              .font(.caption)
+              .foregroundStyle(.orange)
+              .padding(.horizontal, 10)
+              .padding(.vertical, 6)
+              .background(.orange.opacity(0.12), in: .capsule)
+              .accessibilityLabel("Body completeness: \(bodyCompleteness.readerLabel)")
+          }
+
           if let urlString = row.canonicalURL, let url = URL(string: urlString) {
             Button("Open Original", systemImage: "arrow.up.right.square") { openURL(url) }
           }

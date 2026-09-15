@@ -44,7 +44,7 @@ Edition is composed is the whole point of sequencing it first (`docs/V1-SCOPE-AN
 - [ ] **S2 — Judgment engine and the first agreement number**
 - [x] **S3 — Edition composition**
 - [x] **S4 — Reader and resolution**
-- [ ] **S5 — Content completeness and Pending Find extraction**
+- [x] **S5 — Content completeness and Pending Find extraction**
 - [ ] **Architecture Gate 1 — model review**
 
 ## Dogfooding-first — re-prioritization note (2026-09-13)

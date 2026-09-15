@@ -75,6 +75,7 @@ private struct DecodedJudgment: Decodable {
   let rationale: String
   let subjects: [String]
   let summary: String
+  let bodyCompleteness: BodyCompleteness?
   let finds: [JudgmentFind]
 }
 
@@ -84,7 +85,7 @@ private extension JudgmentOutcome {
       contentPieceID: decoded.contentPieceID, admit: decoded.admit,
       isSubstantivePrimary: decoded.isSubstantivePrimary, section: decoded.section,
       rank: decoded.rank, rationale: decoded.rationale, subjects: decoded.subjects,
-      summary: decoded.summary, finds: decoded.finds
+      summary: decoded.summary, bodyCompleteness: decoded.bodyCompleteness, finds: decoded.finds
     )
   }
 }

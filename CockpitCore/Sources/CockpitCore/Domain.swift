@@ -187,6 +187,7 @@ public struct ContentPiece: Codable, Equatable, Identifiable, Sendable {
   public var summary: String?
   public var subjects: String?
   public var isSubstantivePrimary: Bool?
+  public var bodyCompleteness: BodyCompleteness?
   public var createdAt: Date
 
   public init(
@@ -200,6 +201,7 @@ public struct ContentPiece: Codable, Equatable, Identifiable, Sendable {
     summary: String? = nil,
     subjects: String? = nil,
     isSubstantivePrimary: Bool? = nil,
+    bodyCompleteness: BodyCompleteness? = nil,
     createdAt: Date
   ) {
     self.id = id
@@ -212,6 +214,7 @@ public struct ContentPiece: Codable, Equatable, Identifiable, Sendable {
     self.summary = summary
     self.subjects = subjects
     self.isSubstantivePrimary = isSubstantivePrimary
+    self.bodyCompleteness = bodyCompleteness
     self.createdAt = createdAt
   }
 }

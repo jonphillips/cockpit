@@ -102,10 +102,14 @@ public enum EditionOperations {
   static func applyClassification(_ outcome: JudgmentOutcome, in db: Database) throws {
     guard outcome.errorDescription == nil else { return }
     let subjectsJSON = encodeSubjects(outcome.subjects)
+    let currentCompleteness = try ContentPiece.find(outcome.contentPieceID)
+      .select(\.bodyCompleteness).fetchOne(db) ?? nil
+    let completeness = currentCompleteness ?? outcome.bodyCompleteness
     try ContentPiece.find(outcome.contentPieceID).update {
       $0.subjects = #bind(subjectsJSON)
       $0.summary = #bind(outcome.summary)
       $0.isSubstantivePrimary = #bind(outcome.isSubstantivePrimary)
+      $0.bodyCompleteness = #bind(completeness)
     }.execute(db)
   }
 

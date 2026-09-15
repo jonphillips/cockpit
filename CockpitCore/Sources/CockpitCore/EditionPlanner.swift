@@ -109,6 +109,7 @@ struct EditionPlanner: Sendable {
         CandidateBuildRow.Columns(
           pieceID: $0.id, kind: $0.kind, title: $0.title, creator: $0.creator,
           publisher: $0.publisher, publishedAt: $0.publishedAt, canonicalURL: $0.canonicalURL,
+          bodyCompleteness: $0.bodyCompleteness,
           normalizedText: $4.normalizedText, streamName: $2.name, handling: $2.handling,
           handlingGuidance: $2.handlingGuidance, streamIsEssential: $2.isEssential,
           interestAreaName: $3.name, interestAreaGuidance: $3.guidance)
@@ -131,7 +132,7 @@ struct EditionPlanner: Sendable {
       return JudgmentCandidate(
         id: pieceID, kind: first.kind.rawValue, title: first.title, creator: first.creator,
         publisher: first.publisher, publishedAt: first.publishedAt, canonicalURL: first.canonicalURL,
-        normalizedText: first.normalizedText ?? "",
+        normalizedText: first.normalizedText ?? "", bodyCompleteness: first.bodyCompleteness,
         stream: StreamContext(
           name: representative.streamName ?? first.publisher,
           handling: representative.handling?.rawValue ?? StreamHandling.following.rawValue,
@@ -156,6 +157,7 @@ struct CandidateBuildRow: Sendable {
   let publisher: String
   let publishedAt: Date?
   let canonicalURL: String?
+  let bodyCompleteness: BodyCompleteness?
   let normalizedText: String?
   let streamName: String?
   let handling: StreamHandling?

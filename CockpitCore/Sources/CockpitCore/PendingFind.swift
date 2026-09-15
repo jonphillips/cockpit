@@ -1,0 +1,74 @@
+import Foundation
+import LLMClientKit
+import SQLiteData
+
+public enum PendingFindState: String, Codable, QueryBindable, Sendable {
+  case pending
+  case handedOff
+  case dismissed
+}
+
+@Table("pendingFinds")
+public struct PendingFind: Codable, Equatable, Identifiable, Sendable {
+  public let id: UUID
+  public let contentPieceID: ContentPiece.ID
+  public var kind: String
+  public var name: String
+  public var descriptor: String
+  public var rationale: String
+  public var sourceURL: String?
+  /// JSON-encoded lightweight hints. Hints remain descriptive input for a future receiver, not a
+  /// Cockpit-owned domain model (CONTENT-PIECE-MODEL §6).
+  public var hints: String?
+  public var state: PendingFindState
+
+  public init(
+    id: UUID, contentPieceID: ContentPiece.ID, kind: String, name: String, descriptor: String,
+    rationale: String, sourceURL: String? = nil, hints: String? = nil,
+    state: PendingFindState = .pending
+  ) {
+    self.id = id
+    self.contentPieceID = contentPieceID
+    self.kind = kind
+    self.name = name
+    self.descriptor = descriptor
+    self.rationale = rationale
+    self.sourceURL = sourceURL
+    self.hints = hints
+    self.state = state
+  }
+}
+
+public enum PendingFindOperations {
+  /// Writes only the finds proposed by this judgment outcome. IDs are derived from the originating
+  /// ContentPiece and the find's stable descriptive identity, so repeated composition converges and
+  /// does not create duplicate orphan rows.
+  public static func persist(
+    _ finds: [JudgmentFind]?, for contentPieceID: ContentPiece.ID, in db: Database
+  ) throws {
+    guard let finds else { return }
+    for find in finds {
+      let hints = try encodeHints(find.hints)
+      let id = ContentIdentity.uuidV5(
+        namespace: ContentIdentity.cockpitNamespace,
+        name: [
+          "pending-find", contentPieceID.uuidString, find.kind, find.name,
+          find.sourceURL ?? ""
+        ].map(ContentIdentity.normalizeText).joined(separator: "\u{001F}"))
+      try PendingFind.upsert {
+        PendingFind.Draft(
+          PendingFind(
+            id: id, contentPieceID: contentPieceID, kind: find.kind, name: find.name,
+            descriptor: find.descriptor, rationale: find.rationale, sourceURL: find.sourceURL,
+            hints: hints))
+      }.execute(db)
+    }
+  }
+
+  private static func encodeHints(_ hints: [String: JSONValue]) throws -> String? {
+    guard !hints.isEmpty else { return nil }
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys]
+    return String(decoding: try encoder.encode(hints), as: UTF8.self)
+  }
+}
