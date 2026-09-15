@@ -136,58 +136,128 @@ placement (DECISIONS §18 says Phase 2; V1-SCOPE §3 Phase 7 — see *Not in M3*
 
 **Branch:** `m3/s1-ipad-shell` · **PR title:** `M3 · S1 — iPad shell`
 
-The shell today is `CockpitRootView → NavigationStack { ContentPieceListView }`, with `SettingsView`,
-`EditionView`, and `FollowingView` reached from `.topBarTrailing` toolbar items. There is no TabView,
+The shell today is `CockpitApp → CockpitRootView → ContentPieceListView`, where
+`ContentPieceListView` is a `NavigationStack` that reaches `SettingsView`, `EditionView`, and
+`FollowingView` from `.topBarTrailing` toolbar items (plus a Gmail-probe sheet). There is no TabView,
 no split view, and Today / Later / Library are not real destinations. This slice replaces that with the
 device-appropriate structure `docs/IPAD-FIRST-EXPERIENCE.md` has specified since day one, so the app
-stops teaching the wrong thing every morning and so the M3 PK surfaces land somewhere pleasant.
+stops teaching the wrong thing every morning and the M3 PK surfaces land somewhere pleasant.
 
 ### Read first
 
 `docs/IPAD-FIRST-EXPERIENCE.md` (§1 the five destinations, §4 sidebar/navigation, §5 Edition on iPad,
-§7 Reader); the current `CockpitApp/CockpitApp.swift`, `ContentPieceListView.swift`, `EditionView.swift`,
-`ReaderView.swift`, `SettingsView.swift`. **Then the updated Point-Free skills** — `pfw-swift-navigation`
-(now recommends `@CaseBindable` for enum bindings), `pfw-modern-swiftui`, `pfw-lazy-state` (new
-`@LazyState` for view state from init params) — and the **`swiftui-whats-new-27`** skill for the iOS 27
-`Tab` / `TabView` and toolbar APIs.
+§7 Reader); the current `CockpitApp/CockpitApp.swift`, `ContentPieceListView.swift`, `EditionView.swift`
+(note it already embeds `ReaderView(model:entryID:)` via an internal `NavigationStack`), `ReaderView.swift`
+(currently **Edition-bound** — takes `EditionModel` + `entryID`), `SettingsView.swift` (already nests
+`AISettingsView` and `PersonalKnowledgeView`), `FollowingView.swift`.
+
+**Then the updated Point-Free skills** — `pfw-swift-navigation` (now recommends `@CaseBindable` for
+enum bindings) and its companion `pfw-case-paths` for the enum routes below, `pfw-modern-swiftui`,
+`pfw-lazy-state` (`@LazyState` for a detail view whose state derives from an id passed at init) — and
+the `swiftui-whats-new-27` skill. Two 27-specific notes from that skill that will bite here:
+`references/state-macro.md` (`@State` is now a macro; if a new shell view fails to compile with "used
+before being initialized," the fix is **not** to reorder init — read the reference), and
+`references/toolbar.md` (the constrained-space toolbar APIs, for the per-destination detail toolbars).
+
+### Architecture
+
+**One `@Observable` `ShellModel` owns top-level navigation; feature models keep their own detail
+selection.** This matches the repo's existing shape (`EditionModel`, `FollowingModel`,
+`ContentPieceListModel` are already the owners of their surfaces) and keeps everything that carries
+logic unit-testable per the standing rule.
+
+```
+ShellModel (@Observable)
+  selection: Destination            // enum: today, edition, later, library, settings
+Destination                         // plain enum, no payload → bind directly to TabView(selection:)
+SettingsRoute (enum, @CaseBindable) // following, interestAreas, personalKnowledge(claimID?), ai, pendingFinds
+EditionModel.selectedEntryID: EditionEntry.ID?   // drives the Edition split view's detail column
+```
+
+`@CaseBindable` earns its place on the **enum routes that carry a payload** (a `SettingsRoute` case
+like `.personalKnowledge(claimID?)`), not on the flat top-level `Destination` (a plain `Binding` to
+`selection` is enough for `TabView(selection:)`). Do not sprinkle it where there is no associated
+value — consult `pfw-case-paths` for the route enums.
+
+Destination → view mapping (all reachable, none in the toolbar):
+
+| Destination | View in S1 | Notes |
+|---|---|---|
+| Today | thin container: the M2 Edition summary + Essential backlog | Gmail substance is M4 (`TODAY-EXPERIENCE.md` intro) |
+| Edition | `EditionView` as a `NavigationSplitView` (entry list ∥ `ReaderView` detail) | convert its internal `NavigationStack`; detail driven by `EditionModel.selectedEntryID` |
+| Later | minimal browse of `LaterMembership` (list only) | thin in S1; deep Later/offline is M4 |
+| Library | `ContentPieceListView` as list ∥ detail | see the Reader boundary below |
+| Settings | `SettingsView` + a `NavigationStack(path:)` over `SettingsRoute` | Following / Interest Areas / You / Pending Finds nest here (§4), not as peers |
 
 ### Scope
 
-- **One adaptive navigation structure for both device families** using the iOS 27 `Tab` / `TabView`
-  API with a **sidebar-adaptable** style: on iPad it renders as the sidebar `IPAD-FIRST-EXPERIENCE.md`
-  §4 calls for; on iPhone it renders as a standard tab bar. The five product destinations are
-  first-class from the start — **Today, Edition, Later, Library, Settings** — with **Following /
-  Interest Areas / Personal Knowledge (You) living under Settings**, not as sixth/seventh peers (§1,
-  §4). This is the direct fix for "we keep shoving things into the toolbar."
-- **`NavigationSplitView` for Edition** (§5) — the entry list beside a Reader detail column, so
-  reading exploits iPad width instead of pushing/popping a stack. **Content browsing (Library) gets
-  the same list+detail** treatment.
-- **Navigation state is enum-modelled and testable.** The selected destination and the selected
-  piece within a split view are domain enums driven with `@CaseBindable` (updated `pfw-swift-navigation`
-  guidance), owned by a model that can be unit-tested for selection transitions — including the "no
-  Edition today" and "empty Later/Library" states the shell must render honestly (M2's real-vs-empty
-  distinction).
-- **iPhone stays compact, not a mechanical shrink** (§3, §9): the same destinations, appropriate
-  compact treatment, no requirement of visual parity. iPhone polish is explicitly **not** a gate (§9).
-- *(Optional, cheap, if it fits):* surface the per-composition cost/latency figure somewhere in
-  Settings — see *Model cost* above.
+- **One adaptive navigation structure for both device families** using the `Tab` / `TabView` API with
+  `.tabViewStyle(.sidebarAdaptable)`: iPad renders the sidebar `IPAD-FIRST-EXPERIENCE.md` §4 calls for;
+  iPhone renders a standard tab bar. Five first-class destinations — **Today, Edition, Later, Library,
+  Settings** — with **Following / Interest Areas / You / Pending Finds under Settings** (§1, §4). This
+  is the direct fix for "we keep shoving things into the toolbar." (`Tab`/`sidebarAdaptable` and
+  `NavigationSplitView` are established APIs, not 27-new — safe to lean on.)
+- **`NavigationSplitView` for Edition** (§5): the entry list beside the `ReaderView` detail column so
+  reading exploits iPad width instead of push/pop. On compact width (iPhone) `NavigationSplitView`
+  collapses to a stack on its own — the compact behaviour comes for free.
+- **Library gets the same list ∥ detail** treatment where the Reader boundary allows (below).
+- **Navigation state is modelled and tested.** `ShellModel.selection`, `SettingsRoute`, and
+  `EditionModel.selectedEntryID` are the testable surface — including "no Edition today" and
+  empty Later/Library, which must render honestly (M2's real-vs-empty distinction).
+- **iPhone stays compact, not a mechanical shrink** (§3, §9): same destinations, compact treatment, no
+  parity requirement. iPhone polish is explicitly **not** a gate (§9).
+- *(Optional, cheap, if it fits):* surface the per-composition cost/latency figure in Settings — see
+  *Model cost* above; it is what makes the eventual model A/B measurable.
+
+### Migration — what the tree becomes
+
+- `CockpitRootView` becomes the `TabView`/`ShellModel` host; the launch tasks it runs today
+  (`followingModel.acquireOnLaunchOrRefresh()`, and the app's `CockpitCloudSync.startIfEnabled()`) are
+  preserved.
+- The `.topBarTrailing` toolbar block in `ContentPieceListView` that presents Settings / Edition /
+  Following is **removed** — those become destinations/routes. The Gmail-probe sheet moves under
+  Settings (it is developer plumbing, `IPAD-FIRST` §7's "not a debug surface" rule).
+- `EditionView`'s internal `NavigationStack { … ReaderView }` becomes the split view's two columns.
+- No feature model's public behaviour changes; this is a re-parenting of existing views plus the new
+  `ShellModel`/route enums.
+
+### Known boundary — the Reader is Edition-bound
+
+`ReaderView` today requires `EditionModel` + an `entryID`; it cannot yet read an arbitrary
+`ContentPiece` that is not an Edition entry. So the **Library detail column** either (a) reuses the
+Reader only for pieces that have an Edition entry and shows a lighter detail otherwise, or (b) waits on
+a small generalisation of `ReaderView` to a `ContentPiece`-driven reader. **This is the one real design
+question in S1** — resolve it in the PR (label `question-for-architect` if option (b) grows beyond a
+thin refactor); do not silently fork a second reader. Everything else here is re-parenting.
+
+### Test plan
+
+- `ShellModel` selection transitions (each destination; default at launch).
+- `SettingsRoute` push/pop, including `.personalKnowledge(claimID?)` with and without a claim.
+- `EditionModel.selectedEntryID`: selecting an entry, clearing it, and the empty/absent-Edition state
+  (reuse M2's real-zero-vs-no-Edition distinction).
+- No snapshot/UI assertion of the split-view or sidebar **layout** — that is Jon's device pass.
 
 ### Done-criteria
 
-1. The five destinations exist as one adaptive `Tab`/`TabView` structure — sidebar on iPad, tab bar on
-   iPhone — with Following/Interest Areas/You correctly nested under Settings; nothing primary lives in
-   the toolbar any more.
-2. Edition (and Library) use `NavigationSplitView` list+detail on iPad.
-3. The navigation-state model is unit-tested for destination and detail-selection transitions and for
-   the empty/absent states; **the visual composition is handed to Jon's device pass**, not asserted by
-   agents.
-4. iPhone renders the same destinations in a compact treatment without regressing any M2 behaviour.
+1. Five destinations as one adaptive `Tab`/`TabView` (`.sidebarAdaptable`) — sidebar on iPad, tab bar
+   on iPhone — with Following / Interest Areas / You / Pending Finds nested under Settings; **nothing
+   primary remains in the toolbar.**
+2. Edition uses `NavigationSplitView` list ∥ `ReaderView` detail; Library uses list ∥ detail per the
+   Reader-boundary resolution recorded in the PR.
+3. `ShellModel`, `SettingsRoute`, and `EditionModel.selectedEntryID` are unit-tested for the
+   transitions and empty/absent states above; **the visual composition is handed to Jon's device
+   pass**, not asserted by agents.
+4. iPhone renders the same destinations compactly with **no regression to any M2 behaviour** (Edition
+   composition, resolution actions, real-vs-empty rendering).
+5. `swift test` and `swiftlint lint --strict` green; CI genuinely green (not a Swift-floor skip).
 
 ### Out of scope
 
 Today's Gmail substance (M4 — Today shows the M2 Edition summary / Essential backlog for now,
 `docs/TODAY-EXPERIENCE.md` intro). Offline controls in the Reader (M4). Any change to judgment, PK, or
-composition. Final pixel geometry / card density (§5, §10 — learned from use, not encoded now).
+composition. Deep Later browsing. Final pixel geometry / card density (§5, §10 — learned from use, not
+encoded now). Sidebar customisation/reordering.
 
 ---
 
