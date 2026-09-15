@@ -3,13 +3,19 @@ import SwiftUI
 
 struct PersonalKnowledgeView: View {
   @State private var model = PersonalKnowledgeModel()
+  @State private var retirementCandidate: PersonalKnowledgeRequest.Row?
 
   var body: some View {
     @Bindable var model = model
     List {
       Section {
         ForEach(model.currentClaims) { claim in
-          PersonalKnowledgeClaimRow(claim: claim)
+          PersonalKnowledgeClaimRow(
+            claim: claim,
+            successor: model.claims.first { $0.id == claim.supersededByID },
+            onCorrect: { model.correctButtonTapped(claim) },
+            onRetire: { retirementCandidate = claim }
+          )
         }
       } header: {
         Text("Current Understanding")
@@ -17,19 +23,9 @@ struct PersonalKnowledgeView: View {
         Text("Cockpit stores only things you teach it explicitly. It does not learn durable facts from behavior.")
       }
 
-      Section("Teach Cockpit") {
-        Picker("Kind", selection: $model.directTeaching.kind) {
-          ForEach(PersonalKnowledgeKind.allCases, id: \.self) { kind in
-            Text(kind.displayName).tag(kind)
-          }
-        }
-        TextField("What should Cockpit know?", text: $model.directTeaching.claim, axis: .vertical)
-        TextField("Scope, if needed", text: $model.directTeaching.scope, axis: .vertical)
-        Button("Save Teaching") {
-          Task { await model.teachButtonTapped() }
-        }
-        .disabled(model.directTeaching.claim.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-      }
+      PersonalKnowledgeDirectTeachingSection(model: model)
+
+      PersonalKnowledgeStewardshipSection(model: model)
 
       Section("Jon Brain Import") {
         Text("Paste copyable Fact, Taste, and Interest claims from ChatGPT or another source. Cockpit will show every material change before saving it.")
@@ -58,7 +54,7 @@ struct PersonalKnowledgeView: View {
         }
       }
 
-      if !model.proposals.isEmpty {
+      if let review = model.proposalReview, !model.proposals.isEmpty {
         Section {
           ForEach(model.proposals) { proposal in
             PersonalKnowledgeProposalRow(
@@ -73,19 +69,34 @@ struct PersonalKnowledgeView: View {
               }
             )
           }
-          Button("Import Selected") {
+          Button(review == .importText ? "Import Selected" : "Apply Selected") {
             Task { await model.importSelectedButtonTapped() }
           }
           .disabled(model.selectedProposalIDs.isEmpty)
         } header: {
-          Text("Import Review")
+          Text(review.title)
         } footer: {
           Text("New or uncertain claims require an explicit check. Semantically faithful consolidations are selected for review, never written by the model itself.")
         }
       }
+
+      PersonalKnowledgeHistorySection(model: model)
     }
     .navigationTitle("Personal Knowledge")
     .task { try? await model.$knowledge.load() }
+    .sheet(isPresented: $model.isCorrecting) {
+      PersonalKnowledgeCorrectionView(model: model)
+    }
+    .confirmationDialog(
+      "Retire this understanding?", item: $retirementCandidate,
+      titleVisibility: .visible
+    ) { claim in
+      Button("Retire", role: .destructive) {
+        Task { await model.retireButtonTapped(claim) }
+      }
+    } message: { claim in
+      Text("\"\(claim.claim)\" will stop shaping Cockpit's understanding but remain in its history.")
+    }
     .safeAreaInset(edge: .bottom) {
       if let error = model.errorMessage {
         HStack(alignment: .top, spacing: 8) {
@@ -106,22 +117,51 @@ struct PersonalKnowledgeView: View {
   }
 }
 
-private struct PersonalKnowledgeClaimRow: View {
-  let claim: PersonalKnowledgeRequest.Row
+private struct PersonalKnowledgeDirectTeachingSection: View {
+  let model: PersonalKnowledgeModel
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      Text(claim.claim)
-      if let scope = claim.scope {
-        Text(scope)
-          .font(.subheadline)
-          .foregroundStyle(.secondary)
+    @Bindable var model = model
+    Section("Teach Cockpit") {
+      Picker("Kind", selection: $model.directTeaching.kind) {
+        ForEach(PersonalKnowledgeKind.allCases, id: \.self) { kind in
+          Text(kind.displayName).tag(kind)
+        }
       }
-      Text("\(claim.kind.displayName) · \(claim.provenance.displayName)")
-        .font(.caption)
-        .foregroundStyle(.secondary)
+      TextField("What should Cockpit know?", text: $model.directTeaching.claim, axis: .vertical)
+      TextField("Scope, if needed", text: $model.directTeaching.scope, axis: .vertical)
+      Button("Save Teaching") {
+        Task { await model.teachButtonTapped() }
+      }
+      .disabled(model.directTeaching.claim.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
-    .accessibilityElement(children: .combine)
+  }
+}
+
+private struct PersonalKnowledgeStewardshipSection: View {
+  let model: PersonalKnowledgeModel
+
+  var body: some View {
+    if model.canReviewConsolidation {
+      Section {
+        Button("Review Consolidation") {
+          Task { await model.reviewConsolidationButtonTapped() }
+        }
+        .disabled(model.isReviewingConsolidation)
+        if model.isReviewingConsolidation {
+          HStack {
+            ProgressView()
+            Text("Reviewing accumulated teaching with \(model.importProviderDescription ?? "the model")…")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
+        }
+      } header: {
+        Text("Stewardship")
+      } footer: {
+        Text("Cockpit only proposes a rewrite when it preserves the meaning of every explicit claim. It never runs this as a daily chore.")
+      }
+    }
   }
 }
 

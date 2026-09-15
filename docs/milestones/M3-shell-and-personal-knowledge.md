@@ -87,7 +87,7 @@ cheap addition that could ride S1.
 ## Slice ledger
 
 - [x] **S1 — iPad shell: iOS 27 tabs + split view** *(dogfooding-first; no PK dependency)*
-- [ ] **S2 — Correction, supersession, and unobtrusive consolidation**
+- [x] **S2 — Correction, supersession, and unobtrusive consolidation**
 - [ ] **S3 — Teach from the Reader ("why this matters")**
 - [ ] **S4 — Hypothesis confirmation** *(trigger locked: explicit-action recurrence)*
 - [ ] **S5 — The visible, correctable, PK-driven relevance change** *(the Gate-2 product proof)*

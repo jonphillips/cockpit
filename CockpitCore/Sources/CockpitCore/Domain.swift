@@ -43,18 +43,21 @@ public enum PersonalKnowledgeKind: String, Codable, QueryBindable, CaseIterable,
 public enum PersonalKnowledgeClaimStatus: String, Codable, QueryBindable, Hashable, Sendable {
   case current
   case superseded
+  case retired
 }
 
 public enum PersonalKnowledgeProvenance: String, Codable, QueryBindable, Hashable, Sendable {
   case directTeaching
+  case correction
   case jonBrainImport
   case semanticConsolidation
 
   public var displayName: String {
     switch self {
     case .directTeaching: "Direct teaching"
+    case .correction: "Correction"
     case .jonBrainImport: "Jon Brain import"
-    case .semanticConsolidation: "Semantically reconciled Jon Brain import"
+    case .semanticConsolidation: "Synthesized from explicit claims"
     }
   }
 }
