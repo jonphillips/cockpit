@@ -16,6 +16,7 @@ public final class ContentPieceReaderModel {
   @ObservationIgnored @Dependency(\.frontierPreferenceStore) private var preferenceStore
   @ObservationIgnored @Dependency(\.uuid) private var uuid
   @ObservationIgnored @Fetch public var content = ContentPieceReaderRequest.Value()
+  @ObservationIgnored @Fetch public var readerTeaching = ReaderTeachingClaimRequest.Value()
   public var errorMessage: String?
   public var teachingReason = ""
   public var teachingStage: ReaderTeachingStage?
@@ -24,9 +25,13 @@ public final class ContentPieceReaderModel {
 
   public init(contentPieceID: ContentPiece.ID) {
     _content = Fetch(wrappedValue: .init(), ContentPieceReaderRequest(contentPieceID: contentPieceID))
+    _readerTeaching = Fetch(
+      wrappedValue: .init(), ReaderTeachingClaimRequest(contentPieceID: contentPieceID)
+    )
   }
 
   public var row: ContentPieceReaderRequest.Row? { content.row }
+  public var readerTaughtClaim: PersonalKnowledgeRequest.Row? { readerTeaching.claim }
 
   public func saveForLater() async {
     guard let id = row?.id else { return }
@@ -105,6 +110,7 @@ public final class ContentPieceReaderModel {
           at: date, in: db
         )
       }
+      try await $readerTeaching.load()
       cancelTeaching()
       errorMessage = nil
     } catch is CancellationError {

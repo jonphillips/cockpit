@@ -8,7 +8,7 @@ struct ReaderView: View {
   @LazyState private var model: ContentPieceReaderModel
   @Environment(\.dismiss) private var dismissScreen
   @Environment(\.openURL) private var openURL
-  @State private var isPresentingPersonalKnowledge = false
+  @State private var correctingClaim: PersonalKnowledgeRequest.Row?
 
   init(contentPieceID: ContentPiece.ID, editionContext: EditionReaderContext? = nil) {
     self.contentPieceID = contentPieceID
@@ -75,7 +75,8 @@ struct ReaderView: View {
             saveForLater: saveForLaterButtonTapped,
             addToLibrary: addToLibraryButtonTapped,
             beginTeaching: model.beginTeaching,
-            correctPersonalKnowledge: { isPresentingPersonalKnowledge = true }
+            readerTaughtClaim: model.readerTaughtClaim,
+            correctClaim: { correctingClaim = $0 }
           )
         }
         .padding()
@@ -89,8 +90,8 @@ struct ReaderView: View {
     .sheet(item: $model.teachingStage) { stage in
       ReaderTeachingView(model: model, stage: stage)
     }
-    .sheet(isPresented: $isPresentingPersonalKnowledge) {
-      NavigationStack { PersonalKnowledgeView() }
+    .sheet(item: $correctingClaim) { claim in
+      ReaderPersonalKnowledgeCorrectionView(claim: claim)
     }
     .safeAreaInset(edge: .bottom) {
       if let error = model.errorMessage ?? editionContext?.model.errorMessage {
@@ -110,6 +111,7 @@ struct ReaderView: View {
 
   private func readerAppeared() async {
     try? await model.$content.load()
+    try? await model.$readerTeaching.load()
     if let editionContext {
       await editionContext.model.markSeen(editionContext.entryID)
     }
@@ -144,7 +146,8 @@ private struct ReaderActionControls: View {
   let saveForLater: () async -> Void
   let addToLibrary: () async -> Void
   let beginTeaching: () -> Void
-  let correctPersonalKnowledge: () -> Void
+  let readerTaughtClaim: PersonalKnowledgeRequest.Row?
+  let correctClaim: (PersonalKnowledgeRequest.Row) -> Void
 
   var body: some View {
     HStack(spacing: 20) {
@@ -168,7 +171,11 @@ private struct ReaderActionControls: View {
 
     VStack(alignment: .leading, spacing: 8) {
       Button("Tell Cockpit why this matters", systemImage: "lightbulb", action: beginTeaching)
-      Button("Correct Personal Knowledge", systemImage: "pencil", action: correctPersonalKnowledge)
+      if let readerTaughtClaim {
+        Button("Correct this understanding", systemImage: "pencil") {
+          correctClaim(readerTaughtClaim)
+        }
+      }
     }
     .buttonStyle(.bordered)
     .font(.subheadline)

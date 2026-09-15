@@ -13,7 +13,8 @@ extension PersonalKnowledgeOperations {
     at date: Date,
     in db: Database
   ) throws {
-    guard case .newClaim = proposal.action else { throw Failure.invalidReaderTeachingProposal }
+    guard case .newClaim = proposal.action, proposal.kind != .fact
+    else { throw Failure.invalidReaderTeachingProposal }
     let reason = try nonEmpty(reason)
     let claim = try nonEmpty(proposal.claim)
     try PersonalKnowledgeTeaching.insert {

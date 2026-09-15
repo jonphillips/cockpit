@@ -1,3 +1,4 @@
+import Dependencies
 import Foundation
 import LLMClientKit
 
@@ -5,6 +6,7 @@ import LLMClientKit
 /// `PersonalKnowledgeOperations` only writes a proposal after the teaching/import UI supplies
 /// explicit human confirmation.
 public struct PersonalKnowledgeReconciler: Sendable {
+  @Dependency(\.uuid) private var uuid
   private let modelClient: any ModelClient
 
   public init(modelClient: any ModelClient) {
@@ -36,7 +38,9 @@ public struct PersonalKnowledgeReconciler: Sendable {
         system: Self.systemPrompt,
         prompt: prompt(source: source, existingClaims: existingClaims),
         maxTokens: Self.outputBudget(importText: source.importText, existingClaims: existingClaims),
-        responseFormat: .jsonSchema(name: "personal_knowledge_reconciliation", schema: Self.schema)
+        responseFormat: .jsonSchema(
+          name: "personal_knowledge_reconciliation", schema: reconciliationSchema(for: source)
+        )
       )
     )
     let decoded: ReconciliationResponse
@@ -70,7 +74,7 @@ public struct PersonalKnowledgeReconciler: Sendable {
         throw ReconciliationError.invalidAction
       }
       return PersonalKnowledgeProposal(
-        id: UUID(), kind: raw.kind, claim: raw.claim, scope: raw.scope,
+        id: uuid(), kind: raw.kind, claim: raw.claim, scope: raw.scope,
         action: action,
         // A purportedly semantic consolidation can be accepted from the review screen; every
         // new or uncertain claim requires a deliberate row-level confirmation.
@@ -105,7 +109,10 @@ public struct PersonalKnowledgeReconciler: Sendable {
   must be proposed as a new claim for human confirmation. Do not make policy or authorize actions.
   """
 
-  private static let schema: JSONValue = .object([
+}
+
+private func reconciliationSchema(for source: ProposalSource) -> JSONValue {
+  .object([
     "type": "object",
     "additionalProperties": .bool(false),
     "properties": .object([
@@ -115,7 +122,9 @@ public struct PersonalKnowledgeReconciler: Sendable {
           "type": "object",
           "additionalProperties": .bool(false),
           "properties": .object([
-            "kind": .object(["type": "string", "enum": ["fact", "taste", "interest"]]),
+            "kind": .object([
+              "type": "string", "enum": .array(source.allowedKinds.map(JSONValue.string)),
+            ]),
             "claim": .object(["type": "string"]),
             "scope": .object(["type": "string"]),
             "action": .object(["type": "string", "enum": ["new", "consolidate"]]),
@@ -161,7 +170,11 @@ extension PersonalKnowledgeReconciler {
       provider: provider
     )
     guard proposals.count <= 1 else { throw ReconciliationError.invalidAction }
-    return proposals.first
+    guard let proposal = proposals.first else { return nil }
+    guard proposal.kind == .taste || proposal.kind == .interest else {
+      throw ReconciliationError.invalidAction
+    }
+    return proposal
   }
 
   /// The structured output must hold one JSON object per proposed claim; a fixed cap
@@ -201,6 +214,11 @@ private enum ProposalSource {
     case .importText, .accumulatedClaims: true
     case .readerTeaching: false
     }
+  }
+
+  var allowedKinds: [String] {
+    if case .readerTeaching = self { return ["taste", "interest"] }
+    return ["fact", "taste", "interest"]
   }
 
   var instruction: String {
