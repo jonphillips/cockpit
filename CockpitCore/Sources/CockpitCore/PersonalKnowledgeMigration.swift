@@ -28,4 +28,34 @@ extension CockpitMigrations {
       ).execute(db)
     }
   }
+
+  static func registerReaderTeaching(in migrator: inout DatabaseMigrator) {
+    migrator.registerMigration("Reader teaching provenance") { db in
+      // The claim table already ships in the M2 schema, so Reader teaching adds its optional
+      // relationship in a forward-only migration. No foreign key: CloudSyncKit does not support
+      // cyclical/synchronized relationship constraints, and writes validate both records together.
+      try #sql(
+        """
+        ALTER TABLE "personalKnowledgeClaims"
+        ADD COLUMN "teachingID" TEXT
+        """
+      ).execute(db)
+      try #sql(
+        """
+        CREATE TABLE "personalKnowledgeTeachings" (
+          "id" TEXT PRIMARY KEY NOT NULL ON CONFLICT REPLACE,
+          "contentPieceID" TEXT NOT NULL,
+          "reason" TEXT NOT NULL,
+          "createdAt" TEXT NOT NULL
+        ) STRICT
+        """
+      ).execute(db)
+      try #sql(
+        """
+        CREATE INDEX "index_personalKnowledgeTeachings_on_contentPieceID"
+        ON "personalKnowledgeTeachings" ("contentPieceID", "createdAt")
+        """
+      ).execute(db)
+    }
+  }
 }

@@ -48,6 +48,7 @@ public enum PersonalKnowledgeClaimStatus: String, Codable, QueryBindable, Hashab
 
 public enum PersonalKnowledgeProvenance: String, Codable, QueryBindable, Hashable, Sendable {
   case directTeaching
+  case readerTeaching
   case correction
   case jonBrainImport
   case semanticConsolidation
@@ -55,6 +56,7 @@ public enum PersonalKnowledgeProvenance: String, Codable, QueryBindable, Hashabl
   public var displayName: String {
     switch self {
     case .directTeaching: "Direct teaching"
+    case .readerTeaching: "Taught from Reader"
     case .correction: "Correction"
     case .jonBrainImport: "Jon Brain import"
     case .semanticConsolidation: "Synthesized from explicit claims"
@@ -229,6 +231,9 @@ public struct PersonalKnowledgeClaim: Codable, Equatable, Identifiable, Sendable
   public var claim: String
   public var scope: String?
   public var provenance: PersonalKnowledgeProvenance
+  /// Present only when this claim was explicitly taught from a Reader. The linked teaching owns
+  /// the raw reason and originating ContentPiece; claims never infer this relationship.
+  public var teachingID: PersonalKnowledgeTeaching.ID?
   public var status: PersonalKnowledgeClaimStatus
   public var supersededByID: UUID?
   public var createdAt: Date
@@ -239,6 +244,7 @@ public struct PersonalKnowledgeClaim: Codable, Equatable, Identifiable, Sendable
     claim: String,
     scope: String? = nil,
     provenance: PersonalKnowledgeProvenance,
+    teachingID: PersonalKnowledgeTeaching.ID? = nil,
     status: PersonalKnowledgeClaimStatus = .current,
     supersededByID: UUID? = nil,
     createdAt: Date
@@ -248,6 +254,7 @@ public struct PersonalKnowledgeClaim: Codable, Equatable, Identifiable, Sendable
     self.claim = claim
     self.scope = scope
     self.provenance = provenance
+    self.teachingID = teachingID
     self.status = status
     self.supersededByID = supersededByID
     self.createdAt = createdAt

@@ -8,6 +8,7 @@ struct ReaderView: View {
   @LazyState private var model: ContentPieceReaderModel
   @Environment(\.dismiss) private var dismissScreen
   @Environment(\.openURL) private var openURL
+  @State private var isPresentingPersonalKnowledge = false
 
   init(contentPieceID: ContentPiece.ID, editionContext: EditionReaderContext? = nil) {
     self.contentPieceID = contentPieceID
@@ -16,6 +17,7 @@ struct ReaderView: View {
   }
 
   var body: some View {
+    @Bindable var model = model
     ScrollView {
       if let row = model.row {
         VStack(alignment: .leading, spacing: 16) {
@@ -67,24 +69,14 @@ struct ReaderView: View {
 
           Divider()
 
-          HStack(spacing: 20) {
-            if let editionContext {
-              Button("Dismiss", systemImage: "xmark.circle") {
-                Task {
-                  await editionContext.model.dismiss(editionContext.entryID)
-                  dismissScreen()
-                }
-              }
-            }
-            Button("Save for Later", systemImage: "clock") {
-              Task { await saveForLaterButtonTapped() }
-            }
-            Button("Add to Library", systemImage: "books.vertical") {
-              Task { await addToLibraryButtonTapped() }
-            }
-          }
-          .buttonStyle(.bordered)
-          .font(.subheadline)
+          ReaderActionControls(
+            editionContext: editionContext,
+            dismissScreen: dismissScreen,
+            saveForLater: saveForLaterButtonTapped,
+            addToLibrary: addToLibraryButtonTapped,
+            beginTeaching: model.beginTeaching,
+            correctPersonalKnowledge: { isPresentingPersonalKnowledge = true }
+          )
         }
         .padding()
       } else {
@@ -94,6 +86,12 @@ struct ReaderView: View {
     .navigationTitle("Reader")
     .navigationBarTitleDisplayMode(.inline)
     .task { await readerAppeared() }
+    .sheet(item: $model.teachingStage) { stage in
+      ReaderTeachingView(model: model, stage: stage)
+    }
+    .sheet(isPresented: $isPresentingPersonalKnowledge) {
+      NavigationStack { PersonalKnowledgeView() }
+    }
     .safeAreaInset(edge: .bottom) {
       if let error = model.errorMessage ?? editionContext?.model.errorMessage {
         HStack {
@@ -138,4 +136,41 @@ struct EditionReaderContext {
   let model: EditionModel
   let entryID: EditionEntry.ID
   let rationale: String?
+}
+
+private struct ReaderActionControls: View {
+  let editionContext: EditionReaderContext?
+  let dismissScreen: DismissAction
+  let saveForLater: () async -> Void
+  let addToLibrary: () async -> Void
+  let beginTeaching: () -> Void
+  let correctPersonalKnowledge: () -> Void
+
+  var body: some View {
+    HStack(spacing: 20) {
+      if let editionContext {
+        Button("Dismiss", systemImage: "xmark.circle") {
+          Task {
+            await editionContext.model.dismiss(editionContext.entryID)
+            dismissScreen()
+          }
+        }
+      }
+      Button("Save for Later", systemImage: "clock") {
+        Task { await saveForLater() }
+      }
+      Button("Add to Library", systemImage: "books.vertical") {
+        Task { await addToLibrary() }
+      }
+    }
+    .buttonStyle(.bordered)
+    .font(.subheadline)
+
+    VStack(alignment: .leading, spacing: 8) {
+      Button("Tell Cockpit why this matters", systemImage: "lightbulb", action: beginTeaching)
+      Button("Correct Personal Knowledge", systemImage: "pencil", action: correctPersonalKnowledge)
+    }
+    .buttonStyle(.bordered)
+    .font(.subheadline)
+  }
 }

@@ -95,7 +95,9 @@ See `docs/IMPLEMENTATION-CONTRACT.md` §6. Text is not a payload and is not gove
 
 ## D6 — CloudKit posture.
 
-Cockpit owns its container, schema, and `makeSyncEngine`. Syncable: Streams, InterestAreas, ContentPieces, Editions, EditionEntries, memberships, PersonalKnowledgeClaims, PendingFinds, DispositionPolicies.
+Cockpit owns its container, schema, and `makeSyncEngine`. Syncable: Streams, InterestAreas,
+ContentPieces, Editions, EditionEntries, memberships, PersonalKnowledgeClaims and their explicit
+Reader-teaching provenance, PendingFinds, DispositionPolicies.
 
 Not synced: Artifacts and raw source text (device-local evidence; regenerable), `StreamPollState` (per-device acquisition health — `health`, `lastReceivedAt`, and failure evidence — regenerable by the next poll), `normalizedText` for non-Library pieces, `LocalAvailability` (per-device by definition), payload bytes pending the CloudKit Asset spike.
 

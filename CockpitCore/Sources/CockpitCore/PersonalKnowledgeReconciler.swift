@@ -62,7 +62,9 @@ public struct PersonalKnowledgeReconciler: Sendable {
         guard source.allowsNewClaims, replacedIDs.isEmpty else { throw ReconciliationError.invalidAction }
         action = .newClaim
       case "consolidate":
-        guard !replacedIDs.isEmpty else { throw ReconciliationError.invalidAction }
+        guard source.allowsConsolidations, !replacedIDs.isEmpty else {
+          throw ReconciliationError.invalidAction
+        }
         action = .consolidate(replacing: replacedIDs)
       default:
         throw ReconciliationError.invalidAction
@@ -141,6 +143,27 @@ extension PersonalKnowledgeReconciler {
     try await propose(source: .accumulatedClaims, existingClaims: existingClaims, provider: provider)
   }
 
+  /// Reader teaching is one explicit reason in the context of one ContentPiece. It may propose
+  /// at most one narrowly scoped new claim; it never silently rewrites existing understanding.
+  public func teachFromReader(
+    reason: String,
+    contentTitle: String,
+    publisher: String,
+    summary: String?,
+    existingClaims: [PersonalKnowledgeClaim],
+    provider: FrontierProvider? = nil
+  ) async throws -> PersonalKnowledgeProposal? {
+    let proposals = try await propose(
+      source: .readerTeaching(
+        reason: reason, contentTitle: contentTitle, publisher: publisher, summary: summary
+      ),
+      existingClaims: existingClaims,
+      provider: provider
+    )
+    guard proposals.count <= 1 else { throw ReconciliationError.invalidAction }
+    return proposals.first
+  }
+
   /// The structured output must hold one JSON object per proposed claim; a fixed cap
   /// truncates a real Jon Brain dump mid-array. Size it to the import, plus headroom for
   /// consolidations that reference existing claims. `maxTokens` is a ceiling, not a bill.
@@ -156,17 +179,28 @@ extension PersonalKnowledgeReconciler {
 private enum ProposalSource {
   case importText(String)
   case accumulatedClaims
+  case readerTeaching(reason: String, contentTitle: String, publisher: String, summary: String?)
 
   var importText: String {
     switch self {
     case let .importText(text): text
     case .accumulatedClaims: ""
+    case let .readerTeaching(reason, _, _, _): reason
     }
   }
 
   var allowsNewClaims: Bool {
-    if case .importText = self { return true }
-    return false
+    switch self {
+    case .importText, .readerTeaching: true
+    case .accumulatedClaims: false
+    }
+  }
+
+  var allowsConsolidations: Bool {
+    switch self {
+    case .importText, .accumulatedClaims: true
+    case .readerTeaching: false
+    }
   }
 
   var instruction: String {
@@ -181,78 +215,20 @@ private enum ProposalSource {
       There is no new teaching. Review the existing current claims only for consolidations that
       preserve every claim's meaning and scope. Return no `new` actions.
       """
+    case let .readerTeaching(reason, contentTitle, publisher, summary):
+      """
+      Jon explicitly used the Reader's Teach Cockpit action while reading this ContentPiece:
+      title: \(contentTitle)
+      publisher: \(publisher)
+      summary: \(summary ?? "(none)")
+
+      His explicit reason:
+      \(reason)
+
+      Propose at most one new Taste or Interest claim. Scope it to what Jon explicitly says, not
+      to this one ContentPiece, and do not turn a contextual example into a general preference.
+      Return no `consolidate` actions. The proposal will require Jon's confirmation.
+      """
     }
   }
-}
-
-public enum ReconciliationError: Error, Equatable {
-  case unknownCurrentClaimID(String)
-  case invalidAction
-  /// The model returned something the reconciliation decoder could not read. `status`
-  /// distinguishes an on-device fall-back to prose (`.fellBack`) from a frontier reply
-  /// that was simply malformed; `snippet` is the start of what actually came back.
-  case undecodableResponse(status: ModelResponseFormatStatus?, snippet: String)
-}
-
-extension ReconciliationError: LocalizedError {
-  public var errorDescription: String? {
-    switch self {
-    case let .unknownCurrentClaimID(value):
-      return "The model referenced a claim that is not a current one (\(value))."
-    case .invalidAction:
-      return "The model proposed an action Cockpit does not support."
-    case let .undecodableResponse(status, snippet):
-      let lead = status == .fellBack
-        ? "The model could not produce the required structured format and returned plain text instead — the on-device model cannot handle this import. Choose a frontier provider in AI Settings."
-        : "The model's response was not valid structured data."
-      return "\(lead) It began: \(snippet)"
-    }
-  }
-}
-
-public struct PersonalKnowledgeProposal: Equatable, Identifiable, Sendable {
-  public enum Action: Equatable, Sendable {
-    case newClaim
-    case consolidate(replacing: [PersonalKnowledgeClaim.ID])
-  }
-
-  public let id: UUID
-  public var kind: PersonalKnowledgeKind
-  public var claim: String
-  public var scope: String
-  public var action: Action
-  public var requiresConfirmation: Bool
-  public var rationale: String
-
-  public init(
-    id: UUID,
-    kind: PersonalKnowledgeKind,
-    claim: String,
-    scope: String,
-    action: Action,
-    requiresConfirmation: Bool,
-    rationale: String
-  ) {
-    self.id = id
-    self.kind = kind
-    self.claim = claim
-    self.scope = scope
-    self.action = action
-    self.requiresConfirmation = requiresConfirmation
-    self.rationale = rationale
-  }
-}
-
-private struct ReconciliationResponse: Decodable {
-  var proposals: [RawProposal]
-}
-
-private struct RawProposal: Decodable {
-  var kind: PersonalKnowledgeKind
-  var claim: String
-  var scope: String
-  var action: String
-  var replacesClaimIDs: [String]
-  var semanticFidelity: Bool
-  var rationale: String
 }

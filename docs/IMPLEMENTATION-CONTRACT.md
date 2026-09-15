@@ -85,8 +85,9 @@ LibraryMembership(contentPieceID, addedAt, admittedBy)
 
 LocalAvailability(contentPieceID, mode, expiresAt, verifiedAt, payloadRef)
 
-PersonalKnowledgeClaim(id, kind, claim, scope, provenance,
+PersonalKnowledgeClaim(id, kind, claim, scope, provenance, teachingID?,
                        status, supersededByID?, createdAt)
+PersonalKnowledgeTeaching(id, contentPieceID, reason, createdAt)
 
 PendingFind(id, contentPieceID, kind, name, descriptor, rationale,
             sourceURL, hints, state)
@@ -104,6 +105,12 @@ AppliedDisposition(id, providerMessageID, action, policyID,
 `StreamPollState` is the per-device record of what the last poll of a Stream observed: `health` (`unknown`, `healthy`, `failed`), `lastReceivedAt`, `consecutiveFailureCount`, and the `lastFailureDescription` from the most recent failure. It is one row per Stream, written only by the device that polled, and it is **device-local and never synced** — the same category as Artifacts and `LocalAvailability` in `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md` D6. Each device polls independently, so health is an observation of that device's own acquisition, not shared canonical state; syncing it would let two devices' independent polls overwrite each other under last-writer-wins. It is regenerable — the next successful poll repopulates it. The split is along intent versus observation: `Stream.followState` (whether to poll) stays on the synced Stream record; `StreamPollState` (what polling found) does not. Poll health is placed here from the start; earlier drafts of the schema carried `health` and `lastReceivedAt` inline on `streams`, corrected before the table shipped to any device.
 
 `LibraryMembership.admittedBy` records what admitted the piece. In M1 the only sanctioned value is `explicit`, meaning direct human admission. The deferred auto-Library policy defines its own value in the slice that introduces it, and until then nothing else writes this column. Ratified from M1 S2, which raised it correctly: the column was named here without ever saying what writes it.
+
+`PersonalKnowledgeTeaching` is the narrow, append-only provenance record for an explicit Reader
+teaching. It holds the human-supplied reason and the originating ContentPiece; a Reader-taught
+claim records its `teachingID`. This is intentionally not a generalized evidence graph: it exists
+because one claim must answer both the exact teaching event and the ContentPiece that gave it
+context. It is synced with canonical Personal Knowledge.
 
 `Edition` records how it was composed so a closed Edition explains itself from stored state
 (§3): `estimatedCostUSD` is the Gate-1 cost estimate from `JudgmentRun.estimatedCost` (a `Double`

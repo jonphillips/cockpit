@@ -153,6 +153,7 @@ enum CockpitMigrations {
     registerPersonalKnowledge(in: &migrator)
     registerEdition(in: &migrator)
     registerS5(in: &migrator)
+    registerReaderTeaching(in: &migrator)
     return migrator
   }
 }
