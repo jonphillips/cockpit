@@ -121,3 +121,29 @@ public enum PersonalKnowledgeOperations {
     return value
   }
 }
+
+extension PersonalKnowledgeOperations {
+  /// Crosses the explicit-confirmation boundary for a transient recurrence hypothesis. The
+  /// recurrence itself is never stored as Personal Knowledge: only this deliberate answer creates
+  /// a claim, with provenance that keeps it distinguishable from direct or Reader teaching.
+  public static func confirmHypothesis(
+    subject: String,
+    id: PersonalKnowledgeClaim.ID,
+    at date: Date,
+    in db: Database
+  ) throws {
+    let subject = try nonEmpty(subject)
+    try PersonalKnowledgeClaim.insert {
+      PersonalKnowledgeClaim.Draft(
+        PersonalKnowledgeClaim(
+          id: id,
+          kind: .interest,
+          claim: "Wants Cockpit to notice \(subject).",
+          scope: subject,
+          provenance: .confirmedHypothesis,
+          createdAt: date
+        )
+      )
+    }.execute(db)
+  }
+}

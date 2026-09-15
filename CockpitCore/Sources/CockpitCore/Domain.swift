@@ -49,6 +49,7 @@ public enum PersonalKnowledgeClaimStatus: String, Codable, QueryBindable, Hashab
 public enum PersonalKnowledgeProvenance: String, Codable, QueryBindable, Hashable, Sendable {
   case directTeaching
   case readerTeaching
+  case confirmedHypothesis
   case correction
   case jonBrainImport
   case semanticConsolidation
@@ -57,6 +58,7 @@ public enum PersonalKnowledgeProvenance: String, Codable, QueryBindable, Hashabl
     switch self {
     case .directTeaching: "Direct teaching"
     case .readerTeaching: "Taught from Reader"
+    case .confirmedHypothesis: "Confirmed Cockpit hypothesis"
     case .correction: "Correction"
     case .jonBrainImport: "Jon Brain import"
     case .semanticConsolidation: "Synthesized from explicit claims"

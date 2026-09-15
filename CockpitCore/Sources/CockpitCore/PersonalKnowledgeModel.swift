@@ -38,6 +38,7 @@ public final class PersonalKnowledgeModel {
   @ObservationIgnored @Dependency(\.frontierPreferenceStore) private var preferenceStore
   @ObservationIgnored @Dependency(\.uuid) private var uuid
   @ObservationIgnored @Fetch(PersonalKnowledgeRequest()) public var knowledge = .init()
+  @ObservationIgnored @Fetch(PersonalKnowledgeHypothesisRequest()) public var hypothesisCandidates = .init()
 
   public var directTeaching = PersonalKnowledgeDraft()
   public var correctionDraft = PersonalKnowledgeDraft()
@@ -49,6 +50,10 @@ public final class PersonalKnowledgeModel {
   public var errorMessage: String?
   public var isReviewingImport = false
   public var isReviewingConsolidation = false
+  public var isConfirmingHypothesis = false
+  /// One transient inline question, deliberately not a notice queue. It is populated from the
+  /// explicit-action projection only when the You surface asks for it.
+  public var hypothesis: PersonalKnowledgeHypothesisRequest.Candidate?
   /// A human-readable name of the model the current/last import review actually routed to,
   /// so the UI never misstates on-device vs. a frontier provider.
   public var importProviderDescription: String?
@@ -218,6 +223,45 @@ extension PersonalKnowledgeModel {
       self.proposals = proposals
       selectedProposalIDs = Set(proposals.filter { !$0.requiresConfirmation }.map(\.id))
       proposalReview = .accumulatedClaims
+      errorMessage = nil
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+}
+
+extension PersonalKnowledgeModel {
+  public func loadHypothesis() async {
+    do {
+      try await $hypothesisCandidates.load()
+      hypothesis = hypothesisCandidates.candidates.first
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  /// A dismissal only removes the currently rendered question. It writes neither a claim nor an
+  /// observation, which keeps ignored recurrence out of durable Personal Knowledge.
+  public func dismissHypothesisButtonTapped() {
+    hypothesis = nil
+  }
+
+  public func confirmHypothesisButtonTapped() async {
+    guard let hypothesis, !isConfirmingHypothesis else { return }
+    isConfirmingHypothesis = true
+    defer { isConfirmingHypothesis = false }
+    let id = uuid()
+    let date = now
+    do {
+      try await database.write { db in
+        try PersonalKnowledgeOperations.confirmHypothesis(
+          subject: hypothesis.subject, id: id, at: date, in: db
+        )
+      }
+      self.hypothesis = nil
+      try await $knowledge.load()
       errorMessage = nil
     } catch is CancellationError {
     } catch {
