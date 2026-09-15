@@ -26,6 +26,43 @@ public enum PersonalKnowledgeOperations {
     }.execute(db)
   }
 
+  public static func correct(
+    _ existingID: PersonalKnowledgeClaim.ID,
+    with draft: PersonalKnowledgeDraft,
+    id: PersonalKnowledgeClaim.ID,
+    at date: Date,
+    in db: Database
+  ) throws {
+    guard let existing = try PersonalKnowledgeClaim.find(existingID).fetchOne(db), existing.status == .current
+    else { throw Failure.missingCurrentClaim(existingID) }
+    let claim = try nonEmpty(draft.claim)
+    try PersonalKnowledgeClaim.insert {
+      PersonalKnowledgeClaim.Draft(
+        PersonalKnowledgeClaim(
+          id: id, kind: draft.kind, claim: claim, scope: normalized(draft.scope),
+          provenance: .correction, createdAt: date
+        )
+      )
+    }.execute(db)
+    try PersonalKnowledgeClaim.find(existingID)
+      .update {
+        $0.status = #bind(PersonalKnowledgeClaimStatus.superseded)
+        $0.supersededByID = #bind(id)
+      }
+      .execute(db)
+  }
+
+  public static func retire(_ id: PersonalKnowledgeClaim.ID, in db: Database) throws {
+    guard let existing = try PersonalKnowledgeClaim.find(id).fetchOne(db), existing.status == .current
+    else { throw Failure.missingCurrentClaim(id) }
+    try PersonalKnowledgeClaim.find(id)
+      .update {
+        $0.status = #bind(PersonalKnowledgeClaimStatus.retired)
+        $0.supersededByID = #bind(nil)
+      }
+      .execute(db)
+  }
+
   public static func apply(
     _ proposals: [PersonalKnowledgeProposal],
     at date: Date,

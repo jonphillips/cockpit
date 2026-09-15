@@ -16,6 +16,18 @@ public struct PersonalKnowledgeDraft: Equatable, Sendable {
   }
 }
 
+public enum PersonalKnowledgeProposalReview: Equatable, Sendable {
+  case importText
+  case accumulatedClaims
+
+  public var title: String {
+    switch self {
+    case .importText: "Import Review"
+    case .accumulatedClaims: "Consolidation Review"
+    }
+  }
+}
+
 @MainActor
 @Observable
 public final class PersonalKnowledgeModel {
@@ -28,11 +40,15 @@ public final class PersonalKnowledgeModel {
   @ObservationIgnored @Fetch(PersonalKnowledgeRequest()) public var knowledge = .init()
 
   public var directTeaching = PersonalKnowledgeDraft()
+  public var correctionDraft = PersonalKnowledgeDraft()
+  public var correctingClaimID: PersonalKnowledgeClaim.ID?
   public var importText = ""
   public var proposals: [PersonalKnowledgeProposal] = []
   public var selectedProposalIDs: Set<PersonalKnowledgeProposal.ID> = []
+  public var proposalReview: PersonalKnowledgeProposalReview?
   public var errorMessage: String?
   public var isReviewingImport = false
+  public var isReviewingConsolidation = false
   /// A human-readable name of the model the current/last import review actually routed to,
   /// so the UI never misstates on-device vs. a frontier provider.
   public var importProviderDescription: String?
@@ -46,6 +62,19 @@ public final class PersonalKnowledgeModel {
   public var currentClaims: [PersonalKnowledgeRequest.Row] {
     knowledge.rows.filter { $0.status == .current }
   }
+
+  public var historicalClaims: [PersonalKnowledgeRequest.Row] {
+    knowledge.rows.filter { $0.status != .current }
+  }
+
+  public var isCorrecting: Bool {
+    get { correctingClaimID != nil }
+    set {
+      if !newValue { cancelCorrectionButtonTapped() }
+    }
+  }
+
+  public var canReviewConsolidation: Bool { currentClaims.count > 1 }
 
   /// The frontier provider a Jon Brain import should use: the user's chosen provider when
   /// they have a key for it, otherwise the first configured provider (Anthropic-first),
@@ -97,6 +126,7 @@ public final class PersonalKnowledgeModel {
       )
       self.proposals = proposals
       selectedProposalIDs = Set(proposals.filter { !$0.requiresConfirmation }.map(\.id))
+      proposalReview = .importText
       errorMessage = nil
     } catch is CancellationError {
     } catch {
@@ -113,9 +143,81 @@ public final class PersonalKnowledgeModel {
       try await database.write { db in
         try PersonalKnowledgeOperations.apply(selected, at: date, ids: ids, in: db)
       }
-      importText = ""
+      if proposalReview == .importText { importText = "" }
       proposals = []
       selectedProposalIDs = []
+      proposalReview = nil
+      errorMessage = nil
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+}
+
+extension PersonalKnowledgeModel {
+  public func correctButtonTapped(_ claim: PersonalKnowledgeRequest.Row) {
+    guard claim.status == .current else { return }
+    correctingClaimID = claim.id
+    correctionDraft = PersonalKnowledgeDraft(
+      kind: claim.kind, claim: claim.claim, scope: claim.scope ?? ""
+    )
+  }
+
+  public func cancelCorrectionButtonTapped() {
+    correctingClaimID = nil
+    correctionDraft = PersonalKnowledgeDraft()
+  }
+
+  public func saveCorrectionButtonTapped() async {
+    guard let correctingClaimID else { return }
+    let draft = correctionDraft
+    let id = uuid()
+    let date = now
+    do {
+      try await database.write { db in
+        try PersonalKnowledgeOperations.correct(
+          correctingClaimID, with: draft, id: id, at: date, in: db
+        )
+      }
+      cancelCorrectionButtonTapped()
+      errorMessage = nil
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  public func retireButtonTapped(_ claim: PersonalKnowledgeRequest.Row) async {
+    do {
+      try await database.write { db in
+        try PersonalKnowledgeOperations.retire(claim.id, in: db)
+      }
+      if correctingClaimID == claim.id { cancelCorrectionButtonTapped() }
+      errorMessage = nil
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  public func reviewConsolidationButtonTapped() async {
+    guard canReviewConsolidation else { return }
+    isReviewingConsolidation = true
+    defer { isReviewingConsolidation = false }
+    do {
+      let provider = Self.resolveImportProvider(
+        preferred: preferenceStore.preferred(),
+        isConfigured: { apiKeyStore.key($0) != nil }
+      )
+      importProviderDescription = provider?.displayName ?? "the on-device model"
+      let reconciler = PersonalKnowledgeReconciler(modelClient: modelClient)
+      let proposals = try await reconciler.consolidate(
+        existingClaims: currentClaims.map(\.asClaim), provider: provider
+      )
+      self.proposals = proposals
+      selectedProposalIDs = Set(proposals.filter { !$0.requiresConfirmation }.map(\.id))
+      proposalReview = .accumulatedClaims
       errorMessage = nil
     } catch is CancellationError {
     } catch {

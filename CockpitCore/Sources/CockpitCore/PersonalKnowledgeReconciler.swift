@@ -16,6 +16,16 @@ public struct PersonalKnowledgeReconciler: Sendable {
     existingClaims: [PersonalKnowledgeClaim],
     provider: FrontierProvider? = nil
   ) async throws -> [PersonalKnowledgeProposal] {
+    try await propose(
+      source: .importText(importText), existingClaims: existingClaims, provider: provider
+    )
+  }
+
+  private func propose(
+    source: ProposalSource,
+    existingClaims: [PersonalKnowledgeClaim],
+    provider: FrontierProvider?
+  ) async throws -> [PersonalKnowledgeProposal] {
     // An explicit, already-configured provider routes there directly; otherwise fall back
     // to the resolver's Anthropic-first order (which itself degrades to on-device when no
     // key is present).
@@ -24,8 +34,8 @@ public struct PersonalKnowledgeReconciler: Sendable {
       ModelRequest(
         tier: tier,
         system: Self.systemPrompt,
-        prompt: prompt(importText: importText, existingClaims: existingClaims),
-        maxTokens: Self.outputBudget(importText: importText, existingClaims: existingClaims),
+        prompt: prompt(source: source, existingClaims: existingClaims),
+        maxTokens: Self.outputBudget(importText: source.importText, existingClaims: existingClaims),
         responseFormat: .jsonSchema(name: "personal_knowledge_reconciliation", schema: Self.schema)
       )
     )
@@ -49,7 +59,7 @@ public struct PersonalKnowledgeReconciler: Sendable {
       let action: PersonalKnowledgeProposal.Action
       switch raw.action {
       case "new":
-        guard replacedIDs.isEmpty else { throw ReconciliationError.invalidAction }
+        guard source.allowsNewClaims, replacedIDs.isEmpty else { throw ReconciliationError.invalidAction }
         action = .newClaim
       case "consolidate":
         guard !replacedIDs.isEmpty else { throw ReconciliationError.invalidAction }
@@ -68,21 +78,7 @@ public struct PersonalKnowledgeReconciler: Sendable {
     }
   }
 
-  /// The structured output must hold one JSON object per proposed claim; a fixed cap
-  /// truncates a real Jon Brain dump mid-array (a valid-JSON-but-incomplete decode
-  /// failure). Size it to the import — roughly one proposal per non-empty import line,
-  /// plus headroom for consolidations that reference existing claims, at ~120 tokens each
-  /// — floored so a tiny import still has room and capped so it stays within model limits.
-  /// `maxTokens` is only a ceiling; billing is for tokens actually generated.
-  static func outputBudget(importText: String, existingClaims: [PersonalKnowledgeClaim]) -> Int {
-    let importLines = importText.split(whereSeparator: \.isNewline).filter {
-      !$0.trimmingCharacters(in: .whitespaces).isEmpty
-    }.count
-    let estimatedProposals = importLines + existingClaims.count
-    return min(16_000, max(4_000, estimatedProposals * 120))
-  }
-
-  private func prompt(importText: String, existingClaims: [PersonalKnowledgeClaim]) -> String {
+  private func prompt(source: ProposalSource, existingClaims: [PersonalKnowledgeClaim]) -> String {
     let existing = existingClaims.filter { $0.status == .current }.map { claim in
       let scope = claim.scope ?? ""
       return "id: \(claim.id.uuidString) | kind: \(claim.kind.rawValue) | claim: \(claim.claim) | scope: \(scope)"
@@ -91,8 +87,7 @@ public struct PersonalKnowledgeReconciler: Sendable {
     Existing current Personal Knowledge claims:
     \(existing.isEmpty ? "(none)" : existing)
 
-    Explicitly taught Jon Brain import text:
-    \(importText)
+    \(source.instruction)
 
     Return one proposal for each material new claim or semantic-preserving consolidation. Omit
     duplicates. `consolidate` may replace only listed current IDs and only when no meaning is
@@ -136,6 +131,58 @@ public struct PersonalKnowledgeReconciler: Sendable {
     ]),
     "required": ["proposals"],
   ])
+}
+
+extension PersonalKnowledgeReconciler {
+  public func consolidate(
+    existingClaims: [PersonalKnowledgeClaim],
+    provider: FrontierProvider? = nil
+  ) async throws -> [PersonalKnowledgeProposal] {
+    try await propose(source: .accumulatedClaims, existingClaims: existingClaims, provider: provider)
+  }
+
+  /// The structured output must hold one JSON object per proposed claim; a fixed cap
+  /// truncates a real Jon Brain dump mid-array. Size it to the import, plus headroom for
+  /// consolidations that reference existing claims. `maxTokens` is a ceiling, not a bill.
+  static func outputBudget(importText: String, existingClaims: [PersonalKnowledgeClaim]) -> Int {
+    let importLines = importText.split(whereSeparator: \.isNewline).filter {
+      !$0.trimmingCharacters(in: .whitespaces).isEmpty
+    }.count
+    let estimatedProposals = importLines + existingClaims.count
+    return min(16_000, max(4_000, estimatedProposals * 120))
+  }
+}
+
+private enum ProposalSource {
+  case importText(String)
+  case accumulatedClaims
+
+  var importText: String {
+    switch self {
+    case let .importText(text): text
+    case .accumulatedClaims: ""
+    }
+  }
+
+  var allowsNewClaims: Bool {
+    if case .importText = self { return true }
+    return false
+  }
+
+  var instruction: String {
+    switch self {
+    case let .importText(text):
+      """
+      Explicitly taught Jon Brain import text:
+      \(text)
+      """
+    case .accumulatedClaims:
+      """
+      There is no new teaching. Review the existing current claims only for consolidations that
+      preserve every claim's meaning and scope. Return no `new` actions.
+      """
+    }
+  }
 }
 
 public enum ReconciliationError: Error, Equatable {

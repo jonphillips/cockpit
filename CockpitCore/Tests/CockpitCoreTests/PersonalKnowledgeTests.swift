@@ -114,11 +114,140 @@ struct PersonalKnowledgeTests {
     expectNoDifference(old.supersededByID, current.id)
     expectNoDifference(current.status, .current)
     expectNoDifference(current.provenance, .semanticConsolidation)
+    expectNoDifference(current.provenance.displayName, "Synthesized from explicit claims")
 
     // The superseded row is retained but must not render as present understanding.
     try await model.$knowledge.load()
     expectNoDifference(model.claims.count, 2)
     expectNoDifference(model.currentClaims.map(\.id), [current.id])
+  }
+
+  @Test("Correction supersedes a current claim and retirement preserves its provenance")
+  func correctionAndRetirement() async throws {
+    let originalID = UUID(-1)
+    try await database.write { db in
+      try PersonalKnowledgeOperations.teach(
+        id: originalID, kind: .taste, claim: "Likes city hotels.", scope: "Travel",
+        at: .distantPast, in: db
+      )
+    }
+    let model = PersonalKnowledgeModel()
+    try await model.$knowledge.load()
+    let original = try #require(model.currentClaims.first)
+
+    model.correctButtonTapped(original)
+    expectNoDifference(model.correctingClaimID, originalID)
+    #expect(model.isCorrecting)
+    model.correctionDraft.claim = "Prefers smaller countryside hotels."
+    model.correctionDraft.scope = "Hotel selection"
+    await model.saveCorrectionButtonTapped()
+
+    try await model.$knowledge.load()
+    let superseded = try #require(model.claims.first { $0.id == originalID })
+    let correction = try #require(model.currentClaims.first)
+    expectNoDifference(superseded.status, .superseded)
+    expectNoDifference(superseded.supersededByID, correction.id)
+    expectNoDifference(superseded.provenance, .directTeaching)
+    expectNoDifference(correction.provenance, .correction)
+    expectNoDifference(correction.claim, "Prefers smaller countryside hotels.")
+
+    await model.retireButtonTapped(correction)
+    try await model.$knowledge.load()
+    let retired = try #require(model.claims.first { $0.id == correction.id })
+    expectNoDifference(retired.status, .retired)
+    expectNoDifference(retired.provenance, .correction)
+    expectNoDifference(model.currentClaims, [])
+    expectNoDifference(Set(model.historicalClaims.map(\.id)), Set([originalID, correction.id]))
+  }
+
+  @Test("Accumulated teaching offers a semantic consolidation before writing it")
+  func accumulatedSemanticConsolidation() async throws {
+    let firstID = UUID(-1)
+    let secondID = UUID(-2)
+    try await database.write { db in
+      try PersonalKnowledgeOperations.teach(
+        id: firstID, kind: .taste, claim: "Prefers small luxury hotels.", scope: "Hotels",
+        at: .distantPast, in: db
+      )
+      try PersonalKnowledgeOperations.teach(
+        id: secondID, kind: .taste, claim: "Dislikes corporate-feeling resorts.", scope: "Hotels",
+        at: .distantPast, in: db
+      )
+    }
+    let response = """
+    {"proposals":[{
+      "kind":"taste",
+      "claim":"Prefers smaller, characterful luxury hotels over corporate-feeling resorts.",
+      "scope":"Hotels",
+      "action":"consolidate", "replacesClaimIDs":["\(firstID.uuidString)","\(secondID.uuidString)"],
+      "semanticFidelity":true, "rationale":"Combines two compatible preferences without broadening them."
+    }]}
+    """
+    let model = withDependencies {
+      $0.modelClient = StubModelClient.constant(response)
+    } operation: {
+      PersonalKnowledgeModel()
+    }
+    try await model.$knowledge.load()
+
+    await model.reviewConsolidationButtonTapped()
+
+    expectNoDifference(model.proposalReview, .accumulatedClaims)
+    let proposal = try #require(model.proposals.first)
+    #expect(!proposal.requiresConfirmation)
+    #expect(model.selectedProposalIDs.contains(proposal.id))
+    let countBeforeApply = try await database.read { db in
+      try PersonalKnowledgeClaim.fetchCount(db)
+    }
+    expectNoDifference(countBeforeApply, 2)
+
+    await model.importSelectedButtonTapped()
+    let claims = try await database.read { db in
+      try PersonalKnowledgeClaim.all.fetchAll(db)
+    }
+    let consolidated = try #require(claims.first { $0.provenance == .semanticConsolidation })
+    expectNoDifference(claims.first { $0.id == firstID }?.supersededByID, consolidated.id)
+    expectNoDifference(claims.first { $0.id == secondID }?.supersededByID, consolidated.id)
+  }
+
+  @Test("A materially new consolidation is surfaced and cannot write itself")
+  func accumulatedMaterialInferenceRequiresConfirmation() async throws {
+    let firstID = UUID(-1)
+    let secondID = UUID(-2)
+    try await database.write { db in
+      try PersonalKnowledgeOperations.teach(
+        id: firstID, kind: .taste, claim: "Prefers small luxury hotels.", scope: "Hotels",
+        at: .distantPast, in: db
+      )
+      try PersonalKnowledgeOperations.teach(
+        id: secondID, kind: .taste, claim: "Prefers countryside locations.", scope: "Hotels",
+        at: .distantPast, in: db
+      )
+    }
+    let response = """
+    {"proposals":[{
+      "kind":"taste", "claim":"Dislikes cities.", "scope":"",
+      "action":"consolidate", "replacesClaimIDs":["\(firstID.uuidString)","\(secondID.uuidString)"],
+      "semanticFidelity":false, "rationale":"This would be a broader inference."
+    }]}
+    """
+    let model = withDependencies {
+      $0.modelClient = StubModelClient.constant(response)
+    } operation: {
+      PersonalKnowledgeModel()
+    }
+    try await model.$knowledge.load()
+
+    await model.reviewConsolidationButtonTapped()
+
+    let proposal = try #require(model.proposals.first)
+    #expect(proposal.requiresConfirmation)
+    expectNoDifference(model.selectedProposalIDs, [])
+    let claims = try await database.read { db in
+      try PersonalKnowledgeClaim.all.fetchAll(db)
+    }
+    expectNoDifference(claims.map(\.id).sorted { $0.uuidString < $1.uuidString }, [firstID, secondID].sorted { $0.uuidString < $1.uuidString })
+    #expect(claims.allSatisfy { $0.status == .current })
   }
 
   @Test("Projection contains only current labelled claims and records its subset")
