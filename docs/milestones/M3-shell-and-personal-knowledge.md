@@ -88,7 +88,7 @@ cheap addition that could ride S1.
 
 - [x] **S1 — iPad shell: iOS 27 tabs + split view** *(dogfooding-first; no PK dependency)*
 - [x] **S2 — Correction, supersession, and unobtrusive consolidation**
-- [ ] **S3 — Teach from the Reader ("why this matters")**
+- [x] **S3 — Teach from the Reader ("why this matters")**
 - [ ] **S4 — Hypothesis confirmation** *(trigger locked: explicit-action recurrence)*
 - [ ] **S5 — The visible, correctable, PK-driven relevance change** *(the Gate-2 product proof)*
 - [ ] **Architecture Gate 2 — Personal Knowledge review**
@@ -535,6 +535,36 @@ Do not add salience / confidence / trajectory machinery without evidence (V1-SCO
 - **Gmail dispositions and the email-delivered Stream** — Phases 4–5, Gate 4. Follow Phase 3.
 - **Offline:** `Offline until [date]` (visible expiry, ~30 days) and `Keep Offline` (V1-SCOPE §1;
   IPAD-FIRST §8 — especially important on mobile). Per-piece, not bulk, in V1.
+- **Reader inline body — read in Cockpit, not the browser** *(proposed slice; ratified intent in
+  `docs/DECISIONS.md` §20; companion to Offline — same reading surface).* Today the Reader stops at
+  the `summary` and Open Original is the only way to actually read, so the one investigate-this-item
+  surface sends Jon out of the app. This slice renders the readable body Cockpit already holds inline
+  beneath the summary and demotes Open Original to the honest fallback. It is small because the
+  substance is already modelled: `LocalNormalizedText` holds the text (device-local) and
+  `bodyCompleteness` already rides on the Reader projection — the work is a `leftJoin` plus honest
+  rendering, **not** a browser.
+
+  **Read first:** `docs/DECISIONS.md` §20; `docs/IPAD-FIRST-EXPERIENCE.md` §7–8; `docs/IMPLEMENTATION-CONTRACT.md`
+  §Body completeness; `ContentPieceReaderRequest` / `ContentPieceReaderModel` (the projection to extend);
+  `LocalNormalizedText`; ADR-0001 D6 (why the text is device-local and completeness is the synced signal).
+
+  **Done-criteria (proposed):**
+  1. A ContentPiece whose device holds `LocalNormalizedText` renders that body inline beneath the
+     summary; `bodyCompleteness = full` reads inline, `truncated` reads inline **plus** Open Original for
+     the remainder, `teaser` shows preview only with Open Original as the sole path. Verified through the
+     Reader model's projection (the join returns the text and completeness), not a UI snapshot.
+  2. A piece that synced in with `bodyCompleteness = full` but **no local text on this device** renders
+     honestly — states the body is not held here and offers Open Original — and never asserts substance it
+     lacks (the D6 custody case; adversarial test on the projection).
+  3. Open Original is the fallback, not the default: it is absent/secondary when a full body reads inline.
+  4. A digest / non-substantive-primary piece keeps its compact contents-preview card (DECISIONS §19),
+     not a full inline body.
+  5. The Reader performs **no** network fetch of the original to fill body (no scrape); rendering is of
+     held/derived text only. `swift test` + `swiftlint --strict` green; layout/typography handed to Jon's
+     device pass.
+
+  **Out of scope:** reader typography/geometry (deferred), HTML-fidelity polish, and the offline
+  *controls* themselves (their own cutline item — this slice renders the substance those controls retain).
 - **The auto-Library policy.** *Doc conflict to resolve, do not pick silently:* DECISIONS §18 defers
   it "to V1 Phase 2," while V1-SCOPE §3 places it in **Phase 7** (after explicit Library + custody are
   trustworthy). Treated as not-M3 on the strength of §3; reconcile the two docs at Gate 2.

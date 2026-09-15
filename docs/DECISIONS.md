@@ -403,6 +403,28 @@ Resolve by: living with digests as skim cards, and watching whether (a) they wan
 
 ---
 
+## 20. The Reader renders the body Cockpit holds; Open Original is the fallback — RESOLVED
+
+Raised 2026-09-15 from the M3 S1/S3 device pass. The Reader stops at the `summary` and offers **Open Original** as the primary way to actually read a piece — so the one "investigate this item" surface repeats the sidebar card and then sends Jon out of the app to read. That is backwards: the product law is that the Reader makes **ContentPiece substance primary** (`docs/IPAD-FIRST-EXPERIENCE.md` §7), and leaving the app to read the substance is the opposite.
+
+**Decision:** the Reader renders the readable body Cockpit already holds, inline beneath the summary. **Open Original stops being the default action and becomes the honest fallback** for the cases where Cockpit does not hold the body.
+
+This is not new capability bolted on — it is surfacing what the model already records. `ContentPiece.bodyCompleteness` (`full` / `truncated` / `teaser`; `docs/IMPLEMENTATION-CONTRACT.md` §Body completeness) exists precisely to tell the Reader "what substance is actually held," and it drives the three honest cases:
+
+- **`full`** → render the held body inline. Open Original is a convenience, not the way to read.
+- **`truncated`** → render the held body, then Open Original for the remainder ("Cockpit holds the opening; the rest is at the source").
+- **`teaser`** → summary/preview only; Open Original is the sole path, because a paywalled or body-less teaser is all Cockpit is permitted to have.
+
+**Where the body lives, and the custody honesty this forces.** The readable text is `LocalNormalizedText` — **device-local**, derived from the (also device-local, unsynced) Artifact; neither syncs (D6/ADR-0001). Only `bodyCompleteness` rides on the synced ContentPiece. So a piece that **synced in from another device** can read `bodyCompleteness = full` while this device holds no `LocalNormalizedText` for it. The Reader must therefore key the inline render on **whether this device actually holds the text**, and use `bodyCompleteness` to frame the promise — never assume completeness implies local substance. When completeness says a body exists but this device lacks it, the Reader says so and offers Open Original (the text re-derives on this device's next ingest of that piece). This is the same custody fact §16 and ADR-0001 D6 already ratified; the Reader now has to show it honestly rather than hide behind Open Original.
+
+**Hard boundary — this is not a browser.** The Reader renders **only text Cockpit already holds or derived**, as sanitized/attributed content. No JavaScript, no navigation, no cookies, and — critically — **no live fetch-and-scrape of the original to fill a `truncated`/`teaser`**. The moment reading would require going and getting the page, the answer is Open Original, which hands off to the system browser. Cockpit renders its own custody; it does not reimplement the web.
+
+**Relationships.** This is the reading half of the same surface as **offline** (`Offline until [date]` / `Keep Offline`, currently M4-cutline): the body rendered inline is exactly the substance an offline promise must retain, so the two belong to one slice or adjacent ones (`docs/IPAD-FIRST-EXPERIENCE.md` §8). It also reconciles with §19: a **digest / skim** piece (non-substantive-primary) still renders as the compact contents-preview card §19 describes, **not** a full inline body — inline body is for read pieces with a real `full`/`truncated` body. And it does not touch the AI boundary: rendering held text is deterministic display, not judgment.
+
+**Not decided here:** exact typography/reader geometry (deferred, "Reader geometry details" below), HTML-vs-plain rendering fidelity, and the milestone placement of the slice (proposed M4-adjacent; see `docs/milestones/M3-shell-and-personal-knowledge.md` M4 cutline).
+
+---
+
 # Deliberately deferred decisions
 
 These are **not unresolved blockers**. They should wait for implementation/use evidence.

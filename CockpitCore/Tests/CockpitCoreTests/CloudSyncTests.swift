@@ -12,7 +12,7 @@ struct CloudSyncTests {
   @Dependency(\.defaultDatabase) var database
   @Dependency(\.defaultSyncEngine) var engine
 
-  @Test("D6: engine syncs canonical Personal Knowledge but sends no non-Library text or Artifacts")
+  @Test("D6: engine syncs canonical Personal Knowledge and Reader provenance but sends no non-Library text or Artifacts")
   func syncRegistrationAndTextExclusion() async throws {
     let memberID = UUID(-1)
     let localID = UUID(-2)
@@ -56,6 +56,14 @@ struct CloudSyncTests {
           )
         )
       }.execute(db)
+      try PersonalKnowledgeTeaching.insert {
+        PersonalKnowledgeTeaching.Draft(
+          PersonalKnowledgeTeaching(
+            id: UUID(-31), contentPieceID: memberID, reason: "This matters because of its reuse.",
+            createdAt: .distantPast
+          )
+        )
+      }.execute(db)
     }
     try await engine.start()
     try await engine.sendChanges()
@@ -64,7 +72,7 @@ struct CloudSyncTests {
     }
     expectNoDifference(Set(records.map(\.recordType)), Set([
       "interestAreas", "streams", "contentPieces", "laterMemberships", "libraryMemberships", "libraryNormalizedTexts",
-      "personalKnowledgeClaims"
+      "personalKnowledgeClaims", "personalKnowledgeTeachings"
     ]))
     #expect(!records.map(\.recordType).contains("streamPollStates"))
     let sent = records.compactMap(\._lastKnownServerRecordAllFields)

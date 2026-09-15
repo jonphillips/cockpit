@@ -308,4 +308,22 @@ struct PersonalKnowledgeReconcilerTests {
       )
     }
   }
+
+  @Test("Reader teaching rejects more than one proposal", .dependency(\.uuid, .incrementing))
+  func readerTeachingRejectsMultipleProposals() async throws {
+    let response = """
+    {"proposals":[
+      {"kind":"taste","claim":"Prefers local hotels.","scope":"Travel","action":"new","replacesClaimIDs":[],"semanticFidelity":true,"rationale":"Explicit teaching."},
+      {"kind":"interest","claim":"Cares about adaptive reuse.","scope":"Travel","action":"new","replacesClaimIDs":[],"semanticFidelity":true,"rationale":"Explicit teaching."}
+    ]}
+    """
+    let reconciler = PersonalKnowledgeReconciler(modelClient: StubModelClient.constant(response))
+
+    await #expect(throws: ReconciliationError.invalidAction) {
+      try await reconciler.teachFromReader(
+        reason: "I care about adaptive reuse in hotels.", contentTitle: "A hotel", publisher: "Publisher",
+        summary: nil, existingClaims: []
+      )
+    }
+  }
 }

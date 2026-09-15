@@ -5,6 +5,7 @@ public enum PersonalKnowledgeOperations {
   public enum Failure: Error, Equatable {
     case emptyClaim
     case missingCurrentClaim(PersonalKnowledgeClaim.ID)
+    case invalidReaderTeachingProposal
   }
 
   public static func teach(
@@ -107,13 +108,13 @@ public enum PersonalKnowledgeOperations {
     }
   }
 
-  private static func nonEmpty(_ text: String) throws -> String {
+  static func nonEmpty(_ text: String) throws -> String {
     let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !value.isEmpty else { throw Failure.emptyClaim }
     return value
   }
 
-  private static func normalized(_ value: String?) -> String? {
+  static func normalized(_ value: String?) -> String? {
     guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
       return nil
     }

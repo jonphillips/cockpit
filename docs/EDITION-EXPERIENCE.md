@@ -121,7 +121,15 @@ Core actions:
 - explicit teaching such as “why this matters” / Tell Cockpit;
 - contextual Stream Handling access;
 - Find/handoff actions when a meaningful Find exists;
-- Open Original when useful/possible.
+- Open Original as the fallback for substance Cockpit does not hold (see below).
+
+The Reader renders the readable body Cockpit already holds inline beneath the summary, so reading a
+piece happens *in* Cockpit rather than by leaving it. `bodyCompleteness` drives the honest cases: a
+`full` body reads inline; a `truncated` body reads inline with Open Original for the remainder; a
+`teaser` shows only the preview, with Open Original as the sole path. Open Original is therefore the
+fallback for what Cockpit cannot hold, not the default way to read. The Reader renders only text
+Cockpit holds or derived — it is not a browser and never fetches-and-scrapes the original. Ratified
+in `docs/DECISIONS.md` §20.
 
 Provider/transport plumbing should remain secondary.
 
