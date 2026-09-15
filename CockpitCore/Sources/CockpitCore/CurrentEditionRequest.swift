@@ -14,6 +14,7 @@ public struct CurrentEditionRequest: FetchKeyRequest {
     public let summary: String?
     public let canonicalURL: String?
     public let isSubstantivePrimary: Bool?
+    public let bodyCompleteness: BodyCompleteness?
     public let section: JudgmentSection
     public let rank: Int
     public let rationale: String?
@@ -42,6 +43,7 @@ public struct CurrentEditionRequest: FetchKeyRequest {
         Row.Columns(
           id: $0.id, contentPieceID: $0.contentPieceID, title: $1.title, publisher: $1.publisher,
           summary: $1.summary, canonicalURL: $1.canonicalURL, isSubstantivePrimary: $1.isSubstantivePrimary,
+          bodyCompleteness: $1.bodyCompleteness,
           section: $0.section, rank: $0.rank, rationale: $0.rationale,
           entryState: $0.entryState, timesCarried: $0.timesCarried,
           firstAdmittedEditionID: $0.firstAdmittedEditionID)

@@ -44,6 +44,9 @@ enum JudgmentPrompt {
       Personal Knowledge that matched, never hidden model scoring.
       Return exactly one judgment object for every candidate ID, including non-admitted pieces.
       Every judgment must include isSubstantivePrimary, subjects, and summary even when admit is false.
+      bodyCompleteness is supplied when deterministic ingest evidence was unavailable; otherwise
+      preserve the supplied value. Use truncated for a real body cut off by a paywall and teaser
+      when only an introduction or no body is held.
       Subjects are three to eight short lowercase topical strings. Keep summaries under 70 words,
       rationales under 40 words, and finds empty when no concrete useful thing is present.
     """
@@ -51,7 +54,7 @@ enum JudgmentPrompt {
 
   static let schema: JSONValue = {
     let json = #"""
-    {"type":"object","additionalProperties":false,"properties":{"judgments":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"contentPieceID":{"type":"string"},"admit":{"type":"boolean"},"isSubstantivePrimary":{"type":"boolean"},"section":{"type":"string","enum":["essentials","forYou","interestArea","essentialBacklog"]},"rank":{"type":"integer"},"rationale":{"type":"string"},"subjects":{"type":"array","items":{"type":"string"}},"summary":{"type":"string"},"finds":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"kind":{"type":"string"},"name":{"type":"string"},"descriptor":{"type":"string"},"rationale":{"type":"string"},"sourceURL":{"type":["string","null"]},"hints":{"type":"object"}},"required":["kind","name","descriptor","rationale","sourceURL","hints"]}}},"required":["contentPieceID","admit","isSubstantivePrimary","section","rank","rationale","subjects","summary","finds"]}}},"required":["judgments"]}
+    {"type":"object","additionalProperties":false,"properties":{"judgments":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"contentPieceID":{"type":"string"},"admit":{"type":"boolean"},"isSubstantivePrimary":{"type":"boolean"},"section":{"type":"string","enum":["essentials","forYou","interestArea","essentialBacklog"]},"rank":{"type":"integer"},"rationale":{"type":"string"},"subjects":{"type":"array","items":{"type":"string"}},"summary":{"type":"string"},"bodyCompleteness":{"type":"string","enum":["full","truncated","teaser"]},"finds":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"kind":{"type":"string"},"name":{"type":"string"},"descriptor":{"type":"string"},"rationale":{"type":"string"},"sourceURL":{"type":["string","null"]},"hints":{"type":"object"}},"required":["kind","name","descriptor","rationale","sourceURL","hints"]}}},"required":["contentPieceID","admit","isSubstantivePrimary","section","rank","rationale","subjects","summary","finds"]}}},"required":["judgments"]}
     """#
     return try! JSONDecoder().decode(JSONValue.self, from: Data(json.utf8))
   }()

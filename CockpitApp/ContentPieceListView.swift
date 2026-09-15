@@ -50,6 +50,11 @@ struct ContentPieceListView: View {
           } label: {
             Label("Following", systemImage: "dot.radiowaves.left.and.right")
           }
+          NavigationLink {
+            PendingFindListView()
+          } label: {
+            Label("Finds", systemImage: "sparkle.magnifyingglass")
+          }
           Button("Gmail authorization probe", systemImage: "envelope.badge") {
             isPresentingGmailAuthorizationProbe = true
           }

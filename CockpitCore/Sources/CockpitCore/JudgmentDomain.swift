@@ -52,6 +52,7 @@ public struct JudgmentCandidate: Codable, Equatable, Sendable, Identifiable {
   public let publishedAt: Date?
   public let canonicalURL: String?
   public let normalizedTextExcerpt: String
+  public let bodyCompleteness: BodyCompleteness?
   public let stream: StreamContext
   public let interestArea: InterestAreaContext
   public let carriedEntry: CarriedEntryContext?
@@ -59,6 +60,7 @@ public struct JudgmentCandidate: Codable, Equatable, Sendable, Identifiable {
   public init(
     id: UUID, kind: String, title: String, creator: String? = nil, publisher: String,
     publishedAt: Date? = nil, canonicalURL: String? = nil, normalizedText: String,
+    bodyCompleteness: BodyCompleteness? = nil,
     stream: StreamContext, interestArea: InterestAreaContext, carriedEntry: CarriedEntryContext? = nil
   ) {
     self.id = id
@@ -69,6 +71,7 @@ public struct JudgmentCandidate: Codable, Equatable, Sendable, Identifiable {
     self.publishedAt = publishedAt
     self.canonicalURL = canonicalURL
     self.normalizedTextExcerpt = String(normalizedText.prefix(1_500))
+    self.bodyCompleteness = bodyCompleteness
     self.stream = stream
     self.interestArea = interestArea
     self.carriedEntry = carriedEntry
@@ -129,6 +132,7 @@ public struct JudgmentOutcome: Equatable, Sendable, Identifiable {
   public let rationale: String?
   public let subjects: [String]?
   public let summary: String?
+  public let bodyCompleteness: BodyCompleteness?
   public let finds: [JudgmentFind]?
   /// A decode or response-contract error. Such an outcome is always fail-closed (`admit == false`)
   /// and remains in the batch so no ContentPiece silently disappears.
@@ -138,7 +142,8 @@ public struct JudgmentOutcome: Equatable, Sendable, Identifiable {
 
   public init(
     contentPieceID: UUID, admit: Bool, isSubstantivePrimary: Bool?, section: JudgmentSection?,
-    rank: Int?, rationale: String?, subjects: [String]?, summary: String?, finds: [JudgmentFind]?,
+    rank: Int?, rationale: String?, subjects: [String]?, summary: String?,
+    bodyCompleteness: BodyCompleteness? = nil, finds: [JudgmentFind]?,
     errorDescription: String? = nil
   ) {
     self.contentPieceID = contentPieceID
@@ -149,6 +154,7 @@ public struct JudgmentOutcome: Equatable, Sendable, Identifiable {
     self.rationale = rationale
     self.subjects = subjects
     self.summary = summary
+    self.bodyCompleteness = bodyCompleteness
     self.finds = finds
     self.errorDescription = errorDescription
   }
@@ -185,7 +191,8 @@ extension JudgmentOutcome {
   static func failed(contentPieceID: UUID, error: String) -> Self {
     .init(
       contentPieceID: contentPieceID, admit: false, isSubstantivePrimary: nil, section: nil,
-      rank: nil, rationale: nil, subjects: nil, summary: nil, finds: nil, errorDescription: error
+      rank: nil, rationale: nil, subjects: nil, summary: nil, bodyCompleteness: nil, finds: nil,
+      errorDescription: error
     )
   }
 }

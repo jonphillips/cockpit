@@ -30,6 +30,7 @@ struct EditionEntryWriter: Sendable {
       }
       if let outcome, !hasError {
         try EditionOperations.applyClassification(outcome, in: db)
+        try PendingFindOperations.persist(outcome.finds, for: pieceID, in: db)
       }
 
       // Essential protection is stream-level Essential + substantive-primary. Read the flag back

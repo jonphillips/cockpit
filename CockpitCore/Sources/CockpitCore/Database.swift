@@ -152,6 +152,7 @@ enum CockpitMigrations {
     registerLiveStreams(in: &migrator)
     registerPersonalKnowledge(in: &migrator)
     registerEdition(in: &migrator)
+    registerS5(in: &migrator)
     return migrator
   }
 }

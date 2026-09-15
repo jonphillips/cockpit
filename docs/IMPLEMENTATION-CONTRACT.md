@@ -32,6 +32,17 @@ The judgment pass returns this as a boolean with a one-line reason. It is inspec
 
 This flag is the **primary-vs-accessory** axis only. It gates *attention* non-loss — the Essential guarantee in §3 — and auto-Library qualification. It does **not** mean "keep this forever": durable retention is the user's explicit **Add to Library** act. Whether a piece is *worth keeping* (durable/reference vs ephemeral) is a separate axis this field does not carry — a topical news recap is substantive primary **and** ephemeral — and auto-Library must not treat primary-ness as durable-worth (`docs/DECISIONS.md` §18). "Has a real body" is likewise a separate axis (`bodyCompleteness`, S5): a body-less teaser is not substantive today, but once completeness exists that fact belongs to it and this flag stays purely primary-vs-accessory.
 
+### Body completeness
+
+`bodyCompleteness` records how much readable body Cockpit actually holds for a ContentPiece. Its
+values are `full`, `truncated`, and `teaser`. It is derived from source content at ingest, never
+from subscription state: deterministic paywall/cutoff markers win, and the judgment pass may only
+classify an otherwise unresolved value as a fallback. The stored field is nullable only for legacy
+or otherwise unresolved rows awaiting ingest/fallback classification; classified values are always
+one of the three values above. A `teaser` with no body is not substantive;
+a `truncated` real body may still be substantive. This is a completeness/custody axis, not a
+primary-vs-accessory judgment.
+
 ### Qualifying
 
 Used only in the auto-Library policy. A future ContentPiece **qualifies** for automatic Library admission when it is substantive primary material from the Stream carrying the policy. Nothing else. This is deliberately not a rules language.
@@ -60,7 +71,7 @@ Artifact(id, streamID?, transport, providerID, canonicalURL,
 
 ContentPiece(id, kind, title, creator, publisher, publishedAt,
              canonicalURL, summary, normalizedText, subjects,
-             isSubstantivePrimary, createdAt)
+             isSubstantivePrimary, bodyCompleteness, createdAt)
 
 Edition(id, date, composedAt, state, targetSize,
         estimatedCostUSD?, promptVersion?, modelName?)

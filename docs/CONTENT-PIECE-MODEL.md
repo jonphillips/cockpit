@@ -246,6 +246,13 @@ If Gmail/account access disappears, Cockpit reports degradation. It does not pre
 
 An email that merely links to subscriber-only external content is different; custody must reflect the substance Cockpit actually has access to rather than assume email completeness.
 
+`ContentPiece.bodyCompleteness` makes that custody fact explicit. Ingest derives `full`,
+`truncated`, or `teaser` from the source content itself, without consulting subscription state.
+Deterministic paywall and cutoff markers take precedence over the judgment fallback. A truncated
+but real body can remain substantive primary material; a body-less teaser is not. Legacy or
+unresolved rows may remain null until ingest or the judgment fallback resolves them. The field tells
+the Reader what substance is actually held and must not be inferred from whether a Stream is paid.
+
 ### Uploaded sole-source material
 
 If the user uploads a PDF/document and Cockpit accepts it into Library without a reliable external original, Cockpit must preserve the payload durably.

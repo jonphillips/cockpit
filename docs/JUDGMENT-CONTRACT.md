@@ -29,7 +29,7 @@ If the candidate set exceeds roughly 120 pieces, split into batches by Interest 
 
 ## 2. Inputs
 
-**Per candidate:** id, kind, title, creator, publisher, publishedAt, first ~1500 characters of `normalizedText`, Stream name, Stream `handling` and `handlingGuidance`, Stream `isEssential`, Interest Area name and guidance, and — for carried entries — how many times carried and current `entryState`.
+**Per candidate:** id, kind, title, creator, publisher, publishedAt, first ~1500 characters of `normalizedText`, `bodyCompleteness` when ingest resolved it, Stream name, Stream `handling` and `handlingGuidance`, Stream `isEssential`, Interest Area name and guidance, and — for carried entries — how many times carried and current `entryState`.
 
 **Personal Knowledge projection:** the full set of current claims rendered as labelled prose, grouped Fact / Taste / Interest. Full set until the claim count exceeds 150; past that, retrieve a relevant subset by subject overlap and record which claims were included. This threshold is a guess and is measured at Gate 2.
 
@@ -55,6 +55,7 @@ One object per candidate. Decoded strictly; a decode failure fails the piece to 
   "rationale": "From Matthew Yglesias, marked Essential; original argument rather than a roundup.",
   "subjects": ["housing policy", "zoning", "us politics"],
   "summary": "…",
+  "bodyCompleteness": "full",
   "finds": [
     {
       "kind": "restaurant",
@@ -71,6 +72,11 @@ One object per candidate. Decoded strictly; a decode failure fails the piece to 
 `rationale` is written for Jon, not for a debugger. It surfaces in the Reader and in "why am I seeing this," and it is what he corrects against. It states product logic — Stream posture, Interest Area, which explicit knowledge matched — and never model scoring internals.
 
 `finds` is populated from Phase 1. Extraction shares this call, so the marginal cost is near zero, and the orphan-Find population starts accumulating on day one rather than in month five. Handoff to a specialist app remains Phase 6; V1 Phase 1 only persists PendingFinds and lists them.
+
+`bodyCompleteness` is normally derived deterministically at ingest and is included as judgment input
+so the rationale can acknowledge an incomplete source. If ingest could not resolve it, judgment may
+provide one of `full`, `truncated`, or `teaser` as a fallback; deterministic ingest evidence is never
+overwritten by that proposal.
 
 Non-admitted candidates still return `isSubstantivePrimary`, `subjects`, and `summary`. That data is written to the ContentPiece regardless, so quiet material is still searchable in Library and still eligible for carryover reconsideration.
 

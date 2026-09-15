@@ -156,6 +156,7 @@ extension FeedIngestor {
       summary: existing?.summary,
       subjects: existing?.subjects,
       isSubstantivePrimary: existing?.isSubstantivePrimary,
+      bodyCompleteness: BodyCompletenessDetector.detect(entry: entry) ?? existing?.bodyCompleteness,
       createdAt: existing?.createdAt ?? acquiredAt
     )
     try ContentPiece.upsert { ContentPiece.Draft(piece) }.execute(db)
