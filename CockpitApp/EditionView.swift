@@ -14,6 +14,23 @@ struct EditionView: View {
             if let cost = edition.estimatedCostUSD {
               LabeledContent("Estimated cost", value: cost, format: .currency(code: "USD"))
             }
+            // Always-visible recompose entry point. The `.topBarTrailing` toolbar item does not
+            // render reliably in the sidebar-adaptable TabView + NavigationSplitView layout, so the
+            // sidebar carries the affordance the dogfooding loop needs.
+            Button {
+              isConfirmingRecompose = true
+            } label: {
+              if model.isComposing {
+                Label {
+                  Text("Recomposing…")
+                } icon: {
+                  ProgressView()
+                }
+              } else {
+                Label("Recompose", systemImage: "arrow.clockwise")
+              }
+            }
+            .disabled(model.isComposing)
           }
         }
 

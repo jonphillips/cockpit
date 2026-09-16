@@ -129,7 +129,7 @@ private struct PersonalKnowledgeHypothesisSection: View {
   let model: PersonalKnowledgeModel
 
   var body: some View {
-    Section("A question for you") {
+    Section {
       Text(
         "You’ve deliberately saved, added to Library, or taught Cockpit about \(hypothesis.subject) \(hypothesis.explicitActionCount) times. Should Cockpit treat it as an Interest?"
       )
@@ -140,6 +140,8 @@ private struct PersonalKnowledgeHypothesisSection: View {
       Button("Not Now", role: .cancel) {
         model.dismissHypothesisButtonTapped()
       }
+    } header: {
+      Text("A question for you")
     } footer: {
       Text("This is only a question. Cockpit will not save anything unless you confirm it.")
     }
