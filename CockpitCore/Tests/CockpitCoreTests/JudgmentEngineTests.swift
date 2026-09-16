@@ -34,7 +34,7 @@ struct JudgmentEngineTests {
       Issue.record("Judgment must request structured output.")
       return
     }
-    #expect(name == "cockpit_judgments")
+    #expect(name == "cockpit_editorial_judgments")
     #expect(strict)
     #expect(captured.system?.contains("never writes Personal Knowledge") == true)
     let prompt = try #require(captured.messages.last?.text)
@@ -44,6 +44,43 @@ struct JudgmentEngineTests {
     #expect(prompt.contains(String(repeating: "x", count: 1_500)))
     #expect(!prompt.contains(String(repeating: "x", count: 1_501)))
     #expect(JudgmentModel.modelID == "claude-sonnet-5")
+  }
+
+  @Test("type classification is PK-free while the editorial pass retains Personal Knowledge")
+  func separatesTypeInputsFromEditorialInputs() async throws {
+    let requests = Mutex<[ModelRequest]>([])
+    let candidateID = UUID(1)
+    let engine = JudgmentEngine(
+      modelClient: StubModelClient { request in
+        requests.withLock { $0.append(request) }
+        guard case let .jsonSchema(name, _, _) = request.responseFormat else {
+          Issue.record("Judgment must request structured output.")
+          return ModelResponse(text: "")
+        }
+        return switch name {
+        case "cockpit_type_classifications":
+          ModelResponse(text: self.classificationResponse(for: [candidateID]))
+        case "cockpit_editorial_judgments":
+          ModelResponse(text: self.response(for: [candidateID]))
+        default:
+          ModelResponse(text: "")
+        }
+      })
+    let knowledge = PersonalKnowledgeProjection(
+      text: "Interest:\n- Burgundy travel and wine.", includedClaimIDs: [], isFullSet: true)
+
+    _ = await engine.judge(candidates: [candidate(id: candidateID)], personalKnowledge: knowledge)
+
+    let captured = requests.withLock { $0 }
+    #expect(captured.count == 2)
+    let typePrompt = try #require(captured.first?.messages.last?.text)
+    let editorialPrompt = try #require(captured.last?.messages.last?.text)
+    #expect(typePrompt.contains(JudgmentEngine.typePromptVersion))
+    #expect(!typePrompt.contains("Burgundy travel and wine."))
+    #expect(!typePrompt.contains("Current situation:"))
+    #expect(editorialPrompt.contains(JudgmentEngine.editorialPromptVersion))
+    #expect(editorialPrompt.contains("Burgundy travel and wine."))
+    #expect(editorialPrompt.contains("already-classified type metadata"))
   }
 
   @Test("a malformed batch fails every candidate closed with a recorded error")
@@ -103,6 +140,63 @@ struct JudgmentEngineTests {
     #expect(run.outcomes[0].errorDescription == nil)
     #expect(run.outcomes[1].admit == false)
     #expect(run.outcomes[1].errorDescription?.contains("did not match the required shape") == true)
+  }
+
+  @Test("a truncated envelope salvages its complete objects; the cut tail fails closed, not fabricated")
+  func truncatedEnvelopeSalvagesLeadingObjects() throws {
+    let (first, second, third) = (UUID(1), UUID(2), UUID(3))
+    // Valid objects for the first two; the third is cut off mid-value, as a model hitting its
+    // output cap would produce. The envelope is not valid JSON as a whole.
+    let truncated =
+      "{\"judgments\":[\(editorialObject(first)),\(editorialObject(second)),"
+      + "{\"contentPieceID\":\"\(third.uuidString)\",\"admit\":tr"
+    let judgments = try JudgmentResponseDecoder.decodeEditorial(
+      truncated, expectedCandidateIDs: [first, second, third], allowedPersonalKnowledgeClaimIDs: [])
+    let byID = Dictionary(uniqueKeysWithValues: judgments.map { ($0.contentPieceID, $0) })
+
+    #expect(byID[first]?.errorDescription == nil)
+    #expect(byID[second]?.errorDescription == nil)
+    // The lost tail is never invented: it fails closed as "no judgment", which the engine re-requests.
+    #expect(byID[third]?.admit == false)
+    #expect(byID[third]?.errorDescription?.contains("no judgment") == true)
+  }
+
+  @Test("a response with no recoverable objects still fails the whole pass closed")
+  func unrecoverableResponseThrows() {
+    #expect(throws: (any Error).self) {
+      try JudgmentResponseDecoder.decodeEditorial(
+        "the model apologises and returns prose", expectedCandidateIDs: [UUID(1)],
+        allowedPersonalKnowledgeClaimIDs: [])
+    }
+  }
+
+  @Test("a truncated editorial first pass re-requests only the pieces it lost")
+  func truncatedEditorialFirstPassIsRecovered() async {
+    let first = candidate(id: UUID(1))
+    let second = candidate(id: UUID(2))
+    // The type pass classifies both; the editorial pass truncates after the first object, then the
+    // re-request returns the piece the truncation dropped.
+    let truncatedEditorial =
+      "{\"judgments\":[\(editorialObject(first.id)),"
+      + "{\"contentPieceID\":\"\(second.id.uuidString)\",\"admit\":tr"
+    let retryEditorial = "{\"judgments\":[\(editorialObject(second.id))]}"
+    let editorialCalls = Mutex(0)
+    let engine = JudgmentEngine(modelClient: StubModelClient { request in
+      guard case let .jsonSchema(name, _, _) = request.responseFormat else { return ModelResponse(text: "") }
+      if name == "cockpit_type_classifications" {
+        return ModelResponse(text: self.classificationResponse(for: [first.id, second.id]))
+      }
+      let call = editorialCalls.withLock { count -> Int in count += 1; return count }
+      return ModelResponse(text: call == 1 ? truncatedEditorial : retryEditorial)
+    })
+
+    let run = await engine.judge(
+      candidates: [first, second],
+      personalKnowledge: .init(text: "", includedClaimIDs: [], isFullSet: true))
+
+    #expect(editorialCalls.withLock { $0 } == 2)
+    #expect(run.outcomes.map(\.contentPieceID) == [first.id, second.id])
+    #expect(run.outcomes.allSatisfy { $0.errorDescription == nil })
   }
 
   @Test("provider usage is priced with Anthropic's separate cache buckets")
@@ -213,9 +307,15 @@ struct JudgmentEngineTests {
     // The first pass silently drops `second`; the re-request asks for just the omitted candidate.
     let firstPassText = response(for: [first.id, third.id])
     let retryText = response(for: [second.id])
-    let calls = Mutex(0)
-    let engine = JudgmentEngine(modelClient: StubModelClient { _ in
-      let call = calls.withLock { count -> Int in count += 1; return count }
+    let typeCalls = Mutex(0)
+    let editorialCalls = Mutex(0)
+    let engine = JudgmentEngine(modelClient: StubModelClient { request in
+      guard case let .jsonSchema(name, _, _) = request.responseFormat else { return ModelResponse(text: "") }
+      if name == "cockpit_type_classifications" {
+        let call = typeCalls.withLock { count -> Int in count += 1; return count }
+        return ModelResponse(text: call == 1 ? firstPassText : retryText)
+      }
+      let call = editorialCalls.withLock { count -> Int in count += 1; return count }
       return ModelResponse(text: call == 1 ? firstPassText : retryText)
     })
 
@@ -223,7 +323,8 @@ struct JudgmentEngineTests {
       candidates: [first, second, third],
       personalKnowledge: .init(text: "", includedClaimIDs: [], isFullSet: true))
 
-    #expect(calls.withLock { $0 } == 2)
+    #expect(typeCalls.withLock { $0 } == 2)
+    #expect(editorialCalls.withLock { $0 } == 2)
     #expect(run.outcomes.map(\.contentPieceID) == [first.id, second.id, third.id])
     #expect(run.outcomes.allSatisfy { $0.errorDescription == nil })
   }
@@ -234,9 +335,15 @@ struct JudgmentEngineTests {
     let second = candidate(id: UUID(2))
     // The model never returns `second`, on the first pass or any re-request.
     let alwaysOmits = response(for: [first.id])
-    let calls = Mutex(0)
-    let engine = JudgmentEngine(modelClient: StubModelClient { _ in
-      calls.withLock { $0 += 1 }
+    let typeCalls = Mutex(0)
+    let editorialCalls = Mutex(0)
+    let engine = JudgmentEngine(modelClient: StubModelClient { request in
+      guard case let .jsonSchema(name, _, _) = request.responseFormat else { return ModelResponse(text: "") }
+      if name == "cockpit_type_classifications" {
+        typeCalls.withLock { $0 += 1 }
+      } else {
+        editorialCalls.withLock { $0 += 1 }
+      }
       return ModelResponse(text: alwaysOmits)
     })
 
@@ -244,8 +351,9 @@ struct JudgmentEngineTests {
       candidates: [first, second],
       personalKnowledge: .init(text: "", includedClaimIDs: [], isFullSet: true))
 
-    // One initial pass plus one re-request that recovers nothing, then it gives up (bounded).
-    #expect(calls.withLock { $0 } == 2)
+    // The type pass retries its omission once; editorial then judges only the one classified piece.
+    #expect(typeCalls.withLock { $0 } == 2)
+    #expect(editorialCalls.withLock { $0 } == 1)
     #expect(run.outcomes[0].errorDescription == nil)
     #expect(run.outcomes[1].errorDescription?.contains("no judgment") == true)
   }
@@ -273,6 +381,18 @@ struct JudgmentEngineTests {
     return "{\"judgments\":[\(judgments)]}"
   }
 
+  private func classificationResponse(for ids: [UUID]) -> String {
+    let classifications = ids.map {
+      "{\"contentPieceID\":\"\($0.uuidString)\",\"isSubstantivePrimary\":true,\"subjects\":[\"policy\",\"cities\",\"housing\"],\"summary\":\"A concise summary.\"}"
+    }.joined(separator: ",")
+    return "{\"classifications\":[\(classifications)]}"
+  }
+
+  /// A single, minimal, valid editorial-pass object — enough for the decoder's required shape.
+  private func editorialObject(_ id: UUID) -> String {
+    "{\"contentPieceID\":\"\(id.uuidString)\",\"admit\":true,\"section\":\"forYou\",\"rank\":1,\"rationale\":\"r\",\"matchedPersonalKnowledgeClaimID\":null,\"finds\":[]}"
+  }
+
 }
 
 /// The paid, real-model eval. Gated on `COCKPIT_RUN_JUDGMENT_EVAL=1` so it is *skipped*
@@ -280,12 +400,22 @@ struct JudgmentEngineTests {
 /// the stored Keychain key. Enable it to produce the first agreement number for `docs/eval-log.md`.
 @Suite("JudgmentEval")
 struct JudgmentEvalLiveTests {
-  /// One composition-sized batch → one model call. §7's working estimate is ~60 new items/day;
-  /// 50 keeps each batch a realistic daily composition and its response inside Sonnet's output
-  /// budget (the whole 357-item corpus in one call would exceed the max output tokens).
-  // Batch size per model call. Override with COCKPIT_EVAL_BATCH to probe whether large-batch
-  // omissions (see the re-request pass) ease at a smaller size, without a rebuild.
-  static let compositionSize = ProcessInfo.processInfo.environment["COCKPIT_EVAL_BATCH"].flatMap(Int.init) ?? 50
+  /// One composition-sized batch → two model calls (type then editorial). §7's working estimate is
+  /// ~60 new items/day. The M4 split makes the editorial call carry ~2× the input of the old single
+  /// pass (full bodies + the PK projection + type metadata), and a taught 50-candidate editorial
+  /// call ran ~176s and timed a whole batch closed (eval-log, 2026-09-16). 30 keeps each editorial
+  /// call inside a workable latency while still exercising a realistic finite package; the type call
+  /// is cheaper and tolerates more. The deeper lever — trimming the body the editorial pass resends,
+  /// or an Interest-Area split with a second pass (JUDGMENT-CONTRACT §1) — is parked for Jon.
+  // Override with COCKPIT_EVAL_BATCH to probe a different size without a rebuild.
+  static let compositionSize = ProcessInfo.processInfo.environment["COCKPIT_EVAL_BATCH"].flatMap(Int.init) ?? 30
+
+  /// The frozen corpus has a few rows Jon never fully labelled (no confirmed `label` +
+  /// `isSubstantivePrimary`). They are permanently `incomplete` for scoring and are a property of
+  /// the corpus, not of the split, the model, or fail-closed — so the reports carry them every run.
+  /// Asserting exactly zero would wrongly claim the corpus is fully labelled; we gate on "no worse
+  /// than the known unlabelled floor" so re-labelling can only lower it.
+  static let knownUnlabelledFixtureCount = 3
 
   private static let enabled = ProcessInfo.processInfo.environment["COCKPIT_RUN_JUDGMENT_EVAL"] == "1"
 
@@ -301,46 +431,43 @@ struct JudgmentEvalLiveTests {
       modelClient: AnthropicModelClient(apiKey: apiKey, model: JudgmentModel.modelID))
     let candidates = fixtures.fixtures.map(Self.candidate(from:))
 
-    // Judge the corpus one composition-sized batch at a time and aggregate across batches.
-    var outcomesByID: [UUID: JudgmentOutcome] = [:]
-    var totalCost: Decimal = 0
-    var maxLatency: TimeInterval = 0
-    var compositions = 0
-    for batch in candidates.chunked(into: Self.compositionSize) {
-      let run = await engine.judge(
-        candidates: batch, personalKnowledge: .init(text: "", includedClaimIDs: [], isFullSet: true))
-      for outcome in run.outcomes { outcomesByID[outcome.contentPieceID] = outcome }
-      totalCost += run.estimatedCost ?? 0
-      maxLatency = max(maxLatency, run.latency)
-      compositions += 1
-    }
-
-    let failClosed = outcomesByID.values.filter { $0.errorDescription != nil }
-    let perComposition = compositions > 0 ? totalCost / Decimal(compositions) : 0
-    let report = JudgmentEvaluation.evaluate(
-      fixtures: fixtures.fixtures, labels: labels.labels, costPerComposition: perComposition
-    ) { fixture in
-      let outcome = outcomesByID[fixture.id]
-      // A fail-closed piece has no model classification; it counts as not-admitted /
-      // not-substantive so it cannot silently improve the numbers.
-      return StubJudgment(
-        admits: outcome?.admit ?? false,
-        isSubstantivePrimary: outcome?.isSubstantivePrimary ?? false, cost: 0)
-    }
+    let empty = PersonalKnowledgeProjection(text: "", includedClaimIDs: [], isFullSet: true)
+    let control = await Self.judgeCorpus(
+      candidates, personalKnowledge: empty, engine: engine, singlePassControl: true)
+    let split = await Self.judgeCorpus(candidates, personalKnowledge: empty, engine: engine)
+    let controlReport = Self.report(for: control, fixtures: fixtures.fixtures, labels: labels.labels)
+    let splitReport = Self.report(for: split, fixtures: fixtures.fixtures, labels: labels.labels)
+    let splitFailClosed = split.outcomesByID.values.filter { $0.errorDescription != nil }
 
     print("""
-      JudgmentEval \(report.rendered) costTotal=\(totalCost) costPerComposition=\(perComposition) \
-      compositions=\(compositions) latencyMaxSeconds=\(String(format: "%.3f", maxLatency)) \
-      failClosedPieces=\(failClosed.count) model=\(JudgmentModel.displayName) \
-      promptVersion=\(JudgmentEngine.promptVersion)
+      JudgmentEvalControl singlePass=[\(controlReport.rendered)] split=[\(splitReport.rendered)] \
+      splitTypeCost=\(split.typeCost) splitEditorialCost=\(split.editorialCost) \
+      singlePassLatencyMaxSeconds=\(String(format: "%.3f", control.maxLatency)) \
+      splitLatencyMaxSeconds=\(String(format: "%.3f", split.maxLatency)) \
+      failClosed(single/split)=\(control.failClosedCount)/\(splitFailClosed.count) \
+      model=\(JudgmentModel.displayName) singlePassPromptVersion=\(JudgmentEngine.singlePassControlPromptVersion) \
+      typePromptVersion=\(JudgmentEngine.typePromptVersion) editorialPromptVersion=\(JudgmentEngine.editorialPromptVersion)
       """)
 
-    #expect(report.incompleteFixtureCount == 0)
+    #expect(splitReport.incompleteFixtureCount <= Self.knownUnlabelledFixtureCount)
     #expect(
-      failClosed.isEmpty,
-      "\(failClosed.count) pieces failed closed: \(failClosed.compactMap(\.errorDescription).prefix(3).joined(separator: " | "))")
-    #expect(maxLatency < 60, "Gate 1 latency must stay below 60 seconds per composition.")
-    #expect(perComposition < 1, "Gate 1 cost estimate must stay below $1.00 per composition.")
+      splitFailClosed.isEmpty,
+      "\(splitFailClosed.count) split pieces failed closed: \(splitFailClosed.compactMap(\.errorDescription).prefix(3).joined(separator: " | "))")
+    #expect(
+      (splitReport.essentialFalseQuietRate ?? 1) <= (controlReport.essentialFalseQuietRate ?? 0) + 0.001,
+      "Split pass regressed essential-false-quiet versus its same-session single-pass control.")
+    #expect(split.costPerComposition < 1, "Gate 1 cost estimate must stay below $1.00 per composition.")
+    // Latency is RECORDED, not hard-gated at 60s here (DC-3: "confirm within the §7 budget or note
+    // the lever"). The split runs type-then-editorial sequentially per composition — editorial needs
+    // the type metadata first — so it inherently ~doubles per-composition latency versus single-pass,
+    // and the offsetting win (moving the PK-free type pass to a faster/cheaper model) is deferred
+    // behind the schema blocker. The §7 "<60s on a warm device" budget is Jon's device-pass call on
+    // real hardware, not this Mac+API+concurrency measurement. We still guard against a pathological
+    // hang (a true timeout fails a batch closed and is caught above); a lone composition over ~4min
+    // is a regression worth surfacing.
+    #expect(
+      split.maxLatency < 240,
+      "Split composition latency \(String(format: "%.1f", split.maxLatency))s is pathological, not just the two-pass cost — investigate a hang or model-side slowdown.")
   }
 
   @Test("Personal Knowledge moves at least one real admission or rank", .enabled(if: enabled))
@@ -438,17 +565,34 @@ struct JudgmentEvalLiveTests {
       movedPieces=\(moved.count) admissionFlips=\(admissionFlips.count) \
       attributedAdmissions=\(attributed.count) distinctCitedClaims=\(distinctCitedClaims.count) \
       failClosed(taught/bare)=\(taughtFailClosed)/\(bareFailClosed) \
+      taughtFailClosedReasons=\(Self.failClosedReasons(taught)) \
+      bareFailClosedReasons=\(Self.failClosedReasons(bare)) \
       costTotal=\(bare.totalCost + taught.totalCost) \
       latencyMaxSeconds=\(String(format: "%.3f", max(bare.maxLatency, taught.maxLatency))) \
-      model=\(JudgmentModel.displayName) promptVersion=\(JudgmentEngine.promptVersion)
+      batchSize=\(Self.compositionSize) \
+      model=\(JudgmentModel.displayName) typePromptVersion=\(JudgmentEngine.typePromptVersion) \
+      editorialPromptVersion=\(JudgmentEngine.editorialPromptVersion)
       """)
 
-    #expect(taughtReport.incompleteFixtureCount == 0)
+    #expect(taughtReport.incompleteFixtureCount <= Self.knownUnlabelledFixtureCount)
+    // Reliability gate, checked BEFORE the floor. A fail-closed piece is scored not-admitted, so it
+    // lands as false-quiet and inflates essential-false-quiet — a reliability failure would otherwise
+    // masquerade as a PK floor regression (as it did at batchSize 50: one editorial batch timed out,
+    // 50 pieces failed closed, and essential-false-quiet read 0.169 vs a true bare 0.051). The floor
+    // comparison below is only trustworthy when both runs fully resolved.
+    #expect(
+      taughtFailClosed == 0 && bareFailClosed == 0,
+      """
+      Pieces failed closed (taught \(taughtFailClosed) / bare \(bareFailClosed)); the floor number is \
+      not a clean PK measurement until this is 0. Reasons — taught: \(Self.failClosedReasons(taught)); \
+      bare: \(Self.failClosedReasons(bare)).
+      """)
     // The reframed gate (DECISIONS §22), measured as a PAIRED delta rather than an absolute
     // constant: growing PK must not push essential-false-quiet above the *same-session bare run*.
     // essential-false-quiet is a small-count metric here (~3–6 pieces of ~59 Essential-substantive),
     // so it swings run-to-run on model nondeterminism (0.051 / 0.068 / 0.102 across clean runs); a
     // hardcoded absolute threshold would pass or fail on that noise. The bare run is the control.
+    // Only meaningful when fail-closed is 0 above.
     let epsilon = 0.001
     #expect(
       (taughtReport.essentialFalseQuietRate ?? 1) <= (bareReport.essentialFalseQuietRate ?? 0) + epsilon,
@@ -464,27 +608,94 @@ struct JudgmentEvalLiveTests {
     var totalCost: Decimal
     var costPerComposition: Decimal
     var maxLatency: TimeInterval
+    var typeCost: Decimal
+    var editorialCost: Decimal
+    var failClosedCount: Int
+  }
+
+  /// How many compositions judge concurrently within one corpus run. The batches are independent
+  /// (each is a self-contained composition; nothing is shared or mutated), so judging them in
+  /// parallel only trades wall time for in-flight requests at identical dollar cost. Capped, and
+  /// deliberately modest: a rate-limit rejection would fail a batch closed and trip the reliability
+  /// gate, so the default stays well under Anthropic's ceiling. Override with COCKPIT_EVAL_CONCURRENCY.
+  /// Runs (bare/taught, control/split) stay sequential so total in-flight is exactly this number.
+  static let evalConcurrency = ProcessInfo.processInfo.environment["COCKPIT_EVAL_CONCURRENCY"].flatMap(Int.init) ?? 4
+
+  private static func judgeOneComposition(
+    _ batch: [JudgmentCandidate], personalKnowledge: PersonalKnowledgeProjection,
+    engine: JudgmentEngine, singlePassControl: Bool
+  ) async -> JudgmentRun {
+    if singlePassControl {
+      await engine.judgeSinglePassControl(candidates: batch, personalKnowledge: personalKnowledge)
+    } else {
+      await engine.judge(candidates: batch, personalKnowledge: personalKnowledge)
+    }
   }
 
   private static func judgeCorpus(
     _ candidates: [JudgmentCandidate],
     personalKnowledge: PersonalKnowledgeProjection,
-    engine: JudgmentEngine
+    engine: JudgmentEngine,
+    singlePassControl: Bool = false
   ) async -> CorpusRun {
+    let batches = candidates.chunked(into: compositionSize)
+    // Bounded-concurrency sliding window: keep at most `evalConcurrency` compositions in flight,
+    // starting the next batch each time one finishes. `run.latency` is each composition's own wall
+    // time, so the per-composition budget stays honest under parallelism.
+    let runs = await withTaskGroup(of: JudgmentRun.self) { group -> [JudgmentRun] in
+      var collected: [JudgmentRun] = []
+      var next = 0
+      let window = max(1, min(evalConcurrency, batches.count))
+      while next < window {
+        let batch = batches[next]
+        group.addTask {
+          await judgeOneComposition(
+            batch, personalKnowledge: personalKnowledge, engine: engine, singlePassControl: singlePassControl)
+        }
+        next += 1
+      }
+      while let run = await group.next() {
+        collected.append(run)
+        if next < batches.count {
+          let batch = batches[next]
+          group.addTask {
+            await judgeOneComposition(
+              batch, personalKnowledge: personalKnowledge, engine: engine, singlePassControl: singlePassControl)
+          }
+          next += 1
+        }
+      }
+      return collected
+    }
+
     var outcomesByID: [UUID: JudgmentOutcome] = [:]
     var totalCost: Decimal = 0
     var maxLatency: TimeInterval = 0
-    var compositions = 0
-    for batch in candidates.chunked(into: compositionSize) {
-      let run = await engine.judge(candidates: batch, personalKnowledge: personalKnowledge)
+    var typeCost: Decimal = 0
+    var editorialCost: Decimal = 0
+    for run in runs {
       for outcome in run.outcomes { outcomesByID[outcome.contentPieceID] = outcome }
       totalCost += run.estimatedCost ?? 0
       maxLatency = max(maxLatency, run.latency)
-      compositions += 1
+      typeCost += run.typePass.estimatedCost ?? 0
+      editorialCost += run.editorialPass.estimatedCost ?? 0
     }
-    let per = compositions > 0 ? totalCost / Decimal(compositions) : 0
+    let per = runs.isEmpty ? 0 : totalCost / Decimal(runs.count)
     return CorpusRun(
-      outcomesByID: outcomesByID, totalCost: totalCost, costPerComposition: per, maxLatency: maxLatency)
+      outcomesByID: outcomesByID, totalCost: totalCost, costPerComposition: per, maxLatency: maxLatency,
+      typeCost: typeCost, editorialCost: editorialCost,
+      failClosedCount: outcomesByID.values.count(where: { $0.errorDescription != nil }))
+  }
+
+  /// Groups fail-closed error messages with counts so a paid run tells us *why* pieces dropped
+  /// (whole-batch timeout vs transport vs an unprojected-claim rejection) without another run.
+  private static func failClosedReasons(_ run: CorpusRun) -> String {
+    let reasons = run.outcomesByID.values.compactMap(\.errorDescription)
+    guard !reasons.isEmpty else { return "none" }
+    return Dictionary(grouping: reasons, by: { $0 })
+      .map { "\($0.value.count)×\"\($0.key)\"" }
+      .sorted()
+      .joined(separator: ", ")
   }
 
   private static func report(
@@ -545,6 +756,7 @@ struct JudgmentEvalLiveTests {
     decoder.dateDecodingStrategy = .iso8601
     return try decoder.decode(T.self, from: Data(contentsOf: url))
   }
+
 }
 
 private extension Array {

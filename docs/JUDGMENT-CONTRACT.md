@@ -3,7 +3,11 @@
 **Status:** Normative
 **Date:** 2026-09-08
 
-Judgment is the single structured LLM pass that turns new ContentPieces into an Edition. It is the highest-variance component in Cockpit and the one that makes it different from a feed reader with a read-later list. It therefore gets a contract and an evaluation harness rather than a line in a pipeline diagram.
+Judgment is two deliberately separated structured LLM passes that turn new ContentPieces into an
+Edition: a PK-free type/classification pass, then a PK-aware editorial pass. It is the
+highest-variance component in Cockpit and the one that makes it different from a feed reader with a
+read-later list. It therefore gets a contract and an evaluation harness rather than a line in a
+pipeline diagram.
 
 ---
 
@@ -15,13 +19,17 @@ Once per Edition composition, batched. Not per-piece.
 compose(date):
   candidates = ContentPieces created since last composition
              + carried entries from the previous Edition
-  projection = personalKnowledgeProjection()
-  context    = currentContextProjections()
-  result     = judge(candidates, projection, context, targetSize)
+  classifications = classify(candidates) // no Personal Knowledge or Current Context
+  projection      = personalKnowledgeProjection()
+  context         = currentContextProjections()
+  result          = edit(candidates, classifications, projection, context, targetSize)
   write Edition + EditionEntries in one transaction
 ```
 
-Batching is load-bearing: the model is choosing a *finite package* against `Edition.targetSize`, which requires seeing the candidates together. Per-piece scoring followed by a sort produces a ranked feed, which is the product Cockpit is explicitly not.
+Batching is load-bearing for the **editorial** pass: the model is choosing a *finite package*
+against `Edition.targetSize`, which requires seeing the candidates together. Per-piece scoring
+followed by a sort produces a ranked feed, which is the product Cockpit is explicitly not. The type
+pass is also batched for efficient structured extraction, but it does not select a package.
 
 If the candidate set exceeds roughly 120 pieces, split into batches by Interest Area, then run one short second pass over the survivors to enforce the size target and section balance.
 
@@ -29,7 +37,17 @@ If the candidate set exceeds roughly 120 pieces, split into batches by Interest 
 
 ## 2. Inputs
 
-**Per candidate:** id, kind, title, creator, publisher, publishedAt, first ~1500 characters of `normalizedText`, `bodyCompleteness` when ingest resolved it, Stream name, Stream `handling` and `handlingGuidance`, Stream `isEssential`, Interest Area name and guidance, and — for carried entries — how many times carried and current `entryState`.
+**Type/classification pass, per candidate:** id, kind, title, creator, publisher, publishedAt,
+first ~1500 characters of `normalizedText`, `bodyCompleteness` when ingest resolved it, Stream name
+and context, and Interest Area context. It receives **no Personal Knowledge projection and no
+Current Context**. It returns `isSubstantivePrimary`, `subjects`, `summary`, and the fallback
+`bodyCompleteness` only when ingest left it unresolved. Primary-vs-accessory is a type property,
+not a reader-value judgment.
+
+**Editorial pass, per candidate:** the same candidate projection plus the completed type metadata.
+It may use that metadata — Essential admission depends on it — but may not revise it. It receives the
+Personal Knowledge and Current Context projections below and returns admission, rank, section,
+rationale, matched claim, and Finds.
 
 **Personal Knowledge projection:** the full set of current claims rendered as labelled prose, grouped Fact / Taste / Interest, with a stable claim ID beside each model-facing line. Full set until the claim count exceeds 150; past that, retrieve a relevant subset by subject overlap and record which claims were included. This threshold is a guess and is measured at Gate 2.
 
@@ -43,20 +61,33 @@ Judgment never receives clickstream, dwell time, or open history. Per Product La
 
 ## 3. Structured output
 
-One object per candidate. Decoded strictly; a decode failure fails the piece to `admit: false` with a recorded error, never a silent drop.
+Each pass returns one object per candidate. Decoded strictly; a decode failure fails the piece to
+`admit: false` with a recorded error, never a silent drop. A valid type result remains safe to
+persist even if the later editorial selection fails closed. A response truncated at the model's
+output cap is not a whole-batch loss: the decoder salvages the complete leading objects and lets the
+cut-off tail fall through to the same per-piece "no judgment" path, which composition re-requests.
+Only a response with nothing recoverable fails the entire pass.
+
+```json
+{
+  "contentPieceID": "…",
+  "isSubstantivePrimary": true,
+  "subjects": ["housing policy", "zoning", "us politics"],
+  "summary": "…",
+  "bodyCompleteness": "full"
+}
+```
+
+The editorial object is:
 
 ```json
 {
   "contentPieceID": "…",
   "admit": true,
-  "isSubstantivePrimary": true,
   "section": "essentials | forYou | interestArea | essentialBacklog",
   "rank": 3,
   "rationale": "From Matthew Yglesias, marked Essential; original argument rather than a roundup.",
   "matchedPersonalKnowledgeClaimID": null,
-  "subjects": ["housing policy", "zoning", "us politics"],
-  "summary": "…",
-  "bodyCompleteness": "full",
   "finds": [
     {
       "kind": "restaurant",
@@ -74,20 +105,28 @@ One object per candidate. Decoded strictly; a decode failure fails the piece to 
 
 `finds` is populated from Phase 1. Extraction shares this call, so the marginal cost is near zero, and the orphan-Find population starts accumulating on day one rather than in month five. Handoff to a specialist app remains Phase 6; V1 Phase 1 only persists PendingFinds and lists them.
 
-`bodyCompleteness` is normally derived deterministically at ingest and is included as judgment input
-so the rationale can acknowledge an incomplete source. If ingest could not resolve it, judgment may
-provide one of `full`, `truncated`, or `teaser` as a fallback; deterministic ingest evidence is never
-overwritten by that proposal.
+`bodyCompleteness` is normally derived deterministically at ingest and is included in the type pass
+so the rationale can acknowledge an incomplete source. If ingest could not resolve it, the type pass
+may provide one of `full`, `truncated`, or `teaser` as a fallback; deterministic ingest evidence is
+never overwritten by that proposal.
 
-Non-admitted candidates still return `isSubstantivePrimary`, `subjects`, and `summary`. That data is written to the ContentPiece regardless, so quiet material is still searchable in Library and still eligible for carryover reconsideration.
+Non-admitted candidates still receive the type result. That data is written to the ContentPiece
+regardless, so quiet material is still searchable in Library and still eligible for carryover
+reconsideration.
 
 ---
 
 ## 4. Prompt skeleton
 
-Held in Cockpit, not in `LLMClientKit`. Versioned; `Edition` records the prompt version used.
+Held in Cockpit, not in `LLMClientKit`. Both prompts are versioned; `Edition` records the editorial
+prompt version used.
 
 ```
+Type prompt: classify primary authored material versus accessory and extract summary / subjects using
+only candidate and Stream context. It never receives Personal Knowledge or Current Context.
+
+Editorial prompt:
+
 You are composing today's edition of a personal newspaper for one reader.
 
 Editorial posture:
@@ -122,7 +161,7 @@ Rules:
 
 ## 5. Persistence
 
-`EditionEntry.rationale` and its optional `matchedPersonalKnowledgeClaimID` hold the explanation and its correction route. `ContentPiece.subjects`, `.summary`, `.isSubstantivePrimary` are written from the same pass. Judgment output is never re-derived for display; a past Edition explains itself from what was stored.
+`EditionEntry.rationale` and its optional `matchedPersonalKnowledgeClaimID` hold the explanation and its correction route. `ContentPiece.subjects`, `.summary`, `.isSubstantivePrimary` are written from the type pass. Judgment output is never re-derived for display; a past Edition explains itself from what was stored.
 
 Re-judgment happens only on explicit user action ("reconsider this"), on a prompt version change, or on the next composition for carried entries. Personal Knowledge changing does not retroactively recompose a past Edition.
 
@@ -138,7 +177,11 @@ This exists from Phase 1. It is the highest-leverage artifact in the project and
 
 **Labels.** Jon labels each `surface` / `quiet` / `never`, plus `isSubstantivePrimary`. Single-user ground truth is a genuine structural advantage here: no product company can get this.
 
-**Harness.** `swift test --filter JudgmentEval` runs the fixture set against the current prompt and model and reports agreement rate, false-quiet rate on Essential material, false-surface rate, substantive-primary accuracy, mean pieces admitted vs target, and cost per composition.
+**Harness.** `swift test --filter JudgmentEval` runs the fixture set against both current prompts and
+the model and reports agreement rate, false-quiet rate on Essential material, false-surface rate,
+substantive-primary accuracy, mean pieces admitted vs target, plus separate type/editorial and total
+cost/latency per composition. A paired bare-vs-taught run must show the classification result is
+unchanged by PK input; the type pass receives none by construction.
 
 **False-quiet on Essential material is the metric that matters.** It is the one failure that breaks a promise rather than producing a mediocre edition.
 
@@ -152,13 +195,17 @@ The fixture set is refreshed when labels drift, which is itself evidence that ta
 
 Do the arithmetic before Phase 1, not after.
 
-Working estimate: ~40 Streams, ~60 new items/day, ~1500 characters per candidate, plus the PK projection. That lands near 120–150k input tokens per composition, once daily.
+Working estimate: ~40 Streams, ~60 new items/day, ~1500 characters per candidate, plus the PK projection on the editorial pass. Both passes currently receive each candidate's full excerpt, so the split is approximately **2× input** before output and retry costs; the type response is smaller, but its input is not. Record the two pass costs separately in every M4 eval.
 
 Budget: **under $1.00 per composition and under 60 seconds on a warm device.** Composition cost is recorded on `Edition` and shown in Settings.
 
 If the real number materially exceeds the budget, the levers in order are: a cheap deterministic pre-filter (drop items whose Stream handling plainly excludes them before the model sees them), shorter candidate excerpts, a smaller model for the substantive-primary and subject extraction pass with a stronger model reserved for selection, and only then reducing Stream count.
 
 Per house convention, judgment runs on Sonnet by default. The eval harness is what makes changing that decision cheap.
+
+**Known M4 limitation.** `Edition.promptVersion` records the editorial prompt only. A type-prompt-only
+change therefore does not itself trigger re-judgment; the type prompt version is recorded by
+`JudgmentEval` while the product learns whether a separate persisted version is required.
 
 ---
 

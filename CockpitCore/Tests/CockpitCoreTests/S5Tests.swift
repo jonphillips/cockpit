@@ -139,7 +139,8 @@ struct S5Tests {
     let composer = EditionComposer(engine: JudgmentEngine(modelClient: stub))
     _ = try await composer.composeIfNeeded(now: base, in: database)
 
-    #expect(callCount.withLock { $0 } == 1)
+    // M4 S1 classifies first, then makes the PK-aware editorial call that extracts finds.
+    #expect(callCount.withLock { $0 } == 2)
     let find = try await database.read { db in try PendingFind.fetchOne(db) }
     let persisted = try #require(find)
     #expect(persisted.contentPieceID == pieceID)

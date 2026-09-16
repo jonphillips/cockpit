@@ -550,6 +550,43 @@ slot.
 
 ---
 
+## 23. The two-pass split's per-composition latency, and the §13 budget — OPEN
+
+Raised 2026-09-16 from the M4 S1 measurement (`docs/eval-log.md`, batch-30 `runFrozenCorpus`). §13
+records the composition budget as **under $1.00 and under 60 seconds**, and says exceeding it
+materially "reopens this decision with evidence." The M4 type/editorial split does exceed the latency
+half, so this entry reopens it — and tracks the resolution, which is already known and deferred, not
+newly designed here.
+
+- **Evidence.** Split latency **114.9s per composition** at batch 30 on the frozen corpus, well over
+  the 60s figure. Cost is fine ($0.211/composition, under $1.00). The split runs the type pass then
+  the editorial pass *sequentially* — editorial consumes the type metadata, so they cannot overlap —
+  and both currently run on Sonnet, with the editorial call carrying ~2× input (full bodies + PK +
+  type metadata, JUDGMENT-CONTRACT §7). So per-composition latency roughly doubled versus the single
+  pass. This is the **accepted, deliberate cost** of closing the substantive-primary bleed (§18,
+  Gate 2): the same run improved substantive-primary accuracy 0.551 → 0.681 and false-surface
+  0.179 → 0.051 with the floor held (0.034). **The split itself is not reopened — only its latency.**
+
+- **Caveat — this is a proxy, not yet a confirmed production breach.** 114.9s is measured on a Mac
+  against the API under eval concurrency, not a warm iPad composing one real morning. The §7 budget is
+  a *warm-device* target; the real number is Jon's device pass on actual hardware. Treat this as a
+  flag to verify, not a settled regression.
+
+- **Resolution (deferred, not designed here): move the PK-free type pass to a faster/cheaper model**
+  once it can emit the schema — the M2-S1 cost lever, already parked in the M4 milestone's M5+ cutline
+  (`docs/milestones/M4-gmail-today.md`). That cuts the type pass's cost *and* latency at once, and the
+  editorial frontier call stays on Sonnet. It sits behind the known schema blocker (the cheap/onboard
+  model must reliably emit the classification schema first).
+
+- **Trigger to act.** This becomes load-bearing when Today/Gmail (M4 S4–S5) adds message volume to the
+  daily composition, or when Jon's device pass shows a real morning composition over 60s. If the
+  warm-device number is under budget, this rests as recorded; if over, the type-model swap moves ahead
+  of its current M5+ slot. Interim levers, if needed before the swap: trim the body the editorial pass
+  resends (a finds/rationale-quality trade-off), or the Interest-Area split + second pass
+  (JUDGMENT-CONTRACT §1). None chosen now.
+
+---
+
 # Deliberately deferred decisions
 
 These are **not unresolved blockers**. They should wait for implementation/use evidence.
