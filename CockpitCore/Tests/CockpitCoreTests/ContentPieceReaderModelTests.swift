@@ -44,6 +44,77 @@ struct ContentPieceReaderModelTests {
     expectNoDifference(memberships.1?.admittedBy, "explicit")
   }
 
+  @Test("Reader renders a locally held full body inline")
+  func fullBodyPresentation() async throws {
+    let pieceID = UUID(9010)
+    try await seedReaderPiece(
+      id: pieceID, isSubstantivePrimary: true, bodyCompleteness: .full,
+      localNormalizedText: "The complete held article.")
+
+    let model = ContentPieceReaderModel(contentPieceID: pieceID)
+    try await model.$content.load()
+
+    expectNoDifference(
+      model.bodyPresentation,
+      .inline(text: "The complete held article.", isTruncated: false)
+    )
+  }
+
+  @Test("Reader renders a locally held truncated body inline with a source remainder")
+  func truncatedBodyPresentation() async throws {
+    let pieceID = UUID(9011)
+    try await seedReaderPiece(
+      id: pieceID, isSubstantivePrimary: true, bodyCompleteness: .truncated,
+      localNormalizedText: "The opening Cockpit holds.")
+
+    let model = ContentPieceReaderModel(contentPieceID: pieceID)
+    try await model.$content.load()
+
+    expectNoDifference(
+      model.bodyPresentation,
+      .inline(text: "The opening Cockpit holds.", isTruncated: true)
+    )
+  }
+
+  @Test("Reader renders a teaser as a preview rather than asserting a body")
+  func teaserPresentation() async throws {
+    let pieceID = UUID(9012)
+    try await seedReaderPiece(
+      id: pieceID, isSubstantivePrimary: true, bodyCompleteness: .teaser,
+      localNormalizedText: nil)
+
+    let model = ContentPieceReaderModel(contentPieceID: pieceID)
+    try await model.$content.load()
+
+    expectNoDifference(model.bodyPresentation, .preview)
+  }
+
+  @Test("A synced full-body signal without local text stays custody-honest")
+  func fullBodyWithoutLocalTextIsUnavailable() async throws {
+    let pieceID = UUID(9013)
+    try await seedReaderPiece(
+      id: pieceID, isSubstantivePrimary: true, bodyCompleteness: .full,
+      localNormalizedText: nil)
+
+    let model = ContentPieceReaderModel(contentPieceID: pieceID)
+    try await model.$content.load()
+
+    expectNoDifference(model.bodyPresentation, .unavailable)
+  }
+
+  @Test("A digest remains a compact contents preview even when this device holds its text")
+  func accessoryPresentationStaysCompact() async throws {
+    let pieceID = UUID(9014)
+    try await seedReaderPiece(
+      id: pieceID, isSubstantivePrimary: false, bodyCompleteness: .full,
+      localNormalizedText: "A digest may carry source text, but it is a skim surface.")
+
+    let model = ContentPieceReaderModel(contentPieceID: pieceID)
+    try await model.$content.load()
+
+    expectNoDifference(model.bodyPresentation, .compactPreview)
+  }
+
   @Test("Reader teaching persists its explicit reason and ContentPiece provenance only after confirmation")
   func readerTeachingPersistsProvenance() async throws {
     let pieceID = UUID(9002)
@@ -108,6 +179,25 @@ struct ContentPieceReaderModelTests {
     expectNoDifference(teaching.reason, "I'm not interested in this specific hotel, but I care about this kind of adaptive reuse.")
     expectNoDifference(model.readerTaughtClaim?.id, claim.id)
     #expect(model.teachingStage == nil)
+  }
+
+  private func seedReaderPiece(
+    id: ContentPiece.ID,
+    isSubstantivePrimary: Bool,
+    bodyCompleteness: BodyCompleteness,
+    localNormalizedText: String?
+  ) async throws {
+    try await database.write { db in
+      try ContentPiece.insert {
+        ContentPiece.Draft(
+          id: id, kind: .article, title: "Piece", publisher: "Publisher", summary: "A preview.",
+          isSubstantivePrimary: isSubstantivePrimary, bodyCompleteness: bodyCompleteness,
+          createdAt: .distantPast)
+      }.execute(db)
+      if let localNormalizedText {
+        try NormalizedTextOperations.store(localNormalizedText, for: id, in: db)
+      }
+    }
   }
 
   @Test("A broad Reader synthesis remains a proposal until Jon explicitly confirms it")
