@@ -319,3 +319,13 @@ and false-surface, holds the Essential floor, and — via the truncation fix sur
 made the whole composition resilient to a capped model response. Remaining to close the slice: Jon's
 lived-use endorsement that the split edition *feels* right on real morning content (the manual pass
 M4-S1 reserves), then tick the box.
+
+2026-09-16 (device pass) — **On-device recompose: ~6 minutes, $0.48. Cost fine; latency ~6× the §7
+budget — the DECISIONS §23 trigger fired.** A real recompose on an iPad (whole day re-judged from
+scratch) cost **$0.48** (under the $1.00/composition budget) and took **~360s** — about 6× the 60s
+warm-device target, on the hardware the budget is about. This resolves the §23 proxy caveat: the
+latency breach is real, not a Mac-over-API artifact. Root cause is the monolithic production path —
+`composeIfNeeded` sends the whole day to `engine.judge` as one large type call + one large editorial
+call, sequentially, with none of the batching/concurrency the eval harness uses. Recorded and
+actioned as **M4 · S6 — Composition latency** (parallelize the PK-free type pass; the editorial pass
+stays one finite-package call), sequenced before the Gmail spine. See DECISIONS §23 (triggered).
