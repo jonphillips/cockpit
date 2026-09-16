@@ -18,6 +18,7 @@ public struct CurrentEditionRequest: FetchKeyRequest {
     public let section: JudgmentSection
     public let rank: Int
     public let rationale: String?
+    public let matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID?
     public let entryState: EditionEntryState
     public let timesCarried: Int
     public let firstAdmittedEditionID: Edition.ID
@@ -45,6 +46,7 @@ public struct CurrentEditionRequest: FetchKeyRequest {
           summary: $1.summary, canonicalURL: $1.canonicalURL, isSubstantivePrimary: $1.isSubstantivePrimary,
           bodyCompleteness: $1.bodyCompleteness,
           section: $0.section, rank: $0.rank, rationale: $0.rationale,
+          matchedPersonalKnowledgeClaimID: $0.matchedPersonalKnowledgeClaimID,
           entryState: $0.entryState, timesCarried: $0.timesCarried,
           firstAdmittedEditionID: $0.firstAdmittedEditionID)
       }

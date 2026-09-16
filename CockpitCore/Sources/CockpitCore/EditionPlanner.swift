@@ -27,6 +27,7 @@ struct EditionCarriedPredecessor: Sendable {
   var section: JudgmentSection
   var rank: Int
   var rationale: String?
+  var matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID?
 }
 
 /// Gathers the day's candidates — new arrivals plus carryovers — and the context each needs. Pure
@@ -70,7 +71,8 @@ struct EditionPlanner: Sendable {
     for entry in carriedEntries {
       result[entry.contentPieceID] = EditionCarriedPredecessor(
         firstAdmittedEditionID: entry.firstAdmittedEditionID, timesCarried: entry.timesCarried,
-        section: entry.section, rank: entry.rank, rationale: entry.rationale)
+        section: entry.section, rank: entry.rank, rationale: entry.rationale,
+        matchedPersonalKnowledgeClaimID: entry.matchedPersonalKnowledgeClaimID)
     }
     return result
   }

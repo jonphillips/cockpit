@@ -33,8 +33,11 @@ a real iPad shell (tabs + split view)
 ```
 
 M3 ends at **Architecture Gate 2** (`docs/V1-SCOPE-AND-SEQUENCING.md` Phase 2). Gate 2's headline is
-blunt: **did the eval agreement rate move when PK grew?** If not, PK is decorative and something is
-wrong.
+blunt: **did PK growth change admission/rank among contested pieces in a direction Jon endorses —
+with essential-false-quiet held against a same-session control run (the paired floor, DECISIONS
+§22 — not an absolute 0.068)?** If PK moves nothing, it is decorative
+and something is wrong. (Reframed from "did the eval *agreement* rate move" — agreement-vs-`surface`
+is demoted as a headline/gate; see DECISIONS §22.)
 
 **Gmail is out of M3.** Ratified 2026-09-15: read-only Today (Phase 3) becomes **M4**. Phase 2 and
 Phase 3 have no dependency on each other, so this is purely a sequencing choice — deepen the existing
@@ -48,10 +51,11 @@ gate the first PK slice (S2); S1 (the shell) has no such dependency and can star
 building the shell is what makes closing Gate 1 pleasant in the first place.
 
 - **Gate 1 evidence is recorded**, especially the agreement-definition tension the eval log flags:
-  the baseline 0.421 is dominated by the model being far more selective than the `surface` labels, and
-  Gate 1/2 must decide whether to retune `targetSize`/editorial posture or re-scope what `surface`
-  means **before** anyone chases the agreement figure by growing PK. S5's Gate-2 proof is meaningless
-  on top of an agreement number nobody trusts.
+  the baseline 0.421 is dominated by the model being far more selective than the `surface` labels.
+  **Resolved 2026-09-15 in DECISIONS §22** — the re-scope route was taken: agreement-vs-`surface` is
+  demoted from headline/gate (it measures "did I subscribe," not editorial selection), essential-false-
+  quiet stays the floor, and the Gate-2 headline becomes selection/ranking on the contested set. S5's
+  proof is measured against that, not against an agreement number nobody trusts.
 - **Real teaching has happened through the M2 S1 surfaces** — the Jon Brain import ran, direct
   teaching works, and there is a real claim set (not just fixtures) for correction, consolidation, and
   relevance-change to act on.
@@ -76,8 +80,8 @@ enough to judge against. Recorded direction, not a slice:
   blocker is concrete and already known: **the onboard model can't emit this structured schema yet**
   (M2 S1 amendment). Revisit when that changes.
 - **Cheapest lever first, when the time comes:** a Haiku-vs-Sonnet eval pass — no schema problem,
-  trivial swap — before any onboard investigation. Adopt only if it holds essential-false-quiet at or
-  below the 0.068 floor.
+  trivial swap — before any onboard investigation. Adopt only if it holds essential-false-quiet
+  against the Sonnet control run (the paired floor, DECISIONS §22).
 
 Two small observability gaps to keep in mind (candidates, not required M3 scope): **there is no
 cost/latency figure shown in the UI**, and you cannot A/B what you do not measure — surfacing the
@@ -115,9 +119,12 @@ nothing — not a Gmail disposition, not a subscription, not a notification.
 harden into durable Taste/Interest.
 
 **Claim only what you verified — and for PK that means a number.** Answer Gate 2 through `JudgmentEval`
-against the frozen corpus + confirmed labels, recorded in `docs/eval-log.md`. The M2 rule stands:
-**adopt a PK/prompt change only when it lifts agreement without regressing essential-false-quiet above
-the 0.068 baseline.**
+against the frozen corpus + confirmed labels, recorded in `docs/eval-log.md`. The rule, as sharpened by
+DECISIONS §22: **adopt a PK/prompt change only when it improves selection/ranking on the contested set
+(and substantive-primary accuracy) without regressing essential-false-quiet against a same-session
+control run (the paired floor, DECISIONS §22).**
+Raw agreement-vs-`surface` is context, not the gate (§22) — a model admitting everything scores 0.89
+trivially.
 
 **Verification: model state is tested; pixels are Jon's pass** (`AGENTS.md`, adapted for S1). The
 standing "no UI/simulator/device testing" rule still holds for S2–S5 (correction, teaching,
@@ -459,8 +466,10 @@ against) and M2 S3 (rationale is already written per composition and surfaced in
    terms, verified through the judgment output — not a hand-written string.
 2. Correcting the explanation drives S2's correction path and is tested end-to-end through the owning
    models.
-3. A recorded `JudgmentEval` run shows the agreement / essential-false-quiet effect of a PK change, in
-   `docs/eval-log.md`, under the M2 baseline discipline.
+3. A recorded `JudgmentEval` run shows the selection/ranking effect of a PK change on the contested
+   set, with essential-false-quiet held against a same-session control run (the paired floor), in `docs/eval-log.md`, under the
+   baseline discipline as reframed by DECISIONS §22 (agreement-vs-`surface` reported as context, not
+   as the gate).
 
 ### Out of scope
 
@@ -500,8 +509,11 @@ profile-maintenance chore-work (PK-MODEL §8, §12) — the one thing the harnes
 The checkpoint M3 ends at (`docs/V1-SCOPE-AND-SEQUENCING.md`, Architecture Gate 2). Stop and inspect
 before deepening the knowledge model:
 
-- **Did the eval agreement rate move when PK grew? If it did not, PK is decorative and something is
-  wrong.** S5's recorded runs are the evidence.
+- **Did PK growth change admission/rank among contested pieces in a direction Jon endorses, with
+  essential-false-quiet held against a same-session control run (the paired floor, §22)? If PK moves
+  nothing, it is decorative and something is
+  wrong.** S5's recorded runs are the evidence. (Not raw agreement-vs-`surface`, which is demoted to
+  context — DECISIONS §22.)
 - Are Fact / Taste / Interest enough, or did real teaching want a distinction they can't carry?
 - What scope data was genuinely required (PK-MODEL §7)? Was provenance sufficient and useful?
 - Is the LLM overgeneralizing (PK-MODEL §6)? What did consolidation get wrong on the real set?

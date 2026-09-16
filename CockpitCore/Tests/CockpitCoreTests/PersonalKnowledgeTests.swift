@@ -261,7 +261,9 @@ struct PersonalKnowledgeTests {
       provenance: .directTeaching, status: .superseded, createdAt: .distantPast
     )
     let full = PersonalKnowledgeProjector.project([current, superseded])
-    expectNoDifference(full.text, "Interest:\n- Burgundy travel and wine.")
+    expectNoDifference(
+      full.text,
+      "Interest:\n- [Claim ID: \(current.id.uuidString)] Burgundy travel and wine.")
     expectNoDifference(full.includedClaimIDs, [current.id])
     #expect(full.isFullSet)
 

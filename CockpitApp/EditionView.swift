@@ -54,7 +54,10 @@ struct EditionView: View {
       {
         ReaderView(
           contentPieceID: row.contentPieceID,
-          editionContext: EditionReaderContext(model: model, entryID: row.id, rationale: row.rationale))
+          editionContext: EditionReaderContext(
+            model: model, entryID: row.id, rationale: row.rationale,
+            matchedPersonalKnowledgeClaimID: row.matchedPersonalKnowledgeClaimID
+          ))
           .id(row.contentPieceID)
       } else {
         ContentUnavailableView("Select a Story", systemImage: "newspaper")

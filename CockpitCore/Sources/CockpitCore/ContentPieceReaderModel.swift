@@ -17,21 +17,30 @@ public final class ContentPieceReaderModel {
   @ObservationIgnored @Dependency(\.uuid) private var uuid
   @ObservationIgnored @Fetch public var content = ContentPieceReaderRequest.Value()
   @ObservationIgnored @Fetch public var readerTeaching = ReaderTeachingClaimRequest.Value()
+  @ObservationIgnored @Fetch public var matchedPersonalKnowledge = MatchedPersonalKnowledgeClaimRequest.Value()
   public var errorMessage: String?
   public var teachingReason = ""
   public var teachingStage: ReaderTeachingStage?
   public var isReviewingTeaching = false
   public var teachingProviderDescription: String?
 
-  public init(contentPieceID: ContentPiece.ID) {
+  public init(
+    contentPieceID: ContentPiece.ID,
+    matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID? = nil
+  ) {
     _content = Fetch(wrappedValue: .init(), ContentPieceReaderRequest(contentPieceID: contentPieceID))
     _readerTeaching = Fetch(
       wrappedValue: .init(), ReaderTeachingClaimRequest(contentPieceID: contentPieceID)
+    )
+    _matchedPersonalKnowledge = Fetch(
+      wrappedValue: .init(),
+      MatchedPersonalKnowledgeClaimRequest(claimID: matchedPersonalKnowledgeClaimID)
     )
   }
 
   public var row: ContentPieceReaderRequest.Row? { content.row }
   public var readerTaughtClaim: PersonalKnowledgeRequest.Row? { readerTeaching.claim }
+  public var matchedClaim: PersonalKnowledgeRequest.Row? { matchedPersonalKnowledge.claim }
 
   public func saveForLater() async {
     guard let id = row?.id else { return }

@@ -403,11 +403,6 @@ Resolve by: living with digests as skim cards, and watching whether (a) they wan
 
 ---
 
-<<<<<<< HEAD
-=======
-<<<<<<< Updated upstream
-=======
->>>>>>> 4b4aa72 (docs update)
 ## 20. The Reader renders the body Cockpit holds; Open Original is the fallback — RESOLVED
 
 Raised 2026-09-15 from the M3 S1/S3 device pass. The Reader stops at the `summary` and offers **Open Original** as the primary way to actually read a piece — so the one "investigate this item" surface repeats the sidebar card and then sends Jon out of the app to read. That is backwards: the product law is that the Reader makes **ContentPiece substance primary** (`docs/IPAD-FIRST-EXPERIENCE.md` §7), and leaving the app to read the substance is the opposite.
@@ -430,7 +425,6 @@ This is not new capability bolted on — it is surfacing what the model already 
 
 ---
 
-=======
 ## 21. Always-read Streams: reachable completeness vs. Edition promotion — OPEN HYPOTHESIS
 
 Raised 2026-09-15 from Jon's product note on paid, always-read newsletters (Matthew Yglesias, Puck, Alan Sepinwall). **Not resolved — it cannot be validated until email-delivered Streams are real (Phase 5), because these Streams arrive through Gmail. Recorded here so the Phase 5 build does not quietly assume `Essential` means "promote into the daily Edition."**
@@ -451,6 +445,81 @@ For a Stream Jon reads *regardless* — a paid subscription he opens every issue
 - **Does not weaken §15.** Nothing silently ages away. This only changes whether "reachable" *begins* as the list-first default or is only reached after overflow.
 
 Resolve by: living with Phase 5. Watch whether (a) always-read Streams promoted into Edition genuinely feel like wasted slots, (b) a list-first "sweep these" surface for a Stream is what Jon actually reaches for, and (c) it expresses as Handling without a new posture enum. If all three hold, it likely folds into §15's Essential model as a per-Stream default rather than a new axis. Relates to §15 (Essential relief valve — the existing reachable-list primitive), §14 (`targetSize`), `docs/EDITION-EXPERIENCE.md` §4–5, `docs/CONTENT-STREAM-MODEL.md` (Handling / Essential), and `docs/V1-SCOPE-AND-SEQUENCING.md` Phase 5.
+
+---
+
+## 22. What the judgment eval measures — agreement is not the headline — RESOLVED
+
+Raised 2026-09-15 from the M2-S2 baseline (`docs/eval-log.md`, 2026-09-13) while
+scoping the S5 Gate-2 run. **Amends §17 and resolves the agreement-definition
+tension the eval-log and `docs/milestones/M3-shell-and-personal-knowledge.md`
+flagged for Gate 1/2.**
+
+The baseline read `agreement 0.421` and treated it as the number to move. On
+inspection it is close to meaningless as a headline, for a structural reason, not
+a model-quality one:
+
+- The frozen corpus is **89% `surface`** (316/357). The model admits ~35%. So the
+  low agreement is almost entirely the model *declining pieces Jon labelled
+  `surface`* — and a model that admitted everything would score **0.89 agreement
+  trivially**. A metric maximised by admitting everything cannot gate a surface
+  whose whole purpose is finite selection.
+- The `surface` / `quiet` / `never` taxonomy is **Gmail-triage vocabulary**
+  (seeded in M1 from `dispositionPrior` + Gmail metadata). It answers *"would I
+  ever want this / did I subscribe to this?"* — a statement about the **source**,
+  made once. For a deliberately curated inbox that answer is ~always `surface`.
+  It is not a statement about **this issue, this morning**.
+
+These are two different questions wearing one label. The Edition does not answer
+"is this junk" — for curated Streams almost nothing is. It answers: *of the 40–120
+pieces that arrived, which ~20 deserve this morning's attention, in what order and
+section, deduplicated, and why.* The Edition is an **editor**, not a bouncer: its
+value is ranking, sectioning, substance-vs-accessory (§18), dedup, and finiteness
+under an attention budget (§14) — not garbage rejection. Measuring it against a
+"would I ever want this" label measures the wrong job.
+
+**Decision:**
+
+1. **Agreement-vs-`surface` is demoted from headline and gate.** It measures
+   source endorsement, rewards over-admission, and does not reflect editorial
+   quality. It may be reported as context but never chased.
+2. **Essential false-quiet remains the one hard floor, measured as a paired
+   delta.** §17's "the one failure that breaks a promise rather than producing a
+   mediocre edition" is exactly right and is *why* this survives as the gate. But it
+   is **not** a fixed constant: the M3-S5 runs (2026-09-15, `docs/eval-log.md`)
+   showed essential-false-quiet reading 0.051 / 0.068 / 0.102 across *clean* runs of
+   the same prompt — it is a small-count metric (~3–6 pieces of ~59
+   Essential-substantive), so an absolute threshold passes or fails on model
+   nondeterminism. The gate is therefore: **a PK/prompt/model change must not
+   regress essential-false-quiet relative to a same-session control run** (bare vs
+   taught, or old-prompt vs new). The ~0.068 baseline is the order-of-magnitude
+   reference, not the pass line. No change ships that regresses the paired control.
+3. **The eval's quality headline is re-scoped to selection-and-ordering on the
+   contested set** — how the finite package is chosen and ranked among the pieces
+   where attention is actually rationed — together with **substantive-primary
+   accuracy** (0.534 at baseline, a genuine weakness). Not agreement with a
+   subscribe-or-not label.
+4. **Consequence for S5 / Architecture Gate 2.** "Did agreement move when PK grew?"
+   is no longer the Gate-2 headline. The honest question is whether PK growth
+   **changed admission/ranking among contested pieces in a direction Jon
+   endorses** — measured on that set, with essential-false-quiet held as the floor.
+   The M3 milestone's Gate-2 phrasing is updated to match.
+
+**Guardrail — this is not a licence to admit everything, and it is the opposite of
+clickstream.** Finiteness (§14) and the anti-forget guarantee (§15) stand in full;
+demoting agreement removes a bad *metric*, not the discipline of a small package.
+And the relevance signal remains explicit taught knowledge (§8) — never inferred
+behaviour. This decision sharpens what "not decorative" means for PK; it does not
+loosen where PK comes from.
+
+**Still to measure at Gate 2 (do not pre-build).** The current labels cannot
+express "top-of-mind for this morning" or a ranking preference — they are the
+subscribe-or-not axis this decision just demoted. Whether the re-scoped headline
+needs a **new labelling axis** (a per-morning "this one mattered" / relative-order
+signal) or a different judgment target is deferred to the Gate-2 measurement, not
+designed here. Relates to §14, §15, §17, §18, §19 and §21 — all of which already
+carry the same insight from other angles: not every endorsed piece needs a daily
+slot.
 
 ---
 
