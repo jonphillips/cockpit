@@ -83,6 +83,91 @@ struct JudgmentEngineTests {
     #expect(editorialPrompt.contains("already-classified type metadata"))
   }
 
+  @Test("type classification is batched while the editorial package stays whole")
+  func batchesTypePassWithoutShardingEditorialPass() async {
+    let candidates = (1...31).map { candidate(id: UUID($0)) }
+    let requests = Mutex<[ModelRequest]>([])
+    let engine = JudgmentEngine(
+      modelClient: StubModelClient { request in
+        requests.withLock { $0.append(request) }
+        let ids = candidates.map(\.id).filter { request.messages.last?.text.contains($0.uuidString) == true }
+        guard case let .jsonSchema(name, _, _) = request.responseFormat else {
+          Issue.record("Judgment must request structured output.")
+          return ModelResponse(text: "")
+        }
+        return switch name {
+        case "cockpit_type_classifications":
+          ModelResponse(text: self.classificationResponse(for: ids))
+        case "cockpit_editorial_judgments":
+          ModelResponse(text: self.response(for: ids))
+        default:
+          ModelResponse(text: "")
+        }
+      })
+
+    let run = await engine.judge(
+      candidates: candidates,
+      personalKnowledge: .init(text: "", includedClaimIDs: [], isFullSet: true))
+
+    let captured = requests.withLock { $0 }
+    let typeRequests = captured.filter { request in
+      if case let .jsonSchema(name, _, _) = request.responseFormat {
+        return name == "cockpit_type_classifications"
+      }
+      return false
+    }
+    let editorialRequests = captured.filter { request in
+      if case let .jsonSchema(name, _, _) = request.responseFormat {
+        return name == "cockpit_editorial_judgments"
+      }
+      return false
+    }
+
+    #expect(typeRequests.count == 2)
+    #expect(typeRequests.map { request in
+      candidates.count { request.messages.last?.text.contains($0.id.uuidString) == true }
+    }.sorted() == [1, JudgmentEngine.typePassBatchSize])
+    #expect(editorialRequests.count == 1)
+    #expect(candidates.allSatisfy { editorialRequests[0].messages.last?.text.contains($0.id.uuidString) == true })
+    #expect(run.outcomes.map(\.contentPieceID) == candidates.map(\.id))
+    #expect(run.outcomes.allSatisfy { $0.errorDescription == nil })
+  }
+
+  @Test("a failed type batch is retried without losing its pieces")
+  func retriesFailedTypeBatch() async {
+    let candidates = (1...31).map { candidate(id: UUID($0)) }
+    let failedCandidate = candidates[30]
+    let typeRequestSizes = Mutex<[Int]>([])
+    let failedBatchAttempts = Mutex(0)
+    let engine = JudgmentEngine(
+      modelClient: StubModelClient { request in
+        let ids = candidates.map(\.id).filter { request.messages.last?.text.contains($0.uuidString) == true }
+        guard case let .jsonSchema(name, _, _) = request.responseFormat else {
+          Issue.record("Judgment must request structured output.")
+          return ModelResponse(text: "")
+        }
+        if name == "cockpit_type_classifications" {
+          typeRequestSizes.withLock { $0.append(ids.count) }
+          if ids == [failedCandidate.id], failedBatchAttempts.withLock({ count in
+            count += 1
+            return count
+          }) == 1 {
+            throw URLError(.timedOut)
+          }
+          return ModelResponse(text: self.classificationResponse(for: ids))
+        }
+        return ModelResponse(text: self.response(for: ids))
+      })
+
+    let run = await engine.judge(
+      candidates: candidates,
+      personalKnowledge: .init(text: "", includedClaimIDs: [], isFullSet: true))
+
+    #expect(typeRequestSizes.withLock { $0 }.sorted() == [1, 1, JudgmentEngine.typePassBatchSize])
+    #expect(run.outcomes.map(\.contentPieceID) == candidates.map(\.id))
+    #expect(run.outcomes.allSatisfy { $0.errorDescription == nil })
+  }
+
   @Test("a malformed batch fails every candidate closed with a recorded error")
   func malformedBatchFailsClosed() async {
     let first = candidate(id: UUID(1))
