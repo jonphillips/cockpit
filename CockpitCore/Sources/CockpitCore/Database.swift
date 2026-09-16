@@ -155,6 +155,7 @@ enum CockpitMigrations {
     registerS5(in: &migrator)
     registerReaderTeaching(in: &migrator)
     registerRelevanceChange(in: &migrator)
+    registerOfflineAvailability(in: &migrator)
     return migrator
   }
 }

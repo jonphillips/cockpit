@@ -58,7 +58,7 @@ Gmail API.
 
 - [x] **S1 — Split the type/classification call from the editorial call** *(Gate-2 carry-in; no Gmail dependency)* — merged, PR #25 (eval done; Jon's lived-use endorsement is the last soft item)
 - [x] **S2 — Reader inline body** *(DECISIONS §20; no Gmail dependency)*
-- [ ] **S3 — Offline controls: `Offline until [date]` and `Keep Offline`**
+- [x] **S3 — Offline controls: `Offline until [date]` and `Keep Offline`**
 - [ ] **S6 — Composition latency: parallelize the type pass** *(from S1's device pass; DECISIONS §23; no Gmail dependency; sequence before S4)*
 - [ ] **S4 — Gmail read-only ingest: Inbox → provider Artifact → email ContentPiece**
 - [ ] **S5 — Today: Worth Seeing / Personal-Consequential / quiet handling, Reader, Clear**
