@@ -94,7 +94,7 @@ cheap addition that could ride S1.
 - [x] **S2 — Correction, supersession, and unobtrusive consolidation**
 - [x] **S3 — Teach from the Reader ("why this matters")**
 - [x] **S4 — Hypothesis confirmation** *(trigger locked: explicit-action recurrence)*
-- [ ] **S5 — The visible, correctable, PK-driven relevance change** *(the Gate-2 product proof)*
+- [x] **S5 — The visible, correctable, PK-driven relevance change** *(the Gate-2 product proof)*
 - [ ] **Architecture Gate 2 — Personal Knowledge review**
 
 ## Standing rules for every M3 slice
