@@ -9,6 +9,7 @@ struct ReaderView: View {
   @Environment(\.dismiss) private var dismissScreen
   @Environment(\.openURL) private var openURL
   @State private var correctingClaim: PersonalKnowledgeRequest.Row?
+  @State private var offlineSheet: OfflineAvailabilitySheet?
 
   init(contentPieceID: ContentPiece.ID, editionContext: EditionReaderContext? = nil) {
     self.contentPieceID = contentPieceID
@@ -81,6 +82,12 @@ struct ReaderView: View {
             dismissScreen: dismissScreen,
             saveForLater: saveForLaterButtonTapped,
             addToLibrary: addToLibraryButtonTapped,
+            offlinePresentation: model.offlinePresentation,
+            chooseOfflineUntil: {
+              offlineSheet = .until
+            },
+            keepOffline: { Task { await model.keepOffline() } },
+            releaseOffline: { Task { await model.releaseOffline() } },
             beginTeaching: model.beginTeaching,
             readerTaughtClaim: model.readerTaughtClaim,
             correctClaim: { correctingClaim = $0 }
@@ -99,6 +106,12 @@ struct ReaderView: View {
     }
     .sheet(item: $correctingClaim) { claim in
       ReaderPersonalKnowledgeCorrectionView(claim: claim)
+    }
+    .sheet(item: $offlineSheet) { sheet in
+      switch sheet {
+      case .until:
+        OfflineUntilSheet(model: model)
+      }
     }
     .safeAreaInset(edge: .bottom) {
       if let error = model.errorMessage ?? editionContext?.model.errorMessage {
@@ -179,6 +192,10 @@ private struct ReaderActionControls: View {
   let dismissScreen: DismissAction
   let saveForLater: () async -> Void
   let addToLibrary: () async -> Void
+  let offlinePresentation: OfflineAvailabilityPresentation
+  let chooseOfflineUntil: () -> Void
+  let keepOffline: () -> Void
+  let releaseOffline: () -> Void
   let beginTeaching: () -> Void
   let readerTaughtClaim: PersonalKnowledgeRequest.Row?
   let correctClaim: (PersonalKnowledgeRequest.Row) -> Void
@@ -202,6 +219,13 @@ private struct ReaderActionControls: View {
     }
     .buttonStyle(.bordered)
     .font(.subheadline)
+
+    OfflineAvailabilityControls(
+      presentation: offlinePresentation,
+      chooseOfflineUntil: chooseOfflineUntil,
+      keepOffline: keepOffline,
+      releaseOffline: releaseOffline
+    )
 
     VStack(alignment: .leading, spacing: 8) {
       Button("Tell Cockpit why this matters", systemImage: "lightbulb", action: beginTeaching)

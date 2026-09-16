@@ -16,6 +16,8 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
     /// Device-local readable substance. Completeness syncs with the ContentPiece, but this text
     /// deliberately does not, so the Reader must never infer its presence from completeness.
     public let localNormalizedText: String?
+    public let localAvailabilityMode: LocalAvailabilityMode?
+    public let offlineExpiresAt: Date?
     public let laterAddedAt: Date?
     public let libraryAddedAt: Date?
   }
@@ -38,16 +40,49 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
       .leftJoin(LaterMembership.all) { $0.id.eq($1.contentPieceID) }
       .leftJoin(LibraryMembership.all) { $0.id.eq($2.contentPieceID) }
       .leftJoin(LocalNormalizedText.all) { $0.id.eq($3.contentPieceID) }
+      .leftJoin(LocalAvailability.all) { $0.id.eq($4.contentPieceID) }
       .select {
         Row.Columns(
           id: $0.id, title: $0.title, publisher: $0.publisher, summary: $0.summary,
           canonicalURL: $0.canonicalURL, isSubstantivePrimary: $0.isSubstantivePrimary,
           bodyCompleteness: $0.bodyCompleteness, localNormalizedText: $3.normalizedText,
+          localAvailabilityMode: $4.mode, offlineExpiresAt: $4.expiresAt,
           laterAddedAt: $1.addedAt,
           libraryAddedAt: $2.addedAt)
       }
       .fetchOne(db)
     return value
+  }
+}
+
+public enum OfflineAvailabilityPresentation: Equatable, Sendable {
+  case ordinaryCache
+  case offlineUntil(Date)
+  case keptOffline
+  case expired(Date)
+
+  public var isActivePromise: Bool {
+    switch self {
+    case .offlineUntil, .keptOffline: true
+    case .ordinaryCache, .expired: false
+    }
+  }
+}
+
+/// A status derived from local state only. An expired row is deliberately treated as ordinary
+/// cache even before the eviction pass gets a chance to clear its redundant payload reference.
+public func offlineAvailabilityPresentation(
+  for row: ContentPieceReaderRequest.Row?, at date: Date
+) -> OfflineAvailabilityPresentation {
+  guard let row else { return .ordinaryCache }
+  switch row.localAvailabilityMode {
+  case .pinned:
+    return .keptOffline
+  case .until:
+    guard let expiresAt = row.offlineExpiresAt else { return .ordinaryCache }
+    return expiresAt > date ? .offlineUntil(expiresAt) : .expired(expiresAt)
+  case .cache, .none:
+    return .ordinaryCache
   }
 }
 

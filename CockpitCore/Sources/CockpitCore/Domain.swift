@@ -32,6 +32,9 @@ public enum ContentKind: String, Codable, QueryBindable, Sendable {
   case post
 }
 
+/// The retention promise a person has made to this device. It is deliberately separate from
+/// membership and source custody: a cache may be evicted, while an active promise may not.
+
 public enum PersonalKnowledgeKind: String, Codable, QueryBindable, CaseIterable, Hashable, Sendable {
   case fact
   case taste

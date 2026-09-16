@@ -10,7 +10,7 @@ import SQLiteData
 @Observable
 public final class ContentPieceReaderModel {
   @ObservationIgnored @Dependency(\.defaultDatabase) private var database
-  @ObservationIgnored @Dependency(\.date.now) private var now
+  @ObservationIgnored @Dependency(\.date.now) var now
   @ObservationIgnored @Dependency(\.modelClient) private var modelClient
   @ObservationIgnored @Dependency(\.apiKeyStore) private var apiKeyStore
   @ObservationIgnored @Dependency(\.frontierPreferenceStore) private var preferenceStore
@@ -130,7 +130,7 @@ public final class ContentPieceReaderModel {
     }
   }
 
-  private func run(_ operation: @escaping @Sendable (Database) throws -> Void) async {
+  func run(_ operation: @escaping @Sendable (Database) throws -> Void) async {
     do {
       try await database.write { db in try operation(db) }
       try await $content.load()
