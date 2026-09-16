@@ -37,9 +37,10 @@ struct ReaderView: View {
             }
           }
 
-          if let summary = row.summary, !summary.isEmpty {
-            Text(summary)
-          }
+          ReaderSummaryView(
+            summary: row.summary,
+            isCompactPreview: row.isSubstantivePrimary == false
+          )
 
           if let isSubstantivePrimary = row.isSubstantivePrimary {
             HStack {
@@ -55,7 +56,9 @@ struct ReaderView: View {
             .foregroundStyle(.secondary)
           }
 
-          if let bodyCompleteness = row.bodyCompleteness, bodyCompleteness != .full {
+          if row.isSubstantivePrimary != false,
+            let bodyCompleteness = row.bodyCompleteness, bodyCompleteness != .full
+          {
             Label(bodyCompleteness.readerLabel, systemImage: bodyCompleteness == .teaser ? "rectangle.slash" : "scissors")
               .font(.caption)
               .foregroundStyle(.orange)
@@ -65,9 +68,11 @@ struct ReaderView: View {
               .accessibilityLabel("Body completeness: \(bodyCompleteness.readerLabel)")
           }
 
-          if let urlString = row.canonicalURL, let url = URL(string: urlString) {
-            Button("Open Original", systemImage: "arrow.up.right.square") { openURL(url) }
-          }
+          ReaderBodyView(
+            presentation: model.bodyPresentation,
+            canonicalURL: row.canonicalURL,
+            openURL: openURL
+          )
 
           Divider()
 
@@ -111,7 +116,10 @@ struct ReaderView: View {
     }
   }
 
-  private func readerAppeared() async {
+}
+
+private extension ReaderView {
+  func readerAppeared() async {
     try? await model.$content.load()
     try? await model.$readerTeaching.load()
     try? await model.$matchedPersonalKnowledge.load()
@@ -120,7 +128,7 @@ struct ReaderView: View {
     }
   }
 
-  private func saveForLaterButtonTapped() async {
+  func saveForLaterButtonTapped() async {
     if let editionContext {
       await editionContext.model.saveForLater(editionContext.entryID)
     } else {
@@ -128,7 +136,7 @@ struct ReaderView: View {
     }
   }
 
-  private func addToLibraryButtonTapped() async {
+  func addToLibraryButtonTapped() async {
     if let editionContext {
       await editionContext.model.addToLibrary(editionContext.entryID)
     } else {

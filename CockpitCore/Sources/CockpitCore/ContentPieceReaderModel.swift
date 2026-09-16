@@ -42,6 +42,8 @@ public final class ContentPieceReaderModel {
   public var readerTaughtClaim: PersonalKnowledgeRequest.Row? { readerTeaching.claim }
   public var matchedClaim: PersonalKnowledgeRequest.Row? { matchedPersonalKnowledge.claim }
 
+  public var bodyPresentation: ReaderBodyPresentation { readerBodyPresentation(for: row) }
+
   public func saveForLater() async {
     guard let id = row?.id else { return }
     let date = now
