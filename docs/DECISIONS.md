@@ -550,7 +550,7 @@ slot.
 
 ---
 
-## 23. The two-pass split's per-composition latency, and the §13 budget — OPEN
+## 23. The two-pass split's per-composition latency, and the §13 budget — OPEN (TRIGGERED)
 
 Raised 2026-09-16 from the M4 S1 measurement (`docs/eval-log.md`, batch-30 `runFrozenCorpus`). §13
 records the composition budget as **under $1.00 and under 60 seconds**, and says exceeding it
@@ -584,6 +584,28 @@ newly designed here.
   of its current M5+ slot. Interim levers, if needed before the swap: trim the body the editorial pass
   resends (a finds/rationale-quality trade-off), or the Interest-Area split + second pass
   (JUDGMENT-CONTRACT §1). None chosen now.
+
+**Triggered — on-device confirmation, 2026-09-16.** The device pass fired the trigger above. A real
+recompose on an iPad took **~6 minutes (~360s) at $0.48** — cost comfortably under budget, latency
+**~6× the 60s §7 target**, on the warm hardware the budget is actually about. The proxy caveat is now
+resolved: the breach is real, not a Mac-over-API artifact. Two facts sharpen the resolution:
+
+- **The production composer is monolithic — and that is the biggest *safe* lever.** `EditionComposer.composeIfNeeded`
+  calls `engine.judge` with the **whole day's candidates at once**, so `judge` makes one large type
+  call then one large editorial call, sequentially, with no batching or concurrency. The eval harness
+  already parallelizes composition-sized batches; production does not. The **type pass is per-piece and
+  carries no finite-package constraint (§1)**, so it can be chunked and run concurrently inside the
+  engine with no change to outcomes — pure wall-time reduction, no schema blocker. The **editorial pass
+  must stay one call** over the candidate set to preserve the finite-package property (§1; >120 uses the
+  Interest-Area split + second pass), so its latency is the harder floor.
+- **The durable win is still the type-model swap** (a fast/cheap model for the PK-free type pass),
+  which cuts both cost and latency but sits behind the schema blocker.
+
+Sequencing: this is now scheduled as **M4 · S6 — Composition latency**
+(`docs/milestones/M4-gmail-today.md`), sequenced **before the Gmail spine (S4–S5)** because Gmail
+volume compounds the same monolithic composition. S6 does the safe near-term work (parallelize the
+type pass; measure on device); the model swap remains deferred to its M5+ slot unless S6 leaves the
+budget still breached.
 
 ---
 

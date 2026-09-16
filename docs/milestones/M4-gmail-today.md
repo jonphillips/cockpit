@@ -56,16 +56,19 @@ Gmail API.
 
 ## Slice ledger
 
-- [ ] **S1 — Split the type/classification call from the editorial call** *(Gate-2 carry-in; no Gmail dependency)*
+- [x] **S1 — Split the type/classification call from the editorial call** *(Gate-2 carry-in; no Gmail dependency)* — merged, PR #25 (eval done; Jon's lived-use endorsement is the last soft item)
 - [ ] **S2 — Reader inline body** *(DECISIONS §20; no Gmail dependency)*
 - [ ] **S3 — Offline controls: `Offline until [date]` and `Keep Offline`**
+- [ ] **S6 — Composition latency: parallelize the type pass** *(from S1's device pass; DECISIONS §23; no Gmail dependency; sequence before S4)*
 - [ ] **S4 — Gmail read-only ingest: Inbox → provider Artifact → email ContentPiece**
 - [ ] **S5 — Today: Worth Seeing / Personal-Consequential / quiet handling, Reader, Clear**
 - [ ] **Architecture Gate 3 — write the Gmail integration ADR from observed semantics**
 
-S1–S3 deepen the existing loop and have no Gmail dependency, so they can start immediately and in any
-order; they are sequenced first because they improve daily dogfooding and de-risk nothing by waiting.
-S4 → S5 → Gate 3 is the Gmail spine and is ordered.
+S1–S3 and S6 deepen the existing loop and have no Gmail dependency, so they can start immediately and
+in any order; they are sequenced first because they improve daily dogfooding and de-risk nothing by
+waiting. S6 is numbered after S5 because it was discovered during S1's device pass (DECISIONS §23),
+but it is **sequenced before the Gmail spine**: Gmail volume compounds the same monolithic composition
+S6 fixes. S4 → S5 → Gate 3 is the Gmail spine and is ordered.
 
 ## Standing rules for every M4 slice
 
@@ -311,6 +314,61 @@ email-delivered recurring Stream (Phase 5). A rules engine, auto-unsubscribe, re
 
 ---
 
+## S6 — Composition latency: parallelize the type pass
+
+**Branch:** `m4/s6-composition-latency` · **PR title:** `M4 · S6 — Composition latency`
+
+Discovered in S1's device pass, not planned up front. A real recompose ran **~6 minutes ($0.48) on
+iPad** — ~6× the §7 60s budget (DECISIONS §23, triggered; `docs/eval-log.md`, 2026-09-16 device pass).
+The split's *quality* is proven; its *latency* is now a live problem, and the Gmail spine (S4–S5)
+compounds it, so this lands **before** S4.
+
+Root cause: `EditionComposer.composeIfNeeded` sends the whole day's candidates to `engine.judge` as
+one large type call then one large editorial call, sequentially — none of the batching/concurrency the
+eval harness already uses.
+
+### Read first
+
+DECISIONS §23 (triggered) and §13 (the budget clause it reopens); JUDGMENT-CONTRACT §1 (batching is
+load-bearing for the editorial *finite package*; the type pass is not); `EditionComposer.composeIfNeeded`
+and `JudgmentEngine.judge` / `classify` (the monolithic path); `JudgmentEvalLiveTests.judgeCorpus`
+(the bounded-concurrency pattern already proven for the eval — reuse its shape, don't reinvent it).
+
+### Scope
+
+- **Parallelize the PK-free type pass inside the engine.** `classify` chunks candidates into
+  composition-sized batches run under bounded concurrency, reassembling per-piece. The type pass
+  carries **no** finite-package constraint (§1), so this changes only wall time, not outcomes. Smaller
+  per-call responses also cut truncation risk (the `JudgmentEnvelope` salvage fires less often).
+- **The editorial pass stays one call** over the full candidate set — the finite-package property
+  (§1). For >120 candidates the existing Interest-Area split + second pass applies; do **not** shard
+  editorial into independent batches (that produces a ranked feed, the product Cockpit is not).
+- **Measure on device** before/after; record the real recompose latency against the 60s budget.
+- **The type-model swap stays deferred** (§23; behind the schema blocker). S6 is the safe wall-time
+  win, not the model change.
+
+### Done-criteria
+
+1. Production composition parallelizes the type pass under bounded concurrency; a real on-device
+   recompose is materially faster than the ~360s S1 baseline, recorded in `docs/eval-log.md` against
+   the 60s budget. If still over, the residual gap is quantified and the model swap re-scoped with
+   evidence rather than left implicit.
+2. **Outcomes are unchanged by parallelization** — a `JudgmentEval` run shows essential-false-quiet
+   and substantive-primary accuracy within same-session noise of the pre-S6 split, and the editorial
+   finite-package selection is untouched (still one call; `targetSize` honored). Parallelizing per-piece
+   classification must not move judgments.
+3. Per-piece fail-closed and the `JudgmentEnvelope` salvage still hold across the batched type pass: a
+   failed or omitted type batch degrades per-piece and is re-requested, never silently dropped.
+4. `swift test` + `swiftlint --strict` green; the device latency number is Jon's pass.
+
+### Out of scope
+
+The type-model swap (§23; behind the schema blocker; M5+). Trimming the editorial pass's resent bodies
+(a finds/rationale-quality trade-off — a separate measured lever only if S6 leaves the budget
+breached). Any change to the editorial finite-package call itself.
+
+---
+
 ## Jon's manual and device pass
 
 Same shape as M1–M3: the work only Jon can do, gating what follows.
@@ -325,6 +383,12 @@ lived-use judgment.
 
 Whether the inline body reads well and whether the offline promise feels trustworthy (visible expiry,
 honest degradation) are device-pass calls (IPAD-FIRST §7–8).
+
+### During S6 — the latency number is yours
+
+Agents ship the parallelized type pass with the eval floor held; whether a real morning composition
+now lands acceptably (against the §7 60s budget) is only answerable by a recompose on your device.
+That on-device number is what decides whether the type-model swap stays deferred or moves up (§23).
 
 ### During S4–S5 — real Inbox semantics
 
