@@ -1,17 +1,23 @@
 import Foundation
 import LLMClientKit
 
+// The pass orchestration stays together so the failure/retry boundaries are auditable in one place.
+// swiftlint:disable file_length
+// swiftlint:disable:next type_body_length
 public struct JudgmentEngine: Sendable {
-  public static let promptVersion = "m3-s5-v1"
+  /// The stored Edition version identifies its editorial decision. The type pass has its own
+  /// version because it is a distinct, PK-free prompt and can later move to a cheaper model.
+  public static let editorialPromptVersion = "m4-s1-editorial-v1"
+  public static let typePromptVersion = "m4-s1-type-v1"
+  public static let promptVersion = editorialPromptVersion
+  public static let singlePassControlPromptVersion = "m3-s5-v1"
 
-  /// How many follow-up calls `judge` will make to recover candidates the model omitted from a
-  /// batch. Two keeps the worst-case cost bounded (a large batch rarely sheds items twice) while
-  /// covering the common single-omission case; the loop also stops early the moment a round
-  /// recovers nothing.
+  /// How many follow-up calls each pass will make to recover candidates silently omitted from a
+  /// batch. A bounded retry repairs common partial omissions without retrying a failed whole batch.
   static let maxReRequestRounds = 2
 
-  private let modelClient: any ModelClient
-  private let now: @Sendable () -> Date
+  let modelClient: any ModelClient
+  let now: @Sendable () -> Date
 
   public init(
     modelClient: any ModelClient = JudgmentModel.makeClient(),
@@ -21,16 +27,44 @@ public struct JudgmentEngine: Sendable {
     self.now = now
   }
 
-  /// Judges one composition batch, then makes a bounded re-request pass for any candidates the
-  /// model silently omitted or duplicated. A capable model still occasionally returns valid JSON
-  /// with a short `judgments` array on a large batch; the decoder marks the missing candidates
-  /// fail-closed. Re-asking for just that omitted subset keeps one batch's shed items from being
-  /// counted as dropped by the composition — the same silent loss a live Edition would otherwise
-  /// suffer. Costs are shaped to the failure: a clean first pass finds nothing missing and returns
-  /// immediately, and a *whole-batch* failure is left alone (re-requesting it would only repeat a
-  /// transport-level failure at full cost). The re-request judges the omitted pieces among
-  /// themselves, so their admit / substantive-primary calls are faithful but their `rank` no
-  /// longer reflects the full batch — an acceptable trade against dropping them entirely.
+  /// Runs the PK-free type pass. The signature deliberately excludes Personal Knowledge and
+  /// Current Context: callers cannot accidentally reintroduce those editorial inputs.
+  public func classify(candidates: [JudgmentCandidate]) async -> JudgmentClassificationRun {
+    guard !candidates.isEmpty else {
+      return .init(classifications: [], metrics: .empty)
+    }
+    let firstPass = await classifyBatch(candidates)
+    var classificationsByID = Dictionary(
+      firstPass.classifications.map { ($0.contentPieceID, $0) },
+      uniquingKeysWith: { existing, _ in existing })
+    var metrics = firstPass.metrics
+
+    var round = 0
+    while round < Self.maxReRequestRounds {
+      let omitted = candidates.filter { classificationsByID[$0.id]?.errorDescription != nil }
+      guard !omitted.isEmpty, omitted.count < candidates.count else { break }
+      round += 1
+
+      let retry = await classifyBatch(omitted)
+      var recovered = false
+      for classification in retry.classifications where classification.errorDescription == nil {
+        classificationsByID[classification.contentPieceID] = classification
+        recovered = true
+      }
+      metrics = Self.merged(metrics, retry.metrics)
+      if !recovered { break }
+    }
+
+    return .init(
+      classifications: candidates.map {
+        classificationsByID[$0.id]
+          ?? .failed(contentPieceID: $0.id, error: "The model returned no judgment for this candidate.")
+      },
+      metrics: metrics)
+  }
+
+  /// Performs the two-pass judgment shape. Type classification is intentionally completed before
+  /// the PK-aware editorial call, which receives those facts but cannot revise them.
   public func judge(
     candidates: [JudgmentCandidate],
     personalKnowledge: PersonalKnowledgeProjection,
@@ -39,104 +73,196 @@ public struct JudgmentEngine: Sendable {
   ) async -> JudgmentRun {
     guard !candidates.isEmpty else { return .empty }
     let startedAt = now()
+    let classificationRun = await classify(candidates: candidates)
+    let classificationsByID = Dictionary(
+      classificationRun.classifications.map { ($0.contentPieceID, $0) },
+      uniquingKeysWith: { existing, _ in existing })
+    let editorialCandidates = candidates.compactMap { candidate -> EditorialJudgmentCandidate? in
+      guard let classification = classificationsByID[candidate.id],
+        classification.errorDescription == nil,
+        let isSubstantivePrimary = classification.isSubstantivePrimary,
+        let subjects = classification.subjects,
+        let summary = classification.summary
+      else { return nil }
+      return EditorialJudgmentCandidate(
+        candidate: candidate,
+        classification: .init(
+          isSubstantivePrimary: isSubstantivePrimary, subjects: subjects, summary: summary,
+          bodyCompleteness: classification.bodyCompleteness))
+    }
+    let editorialRun = await judgeEditorial(
+      candidates: editorialCandidates, personalKnowledge: personalKnowledge,
+      currentContext: currentContext, targetSize: targetSize)
+    let editorialByID = Dictionary(
+      editorialRun.judgments.map { ($0.contentPieceID, $0) },
+      uniquingKeysWith: { existing, _ in existing })
 
-    let firstPass = await judgeBatch(
+    let outcomes = mergedOutcomes(
+      candidates: candidates, classificationsByID: classificationsByID,
+      editorialByID: editorialByID)
+
+    let usage = Self.mergedUsage(classificationRun.metrics.usage, editorialRun.metrics.usage)
+    let cost = Self.mergedCost(
+      classificationRun.metrics.estimatedCost, editorialRun.metrics.estimatedCost)
+    return JudgmentRun(
+      outcomes: outcomes, usage: usage, estimatedCost: cost,
+      latency: now().timeIntervalSince(startedAt), requestedProvider: .anthropic,
+      modelName: JudgmentModel.displayName, typePass: classificationRun.metrics,
+      editorialPass: editorialRun.metrics)
+  }
+
+  private func mergedOutcomes(
+    candidates: [JudgmentCandidate], classificationsByID: [UUID: JudgmentClassification],
+    editorialByID: [UUID: EditorialJudgment]
+  ) -> [JudgmentOutcome] {
+    candidates.map { candidate -> JudgmentOutcome in
+      guard let classification = classificationsByID[candidate.id],
+        classification.errorDescription == nil
+      else {
+        let error = classificationsByID[candidate.id]?.errorDescription
+          ?? "The model returned no judgment for this candidate."
+        return .failed(contentPieceID: candidate.id, error: error)
+      }
+      guard let editorial = editorialByID[candidate.id], editorial.errorDescription == nil else {
+        let error = editorialByID[candidate.id]?.errorDescription
+          ?? "The model returned no judgment for this candidate."
+        return .init(
+          contentPieceID: candidate.id, admit: false,
+          isSubstantivePrimary: classification.isSubstantivePrimary,
+          section: nil, rank: nil, rationale: nil, matchedPersonalKnowledgeClaimID: nil,
+          subjects: classification.subjects, summary: classification.summary,
+          bodyCompleteness: classification.bodyCompleteness, finds: nil,
+          classificationErrorDescription: nil, errorDescription: error)
+      }
+      return .init(
+        contentPieceID: candidate.id, admit: editorial.admit,
+        isSubstantivePrimary: classification.isSubstantivePrimary,
+        section: editorial.section, rank: editorial.rank, rationale: editorial.rationale,
+        matchedPersonalKnowledgeClaimID: editorial.matchedPersonalKnowledgeClaimID,
+        subjects: classification.subjects, summary: classification.summary,
+        bodyCompleteness: classification.bodyCompleteness, finds: editorial.finds,
+        classificationErrorDescription: nil, errorDescription: nil)
+    }
+  }
+
+  private func classifyBatch(_ candidates: [JudgmentCandidate]) async -> JudgmentClassificationRun {
+    let startedAt = now()
+    do {
+      let response = try await complete(
+        system: JudgmentClassificationPrompt.system,
+        prompt: JudgmentClassificationPrompt.make(candidates: candidates),
+        responseFormat: .jsonSchema(
+          name: "cockpit_type_classifications", schema: JudgmentClassificationPrompt.schema),
+        candidateCount: candidates.count)
+      return .init(
+        classifications: try JudgmentResponseDecoder.decodeClassification(
+          response.text, expectedCandidateIDs: candidates.map(\.id)),
+        metrics: metrics(response: response, startedAt: startedAt))
+    } catch {
+      return .init(
+        classifications: candidates.map {
+          .failed(contentPieceID: $0.id, error: JudgmentResponseDecoder.errorMessage(for: error))
+        },
+        metrics: .init(
+          usage: nil, estimatedCost: nil, latency: now().timeIntervalSince(startedAt),
+          modelName: JudgmentModel.displayName))
+    }
+  }
+
+  private func judgeEditorial(
+    candidates: [EditorialJudgmentCandidate], personalKnowledge: PersonalKnowledgeProjection,
+    currentContext: String, targetSize: Int
+  ) async -> EditorialJudgmentRun {
+    guard !candidates.isEmpty else { return .init(judgments: [], metrics: .empty) }
+    let firstPass = await judgeEditorialBatch(
       candidates, personalKnowledge: personalKnowledge, currentContext: currentContext,
       targetSize: targetSize)
-    var outcomesByID = Dictionary(
-      firstPass.outcomes.map { ($0.contentPieceID, $0) }, uniquingKeysWith: { existing, _ in existing })
-    var usage = firstPass.usage
-    var cost = firstPass.estimatedCost
+    var judgmentsByID = Dictionary(
+      firstPass.judgments.map { ($0.contentPieceID, $0) },
+      uniquingKeysWith: { existing, _ in existing })
+    var metrics = firstPass.metrics
 
     var round = 0
     while round < Self.maxReRequestRounds {
-      let omitted = candidates.filter { outcomesByID[$0.id]?.errorDescription != nil }
-      // Only a partial omission is recoverable here; an all-failed batch is transport-level.
+      let omitted = candidates.filter { judgmentsByID[$0.candidate.id]?.errorDescription != nil }
       guard !omitted.isEmpty, omitted.count < candidates.count else { break }
       round += 1
 
-      let retry = await judgeBatch(
+      let retry = await judgeEditorialBatch(
         omitted, personalKnowledge: personalKnowledge, currentContext: currentContext,
         targetSize: targetSize)
       var recovered = false
-      for outcome in retry.outcomes where outcome.errorDescription == nil {
-        outcomesByID[outcome.contentPieceID] = outcome
+      for judgment in retry.judgments where judgment.errorDescription == nil {
+        judgmentsByID[judgment.contentPieceID] = judgment
         recovered = true
       }
-      usage = Self.mergedUsage(usage, retry.usage)
-      cost = Self.mergedCost(cost, retry.estimatedCost)
+      metrics = Self.merged(metrics, retry.metrics)
       if !recovered { break }
     }
 
-    let outcomes = candidates.map {
-      outcomesByID[$0.id]
-        ?? .failed(contentPieceID: $0.id, error: "The model returned no judgment for this candidate.")
-    }
-    return JudgmentRun(
-      outcomes: outcomes, usage: usage, estimatedCost: cost,
-      latency: now().timeIntervalSince(startedAt),
-      requestedProvider: .anthropic, modelName: JudgmentModel.displayName)
+    return .init(
+      judgments: candidates.map {
+        judgmentsByID[$0.candidate.id]
+          ?? .failed(contentPieceID: $0.candidate.id, error: "The model returned no judgment for this candidate.")
+      },
+      metrics: metrics)
   }
 
-  /// One model call over `candidates`. Factored out of `judge` so the re-request pass can reuse it
-  /// for the omitted subset; the batch-shape/timeout reasoning below is unchanged.
-  private func judgeBatch(
-    _ candidates: [JudgmentCandidate],
-    personalKnowledge: PersonalKnowledgeProjection,
-    currentContext: String,
-    targetSize: Int
-  ) async -> JudgmentRun {
+  private func judgeEditorialBatch(
+    _ candidates: [EditorialJudgmentCandidate], personalKnowledge: PersonalKnowledgeProjection,
+    currentContext: String, targetSize: Int
+  ) async -> EditorialJudgmentRun {
     let startedAt = now()
     do {
-      // Stream the pass: a composition batches every candidate into one request whose
-      // generated JSON scales with the candidate count, and a non-streaming `complete`
-      // receives no bytes until the whole body is done — so a real-corpus batch sits past
-      // the idle timeout (and Anthropic's non-streaming ceiling) and fails closed on every
-      // candidate at once. Streaming keeps bytes flowing; usage still comes back for cost.
-      let response = try await modelClient.completeStreaming(
-        ModelRequest(
-          tier: .frontier(.anthropic),
-          system: JudgmentPrompt.system,
-          prompt: try JudgmentPrompt.make(
-            candidates: candidates,
-            personalKnowledge: personalKnowledge,
-            currentContext: currentContext,
-            targetSize: targetSize
-          ),
-          // One judgment object carries a ≤70-word summary, a ≤40-word rationale, 3–8
-          // subjects, and any finds — realistically ~250–350 output tokens. Budget 400 per
-          // candidate for headroom; a too-small cap truncates the JSON mid-array and fails
-          // the whole batch closed. 64k is Sonnet's output ceiling, so a batch must stay
-          // composition-sized (see `JudgmentEval`) to fit — ~150 candidates max here.
-          maxTokens: min(64_000, max(4_096, candidates.count * 400)),
-          responseFormat: .jsonSchema(name: "cockpit_judgments", schema: JudgmentPrompt.schema)
-        )
-      )
-      return JudgmentRun(
-        outcomes: try JudgmentResponseDecoder.decode(
-          response.text,
-          expectedCandidateIDs: candidates.map(\.id),
-          allowedPersonalKnowledgeClaimIDs: Set(personalKnowledge.includedClaimIDs)
-        ),
-        usage: response.usage,
-        estimatedCost: JudgmentCostEstimator.estimate(
-          usage: response.usage, requestedProvider: .anthropic
-        ),
-        latency: now().timeIntervalSince(startedAt),
-        requestedProvider: .anthropic,
-        modelName: JudgmentModel.displayName
-      )
+      let response = try await complete(
+        system: JudgmentEditorialPrompt.system,
+        prompt: JudgmentEditorialPrompt.make(
+          candidates: candidates, personalKnowledge: personalKnowledge,
+          currentContext: currentContext, targetSize: targetSize),
+        responseFormat: .jsonSchema(
+          name: "cockpit_editorial_judgments", schema: JudgmentEditorialPrompt.schema),
+        candidateCount: candidates.count)
+      return .init(
+        judgments: try JudgmentResponseDecoder.decodeEditorial(
+          response.text, expectedCandidateIDs: candidates.map(\.candidate.id),
+          allowedPersonalKnowledgeClaimIDs: Set(personalKnowledge.includedClaimIDs)),
+        metrics: metrics(response: response, startedAt: startedAt))
     } catch {
-      return JudgmentRun.failed(
-        candidates: candidates,
-        error: JudgmentResponseDecoder.errorMessage(for: error),
-        latency: now().timeIntervalSince(startedAt)
-      )
+      return .init(
+        judgments: candidates.map {
+          .failed(contentPieceID: $0.candidate.id, error: JudgmentResponseDecoder.errorMessage(for: error))
+        },
+        metrics: .init(
+          usage: nil, estimatedCost: nil, latency: now().timeIntervalSince(startedAt),
+          modelName: JudgmentModel.displayName))
     }
   }
 
-  /// Sums token usage across the initial pass and any re-request calls for honest reporting.
-  private static func mergedUsage(_ a: ModelUsage?, _ b: ModelUsage?) -> ModelUsage? {
+  func complete(
+    system: String, prompt: String, responseFormat: ModelResponseFormat, candidateCount: Int
+  ) async throws -> ModelResponse {
+    try await modelClient.completeStreaming(
+      ModelRequest(
+        tier: .frontier(.anthropic), system: system, prompt: prompt,
+        // Both structured responses remain bounded by the same 400-token-per-piece allowance.
+        maxTokens: min(64_000, max(4_096, candidateCount * 400)), responseFormat: responseFormat))
+  }
+
+  func metrics(response: ModelResponse, startedAt: Date) -> JudgmentPassMetrics {
+    .init(
+      usage: response.usage,
+      estimatedCost: JudgmentCostEstimator.estimate(
+        usage: response.usage, requestedProvider: .anthropic),
+      latency: now().timeIntervalSince(startedAt), modelName: JudgmentModel.displayName)
+  }
+
+  static func merged(_ a: JudgmentPassMetrics, _ b: JudgmentPassMetrics) -> JudgmentPassMetrics {
+    .init(
+      usage: mergedUsage(a.usage, b.usage), estimatedCost: mergedCost(a.estimatedCost, b.estimatedCost),
+      latency: a.latency + b.latency, modelName: JudgmentModel.displayName)
+  }
+
+  static func mergedUsage(_ a: ModelUsage?, _ b: ModelUsage?) -> ModelUsage? {
     switch (a, b) {
     case (nil, nil): return nil
     case let (value?, nil): return value
@@ -150,15 +276,18 @@ public struct JudgmentEngine: Sendable {
     }
   }
 
-  /// Adds the estimated cost of a re-request onto the running total, preserving `nil` only when
-  /// neither call reported usage (an unpriced run stays unpriced rather than reading as $0).
-  private static func mergedCost(_ a: Decimal?, _ b: Decimal?) -> Decimal? {
+  static func mergedCost(_ a: Decimal?, _ b: Decimal?) -> Decimal? {
     guard a != nil || b != nil else { return nil }
     return (a ?? 0) + (b ?? 0)
   }
 
-  private static func sum(_ a: Int?, _ b: Int?) -> Int? {
+  static func sum(_ a: Int?, _ b: Int?) -> Int? {
     guard a != nil || b != nil else { return nil }
     return (a ?? 0) + (b ?? 0)
   }
+}
+
+private struct EditorialJudgmentRun: Sendable {
+  let judgments: [EditorialJudgment]
+  let metrics: JudgmentPassMetrics
 }

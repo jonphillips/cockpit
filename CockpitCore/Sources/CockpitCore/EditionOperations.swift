@@ -112,7 +112,11 @@ public enum EditionOperations {
   /// (as a JSON array string), `summary`, and `isSubstantivePrimary`. Done for every classified
   /// piece whether or not it was admitted, so quiet material stays searchable (JUDGMENT-CONTRACT §3).
   static func applyClassification(_ outcome: JudgmentOutcome, in db: Database) throws {
-    guard outcome.errorDescription == nil else { return }
+    // Editorial selection may fail independently after the type pass already produced valid,
+    // PK-free metadata. Preserve that classification; only a type-pass error leaves the row
+    // untouched. This keeps quiet material searchable without turning an editorial failure into a
+    // phantom Edition entry.
+    guard outcome.classificationErrorDescription == nil else { return }
     let subjectsJSON = encodeSubjects(outcome.subjects)
     let currentCompleteness = try ContentPiece.find(outcome.contentPieceID)
       .select(\.bodyCompleteness).fetchOne(db) ?? nil

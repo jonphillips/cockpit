@@ -121,6 +121,71 @@ public struct JudgmentFind: Codable, Equatable, Sendable {
   public let hints: [String: JSONValue]
 }
 
+/// The PK-free, per-piece result of Cockpit's mechanical type pass. This is deliberately
+/// separate from editorial selection: whether a piece is its Stream's primary authored work is a
+/// property of the material, not of the reader's current tastes or interests.
+public struct JudgmentClassification: Equatable, Sendable, Identifiable {
+  public let contentPieceID: UUID
+  public let isSubstantivePrimary: Bool?
+  public let subjects: [String]?
+  public let summary: String?
+  public let bodyCompleteness: BodyCompleteness?
+  public let errorDescription: String?
+
+  public var id: UUID { contentPieceID }
+
+  public init(
+    contentPieceID: UUID, isSubstantivePrimary: Bool?, subjects: [String]?, summary: String?,
+    bodyCompleteness: BodyCompleteness? = nil, errorDescription: String? = nil
+  ) {
+    self.contentPieceID = contentPieceID
+    self.isSubstantivePrimary = isSubstantivePrimary
+    self.subjects = subjects
+    self.summary = summary
+    self.bodyCompleteness = bodyCompleteness
+    self.errorDescription = errorDescription
+  }
+}
+
+extension JudgmentClassification {
+  static func failed(contentPieceID: UUID, error: String) -> Self {
+    .init(
+      contentPieceID: contentPieceID, isSubstantivePrimary: nil, subjects: nil, summary: nil,
+      errorDescription: error)
+  }
+}
+
+/// Model-use accounting for one of the two judgment passes. Keeping the figures separate makes
+/// the M4 split's cost and latency visible rather than hiding a second call in a single total.
+public struct JudgmentPassMetrics: Equatable, Sendable {
+  public let usage: ModelUsage?
+  public let estimatedCost: Decimal?
+  public let latency: TimeInterval
+  public let modelName: String
+
+  public init(
+    usage: ModelUsage?, estimatedCost: Decimal?, latency: TimeInterval, modelName: String
+  ) {
+    self.usage = usage
+    self.estimatedCost = estimatedCost
+    self.latency = latency
+    self.modelName = modelName
+  }
+
+  static let empty = Self(
+    usage: nil, estimatedCost: 0, latency: 0, modelName: JudgmentModel.displayName)
+}
+
+public struct JudgmentClassificationRun: Equatable, Sendable {
+  public let classifications: [JudgmentClassification]
+  public let metrics: JudgmentPassMetrics
+
+  public init(classifications: [JudgmentClassification], metrics: JudgmentPassMetrics) {
+    self.classifications = classifications
+    self.metrics = metrics
+  }
+}
+
 /// A proposed judgment. It is not a persistence command: S3 performs canonical Edition and
 /// ContentPiece writes, and S5 decides whether to persist its `finds`.
 public struct JudgmentOutcome: Equatable, Sendable, Identifiable {
@@ -138,6 +203,9 @@ public struct JudgmentOutcome: Equatable, Sendable, Identifiable {
   public let summary: String?
   public let bodyCompleteness: BodyCompleteness?
   public let finds: [JudgmentFind]?
+  /// A type-pass error. Classification can fail independently of editorial selection, and only a
+  /// valid classification is persisted back to the ContentPiece.
+  public let classificationErrorDescription: String?
   /// A decode or response-contract error. Such an outcome is always fail-closed (`admit == false`)
   /// and remains in the batch so no ContentPiece silently disappears.
   public let errorDescription: String?
@@ -149,7 +217,7 @@ public struct JudgmentOutcome: Equatable, Sendable, Identifiable {
     rank: Int?, rationale: String?, matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID? = nil,
     subjects: [String]?, summary: String?,
     bodyCompleteness: BodyCompleteness? = nil, finds: [JudgmentFind]?,
-    errorDescription: String? = nil
+    classificationErrorDescription: String? = nil, errorDescription: String? = nil
   ) {
     self.contentPieceID = contentPieceID
     self.admit = admit
@@ -162,6 +230,7 @@ public struct JudgmentOutcome: Equatable, Sendable, Identifiable {
     self.summary = summary
     self.bodyCompleteness = bodyCompleteness
     self.finds = finds
+    self.classificationErrorDescription = classificationErrorDescription
     self.errorDescription = errorDescription
   }
 }
@@ -174,19 +243,25 @@ public struct JudgmentRun: Equatable, Sendable {
   public let latency: TimeInterval
   public let requestedProvider: FrontierProvider
   public let modelName: String
+  public let typePass: JudgmentPassMetrics
+  public let editorialPass: JudgmentPassMetrics
 }
 
 extension JudgmentRun {
   static let empty = JudgmentRun(
     outcomes: [], usage: nil, estimatedCost: 0, latency: 0,
-    requestedProvider: .anthropic, modelName: JudgmentModel.displayName
+    requestedProvider: .anthropic, modelName: JudgmentModel.displayName,
+    typePass: .empty, editorialPass: .empty
   )
 
   static func failed(candidates: [JudgmentCandidate], error: String, latency: TimeInterval) -> Self {
     .init(
       outcomes: candidates.map { .failed(contentPieceID: $0.id, error: error) },
       usage: nil, estimatedCost: nil, latency: latency,
-      requestedProvider: .anthropic, modelName: JudgmentModel.displayName
+      requestedProvider: .anthropic, modelName: JudgmentModel.displayName,
+      typePass: .empty,
+      editorialPass: .init(
+        usage: nil, estimatedCost: nil, latency: latency, modelName: JudgmentModel.displayName)
     )
   }
 }
@@ -199,7 +274,7 @@ extension JudgmentOutcome {
       contentPieceID: contentPieceID, admit: false, isSubstantivePrimary: nil, section: nil,
       rank: nil, rationale: nil, matchedPersonalKnowledgeClaimID: nil,
       subjects: nil, summary: nil, bodyCompleteness: nil, finds: nil,
-      errorDescription: error
+      classificationErrorDescription: error, errorDescription: error
     )
   }
 }

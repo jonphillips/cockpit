@@ -366,7 +366,11 @@ provider actually did in S4–S5, not from design intent. Settle:
   genuinely separate (Gate 4, major model review).
 - **The type-call model swap** — moving the S1 classification pass to a cheaper/onboard model once it
   can emit the schema (M2-S1 cost decision; cheapest lever is a Haiku-vs-Sonnet eval first). Deferred
-  behind the known schema blocker.
+  behind the known schema blocker. **Now also the resolution for the two-pass latency tracked in
+  DECISIONS §23:** S1 measured 114.9s/composition (over the §7/§13 60s budget) because type-then-
+  editorial run sequentially on Sonnet; the swap cuts the type pass's latency and cost together. Its
+  trigger to move ahead of M5+ is Today/Gmail volume (S4–S5) or Jon's device pass showing a real
+  morning over 60s.
 - **Auto-Library policy** — Phase 7, reconciled at Gate 2 (DECISIONS §18). After explicit Library +
   custody are trustworthy; must **not** reuse `isSubstantivePrimary` as the keep-criterion.
 - **First specialist Find handoff** — the receiver for Pending Finds (Phase 6, Gate 5). Extraction has
