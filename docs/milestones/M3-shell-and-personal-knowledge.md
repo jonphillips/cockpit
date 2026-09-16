@@ -95,7 +95,7 @@ cheap addition that could ride S1.
 - [x] **S3 — Teach from the Reader ("why this matters")**
 - [x] **S4 — Hypothesis confirmation** *(trigger locked: explicit-action recurrence)*
 - [x] **S5 — The visible, correctable, PK-driven relevance change** *(the Gate-2 product proof)*
-- [ ] **Architecture Gate 2 — Personal Knowledge review**
+- [x] **Architecture Gate 2 — Personal Knowledge review** *(closed 2026-09-16; `docs/eval-log.md`)*
 
 ## Standing rules for every M3 slice
 
@@ -577,9 +577,9 @@ Do not add salience / confidence / trajectory machinery without evidence (V1-SCO
 
   **Out of scope:** reader typography/geometry (deferred), HTML-fidelity polish, and the offline
   *controls* themselves (their own cutline item — this slice renders the substance those controls retain).
-- **The auto-Library policy.** *Doc conflict to resolve, do not pick silently:* DECISIONS §18 defers
-  it "to V1 Phase 2," while V1-SCOPE §3 places it in **Phase 7** (after explicit Library + custody are
-  trustworthy). Treated as not-M3 on the strength of §3; reconcile the two docs at Gate 2.
+- **The auto-Library policy.** *Doc conflict resolved at Gate 2 (2026-09-16):* reconciled to **Phase 7**
+  (after explicit Library + custody are trustworthy). DECISIONS §18's stale "Phase 2" phrasing was
+  corrected to match V1-SCOPE §3, which is authoritative. Not M4 — stays at Phase 7.
 - **The first specialist handoff** — the receiver for Pending Finds (Phase 6, Gate 5). Extraction
   already accumulates orphans from M2 S5; the receiver is later.
 - **Edition UX papercuts** (candidates, below a phase): richer top-of-Edition summaries; triage-in-

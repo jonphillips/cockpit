@@ -93,9 +93,42 @@ Reading it under §22:
 - **PK is emphatically not decorative, and it moves in the right direction.** 278 of 357 pieces moved; teaching the 30 claims made the edition **more selective** (127 → 99 admitted), not more permissive. That is the editorial discrimination a finite personalized edition is supposed to show — the Gate-2 headline answer is a clear yes.
 - **The S5 claim-naming path fires on real data:** 54 admitted pieces attributed to a specific claim, drawing on 12 distinct claims (the software / AI / personal-information-systems / newsletters / wine interests that overlap this news-and-tech-heavy corpus; travel/comics/woodworking claims rarely matched, as expected). So the Reader's "Because you care about X…" rationale is populated by real judgment, not a hand-written string — S5 done-criterion 1 confirmed against the live model.
 - **PK did not regress the floor: essential-false-quiet is identical bare vs taught (0.102 = 0.102).** This is *by design* — Essential substantive-primary material is protected regardless of PK, so PK churns the discretionary edition and leaves the Essential guarantee untouched. The gate is therefore recorded as a **paired** comparison (taught ≤ bare), not against an absolute constant.
-- **essential-false-quiet is too small-count for an absolute gate.** Across clean runs of the *same* prompt it has read 0.051, 0.068, and 0.102 — ~3–6 pieces of ~59 Essential-substantive, so a 3-piece nondeterministic swing doubles it. The `m3-s5-v1` test assertion was corrected to gate on the same-session bare run (variance-controlled) rather than the historical 0.068. **Recommended:** DECISIONS §22 should state the floor as a paired bare-vs-taught delta, not a fixed number. *(Open for architect ratification.)*
+- **essential-false-quiet is too small-count for an absolute gate.** Across clean runs of the *same* prompt it has read 0.051, 0.068, and 0.102 — ~3–6 pieces of ~59 Essential-substantive, so a 3-piece nondeterministic swing doubles it. The `m3-s5-v1` test assertion was corrected to gate on the same-session bare run (variance-controlled) rather than the historical 0.068. **Recommended:** DECISIONS §22 should state the floor as a paired bare-vs-taught delta, not a fixed number. *(Ratified at Architecture Gate 2, 2026-09-16 — DECISIONS §22.2 is the standing definition; this flag is closed.)*
 - **§22 vindicated, concretely.** Agreement *dropped* with PK (0.449 → 0.364) precisely because the edition got more selective — a better edition scoring worse on agreement-vs-`surface`. This is the exact confound §22 demoted, now demonstrated rather than argued.
 - **Flag for Gate 2 — substantive-primary accuracy fell with PK (0.545 → 0.415).** `isSubstantivePrimary` is a *type* property, independent of taste/interest (DECISIONS §18); PK should not move it. That it does is evidence the single judgment pass lets PK bleed into the type classification. It is also a noisy metric, but the direction is a real signal worth raising at the gate (candidate: separate the type call from the editorial call, per the M2-S1 cost decision's "mechanical grunt-work onboard" direction).
 - **Benign test-assertion failure:** `incompleteFixtureCount == 3` (the permanently-unlabelled rows). Fail-closed instrumentation was added to this run's output for future comparability.
 
 Verdict: **M3 S5 done-criterion 3 is met** — a recorded run shows a real PK change moving admission/rank (278 / 58) with the Essential floor held (paired 0.102 = 0.102), under §22 discipline. Carried to Gate 2: the paired-floor definition and the substantive-primary bleed.
+
+---
+
+## Architecture Gate 2 — closed 2026-09-16
+
+M3's slice ledger (S1–S5) is complete; Gate 2 inspected and closed. The headline
+question — *did PK growth change admission/rank among contested pieces in a
+direction Jon endorses, with essential-false-quiet held against a same-session
+control?* — is answered **yes**: the 2026-09-15 M3-S5 primary run moved 278/357
+pieces, flipped 58 admissions, made the edition *more* selective (127 → 99), and
+held the Essential floor (paired 0.102 = 0.102). PK is not decorative.
+
+Gate rulings (architect, 2026-09-16):
+
+- **Paired floor ratified.** DECISIONS §22.2 stands as written — the
+  essential-false-quiet gate is a same-session paired delta (bare vs taught /
+  old-prompt vs new), not the absolute ~0.068. The open flag above is closed.
+- **Substantive-primary bleed → ratified M4 scope.** The 0.545 → 0.415 drop under
+  teaching is the single judgment pass letting PK move a *type* property (§18).
+  Remedy: split the type/classification call from the editorial call — an M4 slice,
+  advancing both correctness and the M2-S1 cost lever. Not gate-blocking.
+- **Auto-Library reconciled to Phase 7.** DECISIONS §18's "Phase 2" corrected to
+  match V1-SCOPE §3 (Phase 7, after explicit Library + custody are trustworthy).
+- **No schema inflation.** 30 claims (8 Fact / 12 Interest / 10 Taste) — Fact /
+  Taste / Interest were sufficient; the 150-claim full-projection threshold
+  (JUDGMENT-CONTRACT §2) is nowhere near stressed, so the subject-overlap subset is
+  not built. No salience/confidence/trajectory machinery added (V1-SCOPE §Phase 2).
+- **Frontier stays for the editorial call**; the type-call split is where a
+  cheaper/onboard pass can later live once it can emit the schema.
+
+M4 opens on the Phase-3 cutline (Gmail read-only Today → Gate 3), carrying the
+type/editorial split, offline controls, and the inline-body Reader. See
+`docs/milestones/M4-gmail-today.md`.

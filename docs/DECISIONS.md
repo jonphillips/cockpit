@@ -376,11 +376,31 @@ Surfaced during the M1-S4 labelling pass (2026-09-13), where hand-labelling `isS
 Its job is deliberately narrow. It gates two things and nothing else:
 
 - the **Essential guarantee** (§15): substantive-primary material from an Essential Stream is never silently `aged` out of the Edition. This is *attention* non-loss — you are guaranteed to **see** it before it goes — **not** storage.
-- **auto-Library qualification**, which is deferred to V1 Phase 2.
+- **auto-Library qualification**, which is deferred to V1 **Phase 7**.
 
 It does **not** mean "keep this forever." Durable retention is an explicit human act — **Add to Library** — orthogonal to entry state. A topical piece (yesterday's news recap) is substantive-primary **and** ephemeral: it earns attention protection, then ages or is dismissed, and is never stored unless the user explicitly keeps it. The live system therefore already decouples primary-ness from retention; the confusion comes from the name and from the (deferred) auto-Library use reading as a storage gate.
 
 **Open axis — do not conflate.** "Worth keeping / durable-reference / timeless" is a **third** axis, distinct from primary-vs-accessory (this flag) and complete-vs-teaser (`bodyCompleteness`, S5). It is currently unmodeled because its only would-be machine consumer — the auto-Library policy — is deferred precisely because its criteria are unproven. When auto-Library is designed it must **not** reuse `isSubstantivePrimary` as the keep-criterion: primary-ness is not durable-worth. See "Build it and learn."
+
+**Gate-2 reconciliation (2026-09-16) — auto-Library is Phase 7, not Phase 2.** The
+milestone doc flagged a live doc conflict: this section deferred auto-Library "to
+V1 Phase 2" while `docs/V1-SCOPE-AND-SEQUENCING.md` §3 places it in **Phase 7**
+(after explicit Library + custody are trustworthy). Reconciled in favour of Phase 7
+— it is the safer placement and matches this section's own argument that the
+keep-criteria are unproven. V1-SCOPE §3 is authoritative; the "Phase 2" phrasing
+above is corrected.
+
+**Gate-2 finding (2026-09-16) — the single judgment pass lets PK bleed into the
+type call; splitting it is ratified M4 scope.** The M3-S5 paired run showed
+substantive-primary accuracy falling **0.545 → 0.415** when the same corpus was
+taught (`docs/eval-log.md`, 2026-09-15). `isSubstantivePrimary` is a *type*
+property, independent of taste/interest — PK must not move it. That it does is
+evidence the one editorial pass conflates the type classification with the
+finite-package judgment. Remedy ratified for M4: **separate the type/classification
+call from the editorial call**, aligning with the M2-S1 cost decision's
+"mechanical grunt-work moves to a cheaper/onboard pass" direction. The metric is
+noisy (small count) but the direction is a real signal; the fix is scoped as an M4
+slice, not gate-blocking.
 
 Housekeeping: the "paywall teaser with no body" example in `docs/IMPLEMENTATION-CONTRACT.md` §1 is really the completeness axis. Until S5 lands, a body-less teaser is labelled not-substantive; afterward that fact belongs to `bodyCompleteness` and this flag stays purely primary-vs-accessory. A rename to `isPrimaryWork` is a candidate but is deferred (it touches schema, harness, and in-flight labels); the sharpened definition holds the field name for now.
 ---
@@ -504,6 +524,13 @@ under an attention budget (§14) — not garbage rejection. Measuring it against
    **changed admission/ranking among contested pieces in a direction Jon
    endorses** — measured on that set, with essential-false-quiet held as the floor.
    The M3 milestone's Gate-2 phrasing is updated to match.
+
+**Ratified at Architecture Gate 2 (2026-09-16).** Point 2's paired-delta floor is
+the standing definition of the essential-false-quiet gate — a PK/prompt/model
+change must not regress essential-false-quiet relative to a same-session control
+run (bare vs taught, or old-prompt vs new); the ~0.068 figure is an
+order-of-magnitude reference, not a pass line. The eval-log's open flag
+(`docs/eval-log.md`, 2026-09-15 M3-S5 primary entry) is closed by this ratification.
 
 **Guardrail — this is not a licence to admit everything, and it is the opposite of
 clickstream.** Finiteness (§14) and the anti-forget guarantee (§15) stand in full;
