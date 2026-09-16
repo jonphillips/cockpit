@@ -13,7 +13,12 @@ struct ReaderView: View {
   init(contentPieceID: ContentPiece.ID, editionContext: EditionReaderContext? = nil) {
     self.contentPieceID = contentPieceID
     self.editionContext = editionContext
-    _model = LazyState { ContentPieceReaderModel(contentPieceID: contentPieceID) }
+    _model = LazyState {
+      ContentPieceReaderModel(
+        contentPieceID: contentPieceID,
+        matchedPersonalKnowledgeClaimID: editionContext?.matchedPersonalKnowledgeClaimID
+      )
+    }
   }
 
   var body: some View {
@@ -27,12 +32,9 @@ struct ReaderView: View {
           }
 
           if let rationale = editionContext?.rationale, !rationale.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
-              Text("Why you're seeing this").font(.caption).foregroundStyle(.secondary)
-              Text(rationale)
+            ReaderRationaleView(rationale: rationale, matchedClaim: model.matchedClaim) {
+              correctingClaim = $0
             }
-            .padding()
-            .background(.thinMaterial, in: .rect(cornerRadius: 12))
           }
 
           if let summary = row.summary, !summary.isEmpty {
@@ -112,6 +114,7 @@ struct ReaderView: View {
   private func readerAppeared() async {
     try? await model.$content.load()
     try? await model.$readerTeaching.load()
+    try? await model.$matchedPersonalKnowledge.load()
     if let editionContext {
       await editionContext.model.markSeen(editionContext.entryID)
     }
@@ -138,6 +141,29 @@ struct EditionReaderContext {
   let model: EditionModel
   let entryID: EditionEntry.ID
   let rationale: String?
+  let matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID?
+}
+
+private struct ReaderRationaleView: View {
+  let rationale: String
+  let matchedClaim: PersonalKnowledgeRequest.Row?
+  let correctClaim: (PersonalKnowledgeRequest.Row) -> Void
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text("Why you're seeing this").font(.caption).foregroundStyle(.secondary)
+      Text(rationale)
+      if let matchedClaim {
+        Button("Correct this understanding", systemImage: "pencil") {
+          correctClaim(matchedClaim)
+        }
+        .font(.caption)
+        .accessibilityHint("Correct the Personal Knowledge claim named by this explanation")
+      }
+    }
+    .padding()
+    .background(.thinMaterial, in: .rect(cornerRadius: 12))
+  }
 }
 
 private struct ReaderActionControls: View {

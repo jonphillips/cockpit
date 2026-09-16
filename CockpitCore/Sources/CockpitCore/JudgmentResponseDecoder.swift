@@ -11,7 +11,11 @@ import LLMClientKit
 /// fail-closed run. Composition-sized batching (see `JudgmentEval`) keeps responses
 /// within the output budget so that whole-batch case stays rare.
 enum JudgmentResponseDecoder {
-  static func decode(_ text: String, expectedCandidateIDs: [UUID]) throws -> [JudgmentOutcome] {
+  static func decode(
+    _ text: String,
+    expectedCandidateIDs: [UUID],
+    allowedPersonalKnowledgeClaimIDs: Set<PersonalKnowledgeClaim.ID>
+  ) throws -> [JudgmentOutcome] {
     // Parse the envelope leniently: each element stays a JSONValue so one bad object
     // cannot fail the array. A missing/!object `judgments` is a total failure and throws.
     let envelope = try JSONDecoder().decode(RawEnvelope.self, from: Data(text.utf8))
@@ -22,10 +26,15 @@ enum JudgmentResponseDecoder {
     for element in envelope.judgments {
       let fullyDecoded = (try? JSONEncoder().encode(element))
         .flatMap { try? JSONDecoder().decode(DecodedJudgment.self, from: $0) }
-      if let fullyDecoded {
+      if let fullyDecoded,
+        fullyDecoded.matchedPersonalKnowledgeClaimID == nil
+          || allowedPersonalKnowledgeClaimIDs.contains(fullyDecoded.matchedPersonalKnowledgeClaimID!)
+      {
         if decodedByID.updateValue(fullyDecoded, forKey: fullyDecoded.contentPieceID) != nil {
           duplicated.insert(fullyDecoded.contentPieceID)
         }
+      } else if let id = fullyDecoded?.contentPieceID {
+        shapeFailedIDs.insert(id)
       } else if let id = element.string("contentPieceID").flatMap(UUID.init(uuidString:)) {
         // The object carried a usable id but did not match the required shape.
         shapeFailedIDs.insert(id)
@@ -73,10 +82,44 @@ private struct DecodedJudgment: Decodable {
   let section: JudgmentSection
   let rank: Int
   let rationale: String
+  let matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID?
   let subjects: [String]
   let summary: String
   let bodyCompleteness: BodyCompleteness?
   let finds: [JudgmentFind]
+
+  private enum CodingKeys: String, CodingKey {
+    case contentPieceID
+    case admit
+    case isSubstantivePrimary
+    case section
+    case rank
+    case rationale
+    case matchedPersonalKnowledgeClaimID
+    case subjects
+    case summary
+    case bodyCompleteness
+    case finds
+  }
+
+  // Old fixture responses predate the versioned S5 schema and do not carry the field. The live
+  // request schema requires it; accepting the absence here keeps historic fixture tests focused
+  // on the behavior they were written to establish.
+  init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    contentPieceID = try container.decode(UUID.self, forKey: .contentPieceID)
+    admit = try container.decode(Bool.self, forKey: .admit)
+    isSubstantivePrimary = try container.decode(Bool.self, forKey: .isSubstantivePrimary)
+    section = try container.decode(JudgmentSection.self, forKey: .section)
+    rank = try container.decode(Int.self, forKey: .rank)
+    rationale = try container.decode(String.self, forKey: .rationale)
+    matchedPersonalKnowledgeClaimID = try container.decodeIfPresent(
+      PersonalKnowledgeClaim.ID.self, forKey: .matchedPersonalKnowledgeClaimID)
+    subjects = try container.decode([String].self, forKey: .subjects)
+    summary = try container.decode(String.self, forKey: .summary)
+    bodyCompleteness = try container.decodeIfPresent(BodyCompleteness.self, forKey: .bodyCompleteness)
+    finds = try container.decode([JudgmentFind].self, forKey: .finds)
+  }
 }
 
 private extension JudgmentOutcome {
@@ -84,7 +127,9 @@ private extension JudgmentOutcome {
     self.init(
       contentPieceID: decoded.contentPieceID, admit: decoded.admit,
       isSubstantivePrimary: decoded.isSubstantivePrimary, section: decoded.section,
-      rank: decoded.rank, rationale: decoded.rationale, subjects: decoded.subjects,
+      rank: decoded.rank, rationale: decoded.rationale,
+      matchedPersonalKnowledgeClaimID: decoded.matchedPersonalKnowledgeClaimID,
+      subjects: decoded.subjects,
       summary: decoded.summary, bodyCompleteness: decoded.bodyCompleteness, finds: decoded.finds
     )
   }

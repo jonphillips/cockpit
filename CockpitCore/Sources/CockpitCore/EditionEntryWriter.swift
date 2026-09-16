@@ -75,6 +75,8 @@ struct EditionEntryWriter: Sendable {
           id: uuid(), editionID: editionID, contentPieceID: pieceID, section: section,
           rank: (admitted ? outcome?.rank : nil) ?? carried.rank,
           rationale: (admitted ? outcome?.rationale : nil) ?? carried.rationale,
+          matchedPersonalKnowledgeClaimID: (admitted ? outcome?.matchedPersonalKnowledgeClaimID : nil)
+            ?? carried.matchedPersonalKnowledgeClaimID,
           entryState: .admitted, firstAdmittedEditionID: carried.firstAdmittedEditionID,
           timesCarried: timesCarried))
     }.execute(db)
@@ -98,7 +100,9 @@ struct EditionEntryWriter: Sendable {
       EditionEntry.Draft(
         EditionEntry(
           id: uuid(), editionID: editionID, contentPieceID: pieceID, section: section,
-          rank: outcome?.rank ?? 0, rationale: outcome?.rationale, entryState: .admitted,
+          rank: outcome?.rank ?? 0, rationale: outcome?.rationale,
+          matchedPersonalKnowledgeClaimID: outcome?.matchedPersonalKnowledgeClaimID,
+          entryState: .admitted,
           firstAdmittedEditionID: editionID, timesCarried: 0))
     }.execute(db)
   }

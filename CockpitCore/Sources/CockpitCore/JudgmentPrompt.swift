@@ -41,7 +41,10 @@ enum JudgmentPrompt {
       Stream handling overrides generic interest matching.
       Prefer omitting a weak piece to padding toward the target.
       Rationale is addressed to the reader: cite Stream posture, Interest Area, or explicit
-      Personal Knowledge that matched, never hidden model scoring.
+      Personal Knowledge that matched, never hidden model scoring. When explicit Personal Knowledge
+      drove admission or rank, choose exactly one Claim ID from the projection and return it as
+      matchedPersonalKnowledgeClaimID. The rationale must name that claim in the reader's terms;
+      otherwise return null for matchedPersonalKnowledgeClaimID.
       Return exactly one judgment object for every candidate ID, including non-admitted pieces.
       Every judgment must include isSubstantivePrimary, subjects, and summary even when admit is false.
       bodyCompleteness is supplied when deterministic ingest evidence was unavailable; otherwise
@@ -54,7 +57,7 @@ enum JudgmentPrompt {
 
   static let schema: JSONValue = {
     let json = #"""
-    {"type":"object","additionalProperties":false,"properties":{"judgments":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"contentPieceID":{"type":"string"},"admit":{"type":"boolean"},"isSubstantivePrimary":{"type":"boolean"},"section":{"type":"string","enum":["essentials","forYou","interestArea","essentialBacklog"]},"rank":{"type":"integer"},"rationale":{"type":"string"},"subjects":{"type":"array","items":{"type":"string"}},"summary":{"type":"string"},"bodyCompleteness":{"type":"string","enum":["full","truncated","teaser"]},"finds":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"kind":{"type":"string"},"name":{"type":"string"},"descriptor":{"type":"string"},"rationale":{"type":"string"},"sourceURL":{"type":["string","null"]},"hints":{"type":"object"}},"required":["kind","name","descriptor","rationale","sourceURL","hints"]}}},"required":["contentPieceID","admit","isSubstantivePrimary","section","rank","rationale","subjects","summary","finds"]}}},"required":["judgments"]}
+    {"type":"object","additionalProperties":false,"properties":{"judgments":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"contentPieceID":{"type":"string"},"admit":{"type":"boolean"},"isSubstantivePrimary":{"type":"boolean"},"section":{"type":"string","enum":["essentials","forYou","interestArea","essentialBacklog"]},"rank":{"type":"integer"},"rationale":{"type":"string"},"matchedPersonalKnowledgeClaimID":{"type":["string","null"]},"subjects":{"type":"array","items":{"type":"string"}},"summary":{"type":"string"},"bodyCompleteness":{"type":"string","enum":["full","truncated","teaser"]},"finds":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"kind":{"type":"string"},"name":{"type":"string"},"descriptor":{"type":"string"},"rationale":{"type":"string"},"sourceURL":{"type":["string","null"]},"hints":{"type":"object"}},"required":["kind","name","descriptor","rationale","sourceURL","hints"]}}},"required":["contentPieceID","admit","isSubstantivePrimary","section","rank","rationale","matchedPersonalKnowledgeClaimID","subjects","summary","finds"]}}},"required":["judgments"]}
     """#
     return try! JSONDecoder().decode(JSONValue.self, from: Data(json.utf8))
   }()

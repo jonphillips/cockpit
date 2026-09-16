@@ -37,7 +37,10 @@ public enum PersonalKnowledgeProjector {
     let text = PersonalKnowledgeKind.allCases.compactMap { kind -> String? in
       let lines = ordered.filter { $0.kind == kind }.map { claim in
         let scope = claim.scope.map { " [Scope: \($0)]" } ?? ""
-        return "- \(claim.claim)\(scope)"
+        // IDs are model-facing references only. They let judgment identify the exact explicit
+        // claim it relied on, so the Reader can offer correction of that understanding rather
+        // than trying to reverse-match prose in a rationale.
+        return "- [Claim ID: \(claim.id.uuidString)] \(claim.claim)\(scope)"
       }
       guard !lines.isEmpty else { return nil }
       return "\(kind.displayName):\n\(lines.joined(separator: "\n"))"

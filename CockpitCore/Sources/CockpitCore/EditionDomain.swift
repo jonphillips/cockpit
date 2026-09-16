@@ -120,6 +120,10 @@ public struct EditionEntry: Codable, Equatable, Identifiable, Sendable {
   public var section: JudgmentSection
   public var rank: Int
   public var rationale: String?
+  /// The current Personal Knowledge claim named by this materialised rationale, if any. It is
+  /// persisted beside the rationale so a past Edition can still offer the same correction route
+  /// without re-running judgment or reverse-matching prose.
+  public var matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID?
   public var entryState: EditionEntryState
   /// The Edition this piece was *first* admitted in, preserved across every re-admission so a
   /// carried chain remains traceable to its origin (IMPLEMENTATION-CONTRACT §3).
@@ -136,6 +140,7 @@ public struct EditionEntry: Codable, Equatable, Identifiable, Sendable {
     section: JudgmentSection,
     rank: Int,
     rationale: String? = nil,
+    matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID? = nil,
     entryState: EditionEntryState = .admitted,
     firstAdmittedEditionID: Edition.ID,
     timesCarried: Int = 0
@@ -146,6 +151,7 @@ public struct EditionEntry: Codable, Equatable, Identifiable, Sendable {
     self.section = section
     self.rank = rank
     self.rationale = rationale
+    self.matchedPersonalKnowledgeClaimID = matchedPersonalKnowledgeClaimID
     self.entryState = entryState
     self.firstAdmittedEditionID = firstAdmittedEditionID
     self.timesCarried = timesCarried

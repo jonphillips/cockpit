@@ -31,7 +31,7 @@ If the candidate set exceeds roughly 120 pieces, split into batches by Interest 
 
 **Per candidate:** id, kind, title, creator, publisher, publishedAt, first ~1500 characters of `normalizedText`, `bodyCompleteness` when ingest resolved it, Stream name, Stream `handling` and `handlingGuidance`, Stream `isEssential`, Interest Area name and guidance, and — for carried entries — how many times carried and current `entryState`.
 
-**Personal Knowledge projection:** the full set of current claims rendered as labelled prose, grouped Fact / Taste / Interest. Full set until the claim count exceeds 150; past that, retrieve a relevant subset by subject overlap and record which claims were included. This threshold is a guess and is measured at Gate 2.
+**Personal Knowledge projection:** the full set of current claims rendered as labelled prose, grouped Fact / Taste / Interest, with a stable claim ID beside each model-facing line. Full set until the claim count exceeds 150; past that, retrieve a relevant subset by subject overlap and record which claims were included. This threshold is a guess and is measured at Gate 2.
 
 **Current Context:** small projections from specialist apps, when a concrete slice needs them.
 
@@ -53,6 +53,7 @@ One object per candidate. Decoded strictly; a decode failure fails the piece to 
   "section": "essentials | forYou | interestArea | essentialBacklog",
   "rank": 3,
   "rationale": "From Matthew Yglesias, marked Essential; original argument rather than a roundup.",
+  "matchedPersonalKnowledgeClaimID": null,
   "subjects": ["housing policy", "zoning", "us politics"],
   "summary": "…",
   "bodyCompleteness": "full",
@@ -69,7 +70,7 @@ One object per candidate. Decoded strictly; a decode failure fails the piece to 
 }
 ```
 
-`rationale` is written for Jon, not for a debugger. It surfaces in the Reader and in "why am I seeing this," and it is what he corrects against. It states product logic — Stream posture, Interest Area, which explicit knowledge matched — and never model scoring internals.
+`rationale` is written for Jon, not for a debugger. It surfaces in the Reader and in "why am I seeing this," and it is what he corrects against. It states product logic — Stream posture, Interest Area, which explicit knowledge matched — and never model scoring internals. When explicit Personal Knowledge drove admission or rank, `matchedPersonalKnowledgeClaimID` names exactly one claim supplied in the projection and the rationale names it in Jon's terms; otherwise the field is `null`. The ID is a correction route, not a score, an explanation of model internals, or a new evidence graph.
 
 `finds` is populated from Phase 1. Extraction shares this call, so the marginal cost is near zero, and the orphan-Find population starts accumulating on day one rather than in month five. Handoff to a specialist app remains Phase 6; V1 Phase 1 only persists PendingFinds and lists them.
 
@@ -112,14 +113,16 @@ Rules:
     target size. Judge substantive vs accessory honestly.
   Stream handling overrides generic interest matching.
   Prefer omitting a weak piece to padding toward the target.
-  Rationale is addressed to the reader.
+  Rationale is addressed to the reader. When explicit Personal Knowledge drove
+  admission or rank, name that claim and return its supplied claim ID so the
+  Reader can correct it; otherwise return null.
 ```
 
 ---
 
 ## 5. Persistence
 
-`EditionEntry.rationale` holds the rationale. `ContentPiece.subjects`, `.summary`, `.isSubstantivePrimary` are written from the same pass. Judgment output is never re-derived for display; a past Edition explains itself from what was stored.
+`EditionEntry.rationale` and its optional `matchedPersonalKnowledgeClaimID` hold the explanation and its correction route. `ContentPiece.subjects`, `.summary`, `.isSubstantivePrimary` are written from the same pass. Judgment output is never re-derived for display; a past Edition explains itself from what was stored.
 
 Re-judgment happens only on explicit user action ("reconsider this"), on a prompt version change, or on the next composition for carried entries. Personal Knowledge changing does not retroactively recompose a past Edition.
 

@@ -77,7 +77,8 @@ Edition(id, date, composedAt, state, targetSize,
         estimatedCostUSD?, promptVersion?, modelName?)
 
 EditionEntry(id, editionID, contentPieceID, section, rank,
-             rationale, entryState, firstAdmittedEditionID, timesCarried)
+             rationale, matchedPersonalKnowledgeClaimID, entryState,
+             firstAdmittedEditionID, timesCarried)
 
 LaterMembership(contentPieceID, addedAt)
 
@@ -211,4 +212,7 @@ Before adding a table, type, or protocol: name the stable identity, lifecycle, r
 
 Still explicitly not modeled: universal `Item`/`Thing`, canonical Restaurant/Product/Wine/Recipe/Person, Opportunity, Signal, Observation, universal evidence graph, generic rules engine, universal Subject graph, family-wide Handoff object.
 
-`EditionEntry.rationale` is the sanctioned place for why-surfaced explanation. It is not the beginning of an evidence graph and gains no query surface beyond its own Edition.
+`EditionEntry.rationale` is the sanctioned place for why-surfaced explanation. When a rationale
+names an explicit Personal Knowledge claim, `matchedPersonalKnowledgeClaimID` preserves its exact
+current-claim reference so the Reader can route correction to that understanding. It is not the
+beginning of an evidence graph and gains no query surface beyond its own Edition.

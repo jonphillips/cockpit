@@ -130,6 +130,10 @@ public struct JudgmentOutcome: Equatable, Sendable, Identifiable {
   public let section: JudgmentSection?
   public let rank: Int?
   public let rationale: String?
+  /// The one explicit current claim judgment says drove this item's admission or rank. This is
+  /// explanation context, not a score or a command; deterministic code validates it against the
+  /// projection before materialising the Edition entry.
+  public let matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID?
   public let subjects: [String]?
   public let summary: String?
   public let bodyCompleteness: BodyCompleteness?
@@ -142,7 +146,8 @@ public struct JudgmentOutcome: Equatable, Sendable, Identifiable {
 
   public init(
     contentPieceID: UUID, admit: Bool, isSubstantivePrimary: Bool?, section: JudgmentSection?,
-    rank: Int?, rationale: String?, subjects: [String]?, summary: String?,
+    rank: Int?, rationale: String?, matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID? = nil,
+    subjects: [String]?, summary: String?,
     bodyCompleteness: BodyCompleteness? = nil, finds: [JudgmentFind]?,
     errorDescription: String? = nil
   ) {
@@ -152,6 +157,7 @@ public struct JudgmentOutcome: Equatable, Sendable, Identifiable {
     self.section = section
     self.rank = rank
     self.rationale = rationale
+    self.matchedPersonalKnowledgeClaimID = matchedPersonalKnowledgeClaimID
     self.subjects = subjects
     self.summary = summary
     self.bodyCompleteness = bodyCompleteness
@@ -191,7 +197,8 @@ extension JudgmentOutcome {
   static func failed(contentPieceID: UUID, error: String) -> Self {
     .init(
       contentPieceID: contentPieceID, admit: false, isSubstantivePrimary: nil, section: nil,
-      rank: nil, rationale: nil, subjects: nil, summary: nil, bodyCompleteness: nil, finds: nil,
+      rank: nil, rationale: nil, matchedPersonalKnowledgeClaimID: nil,
+      subjects: nil, summary: nil, bodyCompleteness: nil, finds: nil,
       errorDescription: error
     )
   }
