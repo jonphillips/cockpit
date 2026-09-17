@@ -473,6 +473,13 @@ Pending Find); the existing Find-extraction path (Phase 1); the type-pass summar
 - **`grab-bag` → within-issue item extraction.** Decompose the flagged issue into its contained items
   and list the worthwhile ones inside the grab-bag tier. This is the **only** editorial-style sifting
   that runs on curated input, and it runs **inside one piece**, never across pieces (§24).
+- **Wire the email→Stream linkage first — grab-bag routing is unwired.** S5 shipped the grab-bag
+  classifier branch (`stream?.isGrabBag`) fixture-only: Gmail Artifacts ingest with `streamID = nil`
+  (`GmailIngestion.swift`) and nothing links an email Artifact to a Stream, so the branch never fires
+  in production. Before this tier can render, an ingested Gmail piece must resolve to its Stream (the
+  Feed Me digest → its `isGrabBag` Stream). Keep it deterministic — sender/`List-ID` → Stream, not a
+  detector (§24) — and do not smuggle in Phase-5 email-delivered Streams; this is only the lookup S5's
+  classifier already assumes.
 - **No cross-item editorial finite-package call over curated mail** — that pass is demoted in S9 and
   never runs here.
 
