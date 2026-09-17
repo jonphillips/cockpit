@@ -3,8 +3,9 @@
 **Status:** Normative
 **Date:** 2026-09-08
 
-Judgment is two deliberately separated structured LLM passes that turn new ContentPieces into an
-Edition: a PK-free type/classification pass, then a PK-aware editorial pass. It is the
+Judgment is two deliberately separated structured LLM passes that turn the **uncurated tail** of new
+ContentPieces into an Edition: a PK-free type/classification pass, then a PK-aware editorial pass.
+Curated Gmail input is organized in Today by deterministic treatment and never enters either pass. It is the
 highest-variance component in Cockpit and the one that makes it different from a feed reader with a
 read-later list. It therefore gets a contract and an evaluation harness rather than a line in a
 pipeline diagram.
@@ -17,7 +18,7 @@ Once per Edition composition, batched. Not per-piece.
 
 ```
 compose(date):
-  candidates = ContentPieces created since last composition
+  candidates = uncurated ContentPieces created since last composition
              + carried entries from the previous Edition
   classifications = classify(candidates) // no Personal Knowledge or Current Context
   projection      = personalKnowledgeProjection()
@@ -26,7 +27,7 @@ compose(date):
   write Edition + EditionEntries in one transaction
 ```
 
-Batching is load-bearing for the **editorial** pass: the model is choosing a *finite package*
+Batching is load-bearing for the **editorial** pass: the model is choosing the uncurated tail's *finite package*
 against `Edition.targetSize`, which requires seeing the candidates together. Per-piece scoring
 followed by a sort produces a ranked feed, which is the product Cockpit is explicitly not. The type
 pass is also batched for efficient structured extraction, but it does not select a package.

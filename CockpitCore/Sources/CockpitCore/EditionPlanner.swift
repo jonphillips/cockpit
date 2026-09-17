@@ -30,15 +30,19 @@ struct EditionCarriedPredecessor: Sendable {
   var matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID?
 }
 
-/// Gathers the day's candidates — new arrivals plus carryovers — and the context each needs. Pure
-/// reads; it never writes. The composer runs it inside its Phase-1 transaction.
+/// Gathers the uncurated tail's candidates — new arrivals plus carryovers — and the context each
+/// needs. Gmail-backed material is curated input: Today organizes it by treatment and it never
+/// reaches either Edition judgment pass. Pure reads; the composer runs this inside its Phase-1
+/// transaction.
 struct EditionPlanner: Sendable {
   func buildPlan(
     previousEditionID: Edition.ID?, since: Date?, in db: Database
   ) throws -> EditionPlan {
     let essentialStreamPieceIDs = try EditionOperations.essentialStreamPieceIDs(in: db)
-    let carriedByPiece = try carryovers(previousEditionID: previousEditionID, in: db)
-    let newPieceIDs = try newPieceIDs(since: since, in: db)
+    let gmailContentPieceIDs = try gmailContentPieceIDs(in: db)
+    let carriedByPiece = try carryovers(
+      previousEditionID: previousEditionID, excluding: gmailContentPieceIDs, in: db)
+    let newPieceIDs = try newPieceIDs(since: since, excluding: gmailContentPieceIDs, in: db)
 
     let candidatePieceIDs = Array(carriedByPiece.keys) + newPieceIDs
     let builds = try candidateBuilds(for: candidatePieceIDs, carriedByPiece: carriedByPiece, in: db)
@@ -61,14 +65,14 @@ struct EditionPlanner: Sendable {
 
   /// Entries the day-boundary finaliser just marked `carried` on the prior Edition.
   private func carryovers(
-    previousEditionID: Edition.ID?, in db: Database
+    previousEditionID: Edition.ID?, excluding excludedContentPieceIDs: Set<ContentPiece.ID>, in db: Database
   ) throws -> [ContentPiece.ID: EditionCarriedPredecessor] {
     guard let previousEditionID else { return [:] }
     let carriedEntries = try EditionEntry
       .where { $0.editionID.eq(previousEditionID) && $0.entryState.eq(EditionEntryState.carried) }
       .fetchAll(db)
     var result: [ContentPiece.ID: EditionCarriedPredecessor] = [:]
-    for entry in carriedEntries {
+    for entry in carriedEntries where !excludedContentPieceIDs.contains(entry.contentPieceID) {
       result[entry.contentPieceID] = EditionCarriedPredecessor(
         firstAdmittedEditionID: entry.firstAdmittedEditionID, timesCarried: entry.timesCarried,
         section: entry.section, rank: entry.rank, rationale: entry.rationale,
@@ -80,7 +84,9 @@ struct EditionPlanner: Sendable {
   /// Pieces ingested since the previous Edition and never yet surfaced. A piece with any existing
   /// entry (carried, or terminal) is excluded — carryovers arrive via `carryovers`, and a
   /// resolved/dismissed/aged piece is not reconsidered without an explicit request.
-  private func newPieceIDs(since: Date?, in db: Database) throws -> [ContentPiece.ID] {
+  private func newPieceIDs(
+    since: Date?, excluding excludedContentPieceIDs: Set<ContentPiece.ID>, in db: Database
+  ) throws -> [ContentPiece.ID] {
     let existingEntryPieceIDs = Set(try EditionEntry.select(\.contentPieceID).fetchAll(db))
     let candidatePieces: [ContentPiece.ID]
     if let since {
@@ -88,7 +94,22 @@ struct EditionPlanner: Sendable {
     } else {
       candidatePieces = try ContentPiece.select(\.id).fetchAll(db)
     }
-    return candidatePieces.filter { !existingEntryPieceIDs.contains($0) }
+    return candidatePieces.filter {
+      !existingEntryPieceIDs.contains($0) && !excludedContentPieceIDs.contains($0)
+    }
+  }
+
+  /// A Gmail Artifact is the durable marker that a ContentPiece came from curated inbox input.
+  /// Excluding by Artifact rather than display kind is conservative when the same piece is acquired
+  /// through more than one transport: one curated provenance is enough to keep it out of the
+  /// cross-item editorial pass.
+  private func gmailContentPieceIDs(in db: Database) throws -> Set<ContentPiece.ID> {
+    Set(
+      try Artifact
+        .where { $0.transport.eq(StreamTransport.gmail) }
+        .select(\.contentPieceID)
+        .fetchAll(db)
+        .compactMap { $0 })
   }
 
   /// Assemble a `JudgmentCandidate` per piece. One piece can have several (Artifact, Stream) rows;

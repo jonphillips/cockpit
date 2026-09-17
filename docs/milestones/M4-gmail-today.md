@@ -75,8 +75,8 @@ Gmail API.
 - [x] **S4 — Gmail read-only ingest: Inbox → provider Artifact → email ContentPiece** *(+ raw-header retention for S5; §24)*
 - [x] **S5 — Treatment classification: personal / newsletter / offer / grab-bag** *(§24; replaces the "Worth Seeing" taxonomy)*
 - [x] **S7 — The Today hierarchy surface: type-differentiated view, `Clear`** *(§24)*
-- [ ] **S8 — Treatments: offer → summary + Pending Find; grab-bag → within-issue extraction** *(§24)*
-- [ ] **S9 — Fold Edition into Today; demote the editorial pass to the uncurated tail** *(§24; shell change; contract amendments land here)*
+- [x] **S8 — Treatments: offer → summary + Pending Find; grab-bag → within-issue extraction** *(§24)* — merged, PR #34
+- [x] **S9 — Fold Edition into Today; demote the editorial pass to the uncurated tail** *(§24; shell change; contract amendments land here)*
 - [ ] **Architecture Gate 3 — write the Gmail integration ADR from observed semantics**
 
 S1–S3 and S6 deepened the existing loop and are built. **Under §24 the remaining spine is ordered and

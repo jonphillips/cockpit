@@ -135,6 +135,11 @@ constraints on synchronized tables, and `Edition`/`EditionEntry` sync (ADR-0001 
 
 ## 3. Edition state machine
 
+Today has two distinct treatments. Curated Gmail input is deterministically organized by its
+personal/newsletter/offer/grab-bag treatment and remains fully visible; it never enters Edition.
+The barely-curated, non-Gmail tail is materialized as the Edition below and renders as a section within
+Today. `Edition.targetSize`, editorial admission, carryover, and Essential protection apply only to that tail.
+
 `Edition.state`: `composing → open → closed`.
 
 An Edition is composed once per day at first app launch after the day boundary. Once `open`, its entry set is stable for the day except for intraday admission of Essential or time-critical material, which appends and never reorders.

@@ -200,6 +200,36 @@ struct EditionTests {
     expectNoDifference(count, 1)
   }
 
+  @Test("A curated Gmail corpus never invokes the Edition judgment passes")
+  func curatedGmailIsOutsideTheTail() async throws {
+    let pieceID = UUID(1351)
+    try await database.write { db in
+      try ContentPiece.insert {
+        ContentPiece.Draft(
+          ContentPiece(
+            id: pieceID, kind: .email, title: "A curated message", publisher: "Sender",
+            createdAt: self.base))
+      }.execute(db)
+      try Artifact.insert {
+        Artifact.Draft(
+          Artifact(
+            id: UUID(1352), transport: .gmail, providerID: "gmail:message:1351",
+            acquiredAt: self.base, contentPieceID: pieceID))
+      }.execute(db)
+    }
+
+    let calls = Mutex(0)
+    let client = StubModelClient { _ in
+      calls.withLock { $0 += 1 }
+      return ModelResponse(text: "{\"judgments\":[]}")
+    }
+    let composer = EditionComposer(engine: JudgmentEngine(modelClient: client))
+    let result = try await composer.composeIfNeeded(now: base, in: database)
+
+    expectNoDifference(result, .nothingToCompose)
+    expectNoDifference(calls.withLock { $0 }, 0)
+  }
+
   // MARK: - Entry-state machine (owned by the model)
 
   @Test("The model drives every legal transition and rejects every illegal one")

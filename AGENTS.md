@@ -34,7 +34,6 @@ The user-facing shell is:
 
 ```text
 Today
-Edition
 Later
 Library
 Settings
