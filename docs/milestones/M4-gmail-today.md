@@ -526,6 +526,10 @@ the tail); `EditionComposer` / `EditionPlanner` (the composition path to re-scop
   `AGENTS.md` "Current shell" drops Edition; the `V1-SCOPE` re-sequence is reconciled. §5/§14/§22 carry
   "amended by §24" remit notes, not deletion.
 - **S6's parallelization stays** and now applies to the tail composition.
+- **Rework the Today projection into a query while you are here.** S7's `TodayRequest` is a full
+  `ContentPiece.all` scan filtered to `kind == .email` in Swift (fine at S7 volume, a whole-table read
+  per Today reload as Library grows). Folding the tail in touches this path anyway — push the
+  `kind == .email` predicate into SQL then.
 
 ### Done-criteria
 
@@ -576,7 +580,34 @@ especially the personal-vs-publication split, where a miss is visible and the pe
 fix (S5); and (2) the decision that makes or breaks the whole re-centering — **does the type-differentiated
 hierarchy actually read better than the flat, arrival-ordered inbox** (S7)? That is the lived-use test of
 §24's thesis; if the hierarchy does not feel like less work than scrolling a flat list, the treatment
-axis is wrong, not just the styling.
+axis is wrong, not just the styling. One concrete S7 knob to judge inside that test: within a tier rows
+sort **newest-first** on `publishedAt ?? acquiredAt` (the email's own Date header, falling back to
+Cockpit's acquisition time). Whether that direction and that "arrival" definition read right — versus
+oldest-first, or ordering by when Cockpit *received* it — is a device-pass call, not a scored one.
+
+#### S7 device pass — findings (2026-09-17, Jon, iPad)
+
+**Verdict on the §24 thesis: passed.** With a real Inbox ingested, the type-differentiated hierarchy
+"feels like less work" than the flat inbox. That is the lived-use test S7 was betting on, and it holds —
+the treatment axis is right; what remains is tools and formatting, not the structure.
+
+Three findings, none blocking S7 (all upstream of it or downstream in a later slice):
+
+1. **Classification under-separates transactional mail (S5).** On real mail: transactional/notification
+   messages (UPS shipment, an Apple Store `do_not_reply` trade-in notice, a Kickstarter sign-in code)
+   land in **Personal**; **offers and hotel confirmations land in Newsletters**. The four-treatment
+   taxonomy has no clean home for transactional/receipt mail, so it scatters. This is evidence for the
+   per-sender override (S5) and a live question for §24 — whether the four treatments need a
+   transactional/receipt sibling, or whether that is a Find, not a treatment. Jon's call; log it, do not
+   auto-fix.
+2. **Email bodies render as one run-on stream (Reader/normalizer defect).** `HTMLText.normalizedText`
+   ([`Feed.swift`](../../CockpitCore/Sources/CockpitCore/Feed.swift)) inserts `\n` for block tags and then
+   collapses every whitespace run — including those newlines — in its final `split/joined` pass, so all
+   paragraph structure is lost. Formatting is **not** lost from the data (`rawSourceText` retains the full
+   HTML); this is a normalization choice. The normalizer is shared with the RSS path, so the fix (collapse
+   intra-line whitespace, preserve `\n`, squeeze blank-line runs) is its own small change with a test,
+   **off `main`, not on the S7 branch.** Tracked follow-up.
+3. **Arrival-order direction** — recorded above; unchanged by this pass.
 
 ---
 
@@ -590,7 +621,12 @@ provider actually did in S4–S5, not from design intent. Settle:
 - account identity and multi-account behaviour if required;
 - refresh / pagination / delta strategy;
 - which provider IDs are retained;
-- re-entry on new replies (without inventing a permanent parallel thread-resolution state, DECISIONS §7);
+- re-entry on new replies (without inventing a permanent parallel thread-resolution state, DECISIONS §7).
+  **S7 evidence:** `Clear` writes a permanent per-`contentPieceID` `TodayAttention` marker, and the Today
+  projection excludes any piece with that marker regardless of a later `acquiredAt`. So whether a reply
+  resurfaces a cleared concern turns entirely on S4's identity grain — message-level and it is a new,
+  un-cleared piece; thread-level and it stays suppressed. The ADR must settle which, and whether `Clear`
+  should re-open on a genuinely new arrival — without growing into the parallel thread-resolution state §7 forbids;
 - partial failures / retries;
 - undo capabilities where Gmail permits;
 - what must be committed before any mutation (the disposition barrier, DECISIONS §7);
