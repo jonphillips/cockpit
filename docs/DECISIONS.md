@@ -405,9 +405,12 @@ slice, not gate-blocking.
 Housekeeping: the "paywall teaser with no body" example in `docs/IMPLEMENTATION-CONTRACT.md` §1 is really the completeness axis. Until S5 lands, a body-less teaser is labelled not-substantive; afterward that fact belongs to `bodyCompleteness` and this flag stays purely primary-vs-accessory. A rename to `isPrimaryWork` is a candidate but is deferred (it touches schema, harness, and in-flight labels); the sharpened definition holds the field name for now.
 ---
 
-## 19. Read vs. skim content, and per-digest commentary — OPEN HYPOTHESIS
+## 19. Read vs. skim content, and per-digest commentary — ABSORBED BY §24
 
-Raised 2026-09-13 from the M2 S2 labelling exercise. **Not resolved — to be decided by dogfooding, recorded here so a future implementation does not quietly pick one reading.**
+Raised 2026-09-13 from the M2 S2 labelling exercise. **Absorbed by §24 (2026-09-16):** the read/skim
+axis becomes the treatment axis — think-pieces are *listed*, digests/grab-bags are *extracted* — and
+the "commentary about what is inside a digest" this entry describes is exactly the grab-bag extract
+treatment. The text below is retained as the origin of that insight. **Not resolved — to be decided by dogfooding, recorded here so a future implementation does not quietly pick one reading.**
 
 Some content is a *read* (an original argument or report — a Yglesias essay); some is a *skim* (a digest/roundup that points at other things — the NYT Morning Briefing, "top 7 things to know"). The model already distinguishes these on the `isSubstantivePrimary` axis — and §18 sharpens exactly this: a digest/aggregator is an **accessory**, not primary work, so a digest is the canonical **non-substantive-primary** piece.
 
@@ -445,9 +448,9 @@ This is not new capability bolted on — it is surfacing what the model already 
 
 ---
 
-## 21. Always-read Streams: reachable completeness vs. Edition promotion — OPEN HYPOTHESIS
+## 21. Always-read Streams: reachable completeness vs. Edition promotion — ABSORBED BY §24
 
-Raised 2026-09-15 from Jon's product note on paid, always-read newsletters (Matthew Yglesias, Puck, Alan Sepinwall). **Not resolved — it cannot be validated until email-delivered Streams are real (Phase 5), because these Streams arrive through Gmail. Recorded here so the Phase 5 build does not quietly assume `Essential` means "promote into the daily Edition."**
+Raised 2026-09-15 from Jon's product note on paid, always-read newsletters (Matthew Yglesias, Puck, Alan Sepinwall). **Absorbed by §24 (2026-09-16):** this entry's "promotion is a cost, not a benefit; just list these for me" is the general case §24 resolves — an always-read Stream is curated input, so its treatment is *listed*, and the anti-forget guarantee (§15) stands while the promotion effect dissolves. The text below is retained as the origin of that insight. **Not resolved on its own terms — it cannot be validated until email-delivered Streams are real (Phase 5), because these Streams arrive through Gmail. Recorded here so the Phase 5 build does not quietly assume `Essential` means "promote into the daily Edition."**
 
 `Essential` currently bundles two effects that this note pulls apart:
 
@@ -606,6 +609,125 @@ Sequencing: this is now scheduled as **M4 · S6 — Composition latency**
 volume compounds the same monolithic composition. S6 does the safe near-term work (parallelize the
 type pass; measure on device); the model swap remains deferred to its M5+ slot unless S6 leaves the
 budget still breached.
+
+**Amended by §24 (2026-09-16).** The curated inbox does not run the editorial finite-package pass at
+all, so the latency breach this entry tracks largely dissolves for the common case rather than
+requiring the type-model swap. §23 now governs only the barely-curated tail (§24), where the editorial
+pass still runs and S6's parallelization applies.
+
+---
+
+## 24. Cockpit organizes curated input; it does not judge it — RESOLVED
+
+Raised 2026-09-16, in conversation, while re-scoping §23's composition latency. The latency work kept
+getting cheaper the harder we looked at *what* was being judged — and the bottom of that thread is not
+a performance decision, it is a product one. **This resolves and absorbs §19 and §21, extends §22, and
+largely dissolves §23 for the curated path.** It re-centers the V1 spine.
+
+**The distinction: select-from-uncurated vs. organize-curated.** The Edition — finite-package judgment,
+admit/decline, cross-item ranking — earns its keep when the input is a firehose the user has *not*
+curated: a pile of RSS, an aggregator. There, a machine sifting signal from noise is real work. But
+Jon's inbox is the *output* of curation he already did: he subscribed, he knows these senders. Running
+a "here is what we decided is worthy for you" layer over input he already chose is redundant — and
+worse, it is the engagement move content feeds have made since 1995: manufacture the *feeling* of
+curation to justify an attention surface. Applied to curated mail it inserts a model's editorial
+authority between Jon and material he deliberately asked to receive. §22 already reached the edge of
+this ("the Edition is an editor, not a bouncer; for curated Streams almost nothing is junk") and §21
+reached it from the always-read angle ("promotion is a cost, not a benefit"). §24 states the general
+form: **for curated input the job is organization, not selection.**
+
+**The failure it replaces: the flat inbox.** Every mail client renders each message with identical
+visual weight and stacks them in arrival order. That is the *worst* prioritization — it is *no*
+prioritization: it makes a note from your kid and a wine promotion look the same and sorts them by
+accident of timing. Cockpit's deliverable is the opposite — a **hierarchical, type-differentiated
+view**, in which the treatment a piece receives (highlighted / summarized / listed / extracted) *is* its
+visual rank. Crucially, that hierarchy is by **type and relationship** — deterministic and stable (a
+personal email is elevated because it *is* personal, not because a model scored it high this morning) —
+which is exactly why it stays on the organize side of the line and never becomes the per-item relevance
+ranking this decision demotes. Within a type, order stays arrival-based: choosing between two
+newsletters — Yglesias or Cartoons Hate Her — is a **mood, not a priority**, and the reader settles it
+visually in a heartbeat, so it is not Cockpit's to rank. The win is *across* types, not within them.
+
+**What Cockpit does with curated input: route by type/source into a treatment, never suppress.** The
+value Jon named — "wine offers summarized, canonical newsletters listed, personal emails highlighted"
+— is triage-and-treat, not judge-and-rank. Each treatment is a rung in that hierarchy:
+
+- **Personal email → highlighted.** Elevated by relationship, not by an AI relevance score.
+- **Canonical / think-piece newsletter → listed.** Title and writer. A Slow Boring issue is one
+  indivisible essay — there is nothing to sift *within* it, and the decision to read the writer was
+  made at subscribe time.
+- **Domain offer (wine, restaurant, product) → summarized** into a Find — the specialist-app
+  candidate (§3).
+- **Grab-bag / digest (Feed Me; occasionally a mailbag) → extracted.** This is the one place
+  editorial-style sifting runs on curated input, and it runs *inside* the piece (pull the worthwhile
+  items out), not across pieces.
+
+**The AI boundary this sharpens (extends §22).** For curated input the model classifies, summarizes,
+extracts, and highlights — it **never admits/declines or suppresses**. Organization changes order,
+grouping, and summary; it never changes *membership* of curated mail. This is strictly more faithful to
+Cockpit's own AI boundary ("AI may interpret, propose, summarize, classify… it does not get
+source-deletion authority; model output does not silently become receiver-owned canonical state") than
+the Edition editorial pass, which hands the model admit/decline over things Jon chose to receive. §22
+demoted the "bouncer"; §24 removes even the "editor" for curated input, leaving the **organizer**.
+
+**The spine re-centers.** V1's spine is **typed triage of curated input** — the inbox, organized by
+treatment instead of by arrival order (Today; "orientation/attention," Product Law 1). Per-type
+treatment (list / summarize / highlight / extract) is the core mechanism. This is what M4 (Gmail-Today)
+is already walking toward; S4–S5 are the real product, not preamble to Edition.
+
+**Edition is right-sized, not deleted.** The finite-package judgment stays the correct tool for the
+genuinely barely-curated tail — aggregator streams, a raw RSS firehose, the "Technology stories" case
+where Jon *does* want ruthless screening because he has *not* pre-curated it. It demotes from
+centerpiece to a screening treatment for that tail. **Decided 2026-09-16: the tail renders as a section
+*within* Today, and Edition is dropped as a top-level shell destination** — the shell becomes `Today /
+Later / Library / Settings`. The shell change lands in its own slice; `AGENTS.md`'s "Current shell" is
+amended when that slice ships, not before, so the doc keeps describing what is actually built.
+
+**What survives from M2, and what demotes.**
+
+- **Survives (the spine of the AI work):** type classification (kind, `isSubstantivePrimary` §18,
+  subjects, summary), Find extraction, per-kind summary/preview. These *are* the treatments; they make
+  triage valuable.
+- **Demotes:** the editorial finite-package pass — cross-item admit/decline/section/rank/rationale over
+  the whole day. It narrows to (a) the uncurated tail and (b) within-grab-bag extraction. It is no
+  longer the everyday path.
+
+**Consequence for §23 (latency).** The 60s-budget breach was dominated by the editorial pass (device
+split, 2026-09-16: total 224.5s = type 71.1s + editorial 153.4s over 66 curated candidates). Under §24
+that pass does not run over curated mail at all — so the breach largely dissolves for the common case
+rather than needing the type-model swap or editorial trimming. §23's remaining relevance is the
+uncurated tail; S6's parallelization stands and applies there.
+
+**Finiteness comes from the input, not a cutoff.** Edition felt feed-like partly *because* of
+`targetSize` ranking. For curated input, finiteness is intrinsic — the mail that arrived is already a
+finite set. §14's `targetSize` applies only to the uncurated-tail screening treatment, not to the
+curated inbox.
+
+**Guardrails.**
+
+- **Not "delete the AI."** Type classification and Find extraction are the surviving core; §24 removes
+  a *misapplied selection layer*, not the interpretive work.
+- **Not clickstream (holds §8, §22).** Treatments are driven by explicit type/source and explicit
+  Stream disposition, never inferred behavior. §15's anti-forget guarantee stands in full; only the
+  *promotion* effect dissolves for curated streams (this completes §21).
+- **No grab-bag detector for V1.** Grab-bag streams are marked by hand (Feed Me → extract; the rest →
+  list). One-and-a-half streams do not justify a classifier ("first use establishes a requirement");
+  revisit only if buried-gem misses recur.
+- **The model never hides a curated item.** Any treatment that would suppress or decline curated mail
+  is out of bounds; that authority never leaves Jon.
+
+**Status.** The *decision* is resolved. Its downstream authoring is not, and must follow deliberately
+(Documentation rule): the V1 sequence (`docs/V1-SCOPE-AND-SEQUENCING.md`) and milestones re-center on
+typed triage; `docs/JUDGMENT-CONTRACT.md` §1 demotes the editorial finite-package pass to the uncurated
+tail; `docs/IMPLEMENTATION-CONTRACT.md` §3 and the Edition/experience docs record the two-treatment
+shape; §5, §14, and §22 are amended in remit (not deleted). None of that is done in this entry.
+
+**Relates to:** §3 (Finds — the offer treatment), §5 (Edition remit narrowed), §14 (`targetSize` scope
+narrowed to the tail), §15 (anti-forget stands; promotion dissolves — completes §21), §17/§22
+(editorial pass demoted), §18 (substantive-primary still classifies), §19 (absorbed), §21 (absorbed),
+§23 (latency dissolved for the curated path). Live docs: `docs/V1-SCOPE-AND-SEQUENCING.md`,
+`docs/milestones/`, `docs/JUDGMENT-CONTRACT.md`, `docs/IMPLEMENTATION-CONTRACT.md`,
+`docs/EDITION-EXPERIENCE.md`, `docs/CONTENT-STREAM-MODEL.md`.
 
 ---
 
