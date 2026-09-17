@@ -1,0 +1,109 @@
+@testable import CockpitCore
+import CustomDump
+import Dependencies
+import DependenciesTestSupport
+import Foundation
+import SQLiteData
+import Testing
+
+@Suite(.serialized, .dependencies {
+  try $0.bootstrapDatabase()
+  $0.date.now = Date(timeIntervalSince1970: 10_000)
+})
+@MainActor
+struct TodayModelTests {
+  @Dependency(\.defaultDatabase) private var database
+
+  @Test("Today uses the fixed treatment hierarchy and arrival order within each tier")
+  func hierarchy() async throws {
+    let personalEarly = UUID(7_001)
+    let personalLate = UUID(7_002)
+    let newsletter = UUID(7_003)
+    let offer = UUID(7_004)
+    let grabBag = UUID(7_005)
+    try await seed(personalEarly, treatment: .personal, receivedAt: 1)
+    try await seed(personalLate, treatment: .personal, receivedAt: 2)
+    try await seed(newsletter, treatment: .newsletter, receivedAt: 3)
+    try await seed(offer, treatment: .offer, receivedAt: 4)
+    try await seed(grabBag, treatment: .grabBag, receivedAt: 5)
+
+    let model = TodayModel()
+    try await model.$content.load()
+
+    expectNoDifference(model.tiers.map(\.treatment), [.personal, .newsletter, .offer, .grabBag])
+    expectNoDifference(model.tiers[0].rows.map(\.id), [personalLate, personalEarly])
+    expectNoDifference(model.tiers[1].rows.map(\.id), [newsletter])
+    expectNoDifference(model.tiers[2].rows.map(\.id), [offer])
+    expectNoDifference(model.tiers[3].rows.map(\.id), [grabBag])
+  }
+
+  @Test("Clear resolves only Cockpit attention and leaves Gmail evidence unchanged")
+  func clearIsCockpitOnly() async throws {
+    let pieceID = UUID(7_101)
+    let artifactID = try await seed(pieceID, treatment: .personal, receivedAt: 1)
+    let model = TodayModel()
+    try await model.$content.load()
+    let row = try #require(model.content.rows.first)
+    model.selectedContentPieceID = pieceID
+    let evidenceBefore = try await database.read { db in
+      try Artifact.find(artifactID).fetchOne(db)
+    }
+
+    await model.clear(row)
+
+    #expect(model.content.rows.isEmpty)
+    #expect(model.selectedContentPieceID == nil)
+    #expect(model.errorMessage == nil)
+    let state = try await database.read { db in
+      (
+        try TodayAttention.find(pieceID).fetchOne(db),
+        try Artifact.find(artifactID).fetchOne(db),
+        try ContentPiece.find(pieceID).fetchOne(db)
+      )
+    }
+    expectNoDifference(state.0?.clearedAt, Date(timeIntervalSince1970: 10_000))
+    expectNoDifference(state.1, evidenceBefore)
+    expectNoDifference(state.2?.kind, .email)
+  }
+
+  @Test("Clear rejects non-Gmail material without changing attention state")
+  func clearRejectsNonGmailMaterial() async throws {
+    let pieceID = UUID(7_201)
+    try await database.write { db in
+      try ContentPiece.insert {
+        ContentPiece.Draft(
+          id: pieceID, kind: .article, title: "Article", publisher: "Publisher", createdAt: .distantPast)
+      }.execute(db)
+    }
+
+    #expect(throws: TodayAttentionOperations.Failure.self) {
+      try database.read { db in
+        try TodayAttentionOperations.clear(pieceID, at: .distantPast, in: db)
+      }
+    }
+    let attention = try await database.read { db in try TodayAttention.find(pieceID).fetchOne(db) }
+    #expect(attention == nil)
+  }
+
+  @discardableResult
+  private func seed(
+    _ pieceID: ContentPiece.ID, treatment: EmailTreatment, receivedAt: TimeInterval
+  ) async throws -> Artifact.ID {
+    let artifactID = UUID(Int(receivedAt) + 80_000)
+    try await database.write { db in
+      try ContentPiece.insert {
+        ContentPiece.Draft(
+          id: pieceID, kind: .email, title: "\(treatment.rawValue) \(receivedAt)",
+          publisher: "Sender", publishedAt: Date(timeIntervalSince1970: receivedAt),
+          emailTreatment: treatment, createdAt: .distantPast)
+      }.execute(db)
+      try Artifact.insert {
+        Artifact.Draft(
+          id: artifactID, transport: .gmail, providerID: "gmail:message:\(pieceID.uuidString)",
+          acquiredAt: Date(timeIntervalSince1970: receivedAt), rawSourceText: "Body",
+          providerProvenance: "{}", contentPieceID: pieceID)
+      }.execute(db)
+    }
+    return artifactID
+  }
+}

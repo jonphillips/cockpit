@@ -74,7 +74,7 @@ Gmail API.
 - [x] **S6 — Composition latency: parallelize the type pass** *(DECISIONS §23)* — PR #29 (merge is Jon's)
 - [x] **S4 — Gmail read-only ingest: Inbox → provider Artifact → email ContentPiece** *(+ raw-header retention for S5; §24)*
 - [x] **S5 — Treatment classification: personal / newsletter / offer / grab-bag** *(§24; replaces the "Worth Seeing" taxonomy)*
-- [ ] **S7 — The Today hierarchy surface: type-differentiated view, `Clear`** *(§24)*
+- [x] **S7 — The Today hierarchy surface: type-differentiated view, `Clear`** *(§24)*
 - [ ] **S8 — Treatments: offer → summary + Pending Find; grab-bag → within-issue extraction** *(§24)*
 - [ ] **S9 — Fold Edition into Today; demote the editorial pass to the uncurated tail** *(§24; shell change; contract amendments land here)*
 - [ ] **Architecture Gate 3 — write the Gmail integration ADR from observed semantics**
