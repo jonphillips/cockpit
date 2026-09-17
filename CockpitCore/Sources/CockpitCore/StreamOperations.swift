@@ -10,6 +10,7 @@ public struct StreamDraft: Equatable, Identifiable, Sendable {
   public var interestAreaName: String
   public var handlingGuidance: String
   public var isEssential: Bool
+  public var isGrabBag: Bool
 
   public init(
     id: UUID? = nil,
@@ -19,7 +20,8 @@ public struct StreamDraft: Equatable, Identifiable, Sendable {
     locator: String = "",
     interestAreaName: String = "General",
     handlingGuidance: String = "",
-    isEssential: Bool = false
+    isEssential: Bool = false,
+    isGrabBag: Bool = false
   ) {
     self.id = id
     self.name = name
@@ -29,6 +31,7 @@ public struct StreamDraft: Equatable, Identifiable, Sendable {
     self.interestAreaName = interestAreaName
     self.handlingGuidance = handlingGuidance
     self.isEssential = isEssential
+    self.isGrabBag = isGrabBag
   }
 }
 
@@ -75,6 +78,7 @@ public enum StreamOperations {
           $0.locator = #bind(locator)
           $0.handlingGuidance = #bind(draft.handlingGuidance)
           $0.isEssential = #bind(draft.isEssential)
+          $0.isGrabBag = #bind(draft.isGrabBag)
         }
         .execute(db)
     } else {
@@ -88,7 +92,8 @@ public enum StreamOperations {
             transport: draft.transport,
             locator: locator,
             handlingGuidance: draft.handlingGuidance,
-            isEssential: draft.isEssential
+            isEssential: draft.isEssential,
+            isGrabBag: draft.isGrabBag
           )
         )
       }.execute(db)

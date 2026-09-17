@@ -43,6 +43,7 @@ struct GmailIngestionTests {
       let persistedPiece = try ContentPiece.find(expectedID).fetchOne(db)
       let piece = try #require(persistedPiece)
       expectNoDifference(piece.kind, .email)
+      expectNoDifference(piece.emailTreatment, .newsletter)
       expectNoDifference(piece.bodyCompleteness, .full)
       expectNoDifference(try NormalizedTextOperations.text(for: piece.id, in: db), "A readable email body.")
       let artifacts = try Artifact.where { $0.contentPieceID.eq(piece.id) }.fetchAll(db)
