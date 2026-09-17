@@ -13,8 +13,14 @@ public struct JudgmentEngine: Sendable {
   public static let singlePassControlPromptVersion = "m3-s5-v1"
 
   /// How many follow-up calls each pass will make to recover candidates silently omitted from a
-  /// batch. A bounded retry repairs common partial omissions without retrying a failed whole batch.
+  /// batch. A bounded retry repairs per-piece omissions and failed type batches.
   static let maxReRequestRounds = 2
+
+  /// The type pass has no finite-package constraint, unlike the editorial pass. Composition-sized
+  /// chunks keep individual responses bounded, and the modest window stays below the provider's
+  /// normal request ceiling while materially reducing wall time.
+  static let typePassBatchSize = 30
+  static let typePassConcurrency = 4
 
   let modelClient: any ModelClient
   let now: @Sendable () -> Date
@@ -33,7 +39,9 @@ public struct JudgmentEngine: Sendable {
     guard !candidates.isEmpty else {
       return .init(classifications: [], metrics: .empty)
     }
-    let firstPass = await classifyBatch(candidates)
+    let startedAt = now()
+    let firstPasses = await classifyBatches(candidates.chunked(into: Self.typePassBatchSize))
+    let firstPass = Self.merged(firstPasses)
     var classificationsByID = Dictionary(
       firstPass.classifications.map { ($0.contentPieceID, $0) },
       uniquingKeysWith: { existing, _ in existing })
@@ -42,10 +50,11 @@ public struct JudgmentEngine: Sendable {
     var round = 0
     while round < Self.maxReRequestRounds {
       let omitted = candidates.filter { classificationsByID[$0.id]?.errorDescription != nil }
-      guard !omitted.isEmpty, omitted.count < candidates.count else { break }
+      guard !omitted.isEmpty else { break }
       round += 1
 
-      let retry = await classifyBatch(omitted)
+      let retry = Self.merged(
+        await classifyBatches(omitted.chunked(into: Self.typePassBatchSize)))
       var recovered = false
       for classification in retry.classifications where classification.errorDescription == nil {
         classificationsByID[classification.contentPieceID] = classification
@@ -55,12 +64,46 @@ public struct JudgmentEngine: Sendable {
       if !recovered { break }
     }
 
+    // Batches run concurrently, so the type-pass metric is its actual elapsed wall time rather
+    // than the sum of independent request durations. Usage and cost above still sum every call.
+    metrics = .init(
+      usage: metrics.usage, estimatedCost: metrics.estimatedCost,
+      latency: now().timeIntervalSince(startedAt), modelName: JudgmentModel.displayName)
     return .init(
       classifications: candidates.map {
         classificationsByID[$0.id]
           ?? .failed(contentPieceID: $0.id, error: "The model returned no judgment for this candidate.")
       },
       metrics: metrics)
+  }
+
+  /// Runs the independent PK-free type batches with a bounded sliding window. Results may arrive
+  /// out of order, but `classify` reassembles them by ContentPiece identity before returning.
+  private func classifyBatches(
+    _ batches: [[JudgmentCandidate]]
+  ) async -> [JudgmentClassificationRun] {
+    guard !batches.isEmpty else { return [] }
+    return await withTaskGroup(of: JudgmentClassificationRun.self) { group in
+      var runs: [JudgmentClassificationRun] = []
+      var next = 0
+      let window = min(Self.typePassConcurrency, batches.count)
+
+      while next < window {
+        let batch = batches[next]
+        group.addTask { await classifyBatch(batch) }
+        next += 1
+      }
+
+      while let run = await group.next() {
+        runs.append(run)
+        if next < batches.count {
+          let batch = batches[next]
+          group.addTask { await classifyBatch(batch) }
+          next += 1
+        }
+      }
+      return runs
+    }
   }
 
   /// Performs the two-pass judgment shape. Type classification is intentionally completed before
@@ -262,6 +305,16 @@ public struct JudgmentEngine: Sendable {
       latency: a.latency + b.latency, modelName: JudgmentModel.displayName)
   }
 
+  static func merged(_ runs: [JudgmentClassificationRun]) -> JudgmentClassificationRun {
+    runs.reduce(
+      .init(classifications: [], metrics: .empty)
+    ) { partial, run in
+      .init(
+        classifications: partial.classifications + run.classifications,
+        metrics: merged(partial.metrics, run.metrics))
+    }
+  }
+
   static func mergedUsage(_ a: ModelUsage?, _ b: ModelUsage?) -> ModelUsage? {
     switch (a, b) {
     case (nil, nil): return nil
@@ -290,4 +343,13 @@ public struct JudgmentEngine: Sendable {
 private struct EditorialJudgmentRun: Sendable {
   let judgments: [EditorialJudgment]
   let metrics: JudgmentPassMetrics
+}
+
+private extension Array {
+  func chunked(into size: Int) -> [[Element]] {
+    guard size > 0 else { return [self] }
+    return stride(from: 0, to: count, by: size).map {
+      Array(self[$0..<Swift.min($0 + size, count)])
+    }
+  }
 }
