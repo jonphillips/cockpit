@@ -1,10 +1,7 @@
 import Foundation
 import SQLiteData
 
-public enum StreamTransport: String, Codable, QueryBindable, Sendable {
-  case rss
-  case atom
-}
+public enum StreamTransport: String, Codable, QueryBindable, Sendable { case rss, atom, gmail }
 
 public enum StreamHandling: String, Codable, QueryBindable, Sendable {
   case following
@@ -23,13 +20,7 @@ public enum StreamHealth: String, Codable, QueryBindable, Sendable {
 }
 
 public enum ContentKind: String, Codable, QueryBindable, Sendable {
-  case article
-  case newsletter
-  case video
-  case podcast
-  case report
-  case pdf
-  case post
+  case article, newsletter, video, podcast, report, pdf, post, email
 }
 
 public enum PersonalKnowledgeKind: String, Codable, QueryBindable, CaseIterable, Hashable, Sendable {
@@ -157,6 +148,10 @@ public struct Artifact: Codable, Equatable, Identifiable, Sendable {
   public var acquiredAt: Date
   public var payloadRef: String?
   public var rawSourceText: String?
+  /// Device-local, provider-specific evidence needed to explain later treatment. Gmail stores the
+  /// raw classification headers and message/thread/account identifiers here; it is deliberately
+  /// not a new cross-provider entity or a synced field.
+  public var providerProvenance: String?
   public var contentPieceID: ContentPiece.ID?
 
   public init(
@@ -168,6 +163,7 @@ public struct Artifact: Codable, Equatable, Identifiable, Sendable {
     acquiredAt: Date,
     payloadRef: String? = nil,
     rawSourceText: String? = nil,
+    providerProvenance: String? = nil,
     contentPieceID: ContentPiece.ID? = nil
   ) {
     self.id = id
@@ -178,6 +174,7 @@ public struct Artifact: Codable, Equatable, Identifiable, Sendable {
     self.acquiredAt = acquiredAt
     self.payloadRef = payloadRef
     self.rawSourceText = rawSourceText
+    self.providerProvenance = providerProvenance
     self.contentPieceID = contentPieceID
   }
 }

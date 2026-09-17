@@ -67,7 +67,7 @@ StreamPollState(streamID, health, lastReceivedAt,
                 consecutiveFailureCount, lastFailureDescription)
 
 Artifact(id, streamID?, transport, providerID, canonicalURL,
-         acquiredAt, payloadRef?, rawSourceText?, contentPieceID?)
+         acquiredAt, payloadRef?, rawSourceText?, providerProvenance?, contentPieceID?)
 
 ContentPiece(id, kind, title, creator, publisher, publishedAt,
              canonicalURL, summary, normalizedText, subjects,
@@ -127,7 +127,7 @@ are enforced in composition code, not by unique indexes: SQLiteData's SyncEngine
 constraints on synchronized tables, and `Edition`/`EditionEntry` sync (ADR-0001 D6).
 
 `LocalAvailability.mode` is one of `cache`, `until`, `pinned`.
-`ContentPiece.kind` is a display noun: `article`, `newsletter`, `video`, `podcast`, `report`, `pdf`, `post`.
+`ContentPiece.kind` is a display noun: `article`, `newsletter`, `video`, `podcast`, `report`, `pdf`, `post`, `email`.
 
 ---
 
