@@ -85,6 +85,9 @@ public struct Stream: Codable, Equatable, Identifiable, Sendable {
   public var isEssential: Bool
   public var followState: StreamFollowState
   public var autoLibrary: Bool
+  /// An explicit, per-Stream editorial setting for the rare mail digest that deserves within-issue
+  /// extraction. It has no effect for non-Gmail Artifacts.
+  public var isGrabBag: Bool
 
   public init(
     id: UUID,
@@ -97,7 +100,8 @@ public struct Stream: Codable, Equatable, Identifiable, Sendable {
     handlingGuidance: String = "",
     isEssential: Bool = false,
     followState: StreamFollowState = .active,
-    autoLibrary: Bool = false
+    autoLibrary: Bool = false,
+    isGrabBag: Bool = false
   ) {
     self.id = id
     self.name = name
@@ -110,6 +114,7 @@ public struct Stream: Codable, Equatable, Identifiable, Sendable {
     self.isEssential = isEssential
     self.followState = followState
     self.autoLibrary = autoLibrary
+    self.isGrabBag = isGrabBag
   }
 }
 
@@ -192,6 +197,9 @@ public struct ContentPiece: Codable, Equatable, Identifiable, Sendable {
   public var subjects: String?
   public var isSubstantivePrimary: Bool?
   public var bodyCompleteness: BodyCompleteness?
+  /// The deterministic treatment used by Today for Gmail-backed mail. It is nil for non-email
+  /// ContentPieces and legacy email until S5 classification has run.
+  public var emailTreatment: EmailTreatment?
   public var createdAt: Date
 
   public init(
@@ -206,6 +214,7 @@ public struct ContentPiece: Codable, Equatable, Identifiable, Sendable {
     subjects: String? = nil,
     isSubstantivePrimary: Bool? = nil,
     bodyCompleteness: BodyCompleteness? = nil,
+    emailTreatment: EmailTreatment? = nil,
     createdAt: Date
   ) {
     self.id = id
@@ -219,6 +228,7 @@ public struct ContentPiece: Codable, Equatable, Identifiable, Sendable {
     self.subjects = subjects
     self.isSubstantivePrimary = isSubstantivePrimary
     self.bodyCompleteness = bodyCompleteness
+    self.emailTreatment = emailTreatment
     self.createdAt = createdAt
   }
 }

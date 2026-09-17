@@ -152,7 +152,7 @@ public struct GmailInboxIngestor {
     let artifactIDs = snapshot.messages.map { _ in uuid() }
     let namespace = identityNamespace
     let pieces = try await database.write { db in
-      try zip(snapshot.messages, artifactIDs).map { message, artifactID in
+      let recorded = try zip(snapshot.messages, artifactIDs).map { message, artifactID in
         try Self.record(
           message: message,
           artifactID: artifactID,
@@ -162,6 +162,9 @@ public struct GmailInboxIngestor {
           in: db
         )
       }
+      // S5 routing is part of email ingest, so every new Gmail ContentPiece receives a visible
+      // treatment immediately. It writes only Cockpit's local projection, never Gmail.
+      return try EmailTreatmentOperations.classify(emailContentPieceIDs: recorded.map(\.id), in: db)
     }
     return GmailInboxIngestReport(snapshot: snapshot, contentPieces: pieces)
   }

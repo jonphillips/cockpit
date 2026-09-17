@@ -22,6 +22,12 @@ enum GmailHeaderParser {
     return header.split(separator: ",").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count
   }
 
+  /// A stable sender address is the narrow correction key for S5. It deliberately avoids turning
+  /// a broader domain/reputation heuristic into durable state.
+  static func senderKey(from header: String?) -> String? {
+    emailAddress(in: header)?.lowercased().trimmedNonEmpty
+  }
+
   private static func emailAddress(in header: String?) -> String? {
     guard let header else { return nil }
     if let open = header.lastIndex(of: "<"), let close = header[open...].firstIndex(of: ">") {
