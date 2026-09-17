@@ -39,17 +39,10 @@ struct ShellModelTests {
     expectNoDifference(model.settingsPath, [])
   }
 
-  @Test("An empty Edition has no detail selection")
-  func absentEditionHasNoSelection() {
+  @Test("An empty Edition starts with no materialized rows")
+  func absentEditionHasNoRows() {
     let model = EditionModel()
     #expect(model.edition == nil)
     #expect(model.entries.isEmpty)
-    #expect(model.selectedEntryID == nil)
-
-    let entryID = UUID(101)
-    model.selectedEntryID = entryID
-    expectNoDifference(model.selectedEntryID, entryID)
-    model.selectedEntryID = nil
-    #expect(model.selectedEntryID == nil)
   }
 }

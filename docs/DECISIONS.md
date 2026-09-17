@@ -128,7 +128,7 @@ Edition is a finite rolling personalized newspaper, not an infinite feed and not
 
 Opening a ContentPiece means **Seen**, not resolved.
 
-**Amended by §14 and §15.** Edition is a materialized entity composed once per day, not a live query over per-ContentPiece flags. Its resolution action is **Dismiss**, not Clear. V1 must support admission, Seen, Dismiss, carryover, Essential protection, the Essential backlog, and resolution through Save for Later. The states and legal transitions are settled in `docs/IMPLEMENTATION-CONTRACT.md` §3; only the durations, sizes, and visual treatment are learned from use.
+**Amended by §14, §15, and §24.** Edition is a materialized entity composed once per day, not a live query over per-ContentPiece flags. Its resolution action is **Dismiss**, not Clear. V1 must support admission, Seen, Dismiss, carryover, Essential protection, the Essential backlog, and resolution through Save for Later. Since §24, this remit is the barely-curated tail only; it renders as a Today section and never screens curated Gmail input. The states and legal transitions are settled in `docs/IMPLEMENTATION-CONTRACT.md` §3; only the durations, sizes, and visual treatment are learned from use.
 
 ### Later
 
@@ -327,7 +327,7 @@ Edition was previously modeled only as per-ContentPiece state, which is a live q
 
 `EditionEntry.rationale` is the sanctioned record of a surfacing decision, written for Jon rather than for a debugger. It is not the beginning of a `Signal`/`Observation` evidence graph and gains no query surface beyond its own Edition. The explicit non-models in `V1-SCOPE-AND-SEQUENCING.md` §2 stand.
 
-`Edition.targetSize` defaults to 20. "Finite" with no number gives judgment no objective.
+`Edition.targetSize` defaults to 20. "Finite" with no number gives judgment no objective. **Amended by §24:** this objective applies only to the barely-curated tail; curated mail is intrinsically finite and organized without a cutoff.
 
 ---
 
@@ -538,6 +538,10 @@ order-of-magnitude reference, not a pass line. The eval-log's open flag
 **Guardrail — this is not a licence to admit everything, and it is the opposite of
 clickstream.** Finiteness (§14) and the anti-forget guarantee (§15) stand in full;
 demoting agreement removes a bad *metric*, not the discipline of a small package.
+
+**Amended by §24 (2026-09-16).** This selection-and-ordering measurement governs only the
+barely-curated tail. Curated Gmail input is never admitted, declined, or cross-item ranked; it is
+organized by deterministic treatment instead.
 And the relevance signal remains explicit taught knowledge (§8) — never inferred
 behaviour. This decision sharpens what "not decorative" means for PK; it does not
 loosen where PK comes from.

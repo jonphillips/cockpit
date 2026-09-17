@@ -3,6 +3,8 @@ import SwiftUI
 
 struct TodayView: View {
   @Bindable var model: TodayModel
+  @Bindable var tailModel: EditionModel
+  @State private var isConfirmingTailRecompose = false
 
   var body: some View {
     NavigationSplitView {
@@ -20,36 +22,154 @@ struct TodayView: View {
             }
           }
         }
+        tailSection("Essentials", rows: tailRows(in: .essentials))
+        tailSection("From the Tail", rows: tailBodyRows)
+        tailSection("Essential Backlog", rows: tailRows(in: .essentialBacklog))
+        TailCompositionControl(
+          tailModel: tailModel, isConfirmingRecompose: $isConfirmingTailRecompose)
       }
       .overlay {
-        if model.tiers.isEmpty {
+        if model.tiers.isEmpty && tailRows.isEmpty && !tailModel.isComposing {
           ContentUnavailableView(
             "Nothing to Review", systemImage: "sun.max",
-            description: Text("Gmail messages will appear here by their treatment."))
+            description: Text("Gmail messages and screened tail stories will appear here."))
         }
       }
       .navigationTitle("Today")
     } detail: {
       if let contentPieceID = model.selectedContentPieceID {
-        // No Edition context means email pieces cannot acquire rationale or Dismiss affordances.
-        ReaderView(contentPieceID: contentPieceID)
-          .id(contentPieceID)
+        if let tailRow = tailRows.first(where: { $0.contentPieceID == contentPieceID }) {
+          ReaderView(
+            contentPieceID: contentPieceID,
+            editionContext: EditionReaderContext(
+              model: tailModel, entryID: tailRow.id, rationale: tailRow.rationale,
+              matchedPersonalKnowledgeClaimID: tailRow.matchedPersonalKnowledgeClaimID,
+              clearSelection: { model.selectedContentPieceID = nil }
+            ))
+            .id(contentPieceID)
+        } else {
+          // No Edition context means curated email cannot acquire rationale or Dismiss affordances.
+          ReaderView(contentPieceID: contentPieceID)
+            .id(contentPieceID)
+        }
       } else {
-        ContentUnavailableView("Select a Message", systemImage: "envelope")
+        ContentUnavailableView("Select Something", systemImage: "sun.max")
       }
     }
-    .task { try? await model.$content.load() }
+    .task {
+      try? await model.$content.load()
+      await tailModel.composeIfNeeded()
+    }
+    .toolbar {
+      ToolbarItem(placement: .topBarTrailing) {
+        if tailModel.isComposing {
+          ProgressView()
+        } else if tailModel.edition == nil {
+          Button("Compose Tail", systemImage: "sparkles") {
+            Task { await tailModel.composeIfNeeded() }
+          }
+        } else {
+          Button("Recompose Tail", systemImage: "arrow.clockwise") {
+            isConfirmingTailRecompose = true
+          }
+        }
+      }
+    }
+    .confirmationDialog(
+      "Recompose the tail?", isPresented: $isConfirmingTailRecompose, titleVisibility: .visible
+    ) {
+      Button("Recompose Tail", role: .destructive) { Task { await tailModel.recompose() } }
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("This discards today's screened tail and judges its candidates again from scratch.")
+    }
     .safeAreaInset(edge: .bottom) {
-      if let error = model.errorMessage {
+      if model.errorMessage != nil || tailModel.errorMessage != nil {
         HStack {
-          Text(error)
+          Text(model.errorMessage ?? tailModel.errorMessage ?? "")
           Spacer()
-          Button("Dismiss") { model.errorMessage = nil }
+          Button("Dismiss") {
+            model.errorMessage = nil
+            tailModel.errorMessage = nil
+          }
         }
         .padding()
         .background(.regularMaterial)
       }
     }
+  }
+
+  private var tailRows: [CurrentEditionRequest.Row] {
+    tailModel.entries.filter { $0.entryState == .admitted || $0.entryState == .seen }
+  }
+
+  private func tailRows(in section: JudgmentSection) -> [CurrentEditionRequest.Row] {
+    tailRows.filter { $0.section == section }
+  }
+
+  private var tailBodyRows: [CurrentEditionRequest.Row] {
+    tailRows.filter { $0.section == .forYou || $0.section == .interestArea }
+  }
+
+  @ViewBuilder
+  private func tailSection(_ title: String, rows: [CurrentEditionRequest.Row]) -> some View {
+    if !rows.isEmpty {
+      Section(title) {
+        ForEach(rows) { row in
+          TailRowView(row: row)
+            .tag(row.contentPieceID)
+        }
+      }
+    }
+  }
+}
+
+private struct TailCompositionControl: View {
+  let tailModel: EditionModel
+  @Binding var isConfirmingRecompose: Bool
+
+  var body: some View {
+    Section {
+      Button {
+        if tailModel.edition == nil {
+          Task { await tailModel.composeIfNeeded() }
+        } else {
+          isConfirmingRecompose = true
+        }
+      } label: {
+        if tailModel.isComposing {
+          Label {
+            Text(tailModel.edition == nil ? "Composing Tail…" : "Recomposing Tail…")
+          } icon: {
+            ProgressView()
+          }
+        } else {
+          Label(
+            tailModel.edition == nil ? "Compose Tail" : "Recompose Tail",
+            systemImage: tailModel.edition == nil ? "sparkles" : "arrow.clockwise")
+        }
+      }
+      .disabled(tailModel.isComposing)
+    }
+  }
+}
+
+private struct TailRowView: View {
+  let row: CurrentEditionRequest.Row
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(row.title).font(.headline)
+      Text(row.publisher).font(.subheadline).foregroundStyle(.secondary)
+      if let rationale = row.rationale, !rationale.isEmpty {
+        Text(rationale).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+      }
+      if row.entryState == .seen {
+        Text("Seen").font(.caption2).foregroundStyle(.tertiary)
+      }
+    }
+    .accessibilityElement(children: .combine)
+    .accessibilityHint("Open in Reader.")
   }
 }
 

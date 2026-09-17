@@ -36,10 +36,7 @@ private struct CockpitRootView: View {
     @Bindable var shellModel = shellModel
     TabView(selection: $shellModel.selection) {
       Tab("Today", systemImage: "sun.max", value: .today) {
-        TodayView(model: todayModel)
-      }
-      Tab("Edition", systemImage: "newspaper", value: .edition) {
-        EditionView(model: editionModel)
+        TodayView(model: todayModel, tailModel: editionModel)
       }
       Tab("Later", systemImage: "clock", value: .later) {
         ContentPieceListView(destination: .later)

@@ -7,7 +7,8 @@ V1 should prove Cockpit's complete product loop without maturing every subsystem
 
 > **follow → understand → surface → defer/retain → learn explicitly → hand off**
 
-The shell is `Today / Edition / Later / Library / Settings`. All five exist in V1, but they do not need equal depth.
+The shell is `Today / Later / Library / Settings`. Today combines deterministic treatment of curated Gmail
+input with the materialized Edition section for the barely-curated tail.
 
 ---
 
@@ -33,11 +34,11 @@ V1 includes:
 
 V1 does **not** require autonomous source recommendations, a publisher catalog, historical subscription cleanup, or automatic mailbox-wide newsletter discovery.
 
-### Edition
+### Edition (Today’s uncurated-tail section)
 
 V1 includes:
 
-- finite morning-oriented personalized Edition;
+- finite morning-oriented personalized Edition for the barely-curated tail, rendered within Today;
 - Reader;
 - provenance/source context;
 - Seen;
@@ -86,11 +87,9 @@ No universal entities, folders/collections, vector infrastructure by default, or
 
 V1 includes:
 
-- current Gmail Inbox intelligence;
-- personal/consequential attention;
-- summaries;
-- a small Worth Seeing surface;
-- inspectable quiet handling;
+- current Gmail Inbox intelligence, organized without suppressing curated messages;
+- deterministic personal / newsletter / offer / grab-bag treatment;
+- per-treatment highlighting, listing, summaries, and within-grab-bag extraction;
 - Gmail provider dispositions `Leave`, `Archive`, and `Trash`;
 - explicit Stream-level source disposition where relevant;
 - a very small number of explicit non-Stream policies where useful;
@@ -273,8 +272,8 @@ Integrate the current Inbox without provider mutation first:
 ```text
 Gmail Inbox
 → provider Artifact normalization
-→ analysis
-→ Today / Worth Seeing / quiet presentation
+→ treatment classification
+→ Today’s deterministic type hierarchy
 → Reader
 ```
 

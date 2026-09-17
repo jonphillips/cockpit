@@ -52,9 +52,10 @@ public struct TodayRequest: FetchKeyRequest {
     }
 
     var value = Value()
-    value.rows = try ContentPiece.all.fetchAll(db).compactMap { piece in
-      guard piece.kind == .email,
-        let treatment = piece.emailTreatment,
+    // Keep the email predicate in SQL. Today reloads repeatedly and must not scan Library's entire
+    // ContentPiece corpus merely to discard non-email rows in Swift.
+    value.rows = try ContentPiece.where { $0.kind.eq(ContentKind.email) }.fetchAll(db).compactMap { piece in
+      guard let treatment = piece.emailTreatment,
         !clearedContentPieceIDs.contains(piece.id),
         let acquiredAt = acquiredAtByContentPieceID[piece.id]
       else { return nil }
