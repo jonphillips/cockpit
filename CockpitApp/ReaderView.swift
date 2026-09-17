@@ -144,6 +144,9 @@ private extension ReaderView {
   func saveForLaterButtonTapped() async {
     if let editionContext {
       await editionContext.model.saveForLater(editionContext.entryID)
+      if editionContext.model.errorMessage == nil {
+        editionContext.clearSelection()
+      }
     } else {
       await model.saveForLater()
     }
@@ -163,6 +166,9 @@ struct EditionReaderContext {
   let entryID: EditionEntry.ID
   let rationale: String?
   let matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID?
+  /// The parent list owns split-view selection. Clearing it after a terminal tail action prevents
+  /// a regular-width detail column from re-rendering the resolved row as a plain Reader.
+  let clearSelection: @MainActor () -> Void
 }
 
 private struct ReaderRationaleView: View {
@@ -206,7 +212,10 @@ private struct ReaderActionControls: View {
         Button("Dismiss", systemImage: "xmark.circle") {
           Task {
             await editionContext.model.dismiss(editionContext.entryID)
-            dismissScreen()
+            if editionContext.model.errorMessage == nil {
+              editionContext.clearSelection()
+              dismissScreen()
+            }
           }
         }
       }

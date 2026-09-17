@@ -22,14 +22,11 @@ struct TodayView: View {
             }
           }
         }
-        if !tailRows.isEmpty {
-          Section("From the Tail") {
-            ForEach(tailRows) { row in
-              TailRowView(row: row)
-                .tag(row.contentPieceID)
-            }
-          }
-        }
+        tailSection("Essentials", rows: tailRows(in: .essentials))
+        tailSection("From the Tail", rows: tailBodyRows)
+        tailSection("Essential Backlog", rows: tailRows(in: .essentialBacklog))
+        TailCompositionControl(
+          tailModel: tailModel, isConfirmingRecompose: $isConfirmingTailRecompose)
       }
       .overlay {
         if model.tiers.isEmpty && tailRows.isEmpty && !tailModel.isComposing {
@@ -46,7 +43,8 @@ struct TodayView: View {
             contentPieceID: contentPieceID,
             editionContext: EditionReaderContext(
               model: tailModel, entryID: tailRow.id, rationale: tailRow.rationale,
-              matchedPersonalKnowledgeClaimID: tailRow.matchedPersonalKnowledgeClaimID
+              matchedPersonalKnowledgeClaimID: tailRow.matchedPersonalKnowledgeClaimID,
+              clearSelection: { model.selectedContentPieceID = nil }
             ))
             .id(contentPieceID)
         } else {
@@ -103,6 +101,56 @@ struct TodayView: View {
 
   private var tailRows: [CurrentEditionRequest.Row] {
     tailModel.entries.filter { $0.entryState == .admitted || $0.entryState == .seen }
+  }
+
+  private func tailRows(in section: JudgmentSection) -> [CurrentEditionRequest.Row] {
+    tailRows.filter { $0.section == section }
+  }
+
+  private var tailBodyRows: [CurrentEditionRequest.Row] {
+    tailRows.filter { $0.section == .forYou || $0.section == .interestArea }
+  }
+
+  @ViewBuilder
+  private func tailSection(_ title: String, rows: [CurrentEditionRequest.Row]) -> some View {
+    if !rows.isEmpty {
+      Section(title) {
+        ForEach(rows) { row in
+          TailRowView(row: row)
+            .tag(row.contentPieceID)
+        }
+      }
+    }
+  }
+}
+
+private struct TailCompositionControl: View {
+  let tailModel: EditionModel
+  @Binding var isConfirmingRecompose: Bool
+
+  var body: some View {
+    Section {
+      Button {
+        if tailModel.edition == nil {
+          Task { await tailModel.composeIfNeeded() }
+        } else {
+          isConfirmingRecompose = true
+        }
+      } label: {
+        if tailModel.isComposing {
+          Label {
+            Text(tailModel.edition == nil ? "Composing Tail…" : "Recomposing Tail…")
+          } icon: {
+            ProgressView()
+          }
+        } else {
+          Label(
+            tailModel.edition == nil ? "Compose Tail" : "Recompose Tail",
+            systemImage: tailModel.edition == nil ? "sparkles" : "arrow.clockwise")
+        }
+      }
+      .disabled(tailModel.isComposing)
+    }
   }
 }
 

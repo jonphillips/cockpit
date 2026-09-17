@@ -230,6 +230,35 @@ struct EditionTests {
     expectNoDifference(calls.withLock { $0 }, 0)
   }
 
+  @Test("A mixed corpus judges the non-Gmail tail and excludes Gmail")
+  func mixedCorpusExcludesGmailWithoutShortCircuitingTheTail() async throws {
+    let streamID = UUID(1361)
+    let tailPieceID = UUID(1362)
+    let gmailPieceID = UUID(1363)
+    try await seedStream(id: streamID, essential: false)
+    try await seedPiece(id: tailPieceID, streamID: streamID, createdAt: base)
+    try await database.write { db in
+      try ContentPiece.insert {
+        ContentPiece.Draft(
+          ContentPiece(
+            id: gmailPieceID, kind: .email, title: "A curated message", publisher: "Sender",
+            createdAt: self.base))
+      }.execute(db)
+      try Artifact.insert {
+        Artifact.Draft(
+          Artifact(
+            id: UUID(1364), transport: .gmail, providerID: "gmail:message:1363",
+            acquiredAt: self.base, contentPieceID: gmailPieceID))
+      }.execute(db)
+    }
+
+    guard case .composed = try await compose(dayIndex: 0, stub: editionStub()) else {
+      Issue.record("the non-Gmail tail should still compose"); return
+    }
+    #expect(try await entry(dayIndex: 0, piece: tailPieceID) != nil)
+    #expect(try await entry(dayIndex: 0, piece: gmailPieceID) == nil)
+  }
+
   // MARK: - Entry-state machine (owned by the model)
 
   @Test("The model drives every legal transition and rejects every illegal one")

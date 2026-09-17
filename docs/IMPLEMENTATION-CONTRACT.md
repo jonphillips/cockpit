@@ -137,8 +137,11 @@ constraints on synchronized tables, and `Edition`/`EditionEntry` sync (ADR-0001 
 
 Today has two distinct treatments. Curated Gmail input is deterministically organized by its
 personal/newsletter/offer/grab-bag treatment and remains fully visible; it never enters Edition.
-The barely-curated, non-Gmail tail is materialized as the Edition below and renders as a section within
-Today. `Edition.targetSize`, editorial admission, carryover, and Essential protection apply only to that tail.
+The barely-curated, non-Gmail tail is materialized as the Edition below and renders within Today,
+**preserving the Essentials distinction**: `essentials` and `essentialBacklog` remain their own sections
+so the anti-forget guarantee stays legible, while the editorial remainder (`forYou`, `interestArea`)
+renders as one undifferentiated tail section. `Edition.targetSize`, editorial admission, carryover, and
+Essential protection apply only to that tail.
 
 `Edition.state`: `composing → open → closed`.
 
