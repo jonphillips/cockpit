@@ -63,11 +63,31 @@ private struct TodayRowView: View {
       Text(row.publisher)
         .font(.subheadline)
         .foregroundStyle(.secondary)
+      if let treatmentSummary = row.treatmentSummary {
+        Text(treatmentSummary)
+          .font(.subheadline)
+          .foregroundStyle(.primary)
+          .lineLimit(2)
+      }
       if let summary = row.summary, !summary.isEmpty {
         Text(summary)
           .font(.subheadline)
           .foregroundStyle(.secondary)
           .lineLimit(row.treatment == .personal ? 3 : 2)
+      }
+      if !row.grabBagItems.isEmpty {
+        VStack(alignment: .leading, spacing: 6) {
+          ForEach(row.grabBagItems) { item in
+            VStack(alignment: .leading, spacing: 2) {
+              Text(item.title).font(.subheadline.weight(.semibold))
+              Text(item.summary)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+            }
+          }
+        }
+        .padding(.top, 4)
       }
       Text(row.arrivedAt, format: .dateTime.month().day().hour().minute())
         .font(.caption)

@@ -86,7 +86,7 @@ final class GmailInboxIngestModel {
     do {
       let accessToken = try await authorizedAccessToken()
       let report = try await GmailInboxIngestor(
-        client: .live(accessToken: accessToken)
+        client: .live(accessToken: accessToken), treatmentProcessor: EmailTreatmentProcessor()
       ).ingest(into: database)
       status = .ingested(report)
     } catch is CancellationError {
