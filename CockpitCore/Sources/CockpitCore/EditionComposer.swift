@@ -1,5 +1,9 @@
 import Foundation
 import SQLiteData
+import os
+
+private let compositionLatencyLog = Logger(
+  subsystem: "com.jonphillips.cockpit", category: "edition-composition")
 
 /// Materialises the daily Edition (ADR-0001 D5). It drives the S2 `JudgmentEngine` **once** over
 /// the day's candidates and writes the Edition, its entries, and the ContentPiece classifications
@@ -94,6 +98,8 @@ public struct EditionComposer: Sendable {
       candidates: plan.candidates, personalKnowledge: plan.personalKnowledge,
       currentContext: currentContext, targetSize: targetSize)
 
+    Self.logCompositionLatency(run, candidates: plan.candidates.count, targetSize: targetSize)
+
     // A wholesale judgment failure — a transport error (the whole batch times out at once), or a
     // response that decoded for no candidate — is not a legitimate zero-entry Edition; it is a
     // composition that did not happen. Opening it would strand the day behind an empty Edition that
@@ -123,6 +129,28 @@ public struct EditionComposer: Sendable {
       }.execute(db)
     }
     return .composed(editionID)
+  }
+
+  /// S6 measurement (DECISIONS §23): the per-pass latency split decides whether the residual budget
+  /// gap is type- or editorial-dominated, which decides whether the deferred type-model swap is even
+  /// the right lever. The token split tells the same story from the cost side — a large editorial
+  /// input is the resent-body trim lever (S6 "out of scope"). Latencies, tokens, cost, and count
+  /// carry no PII, so log them public. Read it in Console.app / the Xcode device console, filtered to
+  /// subsystem `com.jonphillips.cockpit`, category `edition-composition`.
+  private static func logCompositionLatency(
+    _ run: JudgmentRun, candidates: Int, targetSize: Int
+  ) {
+    compositionLatencyLog.notice(
+      """
+      Composition latency: total=\(run.latency, format: .fixed(precision: 1))s \
+      type=\(run.typePass.latency, format: .fixed(precision: 1))s \
+      editorial=\(run.editorialPass.latency, format: .fixed(precision: 1))s \
+      candidates=\(candidates) targetSize=\(targetSize) \
+      typeTokens=\(run.typePass.usage?.inputTokens ?? -1)in/\(run.typePass.usage?.outputTokens ?? -1)out \
+      editorialTokens=\(run.editorialPass.usage?.inputTokens ?? -1)in/\(run.editorialPass.usage?.outputTokens ?? -1)out \
+      cost=\(run.estimatedCost.map { NSDecimalNumber(decimal: $0).stringValue } ?? "nil", privacy: .public) \
+      model=\(run.modelName, privacy: .public)
+      """)
   }
 
   /// Explicit recomposition (IMPLEMENTATION-CONTRACT §3: re-judgment on an explicit "reconsider").
