@@ -1,6 +1,9 @@
+import CockpitCore
 import GoogleSignIn
 import GoogleSignInSwift
 import Observation
+import Dependencies
+import SQLiteData
 import SwiftUI
 import UIKit
 
@@ -65,55 +68,141 @@ final class GmailAuthorizationProbe {
   }
 }
 
-struct GmailAuthorizationProbeView: View {
-  @Environment(\.dismiss) private var dismiss
-  let probe: GmailAuthorizationProbe
+@MainActor
+@Observable
+final class GmailInboxIngestModel {
+  enum Status: Equatable, Sendable {
+    case ready
+    case ingesting
+    case ingested(GmailInboxIngestReport)
+    case failed(message: String)
+  }
 
-  var body: some View {
-    NavigationStack {
-      Form {
-        Section {
-          Text("This one-off viability probe requests Gmail modification access. It does not read, change, or send any mail.")
-        } header: {
-          Text("Gmail authorization")
-        }
+  @ObservationIgnored @Dependency(\.defaultDatabase) private var database
+  private(set) var status = Status.ready
 
-        Section {
-          switch probe.status {
-          case .ready:
-            Button("Check stored authorization", systemImage: "checkmark.shield") {
-              probe.checkStoredAuthorization()
-            }
-            GoogleSignInButton { authorize() }
-          case .authorizing:
-            HStack {
-              ProgressView()
-              Text("Waiting for Google authorization…")
-            }
-          case .checkingStoredAuthorization:
-            HStack {
-              ProgressView()
-              Text("Checking stored authorization…")
-            }
-          case let .authorized(email):
-            Label("Authorized for \(email)", systemImage: "checkmark.circle.fill")
-              .foregroundStyle(.green)
-          case let .failed(message):
-            Text(message)
-              .foregroundStyle(.red)
-            GoogleSignInButton { authorize() }
-          }
+  func ingestCurrentInbox() async {
+    status = .ingesting
+    do {
+      let accessToken = try await authorizedAccessToken()
+      let report = try await GmailInboxIngestor(
+        client: .live(accessToken: accessToken)
+      ).ingest(into: database)
+      status = .ingested(report)
+    } catch is CancellationError {
+      status = .ready
+    } catch {
+      status = .failed(message: error.localizedDescription)
+    }
+  }
+
+  /// Restores and refreshes the stored authorization, returning only the `Sendable` access token.
+  /// The non-`Sendable` `GIDGoogleUser` never crosses the continuation boundary.
+  private func authorizedAccessToken() async throws -> String {
+    try await withCheckedThrowingContinuation { continuation in
+      GIDSignIn.sharedInstance.restorePreviousSignIn { user, error in
+        guard let user else {
+          continuation.resume(throwing: error ?? GmailInboxIngestError.missingAuthorization)
+          return
         }
-      }
-      .navigationTitle("Gmail Probe")
-      .toolbar {
-        ToolbarItem(placement: .confirmationAction) {
-          Button("Done") {
-            dismiss()
+        user.refreshTokensIfNeeded { refreshedUser, refreshError in
+          if let refreshedUser {
+            continuation.resume(returning: refreshedUser.accessToken.tokenString)
+          } else {
+            continuation.resume(throwing: refreshError ?? GmailInboxIngestError.missingToken)
           }
         }
       }
     }
+  }
+}
+
+private enum GmailInboxIngestError: LocalizedError {
+  case missingAuthorization
+  case missingToken
+
+  var errorDescription: String? {
+    switch self {
+    case .missingAuthorization: "No stored Google authorization was found."
+    case .missingToken: "Google returned no refreshed Gmail access token."
+    }
+  }
+}
+
+struct GmailAuthorizationProbeView: View {
+  let probe: GmailAuthorizationProbe
+  @State private var inboxIngest = GmailInboxIngestModel()
+
+  var body: some View {
+    Form {
+      Section {
+        Text("This one-off viability probe requests Gmail modification access. It does not read, change, or send any mail.")
+      } header: {
+        Text("Gmail authorization")
+      }
+
+      Section {
+        switch probe.status {
+        case .ready:
+          Button("Check stored authorization", systemImage: "checkmark.shield") {
+            probe.checkStoredAuthorization()
+          }
+          GoogleSignInButton { authorize() }
+        case .authorizing:
+          HStack {
+            ProgressView()
+            Text("Waiting for Google authorization…")
+          }
+        case .checkingStoredAuthorization:
+          HStack {
+            ProgressView()
+            Text("Checking stored authorization…")
+          }
+        case let .authorized(email):
+          Label("Authorized for \(email)", systemImage: "checkmark.circle.fill")
+            .foregroundStyle(.green)
+        case let .failed(message):
+          Text(message)
+            .foregroundStyle(.red)
+          GoogleSignInButton { authorize() }
+        }
+      }
+
+      Section {
+        switch inboxIngest.status {
+        case .ready:
+          Button("Read Current Inbox", systemImage: "tray.and.arrow.down") {
+            Task { await inboxIngest.ingestCurrentInbox() }
+          }
+        case .ingesting:
+          HStack {
+            ProgressView()
+            Text("Reading Inbox…")
+          }
+        case let .ingested(report):
+          Label(
+            "Read \(report.messageCount) \(report.messageCount == 1 ? "message" : "messages")",
+            systemImage: "checkmark.circle.fill"
+          )
+          .foregroundStyle(.green)
+          Text("\(report.accountID) · \(report.pageCount) \(report.pageCount == 1 ? "page" : "pages")")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        case let .failed(message):
+          Text(message)
+            .foregroundStyle(.red)
+          Button("Try Again") {
+            Task { await inboxIngest.ingestCurrentInbox() }
+          }
+        }
+      } header: {
+        Text("Read-only Inbox ingest")
+      } footer: {
+        Text("Cockpit reads the current Inbox, creates local provider Artifacts and email ContentPieces, and does not change Gmail state.")
+      }
+    }
+    .navigationTitle("Gmail Probe")
+    .navigationBarTitleDisplayMode(.inline)
   }
 
   private func authorize() {

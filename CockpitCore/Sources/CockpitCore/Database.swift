@@ -156,6 +156,7 @@ enum CockpitMigrations {
     registerReaderTeaching(in: &migrator)
     registerRelevanceChange(in: &migrator)
     registerOfflineAvailability(in: &migrator)
+    registerGmailIngest(in: &migrator)
     return migrator
   }
 }

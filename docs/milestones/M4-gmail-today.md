@@ -72,7 +72,7 @@ Gmail API.
 - [x] **S2 — Reader inline body** *(DECISIONS §20)*
 - [x] **S3 — Offline controls: `Offline until [date]` and `Keep Offline`**
 - [x] **S6 — Composition latency: parallelize the type pass** *(DECISIONS §23)* — PR #29 (merge is Jon's)
-- [ ] **S4 — Gmail read-only ingest: Inbox → provider Artifact → email ContentPiece** *(+ raw-header retention for S5; §24)*
+- [x] **S4 — Gmail read-only ingest: Inbox → provider Artifact → email ContentPiece** *(+ raw-header retention for S5; §24)*
 - [ ] **S5 — Treatment classification: personal / newsletter / offer / grab-bag** *(§24; replaces the "Worth Seeing" taxonomy)*
 - [ ] **S7 — The Today hierarchy surface: type-differentiated view, `Clear`** *(§24)*
 - [ ] **S8 — Treatments: offer → summary + Pending Find; grab-bag → within-issue extraction** *(§24)*
