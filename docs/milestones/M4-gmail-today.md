@@ -4,6 +4,17 @@
 > (`docs/eval-log.md`, 2026-09-16). This is the proposed sliced build order for M4. The contract
 > numbers and definitions cited are not reinterpreted here.
 
+> **Re-centered 2026-09-16 by DECISIONS §24.** The sections below were drafted with Edition as the
+> product centerpiece and a Gmail *Today* built on a "Worth Seeing" relevance taxonomy. §24 reverses
+> that: **typed triage of curated input is the V1 spine, and the editorial finite-package judgment is
+> demoted to the barely-curated tail.** M4 *is* that spine now. S1–S3 and S6 stand as built. **S4 gains
+> raw-header retention; S5 is re-scoped from "Worth Seeing" to type/relationship treatment routing; new
+> S7–S9 build the hierarchical Today surface, the offer/grab-bag treatments, and the fold of Edition
+> into Today.** Where this banner and an older passage below disagree, §24 and the revised slice ledger
+> win. The contract amendments §24 obligates (`JUDGMENT-CONTRACT` §1, `IMPLEMENTATION-CONTRACT` §3, the
+> `V1-SCOPE` re-sequence, and the `AGENTS.md` shell) are tracked on the `m5/recenter-typed-triage`
+> branch and land with S9.
+
 ## What M4 is
 
 M3 delivered a real iPad shell and turned the harness's Personal-Knowledge signal into a product
@@ -27,8 +38,9 @@ M4 has two jobs, in the same **dogfooding-first / open-a-new-transport** shape M
 read what Cockpit already holds, inline (Reader body)
 → keep it deliberately (Offline until / Keep Offline)
 → stop PK bleeding into the type call (split type from editorial)
-→ open Gmail read-only → Today (Worth Seeing / Personal-Consequential / quiet)
-→ Reader → Clear (attention only; no mutation)
+→ open Gmail read-only → classify each piece's treatment (personal / newsletter / offer / grab-bag)
+→ render a type-differentiated Today hierarchy → treatments (offer summary+Find; grab-bag extract)
+→ fold Edition into Today's uncurated tail → Reader → Clear (attention only; no mutation)
 → write the Gmail integration ADR from what the provider actually did
 ```
 
@@ -56,19 +68,24 @@ Gmail API.
 
 ## Slice ledger
 
-- [x] **S1 — Split the type/classification call from the editorial call** *(Gate-2 carry-in; no Gmail dependency)* — merged, PR #25 (eval done; Jon's lived-use endorsement is the last soft item)
-- [x] **S2 — Reader inline body** *(DECISIONS §20; no Gmail dependency)*
+- [x] **S1 — Split the type/classification call from the editorial call** *(Gate-2 carry-in)* — merged, PR #25
+- [x] **S2 — Reader inline body** *(DECISIONS §20)*
 - [x] **S3 — Offline controls: `Offline until [date]` and `Keep Offline`**
-- [ ] **S6 — Composition latency: parallelize the type pass** *(from S1's device pass; DECISIONS §23; no Gmail dependency; sequence before S4)*
-- [ ] **S4 — Gmail read-only ingest: Inbox → provider Artifact → email ContentPiece**
-- [ ] **S5 — Today: Worth Seeing / Personal-Consequential / quiet handling, Reader, Clear**
+- [x] **S6 — Composition latency: parallelize the type pass** *(DECISIONS §23)* — PR #29 (merge is Jon's)
+- [ ] **S4 — Gmail read-only ingest: Inbox → provider Artifact → email ContentPiece** *(+ raw-header retention for S5; §24)*
+- [ ] **S5 — Treatment classification: personal / newsletter / offer / grab-bag** *(§24; replaces the "Worth Seeing" taxonomy)*
+- [ ] **S7 — The Today hierarchy surface: type-differentiated view, `Clear`** *(§24)*
+- [ ] **S8 — Treatments: offer → summary + Pending Find; grab-bag → within-issue extraction** *(§24)*
+- [ ] **S9 — Fold Edition into Today; demote the editorial pass to the uncurated tail** *(§24; shell change; contract amendments land here)*
 - [ ] **Architecture Gate 3 — write the Gmail integration ADR from observed semantics**
 
-S1–S3 and S6 deepen the existing loop and have no Gmail dependency, so they can start immediately and
-in any order; they are sequenced first because they improve daily dogfooding and de-risk nothing by
-waiting. S6 is numbered after S5 because it was discovered during S1's device pass (DECISIONS §23),
-but it is **sequenced before the Gmail spine**: Gmail volume compounds the same monolithic composition
-S6 fixes. S4 → S5 → Gate 3 is the Gmail spine and is ordered.
+S1–S3 and S6 deepened the existing loop and are built. **Under §24 the remaining spine is ordered and
+each slice depends on the one before:** S4 (ingest the curated input, retaining the headers S5 reads)
+→ S5 (route each piece to a treatment) → S7 (render the type-differentiated hierarchy) → S8 (the two
+treatments that need model work) → S9 (fold Edition in and demote the editorial pass). **Gate 3 (the
+Gmail ADR) still closes M4** and still precedes any Phase-4 mutation. The old rationale — "S4 → S5 →
+Gate 3 is the Gmail spine" — held; §24 just lengthens the spine and changes what S5 onward *does* with
+the ingested mail (organize by type, not judge by relevance).
 
 ## Standing rules for every M4 slice
 
@@ -247,6 +264,10 @@ re-invent).
 - **Read the current Inbox** (read-only) and **normalize each message into a provider Artifact**, then
   project to an **email ContentPiece** through the existing spine (derived identity, ADR-0001 D3). No
   new universal entity; the email ContentPiece is a ContentPiece.
+- **Retain the raw classification headers as provider Artifact provenance** — `List-Unsubscribe`,
+  `List-ID`, `Precedence`, the sending domain / DKIM `d=`, and `To`/`Cc` cardinality. These are the
+  deterministic signals S5 splits personal from publication on (§24); capturing them at ingest is why
+  S5 needs no Contacts scope and no learned reputation store. Provenance only — S4 does not classify.
 - **Observe and record the semantics the ADR will settle** — message vs thread, account boundary,
   pagination/delta, provider IDs retained, new-reply re-entry, partial failure/retry. This slice's job
   is to *surface* them, not to freeze them.
@@ -260,57 +281,74 @@ re-invent).
    spine — no random id, no new universal entity — verified through the ingest model.
 3. The observed provider semantics (message/thread, account, pagination/delta, IDs, re-entry, failure)
    are captured as notes toward the Gate-3 ADR, in the PR and/or a scratch doc.
-4. Nothing mutates Gmail. `swift test` + `swiftlint --strict` green.
+4. The raw classification headers (`List-Unsubscribe`, `List-ID`, `Precedence`, sending domain/DKIM,
+   recipient cardinality) are retained on the provider Artifact and readable by the ingest model — the
+   signals S5 classifies on (§24). Verified through the ingest model.
+5. Nothing mutates Gmail. `swift test` + `swiftlint --strict` green.
 
 ### Out of scope
 
-Any provider mutation (Phase 4). The Today surface and `Clear` (S5). Finalizing the Gmail contract
-(Gate 3). Email-delivered recurring **Streams** (Phase 5).
+Any provider mutation (Phase 4). Treatment classification (S5) and the Today surface (S7). Finalizing
+the Gmail contract (Gate 3). Email-delivered recurring **Streams** (Phase 5).
 
 ---
 
-## S5 — Today: Worth Seeing / Personal-Consequential / quiet handling, Reader, Clear
+## S5 — Treatment classification: personal / newsletter / offer / grab-bag
 
-**Branch:** `m4/s5-today-surface` · **PR title:** `M4 · S5 — Today`
+**Branch:** `m4/s5-treatment-classification` · **PR title:** `M4 · S5 — Treatment classification`
 
-The second half: turn the ingested Inbox into the Today surface `docs/TODAY-EXPERIENCE.md` specifies,
-landing in the Today destination the M3 shell already built (which currently shows the M2 Edition
-summary as a placeholder).
+The triage brain. §24 replaced the "Worth Seeing / Personal-Consequential" relevance taxonomy — the
+judge-by-relevance framing §24 demotes — with a **treatment tag per piece** that decides how Today
+renders it (S7). Classification only: no surface here, and no cross-item editorial call over curated
+mail.
 
 ### Read first
 
-`docs/TODAY-EXPERIENCE.md` §5, §6 (the surfaces and `Clear`); `docs/EMAIL-INTELLIGENCE-MODEL.md`
-(analysis and quiet handling); DECISIONS §7 (`Clear` is attention-only; disposition is separate and
-not enabled); the M3-S1 Today container and the one ContentPiece-driven Reader (the same Reader serves
-email pieces).
+DECISIONS §24 (the whole slice exists to serve it; the header-classifier and per-sender-override
+decisions); `docs/EMAIL-INTELLIGENCE-MODEL.md` (analysis/quiet handling, reread through §24's lens —
+organize, don't select); the surviving type pass (`JudgmentEngine.classify` — kind,
+`isSubstantivePrimary`, subjects, summary: the interpretive work §24 keeps); the S4 provider Artifact
+headers (the deterministic signals); DECISIONS §8 and the AI boundary (`AGENTS.md`) — the model tags,
+it never suppresses.
 
 ### Scope
 
-- **Analysis over the ingested email ContentPieces** into **Worth Seeing / Personal-Consequential /
-  inspectable quiet handling** (TODAY-EXPERIENCE §5). AI may classify and summarize; it acquires no
-  disposition authority (AI boundary; DECISIONS §7).
-- **The one Reader serves email pieces** — reached from Today, same investigate-this-item surface
-  (IPAD-FIRST §7; the M3-S1 ContentPiece-driven Reader). Email pieces get inline body per S2 where the
-  substance is held.
-- **`Clear` resolves Today attention** — a Cockpit attention action, **no Gmail mutation**
-  (DECISIONS §7; TODAY-EXPERIENCE §6). Distinct from Edition's `Dismiss`.
-- **Quiet handling is inspectable**, never silent deletion (V1-SCOPE §Today; nothing is destroyed).
+- **Assign each ingested piece one treatment: `personal`, `newsletter`, `offer`, or `grab-bag`.** A
+  per-piece routing tag, not a new entity — the smallest thing that drives S7's hierarchy.
+- **Personal vs. publication is deterministic first, from the S4 headers.** Bulk/publication mail
+  carries `List-Unsubscribe` / `List-ID` / `Precedence: bulk` / an ESP sending domain; 1:1 human mail
+  essentially never does. Absence of those + narrow recipient cardinality → `personal`. This gets the
+  overwhelming majority right with **no Contacts scope, no learned store, no model guess** (§24, the
+  header-classifier decision — Contacts is both too blunt and too big for the signal a header gives free).
+- **`offer` and `grab-bag` sit on top of the publication set.** `offer` is promotional/commercial
+  publication mail (the wine-offer case) — a cheap type signal (type-pass `kind` + promotional markers).
+  `grab-bag` is a **manual per-Stream flag** (Feed Me → grab-bag; §24 forbids a detector for
+  one-and-a-half streams). Everything else in the publication set is `newsletter` (the think-piece default).
+- **An explicit per-sender override, not a whitelist.** When the deterministic tag is wrong, Jon flips
+  that sender and the flip persists as an explicit, user-authored fact that wins over the default —
+  corrections-on-top-of-a-default, seeded by nothing and grown only by correction, never a curated
+  reputation store (§24; persistence discipline: the smallest table a demonstrated misclassification
+  justifies).
+- **The model tags; it never hides.** A treatment tag changes *placement*, never *membership*. No piece
+  is suppressed, declined, or archived by classification (AI boundary; §24). A miss is a visible,
+  correctable misplacement, not lost mail — which is why the cheap classifier + override is proportionate.
 
 ### Done-criteria
 
-1. Ingested email ContentPieces surface as Worth Seeing / Personal-Consequential / quiet handling;
-   quiet handling is inspectable, not silent. Verified through the Today projection model.
-2. `Clear` resolves Today attention and provably **does not** mutate Gmail (adversarial test: no
-   provider write on `Clear`).
-3. An email piece opens in the one ContentPiece-driven Reader with inline body where held; it carries
-   no Edition-only affordances (no rationale/Dismiss — it is not an Edition entry).
-4. `swift test` + `swiftlint --strict` green; the Today layout is Jon's device pass.
+1. Every ingested email piece carries exactly one treatment tag; the personal/publication split is
+   computed deterministically from the retained headers (a piece with `List-Unsubscribe` is never
+   `personal`). Verified through the classification model on fixtures covering each header shape.
+2. `offer` and `grab-bag` are assigned (offer from type/promotional signal; grab-bag from the Stream
+   flag); everything else in the publication set is `newsletter`. Verified on fixtures.
+3. An explicit per-sender override changes the tag and survives recomposition; nothing is learned or
+   auto-added (adversarial test: no override appears without an explicit user action).
+4. Classification writes no provider mutation and hides nothing. `swift test` + `swiftlint --strict` green.
 
 ### Out of scope
 
-Gmail dispositions (`Leave`/`Archive`/`Trash`) and any mutation (Phase 4, behind Gate 3). The
-email-delivered recurring Stream (Phase 5). A rules engine, auto-unsubscribe, reply/composition
-(out of V1, DECISIONS §7).
+The Today surface and rendering (S7). The offer/grab-bag *treatments* — summary, Find, extraction (S8).
+`Clear` (S7). Any Contacts integration or learned reputation store (§24 — revisit only if headers +
+overrides prove insufficient). Gmail dispositions (Phase 4).
 
 ---
 
@@ -369,6 +407,137 @@ breached). Any change to the editorial finite-package call itself.
 
 ---
 
+## S7 — The Today hierarchy surface
+
+**Branch:** `m4/s7-today-hierarchy` · **PR title:** `M4 · S7 — Today hierarchy`
+
+Render the treatment tags (S5) as the product: a **hierarchical, type-differentiated Today** that
+replaces the flat, arrival-ordered inbox §24 indicts. Lands in the Today destination the M3 shell built
+(currently a placeholder Edition summary).
+
+### Read first
+
+DECISIONS §24 (the flat-inbox critique and the hierarchy contract — hierarchy is by type/relationship,
+deterministic; within a type it is arrival order, "mood not priority"); `docs/TODAY-EXPERIENCE.md` §5–6
+(surfaces and `Clear`, reread through §24); the M3-S1 Today container and the one ContentPiece-driven
+Reader.
+
+### Scope
+
+- **Group Today by treatment into a fixed cross-type hierarchy:** personal (highlighted) → newsletters
+  (listed) → offers (summarized, S8) → grab-bags (extracted, S8). Order across tiers is deterministic;
+  **within a tier, arrival order** (§24 — ranking peers is a mood, not Cockpit's job).
+- **Each tier's rendering is its treatment's visual rank** — a personal note reads as elevated, a
+  newsletter as a compact list row — by tier, not by a per-item score.
+- **The one Reader serves email pieces** (IPAD-FIRST §7; S2 inline body where held). An email piece
+  carries no Edition affordances (no rationale, no Dismiss).
+- **`Clear` resolves Today attention** — a Cockpit attention action, **no Gmail mutation** (DECISIONS
+  §7; TODAY-EXPERIENCE §6). Distinct from Edition's `Dismiss`.
+
+### Done-criteria
+
+1. Today renders the four tiers in the fixed order, each piece placed by its S5 tag; within a tier,
+   arrival order. Verified through the Today projection model.
+2. `Clear` resolves Today attention and provably does not mutate Gmail (adversarial test: no provider
+   write on `Clear`).
+3. An email piece opens in the one Reader with inline body where held and carries no Edition-only
+   affordances.
+4. `swift test` + `swiftlint --strict` green; the tier layout and visual weighting are Jon's device pass.
+
+### Out of scope
+
+The offer/grab-bag model treatments (S8 — S7 renders a plain row until S8 fills them). Edition's fold
+into Today (S9). Gmail dispositions (Phase 4).
+
+---
+
+## S8 — Treatments: offer summary + Pending Find; grab-bag extraction
+
+**Branch:** `m4/s8-treatments` · **PR title:** `M4 · S8 — Treatments`
+
+The two treatments that need model work. Personal-highlight and newsletter-list are presentation done
+in S7; this slice fills the offer and grab-bag tiers with their content.
+
+### Read first
+
+DECISIONS §24 (offers summarized now, handoff later — Jon's call 2026-09-16; grab-bag = within-issue
+extraction, the one place sifting runs on curated input); DECISIONS §3 (Finds — the offer becomes a
+Pending Find); the existing Find-extraction path (Phase 1); the type-pass summary.
+
+### Scope
+
+- **`offer` → a one-line summary and a Pending Find** (the wine-offer case). Reuse the existing
+  Find-extraction path (Phase 1); the Find is the specialist-app candidate. **Summary + Find now;
+  specialist handoff stays its later phase (Phase 6)** — the offer tier is useful before any receiver
+  exists (§24; DECISIONS §3, Pending Finds survive without a receiver).
+- **`grab-bag` → within-issue item extraction.** Decompose the flagged issue into its contained items
+  and list the worthwhile ones inside the grab-bag tier. This is the **only** editorial-style sifting
+  that runs on curated input, and it runs **inside one piece**, never across pieces (§24).
+- **No cross-item editorial finite-package call over curated mail** — that pass is demoted in S9 and
+  never runs here.
+
+### Done-criteria
+
+1. An `offer` piece produces a one-line summary and a Pending Find via the existing extraction path;
+   the Find persists with no receiver (Phase 6 unaffected). Verified through the model.
+2. A `grab-bag` piece is decomposed into its contained items and rendered within its tier; extraction
+   is per-piece and never ranks across pieces. Verified on a Feed Me fixture.
+3. `swift test` + `swiftlint --strict` green; the offer/grab-bag tier presentation is Jon's device pass.
+
+### Out of scope
+
+Specialist handoff / the Find receiver (Phase 6). A grab-bag detector (§24 — grab-bag is the manual
+Stream flag from S5). Any within-tier ranking (§24).
+
+---
+
+## S9 — Fold Edition into Today; demote the editorial pass to the uncurated tail
+
+**Branch:** `m4/s9-edition-into-today` · **PR title:** `M4 · S9 — Edition into Today`
+
+The re-centering's structural close. Edition stops being a top-level destination and becomes the
+**uncurated-tail section within Today**; the editorial finite-package pass runs only there. This slice
+carries the contract amendments §24 obligates.
+
+### Read first
+
+DECISIONS §24 (Edition folds into Today, dropped from the shell — decided 2026-09-16); §5/§14 (Edition
+remit and `targetSize`, amended in remit here); JUDGMENT-CONTRACT §1 (finite package — now scoped to
+the tail); `EditionComposer` / `EditionPlanner` (the composition path to re-scope); `AGENTS.md`
+"Current shell".
+
+### Scope
+
+- **Edition becomes a section within Today**, fed only by the **barely-curated tail** — aggregator
+  Streams the user has not pre-curated (the "Technology stories" case), where ruthless screening is
+  wanted. The shell becomes `Today / Later / Library / Settings`; drop Edition as a destination.
+- **The editorial finite-package pass runs only over that tail.** `EditionComposer` is re-scoped to
+  compose the tail section, not the whole day; curated mail never enters it. `targetSize` scopes the
+  tail (§14, amended in remit); curated finiteness is intrinsic (§24).
+- **Land the contract amendments in the same change** (Documentation rule): `JUDGMENT-CONTRACT` §1
+  demotes the editorial pass to the tail; `IMPLEMENTATION-CONTRACT` §3 records the two-treatment shape;
+  `AGENTS.md` "Current shell" drops Edition; the `V1-SCOPE` re-sequence is reconciled. §5/§14/§22 carry
+  "amended by §24" remit notes, not deletion.
+- **S6's parallelization stays** and now applies to the tail composition.
+
+### Done-criteria
+
+1. The shell no longer lists Edition; the uncurated tail renders as a Today section. Verified through
+   the shell/Today models.
+2. `EditionComposer` composes only the tail; curated email pieces provably never enter the editorial
+   pass (test: a curated-mail corpus triggers zero editorial calls).
+3. The affected live docs are updated in this change (JUDGMENT-CONTRACT §1, IMPLEMENTATION-CONTRACT §3,
+   AGENTS.md shell, V1-SCOPE); §5/§14/§22 carry the remit notes.
+4. `swift test` + `swiftlint --strict` green; the Today-with-tail layout is Jon's device pass.
+
+### Out of scope
+
+Deleting the judgment engine or eval harness (they serve the tail and the surviving type pass). Any
+change to how the tail's finite package is chosen beyond scoping it to the tail. Gmail dispositions
+(Phase 4).
+
+---
+
 ## Jon's manual and device pass
 
 Same shape as M1–M3: the work only Jon can do, gating what follows.
@@ -390,11 +559,17 @@ Agents ship the parallelized type pass with the eval floor held; whether a real 
 now lands acceptably (against the §7 60s budget) is only answerable by a recompose on your device.
 That on-device number is what decides whether the type-model swap stays deferred or moves up (§23).
 
-### During S4–S5 — real Inbox semantics
+### During S4–S9 — real Inbox semantics, and whether the hierarchy beats the flat inbox
 
-The Gmail semantics that feed the Gate-3 ADR only appear against Jon's real Inbox. Agents ship the
-tested ingest/Today models; Jon's use is what surfaces message/thread, account, and re-entry behaviour
-the ADR must settle — and confirms Today *feels* like attention, not another feed.
+The Gmail semantics that feed the Gate-3 ADR only appear against Jon's real Inbox (S4). Agents ship the
+tested ingest/classification/Today models; Jon's use is what surfaces message/thread, account, and
+re-entry behaviour the ADR must settle. Two §24 judgments are Jon's alone and cannot be scored: (1)
+whether the **personal / newsletter / offer / grab-bag** classification is right on real morning mail —
+especially the personal-vs-publication split, where a miss is visible and the per-sender override is the
+fix (S5); and (2) the decision that makes or breaks the whole re-centering — **does the type-differentiated
+hierarchy actually read better than the flat, arrival-ordered inbox** (S7)? That is the lived-use test of
+§24's thesis; if the hierarchy does not feel like less work than scrolling a flat list, the treatment
+axis is wrong, not just the styling.
 
 ---
 
