@@ -93,6 +93,8 @@ PersonalKnowledgeTeaching(id, contentPieceID, reason, createdAt)
 PendingFind(id, contentPieceID, kind, name, descriptor, rationale,
             sourceURL, hints, state)
 
+TodayAttention(contentPieceID, clearedAt)
+
 DispositionPolicy(id, description, matcher, action, streamID?)
 
 AppliedDisposition(id, providerMessageID, action, policyID,

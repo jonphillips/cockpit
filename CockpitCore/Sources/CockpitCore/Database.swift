@@ -158,6 +158,7 @@ enum CockpitMigrations {
     registerOfflineAvailability(in: &migrator)
     registerGmailIngest(in: &migrator)
     registerEmailTreatment(in: &migrator)
+    registerTodayAttention(in: &migrator)
     return migrator
   }
 }

@@ -99,7 +99,7 @@ Cockpit owns its container, schema, and `makeSyncEngine`. Syncable: Streams, Int
 ContentPieces, Editions, EditionEntries, memberships, PersonalKnowledgeClaims and their explicit
 Reader-teaching provenance, PendingFinds, DispositionPolicies.
 
-Not synced: Artifacts and raw source text (device-local evidence; regenerable), `StreamPollState` (per-device acquisition health — `health`, `lastReceivedAt`, and failure evidence — regenerable by the next poll), `normalizedText` for non-Library pieces, `LocalAvailability` (per-device by definition), payload bytes pending the CloudKit Asset spike.
+Not synced: Artifacts and raw source text (device-local evidence; regenerable), `StreamPollState` (per-device acquisition health — `health`, `lastReceivedAt`, and failure evidence — regenerable by the next poll), `normalizedText` for non-Library pieces, `LocalAvailability` (per-device by definition), `TodayAttention` (the device-local resolution marker for an Inbox observation; it does not alter Gmail), payload bytes pending the CloudKit Asset spike.
 
 The Stream *record* syncs (the follow intent — name, publisher, Interest Area, Handling, Essential, follow state); the Stream's *poll health* does not. Removing a column from a synchronized table is a disallowed migration in SQLiteData 1.12, so poll health is placed in `StreamPollState` from the start rather than added to `streams` and later removed. This is settled before CloudKit sync is enabled, because enabling sync is what fixes the synced schema.
 
