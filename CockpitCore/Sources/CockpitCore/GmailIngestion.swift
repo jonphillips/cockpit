@@ -80,38 +80,6 @@ public struct GmailInboxHeader: Codable, Equatable, Sendable {
   }
 }
 
-/// Raw, device-local provenance S5 will read deterministically. This intentionally preserves
-/// header values rather than assigning a treatment or building a reputation system.
-public struct GmailArtifactProvenance: Codable, Equatable, Sendable {
-  public let accountID: String
-  public let messageID: String
-  public let threadID: String
-  public let rfcMessageID: String?
-  public let listUnsubscribe: String?
-  public let listID: String?
-  public let precedence: String?
-  public let sendingDomain: String?
-  public let dkimDomain: String?
-  public let toRecipientCount: Int
-  public let ccRecipientCount: Int
-
-  static func make(accountID: String, message: GmailInboxMessage) -> Self {
-    Self(
-      accountID: GmailInboxIngestor.canonicalAccountID(accountID),
-      messageID: message.id,
-      threadID: message.threadID,
-      rfcMessageID: message.header(named: "Message-ID"),
-      listUnsubscribe: message.header(named: "List-Unsubscribe"),
-      listID: message.header(named: "List-ID"),
-      precedence: message.header(named: "Precedence"),
-      sendingDomain: GmailHeaderParser.sendingDomain(from: message.header(named: "From")),
-      dkimDomain: GmailHeaderParser.dkimDomain(from: message.header(named: "DKIM-Signature")),
-      toRecipientCount: GmailHeaderParser.recipientCount(in: message.header(named: "To")),
-      ccRecipientCount: GmailHeaderParser.recipientCount(in: message.header(named: "Cc"))
-    )
-  }
-}
-
 public struct GmailInboxIngestReport: Equatable, Sendable {
   public let accountID: String
   public let historyID: String?
@@ -134,15 +102,20 @@ public struct GmailInboxIngestor {
   public let client: GmailInboxClient
   public let identityNamespace: UUID
   public let now: @Sendable () -> Date
+  /// S8 processing is opt-in at this boundary so S4's read-only ingest remains independently
+  /// testable and callers can surface a model failure without treating it as a Gmail failure.
+  public let treatmentProcessor: EmailTreatmentProcessor?
 
   public init(
     client: GmailInboxClient,
     identityNamespace: UUID = ContentIdentity.cockpitNamespace,
-    now: @escaping @Sendable () -> Date = Date.init
+    now: @escaping @Sendable () -> Date = Date.init,
+    treatmentProcessor: EmailTreatmentProcessor? = nil
   ) {
     self.client = client
     self.identityNamespace = identityNamespace
     self.now = now
+    self.treatmentProcessor = treatmentProcessor
   }
 
   @discardableResult
@@ -162,9 +135,16 @@ public struct GmailInboxIngestor {
           in: db
         )
       }
+      // A manually configured Gmail Stream may have been added after an earlier inbox read. Link
+      // its retained source evidence before routing, then reroute only the affected curated mail.
+      let reconciled = try GmailStreamResolver.linkUnresolvedArtifacts(in: db)
       // S5 routing is part of email ingest, so every new Gmail ContentPiece receives a visible
       // treatment immediately. It writes only Cockpit's local projection, never Gmail.
-      return try EmailTreatmentOperations.classify(emailContentPieceIDs: recorded.map(\.id), in: db)
+      return try EmailTreatmentOperations.classify(
+        emailContentPieceIDs: recorded.map(\.id) + reconciled, in: db)
+    }
+    if let treatmentProcessor {
+      _ = try? await treatmentProcessor.process(emailContentPieceIDs: pieces.map(\.id), in: database)
     }
     return GmailInboxIngestReport(snapshot: snapshot, contentPieces: pieces)
   }
@@ -209,13 +189,22 @@ public struct GmailInboxIngestor {
     }
     try NormalizedTextOperations.supplyLibraryTextIfMissing(for: piece.id, in: db)
 
-    if try Artifact.where({ $0.streamID.is(nil) && $0.providerID.eq(providerID) }).fetchOne(db) == nil {
-      let provenance = GmailArtifactProvenance.make(accountID: accountID, message: message)
+    let provenance = GmailArtifactProvenance.make(accountID: accountID, message: message)
+    let matchedStreamID = try GmailStreamResolver.streamID(
+      for: provenance, sender: message.sender, in: db)
+    if let artifact = try Artifact.where({ $0.providerID.eq(providerID) }).fetchOne(db) {
+      // Provider IDs are account-scoped (`gmail:<account>:message:<id>`), so they identify one
+      // Artifact regardless of whether this new deterministic lookup now finds its Stream.
+      if artifact.streamID == nil, let matchedStreamID {
+        try Artifact.find(artifact.id).update { $0.streamID = #bind(matchedStreamID) }.execute(db)
+      }
+    } else {
       let provenanceJSON = String(data: try JSONEncoder().encode(provenance), encoding: .utf8)
       try Artifact.insert {
         Artifact.Draft(
           Artifact(
             id: artifactID,
+            streamID: matchedStreamID,
             transport: .gmail,
             providerID: providerID,
             acquiredAt: acquiredAt,

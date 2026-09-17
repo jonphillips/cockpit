@@ -98,6 +98,15 @@ public enum StreamOperations {
         )
       }.execute(db)
     }
+
+    // This is a deterministic relationship repair, not Gmail acquisition or a provider action.
+    // It lets a manually configured Feed Me-style Stream claim already-ingested matching mail.
+    if draft.transport == .gmail {
+      let linked = try GmailStreamResolver.linkUnresolvedArtifacts(in: db)
+      if !linked.isEmpty {
+        _ = try EmailTreatmentOperations.classify(emailContentPieceIDs: linked, in: db)
+      }
+    }
   }
 
   public static func setFollowState(

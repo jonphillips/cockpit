@@ -10,11 +10,21 @@ public struct TodayRequest: FetchKeyRequest {
     public let title: String
     public let publisher: String
     public let summary: String?
+    public let treatmentSummary: String?
+    public let grabBagItemsJSON: String?
     public let treatment: EmailTreatment
     public let publishedAt: Date?
     public let acquiredAt: Date
 
     public var arrivedAt: Date { publishedAt ?? acquiredAt }
+
+    public var grabBagItems: [GrabBagItem] {
+      guard let grabBagItemsJSON,
+        let data = grabBagItemsJSON.data(using: .utf8),
+        let items = try? JSONDecoder().decode([GrabBagItem].self, from: data)
+      else { return [] }
+      return items
+    }
   }
 
   public struct Value: Equatable, Sendable {
@@ -29,6 +39,8 @@ public struct TodayRequest: FetchKeyRequest {
       $0.transport.eq(StreamTransport.gmail)
     }.fetchAll(db)
     let clearedContentPieceIDs = Set(try TodayAttention.all.fetchAll(db).map(\.contentPieceID))
+    let detailsByContentPieceID = Dictionary(
+      uniqueKeysWithValues: try EmailTreatmentDetails.all.fetchAll(db).map { ($0.contentPieceID, $0) })
     var acquiredAtByContentPieceID: [ContentPiece.ID: Date] = [:]
     for artifact in gmailArtifacts {
       guard let contentPieceID = artifact.contentPieceID else { continue }
@@ -48,6 +60,8 @@ public struct TodayRequest: FetchKeyRequest {
       else { return nil }
       return Row(
         id: piece.id, title: piece.title, publisher: piece.publisher, summary: piece.summary,
+        treatmentSummary: detailsByContentPieceID[piece.id]?.offerSummary,
+        grabBagItemsJSON: detailsByContentPieceID[piece.id]?.grabBagItems,
         treatment: treatment, publishedAt: piece.publishedAt, acquiredAt: acquiredAt)
     }
     value.rows.sort {
