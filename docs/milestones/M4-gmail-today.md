@@ -606,7 +606,10 @@ Three findings, none blocking S7 (all upstream of it or downstream in a later sl
    paragraph structure is lost. Formatting is **not** lost from the data (`rawSourceText` retains the full
    HTML); this is a normalization choice. The normalizer is shared with the RSS path, so the fix (collapse
    intra-line whitespace, preserve `\n`, squeeze blank-line runs) is its own small change with a test,
-   **off `main`, not on the S7 branch.** Tracked follow-up.
+   **off `main`, not on the S7 branch.** Tracked follow-up. **Re-confirmed unfixed at the S9 device
+   reflection (2026-09-17):** email bodies are still barely legible in the Reader. Legibility is the
+   other half of the "enticing Today" problem below, so this should land with — or just before — the
+   M5 Today-presentation work rather than drifting as a standalone follow-up.
 3. **Arrival-order direction** — recorded above; unchanged by this pass.
 
 ---
@@ -638,6 +641,22 @@ provider actually did in S4–S5, not from design intent. Settle:
 
 ## Not in M4 — the M5+ cutline (proposed)
 
+- **Today as a designed orientation surface (consider first in M5).** Today currently renders as one
+  scrolling `List` — the four Gmail treatments and the tail's Essentials / From the Tail / Essential
+  Backlog sections stacked into a single column. The *substance* already exists: S5 classifies
+  treatment, S7/S8 produce `treatmentSummary`, extracted `grabBagItems`, and the personal-mail
+  emphasis. What is missing is *composition*. The product law is "Today is orientation/attention"
+  (`AGENTS.md`), and a flat scrolling list does not honour it — it reads as "Gmail, subtly re-sorted."
+  The intent (Jon, 2026-09-17 S9 device reflection): a landing that shows **how much** sits in each
+  category, **promotes** enticing new arrivals (a new Yglesias / FeedMe / Noahpinion issue; the wine
+  report surfaced on the main page), **highlights** important personal mail, and offers **per-category
+  entry points** — so the morning reads as an inviting brief, not "oh, I'm back in Gmail; do I really
+  want to open Promotions?" This is view-layer design on top of data that already exists, not a
+  re-architecture. It also exposes a method trap: **"feel" cannot be device-evaluated against a
+  scaffold**, so the presentation slice should come early, before Today's experience is judged. Pairs
+  with the email-body legibility defect (device-pass finding #2 above) — legibility is the other half
+  of "enticing." Design this in M5's opening; it likely wants its own short design note
+  (`TODAY-EXPERIENCE.md` is the existing home) before it is sliced.
 - **Gmail dispositions** — `Leave` / `Archive` / `Trash`, the disposition barrier, and bounded recent
   dispositions / Undo (Phase 4, Gate 4-adjacent). Follows Gate 3; mutation stays behind the ADR.
 - **Email-delivered recurring Stream** (Phase 5) — the always-read newsletters (Yglesias, Puck,
