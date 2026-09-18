@@ -32,7 +32,8 @@ struct TodayView: View {
         // swipe-down-to-dismiss (the manual-Done frustration). The zoom transition is on the
         // presented ROOT so the tapped row expands in rather than sliding up.
         .sheet(
-          item: $originalReaderModel.presentation, onDismiss: originalReaderModel.dismiss
+          item: $originalReaderModel.presentation,
+          onDismiss: originalReaderModel.presentationDismissed
         ) { presentation in
           NavigationStack {
             TodayOriginalReaderPane(

@@ -56,12 +56,18 @@ final class TodayOriginalReaderModel {
     }
   }
 
-  func dismiss() {
+  /// Teardown after the sheet has actually dismissed. The framework already nils the
+  /// `presentation` binding on dismiss; this only tears down the load. The guard is the fix
+  /// for the "quick close, tap again" race: tapping a new item in the outgoing sheet's dimmed
+  /// margin both dismisses the old sheet AND begins the new piece, so by the time this dismiss
+  /// handler runs `presentation` is already the NEW piece — tearing down here would cancel its
+  /// load and dismiss it a frame after it opened. Only clean up when nothing is re-presented.
+  func presentationDismissed() {
+    guard presentation == nil else { return }
     loadTask?.cancel()
     loadTask = nil
     webView.stopLoading()
     isLoading = false
-    presentation = nil
   }
 
   private func load(contentPieceID: ContentPiece.ID) async {
@@ -237,14 +243,11 @@ struct TodayOriginalReaderPane: View {
     .background(Color(uiColor: .systemBackground))
     .toolbar {
       ToolbarItem(placement: .cancellationAction) {
-        Button("Done", systemImage: "xmark") {
-          model.dismiss()
-          dismiss()
-        }
+        // Environment dismiss drives the sheet away; the framework nils the binding and the
+        // sheet's onDismiss (presentationDismissed) does the load teardown. Don't also write
+        // `presentation` here — that reintroduces the clobber race.
+        Button("Done", systemImage: "xmark") { dismiss() }
       }
-    }
-    .onDisappear {
-      if model.presentation?.id == presentation.id { model.dismiss() }
     }
   }
 
