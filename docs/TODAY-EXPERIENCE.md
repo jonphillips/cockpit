@@ -138,6 +138,20 @@ opens anything.
    entry shows **honest recompose progress** and always resolves to a definite state — never a bare
    indefinite spinner (M5 S5).
 
+### The navigation container (normative)
+
+Today is a **full-width orientation surface**. Its only left-hand neighbour is the app-shell nav
+(`Today / Later / Library / Settings`); the brief itself occupies the full remaining width as a single
+reading column, exactly as the mockup's `grid-template-columns: 216px minmax(0, 1fr)` shows. The Reader
+opens as a **drill-in** — pushed onto Today's own stack — and returns to the brief on back. Today does
+**not** use the Later/Library master–detail split: the brief must never be placed in a
+`NavigationSplitView` sidebar with the Reader as a permanently docked detail pane, because that demotes
+orientation to a narrow rail beside an empty canvas and inverts Product Law 1. (This is stated in prose
+because the mockup encoded it only in CSS, and M5 S4's first pass reused the master–detail habit and
+shipped the brief in the sidebar slot — the container is normative, not incidental.) Whether a large
+iPad ever shows brief-and-Reader side by side is a future design decision; if taken, orientation is the
+wide *content* column and the Reader is the detail — orientation is never the sidebar.
+
 ### What this note does not settle
 
 Final typography, spacing, colour, and exact card geometry — those are Jon's device pass, and the
