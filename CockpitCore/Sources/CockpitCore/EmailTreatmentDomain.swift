@@ -20,10 +20,11 @@ public enum EmailTreatment: String, Codable, QueryBindable, CaseIterable, Sendab
   }
 }
 
-/// The only transactional distinction Cockpit currently needs is whether a notice is still useful
-/// as reference material or has already gone stale. This is a routing fact for a future explicit
-/// disposition policy, never authority to act on Gmail by itself.
+/// Transactional sub-kinds carry deterministic handling posture for a future explicit disposition
+/// policy. They are routing facts, never authority to act on Gmail by themselves.
 public enum EmailTransactionalKind: String, Codable, QueryBindable, Sendable {
   case reference
   case ephemeral
+  case finance
+  case shipment
 }
