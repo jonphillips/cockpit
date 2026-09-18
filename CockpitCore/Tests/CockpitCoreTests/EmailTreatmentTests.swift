@@ -136,6 +136,105 @@ struct EmailTreatmentTests {
     }
   }
 
+  @Test("S3b keeps real transactional examples out of Personal")
+  func classificationQualityUsesMarkersAndSenderShape() async throws {
+    let snapshot = GmailInboxSnapshot(
+      accountID: "jon@example.com",
+      messages: [
+        message(
+          id: "online-bill", from: "Bank of America <billpay@bankofamerica.com>",
+          subject: "You have a new online bill…"
+        ),
+        message(
+          id: "mobile-deposit", from: "Bank of America <ealerts@bankofamerica.com>",
+          subject: "We received your mobile check deposit"
+        ),
+        message(
+          id: "att-bill", from: "AT&T <billing@att.com>",
+          subject: "Your Home Phone bill is ready"
+        ),
+        message(
+          id: "unknown-statement", from: "Regional Utility <receipts@regional-utility.example>",
+          subject: "Your statement is ready",
+          to: "jon@example.com, household@example.com, archive@example.com"
+        ),
+        message(
+          id: "unknown-payment", from: "Regional Utility <receipts@regional-utility.example>",
+          subject: "Your payment is ready",
+          to: "jon@example.com, household@example.com, archive@example.com"
+        ),
+        message(
+          id: "apple-shipment", from: "Apple <shipping_notification@orders.apple.com>",
+          subject: "Your shipment is on its way. Order No. W1234"
+        ),
+        message(
+          id: "ups-delivery", from: "UPS Update <delivery@ups.com>",
+          subject: "UPS Update: Package Scheduled for Delivery"
+        ),
+        message(
+          id: "weck-order", from: "Weck Jars <orders@weckjars.com>",
+          subject: "Your Weck Jars order has been received!"
+        ),
+        message(
+          id: "weck-publication", from: "Weck Jars <orders@weckjars.com>",
+          subject: "A note from Weck Jars",
+          extraHeaders: [GmailInboxHeader(name: "List-ID", value: "Weck Jars <weck.example>")]
+        ),
+        message(
+          id: "unc-estimate", from: "Health Services <notifications@care.example>",
+          subject: "Jon, you have a new estimate for your visit"
+        ),
+        message(
+          id: "automated-unknown", from: "Updates <notifications@example.com>",
+          subject: "Your account needs attention"
+        ),
+        message(
+          id: "human", from: "Domenico <domenico@tenutaterrenere.com>",
+          subject: "Dinner next week"
+        ),
+      ])
+
+    let report = try await GmailInboxIngestor(
+      client: GmailInboxClient(currentInbox: { snapshot }), now: { .distantPast }
+    ).ingest(into: database)
+    let pieces = Dictionary(uniqueKeysWithValues: report.contentPieces.map { ($0.title, $0) })
+
+    for title in [
+      "You have a new online bill…", "We received your mobile check deposit",
+      "Your Home Phone bill is ready",
+    ] {
+      expectNoDifference(pieces[title]?.emailTreatment, .transactional)
+      expectNoDifference(pieces[title]?.emailTransactionalKind, .finance)
+    }
+    expectNoDifference(pieces["Your statement is ready"]?.emailTransactionalKind, .finance)
+    expectNoDifference(pieces["Your payment is ready"]?.emailTreatment, .newsletter)
+    expectNoDifference(pieces["Your payment is ready"]?.emailTransactionalKind, nil)
+    for title in [
+      "Your shipment is on its way. Order No. W1234",
+      "UPS Update: Package Scheduled for Delivery", "Your Weck Jars order has been received!",
+    ] {
+      expectNoDifference(pieces[title]?.emailTreatment, .transactional)
+      expectNoDifference(pieces[title]?.emailTransactionalKind, .shipment)
+    }
+    expectNoDifference(
+      pieces["Jon, you have a new estimate for your visit"]?.emailTransactionalKind, .reference)
+    expectNoDifference(pieces["Your account needs attention"]?.emailTransactionalKind, .reference)
+    expectNoDifference(pieces["Dinner next week"]?.emailTreatment, .personal)
+    expectNoDifference(pieces["Dinner next week"]?.emailTransactionalKind, nil)
+
+    let corrected = try await database.write { db in
+      try EmailTreatmentOperations.setSenderOverride(.offer, for: "orders@weckjars.com", in: db)
+    }
+    let correctedByTitle = Dictionary(uniqueKeysWithValues: corrected.map { ($0.title, $0) })
+    // A per-sender publication correction cannot demote a clearly typed order confirmation.
+    expectNoDifference(correctedByTitle["Your Weck Jars order has been received!"]?.emailTreatment, .transactional)
+    expectNoDifference(
+      correctedByTitle["Your Weck Jars order has been received!"]?.emailTransactionalKind, .shipment)
+    // The same explicit correction still decides the genuinely ambiguous publication residue.
+    expectNoDifference(correctedByTitle["A note from Weck Jars"]?.emailTreatment, .offer)
+    expectNoDifference(correctedByTitle["A note from Weck Jars"]?.emailTransactionalKind, nil)
+  }
+
   @Test("A manually flagged Stream routes its Gmail issues to grab-bag")
   func grabBagIsAnExplicitStreamSetting() async throws {
     let snapshot = GmailInboxSnapshot(
@@ -170,7 +269,8 @@ struct EmailTreatmentTests {
       accountID: "jon@example.com",
       messages: [
         message(
-          id: "correction", from: "Service <noreply@example.com>", subject: "Your receipt"
+          id: "correction", from: "Service <offers@example.com>", subject: "A note from Service",
+          extraHeaders: [GmailInboxHeader(name: "List-ID", value: "Service <service.example>")]
         ),
       ])
     let piece = try #require(try await GmailInboxIngestor(
@@ -184,14 +284,14 @@ struct EmailTreatmentTests {
       try EmailTreatmentOperations.reclassifyAll(in: db)
     }
     expectNoDifference(
-      defaultReclassified.first { $0.id == piece.id }?.emailTreatment, .transactional)
+      defaultReclassified.first { $0.id == piece.id }?.emailTreatment, .newsletter)
     try await database.read { db in
       expectNoDifference(try EmailSenderTreatmentOverride.fetchCount(db), 0)
     }
 
     let first = try await database.write { db in
       try EmailTreatmentOperations.setSenderOverride(
-        .offer, for: "Service <noreply@example.com>", in: db)
+        .offer, for: "Service <offers@example.com>", in: db)
     }
     let recomposed = try await database.write { db in
       try EmailTreatmentOperations.reclassifyAll(in: db)
@@ -204,7 +304,7 @@ struct EmailTreatmentTests {
     expectNoDifference(recomposed.first { $0.id == piece.id }?.emailTreatment, .offer)
     expectNoDifference(artifactsAfter, artifactsBefore)
     try await database.read { db in
-      let override = try EmailSenderTreatmentOverride.find("noreply@example.com").fetchOne(db)
+      let override = try EmailSenderTreatmentOverride.find("offers@example.com").fetchOne(db)
       expectNoDifference(override?.treatment, .offer)
     }
   }
@@ -224,14 +324,15 @@ struct EmailTreatmentTests {
   }
 
   private func message(
-    id: String, from: String, subject: String, extraHeaders: [GmailInboxHeader] = []
+    id: String, from: String, subject: String, to: String = "jon@example.com",
+    extraHeaders: [GmailInboxHeader] = []
   ) -> GmailInboxMessage {
     GmailInboxMessage(
       id: id, threadID: "thread-\(id)",
       headers: [
         GmailInboxHeader(name: "From", value: from),
         GmailInboxHeader(name: "Subject", value: subject),
-        GmailInboxHeader(name: "To", value: "jon@example.com"),
+        GmailInboxHeader(name: "To", value: to),
       ] + extraHeaders,
       bodyPlainText: "A readable email body."
     )
