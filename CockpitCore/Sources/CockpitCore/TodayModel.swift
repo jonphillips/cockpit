@@ -8,6 +8,21 @@ import SQLiteData
 @MainActor
 @Observable
 public final class TodayModel {
+  public struct OfferGroup: Equatable, Identifiable, Sendable {
+    public let id: String
+    public let label: String
+    public let rows: [TodayRequest.Row]
+
+    public var count: Int { rows.count }
+    public var representative: TodayRequest.Row { rows[0] }
+
+    public init(id: String, label: String, rows: [TodayRequest.Row]) {
+      self.id = id
+      self.label = label
+      self.rows = rows
+    }
+  }
+
   public struct Tier: Equatable, Identifiable, Sendable {
     public let treatment: EmailTreatment
     public let rows: [TodayRequest.Row]
@@ -33,6 +48,52 @@ public final class TodayModel {
 
   public init() {}
 
+  /// The live number of visible messages in each treatment. Counts are orientation, not a
+  /// completion badge: Clear remains an explicit attention action on an individual message.
+  public var tierCounts: [EmailTreatment: Int] {
+    Dictionary(grouping: content.rows, by: \.treatment).mapValues(\.count)
+  }
+
+  public var totalCount: Int { content.rows.count }
+
+  /// One representative fresh arrival per enticing treatment. The treatment order is fixed and
+  /// the row order within a treatment remains the projection's arrival order; this is not ranking.
+  /// Personal mail has its own highlight and transactional mail is deliberately not promoted.
+  public var promotedRows: [TodayRequest.Row] {
+    let cutoff = now.addingTimeInterval(-24 * 60 * 60)
+    return [EmailTreatment.newsletter, .offer, .grabBag].compactMap { treatment in
+      content.rows.first {
+        $0.treatment == treatment && $0.arrivedAt <= now && $0.arrivedAt >= cutoff
+      }
+    }
+  }
+
+  /// Personal mail is highlighted by relationship, not by an importance score. The newest row is
+  /// the representative because the projection already preserves arrival order.
+  public var personalHighlight: TodayRequest.Row? {
+    content.rows.first { $0.treatment == .personal }
+  }
+
+  /// Offers are compacted by their retained publisher/domain for the landing surface. The rows
+  /// remain intact behind each group; this is presentational grouping, not a new Find or entity.
+  public var offerGroups: [OfferGroup] {
+    var groups: [String: [TodayRequest.Row]] = [:]
+    var order: [String] = []
+    for row in content.rows where row.treatment == .offer {
+      let key = offerGroupKey(for: row.publisher)
+      if groups[key] == nil { order.append(key) }
+      groups[key, default: []].append(row)
+    }
+    return order.compactMap { key in
+      guard let rows = groups[key] else { return nil }
+      return OfferGroup(id: key, label: offerGroupLabel(for: rows[0].publisher), rows: rows)
+    }
+  }
+
+  public func count(for treatment: EmailTreatment) -> Int {
+    tierCounts[treatment, default: 0]
+  }
+
   /// Cross-type rank is fixed by treatment. Within each tier the projection's arrival order is
   /// preserved exactly; Cockpit does not rank peers by relevance.
   public var tiers: [Tier] {
@@ -55,6 +116,20 @@ public final class TodayModel {
     } catch {
       errorMessage = error.localizedDescription
     }
+  }
+
+  private func offerGroupKey(for publisher: String) -> String {
+    publisher
+      .split(separator: "<", maxSplits: 1, omittingEmptySubsequences: true)[0]
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+      .lowercased()
+  }
+
+  private func offerGroupLabel(for publisher: String) -> String {
+    let label = publisher
+      .split(separator: "<", maxSplits: 1, omittingEmptySubsequences: true)[0]
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    return label.isEmpty ? "Offers" : label
   }
 }
 
