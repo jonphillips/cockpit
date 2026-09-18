@@ -211,7 +211,7 @@ private enum EmailTreatmentClassifier {
   private static let referenceMarkers = [
     "booking confirmation", "confirmation number", "delivery update", "delivery notice",
     "hotel confirmation", "invoice", "order confirmation", "payment received", "receipt",
-    "reservation confirmation", "shipment", "shipping notice", "trade-in", "trade in",
+    "reservation confirmation", "shipment", "shipping notice", "trade-in",
   ]
 
   /// The existing type pass supplies `summary` and `subjects`; these cheap deterministic markers

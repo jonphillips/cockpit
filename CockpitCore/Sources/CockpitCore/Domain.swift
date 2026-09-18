@@ -3,9 +3,7 @@ import SQLiteData
 
 public enum StreamTransport: String, Codable, QueryBindable, Sendable { case rss, atom, gmail }
 
-public enum StreamHandling: String, Codable, QueryBindable, Sendable {
-  case following
-}
+public enum StreamHandling: String, Codable, QueryBindable, Sendable { case following }
 
 public enum StreamFollowState: String, Codable, QueryBindable, Sendable {
   case active
@@ -218,7 +216,8 @@ public struct ContentPiece: Codable, Equatable, Identifiable, Sendable {
     subjects: String? = nil,
     isSubstantivePrimary: Bool? = nil,
     bodyCompleteness: BodyCompleteness? = nil,
-    emailTreatment: EmailTreatment? = nil, emailTransactionalKind: EmailTransactionalKind? = nil,
+    emailTreatment: EmailTreatment? = nil,
+    emailTransactionalKind: EmailTransactionalKind? = nil,
     createdAt: Date
   ) {
     self.id = id
@@ -232,7 +231,8 @@ public struct ContentPiece: Codable, Equatable, Identifiable, Sendable {
     self.subjects = subjects
     self.isSubstantivePrimary = isSubstantivePrimary
     self.bodyCompleteness = bodyCompleteness
-    (self.emailTreatment, self.emailTransactionalKind) = (emailTreatment, emailTransactionalKind)
+    self.emailTreatment = emailTreatment
+    self.emailTransactionalKind = emailTransactionalKind
     self.createdAt = createdAt
   }
 }
