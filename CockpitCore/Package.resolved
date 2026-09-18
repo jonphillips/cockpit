@@ -1,5 +1,5 @@
 {
-  "originHash" : "d8912356e4d29e8de51ce502696a95dac8dc1871343f69115c215c8339656e42",
+  "originHash" : "868b70a3e8cf4c854e0f0f46ae9a95fe715438d3800c81e0809d0fea5ae11cc6",
   "pins" : [
     {
       "identity" : "combine-schedulers",
@@ -134,6 +134,15 @@
       "state" : {
         "revision" : "79e4b74a295b6eb74a8b585e3a39d29e70c1dbd1",
         "version" : "603.0.2"
+      }
+    },
+    {
+      "identity" : "swiftsoup",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/scinfu/SwiftSoup",
+      "state" : {
+        "revision" : "18b80329749eca5ea29fc50211dca5c7eff5bfec",
+        "version" : "2.13.9"
       }
     }
   ],

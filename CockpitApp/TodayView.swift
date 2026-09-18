@@ -18,20 +18,10 @@ struct TodayView: View {
           }
         }
         .navigationTitle("Today")
-        .navigationDestination(item: $model.selectedContentPieceID) { contentPieceID in
-          if let tailRow = tailRows.first(where: { $0.contentPieceID == contentPieceID }) {
-            ReaderView(
-              contentPieceID: contentPieceID,
-              editionContext: EditionReaderContext(
-                model: tailModel, entryID: tailRow.id, rationale: tailRow.rationale,
-                matchedPersonalKnowledgeClaimID: tailRow.matchedPersonalKnowledgeClaimID,
-                clearSelection: { model.selectedContentPieceID = nil }
-              )
-            )
-          } else {
-            // Curated email has no Edition context, so it receives no Edition-only affordances.
-            ReaderView(contentPieceID: contentPieceID)
-          }
+        .sheet(item: selectedReaderSheetItem) { item in
+          SpikeReaderSheet(contentPieceID: item.id)
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
     }
     .task {
@@ -80,4 +70,15 @@ struct TodayView: View {
   private var tailRows: [CurrentEditionRequest.Row] {
     tailModel.entries.filter { $0.entryState == .admitted || $0.entryState == .seen }
   }
+
+  private var selectedReaderSheetItem: Binding<TodayReaderSheetItem?> {
+    Binding(
+      get: { model.selectedContentPieceID.map(TodayReaderSheetItem.init) },
+      set: { model.selectedContentPieceID = $0?.id }
+    )
+  }
+}
+
+private struct TodayReaderSheetItem: Identifiable {
+  let id: ContentPiece.ID
 }
