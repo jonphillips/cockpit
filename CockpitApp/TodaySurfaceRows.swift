@@ -16,18 +16,33 @@ struct TailCompositionControl: View {
       } label: {
         if tailModel.isComposing {
           Label {
-            Text(tailModel.edition == nil ? "Composing Tail…" : "Recomposing Tail…")
+            VStack(alignment: .leading, spacing: 2) {
+              Text(composingPhase?.title ?? "Composing Tail…")
+              Text(composingPhase?.detail ?? "Working on the uncurated tail.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
           } icon: {
             ProgressView()
           }
         } else {
           Label(
-            tailModel.edition == nil ? "Compose Tail" : "Recompose Tail",
+            controlTitle,
             systemImage: tailModel.edition == nil ? "sparkles" : "arrow.clockwise")
         }
       }
       .disabled(tailModel.isComposing)
     }
+  }
+
+  private var composingPhase: EditionCompositionPhase? {
+    guard case let .composing(phase) = tailModel.compositionState else { return nil }
+    return phase
+  }
+
+  private var controlTitle: String {
+    if case .failed = tailModel.compositionState { return "Retry Tail" }
+    return tailModel.edition == nil ? "Compose Tail" : "Recompose Tail"
   }
 }
 

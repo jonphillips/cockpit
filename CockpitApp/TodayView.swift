@@ -55,8 +55,9 @@ struct TodayView: View {
       ToolbarItem(placement: .topBarTrailing) {
         if tailModel.isComposing {
           ProgressView()
+            .accessibilityLabel("Tail composition in progress")
         } else if tailModel.edition == nil {
-          Button("Compose Tail", systemImage: "sparkles") {
+          Button(tailControlTitle, systemImage: "sparkles") {
             Task { await tailModel.composeIfNeeded() }
           }
         } else {
@@ -92,6 +93,11 @@ struct TodayView: View {
 
   private var tailRows: [CurrentEditionRequest.Row] {
     tailModel.entries.filter { $0.entryState == .admitted || $0.entryState == .seen }
+  }
+
+  private var tailControlTitle: String {
+    if case .failed = tailModel.compositionState { return "Retry Tail" }
+    return "Compose Tail"
   }
 
   private func beginReader(for contentPieceID: ContentPiece.ID) {

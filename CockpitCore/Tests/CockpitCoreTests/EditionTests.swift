@@ -182,6 +182,42 @@ struct EditionTests {
     expectNoDifference(piece.isSubstantivePrimary, true)
     expectNoDifference(piece.summary, "A concise summary.")
     #expect(piece.subjects?.contains("housing") == true)
+    expectNoDifference(model.compositionState, .composed)
+  }
+
+  @Test("Tail composition reports its active phase and times out into a retryable error")
+  func compositionTimeoutIsVisibleAndDoesNotMaterialize() async throws {
+    let streamID = UUID(1151)
+    try await seedStream(id: streamID, essential: false)
+    try await seedPiece(id: UUID(1152), streamID: streamID, createdAt: base)
+
+    let slowStub = StubModelClient { _ in
+      try await Task.sleep(for: .seconds(10))
+      return ModelResponse(text: "{\"judgments\":[]}")
+    }
+    let model = withDependencies { $0.modelClient = slowStub } operation: {
+      EditionModel(timeout: .seconds(1))
+    }
+
+    let task = Task { await model.composeIfNeeded() }
+    try await Task.sleep(for: .milliseconds(50))
+    expectNoDifference(model.compositionState, .composing(.screeningCandidates))
+    await task.value
+
+    expectNoDifference(model.compositionState, .failed)
+    #expect(model.errorMessage?.contains("eight minutes") == true)
+    let timedOutEdition = try await database.read { try Edition.find(EditionDay.editionID(for: self.base)).fetchOne($0) }
+    expectNoDifference(timedOutEdition?.state, .composing)
+    let entryCount = try await database.read { try EditionEntry.fetchCount($0) }
+    expectNoDifference(entryCount, 0)
+  }
+
+  @Test("An empty tail is a definite completion state")
+  func emptyTailIsVisibleAsEmpty() async {
+    let model = withDependencies { $0.modelClient = editionStub() } operation: { EditionModel() }
+    await model.composeIfNeeded()
+    expectNoDifference(model.compositionState, .empty)
+    #expect(model.errorMessage == nil)
   }
 
   @Test("Composing twice on the same day is a no-op (materialise once, ADR-0001 D5)")
