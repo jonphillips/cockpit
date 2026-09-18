@@ -206,41 +206,6 @@ enum FeedDateParser {
   }
 }
 
-public enum HTMLText {
-  public static func normalizedText(from html: String?) -> String? {
-    guard let html, !html.isEmpty else { return nil }
-    let lineBreaks = html.replacingOccurrences(
-      of: "(?i)<(?:br\\s*/?|/(?:p|div|li|h[1-6]))\\b[^>]*>",
-      with: "\n",
-      options: .regularExpression
-    )
-    let withoutTags = lineBreaks.replacingOccurrences(
-      of: "<[^>]+>", with: " ", options: .regularExpression
-    )
-    let decoded = withoutTags
-      .replacingOccurrences(of: "&nbsp;", with: " ")
-      .replacingOccurrences(of: "&amp;", with: "&")
-      .replacingOccurrences(of: "&lt;", with: "<")
-      .replacingOccurrences(of: "&gt;", with: ">")
-      .replacingOccurrences(of: "&quot;", with: "\"")
-    let compactedPunctuation = decoded.replacingOccurrences(
-      of: "\\s+([.,;:!?])", with: "$1", options: .regularExpression
-    )
-    let normalized = compactedPunctuation
-      .components(separatedBy: .newlines)
-      .map {
-        $0
-          .replacingOccurrences(of: "[\\t\\p{Zs}]+", with: " ", options: .regularExpression)
-          .trimmingCharacters(in: .whitespaces)
-      }
-      // Block tags above deliberately create newlines. Preserve those boundaries while collapsing
-      // whitespace inside each line and squeezing blank-line runs to one separator.
-      .filter { !$0.isEmpty }
-      .joined(separator: "\n")
-    return normalized.nilIfEmpty
-  }
-}
-
 private extension String {
   var nilIfEmpty: Self? { isEmpty ? nil : self }
 }
