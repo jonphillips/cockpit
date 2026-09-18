@@ -210,7 +210,7 @@ public enum HTMLText {
   public static func normalizedText(from html: String?) -> String? {
     guard let html, !html.isEmpty else { return nil }
     let lineBreaks = html.replacingOccurrences(
-      of: "(?i)<(?:br|/p|/div|/li|/h[1-6])\\b[^>]*>",
+      of: "(?i)<(?:br\\s*/?|/(?:p|div|li|h[1-6]))\\b[^>]*>",
       with: "\n",
       options: .regularExpression
     )
@@ -227,9 +227,16 @@ public enum HTMLText {
       of: "\\s+([.,;:!?])", with: "$1", options: .regularExpression
     )
     let normalized = compactedPunctuation
-      .split(whereSeparator: { $0.isWhitespace })
-      .joined(separator: " ")
-      .trimmingCharacters(in: .whitespacesAndNewlines)
+      .components(separatedBy: .newlines)
+      .map {
+        $0
+          .replacingOccurrences(of: "[\\t\\p{Zs}]+", with: " ", options: .regularExpression)
+          .trimmingCharacters(in: .whitespaces)
+      }
+      // Block tags above deliberately create newlines. Preserve those boundaries while collapsing
+      // whitespace inside each line and squeezing blank-line runs to one separator.
+      .filter { !$0.isEmpty }
+      .joined(separator: "\n")
     return normalized.nilIfEmpty
   }
 }
