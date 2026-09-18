@@ -138,8 +138,16 @@ constraints on synchronized tables, and `Edition`/`EditionEntry` sync (ADR-0001 
 
 Today has two distinct treatments. Curated Gmail input is deterministically organized by its
 personal/newsletter/offer/grab-bag/transactional treatment and remains fully visible; it never enters
-Edition. Transactional is the low, reference-oriented rung; an `ephemeral` transactional sub-kind marks
-stale login/verification codes for a future explicit policy and does not itself mutate Gmail.
+Edition. Treatment is decided **per message** from deterministic type/content + sender-shape signals; the
+per-sender override (`docs/DECISIONS.md` §24) is a tiebreaker for the ambiguous residue, not an
+all-or-nothing sender bucket. An automated-shaped, non-publication, otherwise-unclassified message
+defaults to the **low transactional/reference rung, never Personal** — the `isClearlyHumanOneToOne` guard
+still routes genuine human one-to-one mail to Personal first (`docs/DECISIONS.md` §24 M5 S3b amendment).
+Transactional is the low, reference-oriented rung and carries sub-kinds — `reference` (generic),
+`ephemeral` (stale login/verification codes), `finance` (bills, statements, invoices, payment/deposit
+notices), and `shipment` (order/dispatch/delivery). Sub-kinds carry **handling posture** for the S8
+disposition policy — `finance` is never bulk/auto-disposed; delivered `shipment` is safe to clear — not
+placement: all render in the one transactional rung, and tagging itself never mutates Gmail.
 The barely-curated, non-Gmail tail is materialized as the Edition below and renders within Today,
 **preserving the Essentials distinction**: `essentials` and `essentialBacklog` remain their own sections
 so the anti-forget guarantee stays legible, while the editorial remainder (`forYou`, `interestArea`)

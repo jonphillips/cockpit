@@ -761,6 +761,55 @@ narrowed to the tail), §15 (anti-forget stands; promotion dissolves — complet
 `docs/milestones/`, `docs/JUDGMENT-CONTRACT.md`, `docs/IMPLEMENTATION-CONTRACT.md`,
 `docs/EDITION-EXPERIENCE.md`, `docs/CONTENT-STREAM-MODEL.md`.
 
+**M5 S3b amendment (2026-09-18) — classification quality: the fallback, per-message routing, and two
+transactional sub-kinds.** Lived use of the S4 surface (Jon, 2026-09-18) showed the Personal tier acting
+as a **dumping ground**: order confirmations (Weck Jars, Apple Store), bills and a mobile-check-deposit
+notice (AT&T via Bank of America bill-pay), a carrier update (UPS), and a health-appointment estimate
+(MyUNCChart) all landed in Personal. The cause is structural, not a one-off miss, and the fix is three
+deterministic refinements plus one taxonomy growth — all inside §24's guardrails (deterministic-first,
+no learned reputation store, no model-primary classification, organize-not-suppress).
+
+1. **The Personal fallback flips to the low rung.** Today the classifier, after the human-1:1 guard and
+   the transactional check, routes any non-publication message to Personal — making the *top* relationship
+   rung the catch-all for unclassified automated mail. Reverse it: an **automated-shaped, non-publication,
+   otherwise-unclassified** message defaults to the **low transactional/reference rung, never Personal**.
+   The `isClearlyHumanOneToOne` guard stays in front, so a genuine human one-to-one message (e.g. a small
+   winery's owner emailing an order update) is still Personal. Misplacing a machine notice as reference is
+   cheap; inflating Personal with machine mail defeats the tier.
+2. **Treatment is decided per message; the per-sender override is a tiebreaker, not a hammer.** A sender
+   sends different *kinds* of mail over time — Weck Jars sends an order confirmation today and a promotion
+   next month — so the deterministic type/content signal decides each message (an order confirmation is
+   transactional; a promotion is an offer), and the §24 per-sender override (the M4 S5 mechanism) resolves
+   only the **genuinely ambiguous** residue. This corrects the earlier framing that a misplacement is fixed
+   *only* by a per-sender override: the first fix is better per-message routing; the override is the escape
+   hatch for what routing cannot disambiguate.
+3. **Two transactional sub-kinds — `finance` and `shipment` — join `reference`/`ephemeral`. Sub-kinds, not
+   tiers.** The transactional tier stays one visible rung (§24's small-vocabulary rule holds; no sixth
+   tier). The sub-kind carries **handling posture**, not placement:
+   - **`finance`** — bills, statements, invoices, payment/deposit notices. Consequential and record-like:
+     **never** eligible for bulk or automatic Clear/Archive/Trash. Jon's reasoning is the justification — a
+     pile of "delivered" notices is safe to sweep as a group; bills and deposits are not.
+   - **`shipment`** — order confirmations, dispatch/tracking, delivery notices. Operational and **safe to
+     clear once delivered**.
+   - `reference` (generic) and `ephemeral` (login/verification codes) are unchanged.
+   Detection stays deterministic: subject/type markers **plus sender shape** (carrier/commerce domains,
+   `orders@`/`shipping@` subdomains) plus structured patterns (order/tracking numbers). Keywords alone are
+   brittle and are never the sole signal.
+4. **The sub-kinds' teeth land in S8, not now.** Classification (placement + sub-kind tagging) is a
+   deepen-job slice (**S3b**); the *consequence* — the explicit disposition policy that refuses to
+   bulk/auto-dispose `finance` and permits sweeping delivered `shipment` — lands with the Phase-4
+   disposition policy (**S8**), behind Gate 3. Tagging never mutates Gmail; only S8's explicit, authorized
+   policy acts, and it reads the sub-kind.
+
+**Sequencing (M5).** This amendment + the `IMPLEMENTATION-CONTRACT.md` §3 shape (decision) → **S3b**
+(classification quality: fallback flip, per-message detection, `finance`/`shipment` sub-kinds;
+deterministic, no model) → **S4b** (expose the existing per-sender override in the Today row menu + reader,
+inheriting per-message-first) → **S5** (tail) → the mutation job, where **S8** gives `finance` its
+disposition safety. The reader original-HTML pane (§25) stays M6.
+
+**Relates to:** §24 (extends the fifth-rung amendment and the override-status note above), §7 / ADR-0002
+(finance disposition safety at S8), §18 (still deterministic, organize-not-judge).
+
 ---
 
 ## 25. The email Reader renders the original HTML in-app; reader-mode text is a non-starter — RESOLVED (build targeted M6)
