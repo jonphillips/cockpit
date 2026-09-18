@@ -80,6 +80,7 @@ observable, then ratify. **No provider mutation happens before S6 lands and the 
 
 - [ ] **S1 — Today orientation-surface design note** *(architect-authored; `TODAY-EXPERIENCE.md`)* — defines the composition before it is built
 - [x] **S2 — Email-body legibility: preserve paragraph structure in the shared normalizer** *(S7/S9 device finding #2)*
+- [x] **S2b — Email-body legibility (corrective): strip non-content elements + broaden entity decoding** *(device finding #2 not actually closed; HTML mail still renders `<style>`/`<script>` CSS as body text — Jon, 2026-09-18)*
 - [x] **S3 — The transactional treatment: §24's fifth rung** *(S7 device finding #1; Jon's call 2026-09-18 — add a treatment)*
 - [ ] **S4 — The Today orientation surface: counts / promote / highlight / per-category entry** *(the "consider first in M5" item)*
 - [ ] **S5 — Tail composition: honest progress + latency evidence** *(the "recompose looks hung" finding; DECISIONS §23)*
@@ -261,6 +262,39 @@ retained `rawSourceText` — this is a normalization choice, not lost data).
 
 Reader typography/geometry (still deferred). HTML-fidelity polish beyond block boundaries. The Today
 surface (S4).
+
+---
+
+## S2b — Email-body legibility (corrective): strip non-content elements + broaden entity decoding
+
+**Branch:** `m5/s2b-body-legibility-corrective` · **PR title:** `M5 · S2b — Body legibility (corrective)`
+
+S2 preserved paragraph boundaries but left HTML-fidelity polish out of scope. HTML mail still renders
+the contents of `<style>` and `<script>` blocks as a wall of CSS or JavaScript above the real text.
+This corrective slice closes that device finding in the shared normalizer before the S4 re-judge.
+
+### Scope
+
+- Remove the contents of `<style>`, `<script>`, and `<head>` elements, plus HTML comments including
+  Outlook conditional comments, before the existing tag-stripping pass.
+- Decode numeric decimal/hex entities and the common named punctuation entities in addition to the
+  existing basic entity set.
+- Keep the change in `HTMLText.normalizedText`, so RSS and Gmail-derived bodies improve identically;
+  do not add an email-only path or structured HTML rendering.
+- Verify with the MyUNCChart new-estimate MJML/Outlook fixture, entity fixtures, and S2's existing
+  paragraph-boundary tests.
+
+### Done-criteria
+
+1. Normalized text contains no non-content element contents or raw numeric/common named entities;
+   the MJML/Outlook fixture contains the real content lead and no CSS/Outlook boilerplate.
+2. S2 paragraph boundaries remain unchanged and both transports use the same normalizer.
+3. No network fetch; text remains derived from retained `rawSourceText`. `swift test` and
+   `swiftlint --strict` are green; Reader legibility remains Jon's device pass.
+
+### Out of scope
+
+Reader typography/geometry, structured HTML rendering, and the Today surface.
 
 ---
 
