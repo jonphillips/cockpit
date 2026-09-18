@@ -123,13 +123,43 @@ struct TodayModelTests {
     #expect(attention == nil)
   }
 
+  @Test("Sender correction reloads Today and moves every piece from that sender")
+  func senderCorrectionReloadsProjection() async throws {
+    let pieceID = UUID(7_401)
+    try await seed(
+      pieceID, treatment: .newsletter, receivedAt: 9_990,
+      publisher: "Ministry of Supply <offers@ministry.example>",
+      providerProvenance: "{\"listID\":\"Ministry of Supply\"}")
+
+    let model = TodayModel()
+    try await model.$content.load()
+    let row = try #require(model.content.rows.first)
+    #expect(row.treatment == .newsletter)
+    let overrideCount = try await database.read { db in
+      try EmailSenderTreatmentOverride.fetchCount(db)
+    }
+    #expect(overrideCount == 0)
+
+    await model.setSenderOverride(.offer, for: row)
+
+    #expect(model.content.rows.first?.treatment == .offer)
+    #expect(model.count(for: .offer) == 1)
+    #expect(model.count(for: .newsletter) == 0)
+    #expect(model.errorMessage == nil)
+    let overrideTreatment = try await database.read { db in
+      try EmailSenderTreatmentOverride.find("offers@ministry.example").fetchOne(db)?.treatment
+    }
+    #expect(overrideTreatment == .offer)
+  }
+
   @discardableResult
   private func seed(
     _ pieceID: ContentPiece.ID,
     treatment: EmailTreatment,
     receivedAt: TimeInterval,
     publisher: String = "Sender",
-    summary: String? = nil
+    summary: String? = nil,
+    providerProvenance: String = "{}"
   ) async throws -> Artifact.ID {
     let artifactID = UUID(Int(receivedAt) + 80_000)
     try await database.write { db in
@@ -143,7 +173,7 @@ struct TodayModelTests {
         Artifact.Draft(
           id: artifactID, transport: .gmail, providerID: "gmail:message:\(pieceID.uuidString)",
           acquiredAt: Date(timeIntervalSince1970: receivedAt), rawSourceText: "Body",
-          providerProvenance: "{}", contentPieceID: pieceID)
+          providerProvenance: providerProvenance, contentPieceID: pieceID)
       }.execute(db)
     }
     return artifactID

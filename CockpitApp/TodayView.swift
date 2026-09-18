@@ -37,7 +37,7 @@ struct TodayView: View {
         ) { presentation in
           NavigationStack {
             TodayOriginalReaderPane(
-              model: originalReaderModel, presentation: presentation)
+              model: originalReaderModel, presentation: presentation, todayModel: model)
               .navigationTitle("Reader")
               .navigationBarTitleDisplayMode(.inline)
           }

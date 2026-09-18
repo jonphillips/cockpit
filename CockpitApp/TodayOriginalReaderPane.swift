@@ -4,7 +4,6 @@ import Foundation
 import Observation
 import SQLiteData
 import SwiftUI
-import SwiftSoup
 import WebKit
 
 /// The reader intentionally keeps one warm web view above the sheet. The shared process pool
@@ -22,6 +21,8 @@ final class TodayOriginalReaderModel {
   var presentation: TodayOriginalReaderPresentation?
   var title = ""
   var publisher = ""
+  var sender = ""
+  var treatment: EmailTreatment?
   var isLoading = false
   var hasBody = false
 
@@ -46,6 +47,8 @@ final class TodayOriginalReaderModel {
     webView.stopLoading()
     title = ""
     publisher = ""
+    sender = ""
+    treatment = nil
     hasBody = false
     isLoading = true
     presentation = TodayOriginalReaderPresentation(id: contentPieceID)
@@ -83,12 +86,16 @@ final class TodayOriginalReaderModel {
         return TodayOriginalReaderLoadData(
           title: contentPiece?.title ?? "",
           publisher: contentPiece?.publisher ?? "",
+          sender: contentPiece?.creator ?? contentPiece?.publisher ?? "",
+          treatment: contentPiece?.emailTreatment,
           rawSourceText: rawSourceText)
       }
 
       guard !Task.isCancelled, presentation?.id == contentPieceID else { return }
       title = value.title
       publisher = value.publisher
+      sender = value.sender
+      treatment = value.treatment
       guard let rawSourceText = value.rawSourceText else {
         isLoading = false
         return
@@ -112,6 +119,8 @@ final class TodayOriginalReaderModel {
 private struct TodayOriginalReaderLoadData {
   let title: String
   let publisher: String
+  let sender: String
+  let treatment: EmailTreatment?
   let rawSourceText: String?
 }
 
@@ -145,77 +154,10 @@ private final class TodayOriginalWebViewCoordinator: NSObject, WKNavigationDeleg
   }
 }
 
-enum TodayOriginalReaderConfiguration {
-  /// Jon accepts remote images/fonts for the full-fidelity original by default. This is the one
-  /// switch to flip when an explicit in-app "load remote content" control exists.
-  static let loadRemoteContent = true
-  // TODO: replace this gate with a user-visible "Load remote content" refinement.
-}
-
-enum TodayOriginalHTML {
-  static func sanitizedForWebView(_ rawHTML: String) -> String {
-    guard let document = try? SwiftSoup.parse(rawHTML) else { return rawHTML }
-    _ = try? document.select("script").remove()
-
-    for image in (try? document.select("img").array()) ?? [] {
-      if isTrackingPixel(image) { try? image.remove() }
-    }
-
-    if !TodayOriginalReaderConfiguration.loadRemoteContent {
-      removeRemoteContent(from: document)
-    }
-    return (try? document.html()) ?? rawHTML
-  }
-
-  private static func isTrackingPixel(_ image: Element) -> Bool {
-    let width = dimension(try? image.attr("width"))
-    let height = dimension(try? image.attr("height"))
-    let style = (try? image.attr("style"))?.lowercased() ?? ""
-    let source = ((try? image.attr("src")) ?? "").lowercased()
-    let compactStyle = style.replacingOccurrences(of: " ", with: "")
-    let hiddenOrZeroArea = image.hasAttr("hidden") || [
-      "display:none", "visibility:hidden", "opacity:0", "width:0", "height:0",
-    ].contains { compactStyle.contains($0) }
-    let obviousBeaconName = ["1x1", "spacer", "tracking", "pixel", "beacon"].contains {
-      source.contains($0)
-    }
-    return width.map { $0 <= 1 } ?? false
-      || height.map { $0 <= 1 } ?? false
-      || hiddenOrZeroArea
-      || obviousBeaconName
-  }
-
-  private static func dimension(_ value: String?) -> Int? {
-    guard let value else { return nil }
-    let number = value.trimmingCharacters(in: .whitespacesAndNewlines)
-      .lowercased().replacingOccurrences(of: "px", with: "")
-    return Int(number)
-  }
-
-  private static func removeRemoteContent(from document: SwiftSoup.Document) {
-    for image in (try? document.select("img").array()) ?? [] {
-      _ = try? image.removeAttr("src")
-      _ = try? image.removeAttr("srcset")
-    }
-    for link in (try? document.select("link[href]").array()) ?? [] {
-      _ = try? link.removeAttr("href")
-    }
-    for style in (try? document.select("style").array()) ?? [] {
-      guard let css = try? style.html(),
-        let regex = try? NSRegularExpression(
-          pattern: #"(?i)url\(\s*(['\"]?)(?:https?:)?//[^)]*\)"#)
-      else { continue }
-      let range = NSRange(css.startIndex..<css.endIndex, in: css)
-      let localCSS = regex.stringByReplacingMatches(
-        in: css, options: [], range: range, withTemplate: "none")
-      _ = try? style.html(localCSS)
-    }
-  }
-}
-
 struct TodayOriginalReaderPane: View {
   let model: TodayOriginalReaderModel
   let presentation: TodayOriginalReaderPresentation
+  let todayModel: TodayModel
   @Environment(\.dismiss) private var dismiss
 
   var body: some View {
@@ -242,6 +184,7 @@ struct TodayOriginalReaderPane: View {
     }
     .background(Color(uiColor: .systemBackground))
     .toolbar {
+      ToolbarItem(placement: .primaryAction) { treatmentMenu }
       ToolbarItem(placement: .cancellationAction) {
         // Environment dismiss drives the sheet away; the framework nils the binding and the
         // sheet's onDismiss (presentationDismissed) does the load teardown. Don't also write
@@ -249,6 +192,23 @@ struct TodayOriginalReaderPane: View {
         Button("Done", systemImage: "xmark") { dismiss() }
       }
     }
+  }
+
+  private var treatmentMenu: some View {
+    Menu {
+      SenderTreatmentSubmenu(currentTreatment: model.treatment) { treatment in
+        Task {
+          await todayModel.setSenderOverride(treatment, for: model.sender)
+          if todayModel.errorMessage == nil {
+            model.treatment = treatment
+          }
+        }
+      }
+    } label: {
+      Image(systemName: "ellipsis.circle")
+    }
+    .disabled(model.sender.isEmpty)
+    .accessibilityLabel("Correct sender treatment")
   }
 
   @ViewBuilder
@@ -267,12 +227,4 @@ struct TodayOriginalReaderPane: View {
       .padding(.horizontal).padding(.vertical, 10)
     }
   }
-}
-
-private struct TodayOriginalWebView: UIViewRepresentable {
-  let webView: WKWebView
-
-  func makeUIView(context: Context) -> WKWebView { webView }
-
-  func updateUIView(_ webView: WKWebView, context: Context) {}
 }

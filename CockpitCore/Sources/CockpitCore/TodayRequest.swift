@@ -8,6 +8,7 @@ public struct TodayRequest: FetchKeyRequest {
   public struct Row: Equatable, Identifiable, Sendable {
     public let id: ContentPiece.ID
     public let title: String
+    public let creator: String?
     public let publisher: String
     public let summary: String?
     public let treatmentSummary: String?
@@ -17,6 +18,7 @@ public struct TodayRequest: FetchKeyRequest {
     public let acquiredAt: Date
 
     public var arrivedAt: Date { publishedAt ?? acquiredAt }
+    public var sender: String { creator ?? publisher }
 
     public var grabBagItems: [GrabBagItem] {
       guard let grabBagItemsJSON,
@@ -60,7 +62,8 @@ public struct TodayRequest: FetchKeyRequest {
         let acquiredAt = acquiredAtByContentPieceID[piece.id]
       else { return nil }
       return Row(
-        id: piece.id, title: piece.title, publisher: piece.publisher, summary: piece.summary,
+        id: piece.id, title: piece.title, creator: piece.creator, publisher: piece.publisher,
+        summary: piece.summary,
         treatmentSummary: detailsByContentPieceID[piece.id]?.offerSummary,
         grabBagItemsJSON: detailsByContentPieceID[piece.id]?.grabBagItems,
         treatment: treatment, publishedAt: piece.publishedAt, acquiredAt: acquiredAt)

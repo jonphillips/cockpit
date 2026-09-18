@@ -176,6 +176,10 @@ struct TodayTierListView: View {
       }
       .buttonStyle(.plain)
       Menu {
+        SenderTreatmentSubmenu(currentTreatment: row.treatment) { treatment in
+          Task { await model.setSenderOverride(treatment, for: row) }
+        }
+        Divider()
         Button("Clear", systemImage: "checkmark.circle", role: .destructive) {
           Task { await model.clear(row) }
         }
