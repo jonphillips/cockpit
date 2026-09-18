@@ -78,7 +78,7 @@ observable, then ratify. **No provider mutation happens before S6 lands and the 
 
 **Deepen — make the built Today loop usable (no gate in front; feel is judged only after S2+S4):**
 
-- [ ] **S1 — Today orientation-surface design note** *(architect-authored; `TODAY-EXPERIENCE.md`)* — defines the composition before it is built
+- [x] **S1 — Today orientation-surface design note** *(architect-authored; `TODAY-EXPERIENCE.md`)* — defines the composition before it is built *(merged PR #37; box corrected 2026-09-18)*
 - [x] **S2 — Email-body legibility: preserve paragraph structure in the shared normalizer** *(S7/S9 device finding #2)*
 - [x] **S2b — Email-body legibility (corrective): strip non-content elements + broaden entity decoding** *(device finding #2 not actually closed; HTML mail still renders `<style>`/`<script>` CSS as body text — Jon, 2026-09-18)*
 - [x] **S3 — The transactional treatment: §24's fifth rung** *(S7 device finding #1; Jon's call 2026-09-18 — add a treatment)*
