@@ -26,12 +26,12 @@ struct TodayView: View {
           }
         }
         .navigationTitle("Today")
-        // A full-screen cover, not a sheet: on iPad a sheet is a fixed-width centered card
-        // (detents size only its height), which read as "small". The cover fills the screen —
-        // as close to a Mac Mail detail view as the platform gives — and the zoom transition,
-        // applied to the presented ROOT (not a child inside), makes the tapped row expand into
-        // the reader instead of a default slide-up. Dismissal zooms back to the row.
-        .fullScreenCover(
+        // A sheet, sized to fill: on iPad `.presentationSizing(.page)` abandons the narrow
+        // form-card width (the "small" complaint) for the large page footprint, and `.large`
+        // gives full height on compact widths. Unlike a fullScreenCover, a sheet keeps
+        // swipe-down-to-dismiss (the manual-Done frustration). The zoom transition is on the
+        // presented ROOT so the tapped row expands in rather than sliding up.
+        .sheet(
           item: $originalReaderModel.presentation, onDismiss: originalReaderModel.dismiss
         ) { presentation in
           NavigationStack {
@@ -40,6 +40,9 @@ struct TodayView: View {
               .navigationTitle("Reader")
               .navigationBarTitleDisplayMode(.inline)
           }
+          .presentationSizing(.page)
+          .presentationDetents([.large])
+          .presentationDragIndicator(.visible)
           .navigationTransition(.zoom(sourceID: presentation.id, in: readerTransition))
         }
     }
