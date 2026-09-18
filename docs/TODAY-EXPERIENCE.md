@@ -74,29 +74,16 @@ When uncertain about personal/consequential email disposition, fail conservative
 
 ## 5. V1 Today structure
 
-Today may include a small set of product roles rather than a giant taxonomy.
+Today organizes curated Gmail by a fixed type/relationship treatment hierarchy, never a relevance
+score: **personal → newsletter → offer → grab-bag → transactional**. Each message receives exactly one
+treatment and remains visible; the treatment changes placement and presentation only. Within a treatment
+messages remain in arrival order. This is a small routing vocabulary, not an expanding email ontology.
 
-### Worth Seeing
-
-The few incoming things Cockpit thinks especially deserve to register.
-
-### Personal / Consequential
-
-Messages where relationship, consequence, timing, or obligation makes quiet handling inappropriate.
-
-### Quiet handling / processed awareness
-
-Compact transparency about lower-value incoming material Cockpit understood without demanding equal visual weight.
-
-V1 should avoid turning these roles into dozens of permanent categories.
-
-> **Drift note (2026-09-18).** The role names above ("Worth Seeing" / "Personal-Consequential" /
-> "Quiet handling") predate `DECISIONS.md` §24, which replaced the relevance taxonomy with the
-> type/relationship **treatment hierarchy** (personal / newsletter / offer / grab-bag, + the
-> transactional rung added in M5 S3). M4 S7 built that hierarchy; this section was not reconciled at
-> M4 S9. The §24 reflection into this section is **M5 S3's** job (it carries the §24 amendment), not
-> S1's. §5.1 below describes how that hierarchy is *composed* into a surface; read the two together
-> until S3 rewrites §5's role names.
+Transactional is the low, reference-oriented rung for receipts, notices, shipments, reservations, and
+other machine-delivered operational material. Login and verification codes are classified as the
+distinguishable `ephemeral` transactional sub-kind: they have normally gone stale by the morning brief,
+but classification does not suppress, clear, or Trash them. A future explicit policy may target that
+sub-kind only after the Gmail mutation gate opens.
 
 ---
 

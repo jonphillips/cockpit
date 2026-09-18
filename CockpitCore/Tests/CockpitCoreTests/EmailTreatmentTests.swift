@@ -55,8 +55,10 @@ struct EmailTreatmentTests {
         "SELECT name FROM pragma_table_info('streams')", as: String.self
       ).fetchAll(db)
       #expect(contentColumns.contains("emailTreatment"))
+      #expect(contentColumns.contains("emailTransactionalKind"))
       #expect(streamColumns.contains("isGrabBag"))
       #expect(try ContentPiece.find(pieceID).fetchOne(db)?.emailTreatment == nil)
+      #expect(try ContentPiece.find(pieceID).fetchOne(db)?.emailTransactionalKind == nil)
       #expect(try Stream.find(streamID).fetchOne(db)?.isGrabBag == false)
       #expect(try Artifact.find(artifactID).fetchOne(db)?.providerProvenance == "{\"listID\":\"Feed Me\"}")
       #expect(try EmailSenderTreatmentOverride.fetchCount(db) == 0)
@@ -74,6 +76,11 @@ struct EmailTreatmentTests {
           extraHeaders: [GmailInboxHeader(name: "List-Unsubscribe", value: "<https://example.com/unsubscribe>")]
         ),
         message(
+          id: "noreply-newsletter", from: "Dispatch <no-reply@letters.example>",
+          subject: "No-reply weekly dispatch",
+          extraHeaders: [GmailInboxHeader(name: "List-Unsubscribe", value: "<https://example.com/unsubscribe>")]
+        ),
+        message(
           id: "bulk", from: "Store <store@example.com>", subject: "Updates",
           extraHeaders: [GmailInboxHeader(name: "Precedence", value: "bulk")]
         ),
@@ -84,6 +91,19 @@ struct EmailTreatmentTests {
           id: "offer", from: "Wine Shop <offers@example.com>", subject: "Fall wine allocation offer",
           extraHeaders: [GmailInboxHeader(name: "List-ID", value: "Offers <offers.example.com>")]
         ),
+        message(id: "ups", from: "UPS <no-reply@ups.com>", subject: "Your shipment is on the way"),
+        message(
+          id: "apple", from: "Apple <do_not_reply@apple.com>",
+          subject: "Your trade-in is being processed"
+        ),
+        message(
+          id: "code", from: "Kickstarter <noreply@kickstarter.com>",
+          subject: "Your sign-in code"
+        ),
+        message(
+          id: "hotel", from: "Hotel <reservations@hotel.example>",
+          subject: "Your hotel confirmation"
+        ),
       ])
 
     let report = try await GmailInboxIngestor(
@@ -93,10 +113,21 @@ struct EmailTreatmentTests {
 
     expectNoDifference(treatments["Dinner this week"], .personal)
     expectNoDifference(treatments["Weekly dispatch"], .newsletter)
+    expectNoDifference(treatments["No-reply weekly dispatch"], .newsletter)
     expectNoDifference(treatments["Updates"], .newsletter)
     expectNoDifference(treatments["Monthly dispatch"], .newsletter)
     expectNoDifference(treatments["Fall wine allocation offer"], .offer)
+    expectNoDifference(treatments["Your shipment is on the way"], .transactional)
+    expectNoDifference(treatments["Your trade-in is being processed"], .transactional)
+    expectNoDifference(treatments["Your sign-in code"], .transactional)
+    expectNoDifference(treatments["Your hotel confirmation"], .transactional)
     expectNoDifference(report.contentPieces.allSatisfy { $0.emailTreatment != nil }, true)
+    let transactionalKinds = Dictionary(
+      uniqueKeysWithValues: report.contentPieces.map { ($0.title, $0.emailTransactionalKind) })
+    expectNoDifference(transactionalKinds["Your sign-in code"], .ephemeral)
+    expectNoDifference(transactionalKinds["Your hotel confirmation"], .reference)
+    let dinner = try #require(report.contentPieces.first { $0.title == "Dinner this week" })
+    expectNoDifference(dinner.emailTransactionalKind, nil)
 
     try await database.read { db in
       let overrides = try EmailSenderTreatmentOverride.all.fetchAll(db)
@@ -138,7 +169,9 @@ struct EmailTreatmentTests {
     let snapshot = GmailInboxSnapshot(
       accountID: "jon@example.com",
       messages: [
-        message(id: "correction", from: "Pat <pat@example.com>", subject: "A note"),
+        message(
+          id: "correction", from: "Service <noreply@example.com>", subject: "Your receipt"
+        ),
       ])
     let piece = try #require(try await GmailInboxIngestor(
       client: GmailInboxClient(currentInbox: { snapshot }), now: { .distantPast }
@@ -148,7 +181,8 @@ struct EmailTreatmentTests {
     }
 
     let first = try await database.write { db in
-      try EmailTreatmentOperations.setSenderOverride(.newsletter, for: "Pat <pat@example.com>", in: db)
+      try EmailTreatmentOperations.setSenderOverride(
+        .newsletter, for: "Service <noreply@example.com>", in: db)
     }
     let recomposed = try await database.write { db in
       try EmailTreatmentOperations.reclassifyAll(in: db)
@@ -161,9 +195,23 @@ struct EmailTreatmentTests {
     expectNoDifference(recomposed.first { $0.id == piece.id }?.emailTreatment, .newsletter)
     expectNoDifference(artifactsAfter, artifactsBefore)
     try await database.read { db in
-      let override = try EmailSenderTreatmentOverride.find("pat@example.com").fetchOne(db)
+      let override = try EmailSenderTreatmentOverride.find("noreply@example.com").fetchOne(db)
       expectNoDifference(override?.treatment, .newsletter)
     }
+  }
+
+  @Test("A human one-to-one message is never made transactional by a confirmation subject")
+  func humanOneToOneWinsOverTypeMarkers() async throws {
+    let snapshot = GmailInboxSnapshot(
+      accountID: "jon@example.com",
+      messages: [message(id: "forward", from: "Maya <maya@example.com>", subject: "Hotel confirmation")])
+
+    let piece = try #require(try await GmailInboxIngestor(
+      client: GmailInboxClient(currentInbox: { snapshot }), now: { .distantPast }
+    ).ingest(into: database).contentPieces.first)
+
+    expectNoDifference(piece.emailTreatment, .personal)
+    expectNoDifference(piece.emailTransactionalKind, nil)
   }
 
   private func message(

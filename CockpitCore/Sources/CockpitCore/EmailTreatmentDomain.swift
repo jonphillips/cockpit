@@ -7,4 +7,13 @@ public enum EmailTreatment: String, Codable, QueryBindable, CaseIterable, Sendab
   case newsletter
   case offer
   case grabBag = "grab-bag"
+  case transactional
+}
+
+/// The only transactional distinction Cockpit currently needs is whether a notice is still useful
+/// as reference material or has already gone stale. This is a routing fact for a future explicit
+/// disposition policy, never authority to act on Gmail by itself.
+public enum EmailTransactionalKind: String, Codable, QueryBindable, Sendable {
+  case reference
+  case ephemeral
 }

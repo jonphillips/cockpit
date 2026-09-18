@@ -144,7 +144,7 @@ private enum EmailTreatmentPrompt {
       Message:
       \(json)
       """
-    case .personal, .newsletter:
+    case .personal, .newsletter, .transactional:
       preconditionFailure("Only S8 treatments have model prompts.")
     }
   }
@@ -160,7 +160,7 @@ private enum EmailTreatmentPrompt {
       json = #"""
       {"type":"object","additionalProperties":false,"properties":{"items":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"title":{"type":"string"},"summary":{"type":"string"},"sourceURL":{"type":["string","null"]}},"required":["title","summary","sourceURL"]}}},"required":["items"]}
       """#
-    case .personal, .newsletter:
+    case .personal, .newsletter, .transactional:
       preconditionFailure("Only S8 treatments have schemas.")
     }
     return try! JSONDecoder().decode(JSONValue.self, from: Data(json.utf8))
@@ -210,7 +210,7 @@ private enum EmailTreatmentResponseDecoder {
       }
       guard items.count == response.items.count else { throw EmailTreatmentDecodingError.invalidGrabBag }
       return .grabBag(contentPieceID: contentPieceID, items: items)
-    case .personal, .newsletter:
+    case .personal, .newsletter, .transactional:
       throw EmailTreatmentDecodingError.unsupportedTreatment
     }
   }

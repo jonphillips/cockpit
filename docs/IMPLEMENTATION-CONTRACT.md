@@ -71,7 +71,8 @@ Artifact(id, streamID?, transport, providerID, canonicalURL,
 
 ContentPiece(id, kind, title, creator, publisher, publishedAt,
              canonicalURL, summary, normalizedText, subjects,
-             isSubstantivePrimary, bodyCompleteness, createdAt)
+             isSubstantivePrimary, bodyCompleteness, emailTreatment?,
+             emailTransactionalKind?, createdAt)
 
 Edition(id, date, composedAt, state, targetSize,
         estimatedCostUSD?, promptVersion?, modelName?)
@@ -136,7 +137,9 @@ constraints on synchronized tables, and `Edition`/`EditionEntry` sync (ADR-0001 
 ## 3. Edition state machine
 
 Today has two distinct treatments. Curated Gmail input is deterministically organized by its
-personal/newsletter/offer/grab-bag treatment and remains fully visible; it never enters Edition.
+personal/newsletter/offer/grab-bag/transactional treatment and remains fully visible; it never enters
+Edition. Transactional is the low, reference-oriented rung; an `ephemeral` transactional sub-kind marks
+stale login/verification codes for a future explicit policy and does not itself mutate Gmail.
 The barely-curated, non-Gmail tail is materialized as the Edition below and renders within Today,
 **preserving the Essentials distinction**: `essentials` and `essentialBacklog` remain their own sections
 so the anti-forget guarantee stays legible, while the editorial remainder (`forYou`, `interestArea`)

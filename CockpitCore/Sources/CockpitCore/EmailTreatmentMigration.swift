@@ -23,3 +23,16 @@ extension CockpitMigrations {
     }
   }
 }
+
+extension CockpitMigrations {
+  static func registerTransactionalTreatment(in migrator: inout DatabaseMigrator) {
+    migrator.registerMigration("M5 S3 transactional Gmail treatment") { db in
+      // The treatment stays a placement tag on the existing ContentPiece. The nullable sub-kind is
+      // the minimum durable fact a later explicit OTP policy needs; it does not create a policy,
+      // sender reputation, or provider-write authority.
+      try #sql(
+        "ALTER TABLE \"contentPieces\" ADD COLUMN \"emailTransactionalKind\" TEXT"
+      ).execute(db)
+    }
+  }
+}

@@ -3,9 +3,7 @@ import SQLiteData
 
 public enum StreamTransport: String, Codable, QueryBindable, Sendable { case rss, atom, gmail }
 
-public enum StreamHandling: String, Codable, QueryBindable, Sendable {
-  case following
-}
+public enum StreamHandling: String, Codable, QueryBindable, Sendable { case following }
 
 public enum StreamFollowState: String, Codable, QueryBindable, Sendable {
   case active
@@ -200,6 +198,10 @@ public struct ContentPiece: Codable, Equatable, Identifiable, Sendable {
   /// The deterministic treatment used by Today for Gmail-backed mail. It is nil for non-email
   /// ContentPieces and legacy email until S5 classification has run.
   public var emailTreatment: EmailTreatment?
+  /// A deterministic sub-kind for transactional email. It is nil for every other treatment and
+  /// lets a later explicit policy target stale verification mail without deriving authority from
+  /// this classification.
+  public var emailTransactionalKind: EmailTransactionalKind?
   public var createdAt: Date
 
   public init(
@@ -215,6 +217,7 @@ public struct ContentPiece: Codable, Equatable, Identifiable, Sendable {
     isSubstantivePrimary: Bool? = nil,
     bodyCompleteness: BodyCompleteness? = nil,
     emailTreatment: EmailTreatment? = nil,
+    emailTransactionalKind: EmailTransactionalKind? = nil,
     createdAt: Date
   ) {
     self.id = id
@@ -229,6 +232,7 @@ public struct ContentPiece: Codable, Equatable, Identifiable, Sendable {
     self.isSubstantivePrimary = isSubstantivePrimary
     self.bodyCompleteness = bodyCompleteness
     self.emailTreatment = emailTreatment
+    self.emailTransactionalKind = emailTransactionalKind
     self.createdAt = createdAt
   }
 }

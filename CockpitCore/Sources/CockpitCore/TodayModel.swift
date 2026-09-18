@@ -20,6 +20,7 @@ public final class TodayModel {
       case .newsletter: "Newsletters"
       case .offer: "Offers"
       case .grabBag: "Grab-bags"
+      case .transactional: "Transactional"
       }
     }
   }
@@ -59,5 +60,5 @@ public final class TodayModel {
 
 public extension EmailTreatment {
   /// The Today hierarchy is deterministic across types. It is intentionally not importance order.
-  static let todayHierarchy: [Self] = [.personal, .newsletter, .offer, .grabBag]
+  static let todayHierarchy: [Self] = [.personal, .newsletter, .offer, .grabBag, .transactional]
 }
