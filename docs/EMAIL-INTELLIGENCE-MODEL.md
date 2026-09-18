@@ -47,6 +47,27 @@ Cockpit attention and Gmail provider state remain separate models.
 
 ---
 
+## 2.1 Curated-mail treatment hierarchy
+
+Curated Gmail is organized, never selected from. Every ingested email receives exactly one deterministic
+placement tag: **personal**, **newsletter**, **offer**, **grab-bag**, or **transactional**. The fixed
+cross-type order gives machine notices a low, countable reference rung without hiding them; arrival order
+within a rung remains intact. An explicit per-sender correction overrides the default and is the only
+way Cockpit persists a correction.
+
+Transactional routing uses retained sender/header shape and message-type markers, not Contacts, a
+learned sender reputation store, or a model guess. The classifier separately records `ephemeral` login
+and verification codes so a later explicit policy can target them. That tag has no provider authority:
+it does not Clear, Archive, Trash, or suppress a message. A clearly human one-to-one message remains
+personal even when its subject contains a transactional-looking phrase.
+
+The trigger for this fifth rung was the M4 S7 device pass (2026-09-17): UPS shipping, an Apple Store
+`do_not_reply` trade-in notice, a sign-in code, and a hotel confirmation scattered into Personal and
+Newsletters under the prior four-treatment taxonomy. Jon chose a treatment rather than a Find on
+2026-09-18.
+
+---
+
 ## 3. Three provider dispositions
 
 After Cockpit has done its promised processing, the source email may be:

@@ -88,7 +88,7 @@ No universal entities, folders/collections, vector infrastructure by default, or
 V1 includes:
 
 - current Gmail Inbox intelligence, organized without suppressing curated messages;
-- deterministic personal / newsletter / offer / grab-bag treatment;
+- deterministic personal / newsletter / offer / grab-bag / transactional treatment;
 - per-treatment highlighting, listing, summaries, and within-grab-bag extraction;
 - Gmail provider dispositions `Leave`, `Archive`, and `Trash`;
 - explicit Stream-level source disposition where relevant;

@@ -665,6 +665,19 @@ value Jon named — "wine offers summarized, canonical newsletters listed, perso
 - **Grab-bag / digest (Feed Me; occasionally a mailbag) → extracted.** This is the one place
   editorial-style sifting runs on curated input, and it runs *inside* the piece (pull the worthwhile
   items out), not across pieces.
+- **Transactional / receipt mail → low, countable reference.** Shipping notices, receipts,
+  reservations, account notices, and similar machine-delivered operational material stay present but
+  are never elevated over personal or editorial mail. Login/verification codes are a distinguishable
+  `ephemeral` sub-kind for a future explicit policy; the classification itself neither suppresses nor
+  mutates Gmail.
+
+**M5 S3 amendment (2026-09-18).** The fifth rung is evidence-driven: the S7 device pass found UPS
+shipping, an Apple Store `do_not_reply` trade-in notice, a sign-in code, and a hotel confirmation
+scattered across Personal and Newsletters because the four-rung taxonomy had no home for them. Jon
+chose a treatment, not a Find. It inherits every §24 guardrail: deterministic retained-header/type
+routing first; an explicit per-sender override wins; no Contacts scope, learned reputation store,
+model-primary classification, suppression, or provider action. A clearly human one-to-one message is
+personal even if its subject resembles a transactional notice.
 
 **The AI boundary this sharpens (extends §22).** For curated input the model classifies, summarizes,
 extracts, and highlights — it **never admits/declines or suppresses**. Organization changes order,

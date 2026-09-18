@@ -46,11 +46,16 @@ public enum EmailTreatmentOperations {
         try EmailSenderTreatmentOverride.find(key).fetchOne(db)
       }
       let stream = try artifact.streamID.flatMap { id in try Stream.find(id).fetchOne(db) }
-      let treatment = EmailTreatmentClassifier.classify(
+      let classification = EmailTreatmentClassifier.classify(
         piece: piece, provenance: provenance, stream: stream, override: override)
 
-      if piece.emailTreatment != treatment {
-        try ContentPiece.find(id).update { $0.emailTreatment = #bind(treatment) }.execute(db)
+      if piece.emailTreatment != classification.treatment
+        || piece.emailTransactionalKind != classification.transactionalKind
+      {
+        try ContentPiece.find(id).update {
+          $0.emailTreatment = #bind(classification.treatment)
+          $0.emailTransactionalKind = #bind(classification.transactionalKind)
+        }.execute(db)
       }
       return try ContentPiece.find(id).fetchOne(db)
     }
@@ -89,17 +94,36 @@ public enum EmailTreatmentOperations {
 }
 
 private enum EmailTreatmentClassifier {
+  struct Classification {
+    let treatment: EmailTreatment
+    let transactionalKind: EmailTransactionalKind?
+  }
+
   static func classify(
     piece: ContentPiece,
     provenance: GmailArtifactProvenance?,
     stream: Stream?,
     override: EmailSenderTreatmentOverride?
-  ) -> EmailTreatment {
-    if let override { return override.treatment }
-    guard isPublication(provenance) else { return .personal }
-    if stream?.isGrabBag == true { return .grabBag }
-    if hasPromotionalSignal(piece) { return .offer }
-    return .newsletter
+  ) -> Classification {
+    if let override { return .init(treatment: override.treatment, transactionalKind: nil) }
+    if isClearlyHumanOneToOne(provenance) { return .init(treatment: .personal, transactionalKind: nil) }
+    if let kind = transactionalKind(for: piece, provenance: provenance) {
+      return .init(treatment: .transactional, transactionalKind: kind)
+    }
+    guard isPublication(provenance) else { return .init(treatment: .personal, transactionalKind: nil) }
+    if stream?.isGrabBag == true { return .init(treatment: .grabBag, transactionalKind: nil) }
+    if hasPromotionalSignal(piece) { return .init(treatment: .offer, transactionalKind: nil) }
+    return .init(treatment: .newsletter, transactionalKind: nil)
+  }
+
+  /// A clearly human one-to-one sender wins before any subject marker. That keeps a person's
+  /// "hotel confirmation" forward in the personal tier; ambiguous machine mail remains visible
+  /// and is corrected through the explicit sender override when necessary.
+  private static func isClearlyHumanOneToOne(_ provenance: GmailArtifactProvenance?) -> Bool {
+    guard let provenance, !isPublication(provenance), !hasAutomatedSenderShape(provenance) else {
+      return false
+    }
+    return provenance.toRecipientCount + provenance.ccRecipientCount <= 2
   }
 
   /// A missing or unreadable provenance record fails conservatively to publication. S4 rows retain
@@ -134,12 +158,66 @@ private enum EmailTreatmentClassifier {
     return domains.contains { domain == $0 || domain.hasSuffix(".\($0)") }
   }
 
+  /// Retained sender shape and subject/type markers give transactional mail a deterministic home.
+  /// This deliberately remains a small classifier: it does not inspect Contacts or retain any
+  /// sender reputation. A sender correction always wins above.
+  private static func transactionalKind(
+    for piece: ContentPiece, provenance: GmailArtifactProvenance?
+  ) -> EmailTransactionalKind? {
+    let haystack = typeHaystack(for: piece)
+    if ephemeralMarkers.contains(where: haystack.contains) { return .ephemeral }
+    if referenceMarkers.contains(where: haystack.contains) { return .reference }
+    // A newsletter may legitimately use a no-reply sender or a bulk ESP. Those machine shapes are
+    // transactional only when the retained headers do not identify publication mail; a receipt or
+    // confirmation marker above still wins when a transactional message carries such a header.
+    if (hasAutomatedSenderShape(provenance) || hasTransactionalServiceDomain(provenance))
+      && !isPublication(provenance)
+    { return .reference }
+    return nil
+  }
+
+  private static func hasAutomatedSenderShape(_ provenance: GmailArtifactProvenance?) -> Bool {
+    guard let address = provenance?.senderAddress,
+      let localPart = address.split(separator: "@", maxSplits: 1).first
+    else { return false }
+    let normalized = localPart.lowercased().filter(\.isLetter)
+    return normalized.contains("noreply") || normalized.contains("donotreply")
+      || normalized == "notification" || normalized == "notifications"
+      || normalized == "mailerdaemon" || normalized == "automated"
+      || normalized == "reservation" || normalized == "reservations"
+  }
+
+  private static func hasTransactionalServiceDomain(_ provenance: GmailArtifactProvenance?) -> Bool {
+    let domains = [
+      "amazonses.com", "mailgun.org", "mandrillapp.com", "postmarkapp.com", "sendgrid.net",
+      "sparkpostmail.com",
+    ]
+    return [provenance?.sendingDomain, provenance?.dkimDomain].compactMap { $0 }.contains { domain in
+      domains.contains { domain == $0 || domain.hasSuffix(".\($0)") }
+    }
+  }
+
+  private static func typeHaystack(for piece: ContentPiece) -> String {
+    let subjects = (try? JSONDecoder().decode([String].self, from: Data((piece.subjects ?? "").utf8)))?
+      .joined(separator: " ") ?? ""
+    return [piece.title, piece.summary ?? "", subjects].joined(separator: " ").lowercased()
+  }
+
+  private static let ephemeralMarkers = [
+    "verification code", "sign-in code", "signin code", "security code", "one-time code",
+    "one time code", "login code", "your code is", "otp",
+  ]
+
+  private static let referenceMarkers = [
+    "booking confirmation", "confirmation number", "delivery update", "delivery notice",
+    "hotel confirmation", "invoice", "order confirmation", "payment received", "receipt",
+    "reservation confirmation", "shipment", "shipping notice", "trade-in", "trade in",
+  ]
+
   /// The existing type pass supplies `summary` and `subjects`; these cheap deterministic markers
   /// distinguish promotional publication from an ordinary think-piece without another model call.
   private static func hasPromotionalSignal(_ piece: ContentPiece) -> Bool {
-    let subjects = (try? JSONDecoder().decode([String].self, from: Data((piece.subjects ?? "").utf8)))?
-      .joined(separator: " ") ?? ""
-    let haystack = [piece.title, piece.summary ?? "", subjects].joined(separator: " ").lowercased()
+    let haystack = typeHaystack(for: piece)
     let markers = [
       "allocation", "case sale", "discount", "free shipping", "limited release", "new arrival",
       "offer", "pre-order", "sale", "save ", "shop now", "wine club",

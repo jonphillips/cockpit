@@ -21,20 +21,24 @@ struct TodayModelTests {
     let newsletter = UUID(7_003)
     let offer = UUID(7_004)
     let grabBag = UUID(7_005)
+    let transactional = UUID(7_006)
     try await seed(personalEarly, treatment: .personal, receivedAt: 1)
     try await seed(personalLate, treatment: .personal, receivedAt: 2)
     try await seed(newsletter, treatment: .newsletter, receivedAt: 3)
     try await seed(offer, treatment: .offer, receivedAt: 4)
     try await seed(grabBag, treatment: .grabBag, receivedAt: 5)
+    try await seed(transactional, treatment: .transactional, receivedAt: 6)
 
     let model = TodayModel()
     try await model.$content.load()
 
-    expectNoDifference(model.tiers.map(\.treatment), [.personal, .newsletter, .offer, .grabBag])
+    expectNoDifference(
+      model.tiers.map(\.treatment), [.personal, .newsletter, .offer, .grabBag, .transactional])
     expectNoDifference(model.tiers[0].rows.map(\.id), [personalLate, personalEarly])
     expectNoDifference(model.tiers[1].rows.map(\.id), [newsletter])
     expectNoDifference(model.tiers[2].rows.map(\.id), [offer])
     expectNoDifference(model.tiers[3].rows.map(\.id), [grabBag])
+    expectNoDifference(model.tiers[4].rows.map(\.id), [transactional])
   }
 
   @Test("Clear resolves only Cockpit attention and leaves Gmail evidence unchanged")
