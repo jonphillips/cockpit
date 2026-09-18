@@ -446,6 +446,8 @@ This is not new capability bolted on — it is surfacing what the model already 
 
 **Not decided here:** exact typography/reader geometry (deferred, "Reader geometry details" below), HTML-vs-plain rendering fidelity, and the milestone placement of the slice (proposed M4-adjacent; see `docs/milestones/M3-shell-and-personal-knowledge.md` M4 cutline).
 
+> **Updated 2026-09-18 — the HTML-vs-plain fidelity question is now resolved for email by §25:** the email Reader renders the held **original HTML** in an in-app WKWebView (reader-mode re-render dropped), a scoped, mitigated crossing of the "no remote fetch" boundary above. The non-email path described here is unchanged. Build targeted M6.
+
 ---
 
 ## 21. Always-read Streams: reachable completeness vs. Edition promotion — ABSORBED BY §24
@@ -745,6 +747,82 @@ narrowed to the tail), §15 (anti-forget stands; promotion dissolves — complet
 §23 (latency dissolved for the curated path). Live docs: `docs/V1-SCOPE-AND-SEQUENCING.md`,
 `docs/milestones/`, `docs/JUDGMENT-CONTRACT.md`, `docs/IMPLEMENTATION-CONTRACT.md`,
 `docs/EDITION-EXPERIENCE.md`, `docs/CONTENT-STREAM-MODEL.md`.
+
+---
+
+## 25. The email Reader renders the original HTML in-app; reader-mode text is a non-starter — RESOLVED (build targeted M6)
+
+Raised 2026-09-18 from the M5 reader spike device pass (PR #43). §20 resolved that the Reader renders
+the substance Cockpit holds inline and left **"HTML-vs-plain rendering fidelity" explicitly undecided**.
+The M5 body-legibility work (S2/S2b) chased that fidelity by *flattening* HTML to normalized text; the
+spike then built a second option — a structured "reader-mode" re-render of the email in Cockpit's own
+type (SwiftSoup → house components) — beside a WKWebView showing the sanitized **original**. Jon's device
+pass settled it: **for HTML email the reader-mode re-render is a non-starter, and flattening to text is
+"meh."** A designed email's value is partly its design; a plaintext or re-typeset version throws that
+away. The original is what he wants to see.
+
+**Decision (email branch of §20):** for `kind == .email`, the Reader renders the **held original HTML**
+(`Artifact.rawSourceText`, already retained and device-local) in an **in-app WKWebView**, by default —
+not normalized text, not a re-render. Reader-mode structured re-rendering is **dropped**, not deferred.
+The non-email path (RSS/newsletter text) keeps §20's held-normalized-text render unchanged; this entry
+resolves only the email fidelity question §20 left open.
+
+**How this revises §20's "not a browser" boundary — a scoped, mitigated crossing.** §20 drew a hard line:
+"No JavaScript, no navigation, no cookies, and no live fetch-and-scrape." Rendering the original in a
+webview keeps most of that line and crosses one part of it deliberately:
+
+- **Kept:** JavaScript **off** (`allowsContentJavaScript = false`); **navigation blocked** (only the
+  initial `loadHTMLString`; user link taps cancelled — email links are untrusted); **no cookies/storage**
+  (`WKWebsiteDataStore.nonPersistent()`); **no live fetch-and-scrape of the source page** — we render only
+  HTML Cockpit already holds. It is still not a browser.
+- **Crossed, on purpose:** the webview **loads remote subresources** (images/fonts) for fidelity, which
+  §20's "no remote fetch" forbade. This is the accepted cost of showing the real design, and it is what
+  makes tracking mitigation (below) matter. `teaser`/body-less pieces still fall to **Open Original**, and
+  Open Original remains the honest fallback everywhere §20 named it.
+
+**Interaction conclusions (from the spike; Today stays the base).** Today remains the full-width
+orientation surface (§24; `TODAY-EXPERIENCE.md` §5.1). The email opens as a **large, near-full-iPad pane**
+— as close to a Mac Mail detail view as the presentation allows — not a split-view sidebar and not a small
+sheet: Jon wants to minimize scrolling, expanding, and timing. Conclusions to build to: open **directly
+large** (no medium-detent expand step); a **zoom transition** (row expands into the pane) for a fast,
+direct feel over a heavy slide-up; and **preload on tap** — a warm, reused WKWebView on a shared process
+pool with `loadHTMLString` fired the instant the row is tapped, so content is rendering as the open
+animation completes (the WebContent process spin-up, not the local HTML, is the latency to hide). These
+supersede §5.1's "push" wording for the email reader; the architect updates that note when the slice lands.
+
+**Tracking mitigation — layered, no server.** Jon accepts loading pixels but asked whether something
+smarter exists. It does, and it needs no server (which the no-server law forbids anyway):
+
+- **Now (cheap):** the non-persistent data store (no cross-email cookie correlation) + stripping obvious
+  1×1 / hidden / zero-area tracking-pixel `<img>` before load (SwiftSoup), while keeping real imagery and
+  `<style>`/`<head>` (full fidelity, not text extraction).
+- **Smart upgrade (M6+):** `WKContentRuleList` — Safari's content-blocking engine, attachable to any app's
+  WKWebView **in-process, with no separate App Extension target** — loaded with a community tracker list
+  (**EasyPrivacy** or **DuckDuckGo Tracker Radar**), either bundled as prebuilt content-blocker JSON or
+  converted from EasyList syntax via **AdGuard's open-source `SafariConverterLib`** (Swift). Compile once
+  and cache via `WKContentRuleListStore`; refresh the snapshot as a later nicety. This upgrades "strip the
+  dumb 1×1 beacon" to "block known tracker *domains*" while legit design images still load. DuckDuckGo's
+  Apache-2.0 iOS app is the reference implementation. No server-side image proxying (Apple/Gmail-style) —
+  it would violate the no-server law.
+
+**Boundaries preserved.** Rendering held HTML is deterministic display, not judgment (AI boundary intact).
+Custody is unchanged (§16 / ADR-0001 D6: `rawSourceText` and the render are device-local; nothing new
+syncs). The S2b normalizer stays — it still serves the non-email path, classification, extraction, and
+search — and the **S2b backfill floor-fix is independent** of this and can land anytime.
+
+**Sequencing.** Build is **targeted for M6.** M5 remains Today-surface + Phase-4 dispositions; the reader
+overhaul is not smuggled into it. The M5 reader spike (PR #43) is the evidence and is kept or discarded
+once this is built for real. The `WKContentRuleList` tracker-blocking upgrade may be its own M6 slice or a
+later refinement — not a blocker for the original-HTML pane.
+
+**Not decided here:** final pane geometry and animation tuning (device pass); whether remote-content load
+defaults on or behind a "Load Remote Content" control in the shipping version; and the exact M6 slice
+split (pane vs. tracker-blocking).
+
+**Relates to:** §20 (resolves its open email-fidelity question; scoped revision of its remote-fetch
+boundary), §16 / ADR-0001 D6 (custody unchanged), §24 (Today stays the base surface), §11 (jon-platform
+no-server law — rules out proxying). Live docs: `docs/TODAY-EXPERIENCE.md` §5.1, `docs/IPAD-FIRST-EXPERIENCE.md`
+§7, `docs/milestones/` (M6, when authored).
 
 ---
 
