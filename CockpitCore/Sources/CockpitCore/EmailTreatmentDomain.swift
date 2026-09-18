@@ -8,6 +8,16 @@ public enum EmailTreatment: String, Codable, QueryBindable, CaseIterable, Sendab
   case offer
   case grabBag = "grab-bag"
   case transactional
+
+  public var displayName: String {
+    switch self {
+    case .personal: "Personal"
+    case .newsletter: "Newsletter"
+    case .offer: "Offer"
+    case .grabBag: "Grab-bag"
+    case .transactional: "Transactional"
+    }
+  }
 }
 
 /// The only transactional distinction Cockpit currently needs is whether a notice is still useful

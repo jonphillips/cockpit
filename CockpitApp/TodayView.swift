@@ -7,54 +7,32 @@ struct TodayView: View {
   @State private var isConfirmingTailRecompose = false
 
   var body: some View {
-    NavigationSplitView {
-      List(selection: $model.selectedContentPieceID) {
-        ForEach(model.tiers) { tier in
-          Section(tier.title) {
-            ForEach(tier.rows) { row in
-              TodayRowView(row: row)
-                .tag(row.id)
-                .swipeActions {
-                  Button("Clear", systemImage: "checkmark.circle", role: .destructive) {
-                    Task { await model.clear(row) }
-                  }
-                }
-            }
+    NavigationStack {
+      TodayLandingView(
+        model: model, tailModel: tailModel, isConfirmingRecompose: $isConfirmingTailRecompose)
+        .overlay {
+          if model.tiers.isEmpty && tailRows.isEmpty && !tailModel.isComposing {
+            ContentUnavailableView(
+              "Nothing to Review", systemImage: "sun.max",
+              description: Text("Gmail messages and screened tail stories will appear here."))
           }
         }
-        tailSection("Essentials", rows: tailRows(in: .essentials))
-        tailSection("From the Tail", rows: tailBodyRows)
-        tailSection("Essential Backlog", rows: tailRows(in: .essentialBacklog))
-        TailCompositionControl(
-          tailModel: tailModel, isConfirmingRecompose: $isConfirmingTailRecompose)
-      }
-      .overlay {
-        if model.tiers.isEmpty && tailRows.isEmpty && !tailModel.isComposing {
-          ContentUnavailableView(
-            "Nothing to Review", systemImage: "sun.max",
-            description: Text("Gmail messages and screened tail stories will appear here."))
+        .navigationTitle("Today")
+        .navigationDestination(item: $model.selectedContentPieceID) { contentPieceID in
+          if let tailRow = tailRows.first(where: { $0.contentPieceID == contentPieceID }) {
+            ReaderView(
+              contentPieceID: contentPieceID,
+              editionContext: EditionReaderContext(
+                model: tailModel, entryID: tailRow.id, rationale: tailRow.rationale,
+                matchedPersonalKnowledgeClaimID: tailRow.matchedPersonalKnowledgeClaimID,
+                clearSelection: { model.selectedContentPieceID = nil }
+              )
+            )
+          } else {
+            // Curated email has no Edition context, so it receives no Edition-only affordances.
+            ReaderView(contentPieceID: contentPieceID)
+          }
         }
-      }
-      .navigationTitle("Today")
-    } detail: {
-      if let contentPieceID = model.selectedContentPieceID {
-        if let tailRow = tailRows.first(where: { $0.contentPieceID == contentPieceID }) {
-          ReaderView(
-            contentPieceID: contentPieceID,
-            editionContext: EditionReaderContext(
-              model: tailModel, entryID: tailRow.id, rationale: tailRow.rationale,
-              matchedPersonalKnowledgeClaimID: tailRow.matchedPersonalKnowledgeClaimID,
-              clearSelection: { model.selectedContentPieceID = nil }
-            ))
-            .id(contentPieceID)
-        } else {
-          // No Edition context means curated email cannot acquire rationale or Dismiss affordances.
-          ReaderView(contentPieceID: contentPieceID)
-            .id(contentPieceID)
-        }
-      } else {
-        ContentUnavailableView("Select Something", systemImage: "sun.max")
-      }
     }
     .task {
       try? await model.$content.load()
@@ -101,126 +79,5 @@ struct TodayView: View {
 
   private var tailRows: [CurrentEditionRequest.Row] {
     tailModel.entries.filter { $0.entryState == .admitted || $0.entryState == .seen }
-  }
-
-  private func tailRows(in section: JudgmentSection) -> [CurrentEditionRequest.Row] {
-    tailRows.filter { $0.section == section }
-  }
-
-  private var tailBodyRows: [CurrentEditionRequest.Row] {
-    tailRows.filter { $0.section == .forYou || $0.section == .interestArea }
-  }
-
-  @ViewBuilder
-  private func tailSection(_ title: String, rows: [CurrentEditionRequest.Row]) -> some View {
-    if !rows.isEmpty {
-      Section(title) {
-        ForEach(rows) { row in
-          TailRowView(row: row)
-            .tag(row.contentPieceID)
-        }
-      }
-    }
-  }
-}
-
-private struct TailCompositionControl: View {
-  let tailModel: EditionModel
-  @Binding var isConfirmingRecompose: Bool
-
-  var body: some View {
-    Section {
-      Button {
-        if tailModel.edition == nil {
-          Task { await tailModel.composeIfNeeded() }
-        } else {
-          isConfirmingRecompose = true
-        }
-      } label: {
-        if tailModel.isComposing {
-          Label {
-            Text(tailModel.edition == nil ? "Composing Tail…" : "Recomposing Tail…")
-          } icon: {
-            ProgressView()
-          }
-        } else {
-          Label(
-            tailModel.edition == nil ? "Compose Tail" : "Recompose Tail",
-            systemImage: tailModel.edition == nil ? "sparkles" : "arrow.clockwise")
-        }
-      }
-      .disabled(tailModel.isComposing)
-    }
-  }
-}
-
-private struct TailRowView: View {
-  let row: CurrentEditionRequest.Row
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      Text(row.title).font(.headline)
-      Text(row.publisher).font(.subheadline).foregroundStyle(.secondary)
-      if let rationale = row.rationale, !rationale.isEmpty {
-        Text(rationale).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-      }
-      if row.entryState == .seen {
-        Text("Seen").font(.caption2).foregroundStyle(.tertiary)
-      }
-    }
-    .accessibilityElement(children: .combine)
-    .accessibilityHint("Open in Reader.")
-  }
-}
-
-private struct TodayRowView: View {
-  let row: TodayRequest.Row
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      Text(row.title)
-        .font(row.treatment == .personal ? .title3.weight(.semibold) : .headline)
-      Text(row.publisher)
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
-      if let treatmentSummary = row.treatmentSummary {
-        Text(treatmentSummary)
-          .font(.subheadline)
-          .foregroundStyle(.primary)
-          .lineLimit(2)
-      }
-      if let summary = row.summary, !summary.isEmpty {
-        Text(summary)
-          .font(.subheadline)
-          .foregroundStyle(.secondary)
-          .lineLimit(row.treatment == .personal ? 3 : 2)
-      }
-      if !row.grabBagItems.isEmpty {
-        VStack(alignment: .leading, spacing: 6) {
-          ForEach(row.grabBagItems) { item in
-            VStack(alignment: .leading, spacing: 2) {
-              Text(item.title).font(.subheadline.weight(.semibold))
-              Text(item.summary)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-            }
-          }
-        }
-        .padding(.top, 4)
-      }
-      Text(row.arrivedAt, format: .dateTime.month().day().hour().minute())
-        .font(.caption)
-        .foregroundStyle(.tertiary)
-    }
-    .padding(row.treatment == .personal ? 8 : 0)
-    .background {
-      if row.treatment == .personal {
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-          .fill(.thinMaterial)
-      }
-    }
-    .accessibilityElement(children: .combine)
-    .accessibilityHint("Open in Reader. Swipe for Clear.")
   }
 }
