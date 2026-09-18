@@ -161,6 +161,14 @@ is sliced." This is that note — and, because an orientation *surface* is inher
 of the proposed composition to react to. It exists so S4 builds against a settled composition rather
 than inventing one, and so Jon's S4 device pass has something concrete to judge.
 
+**Mockup status (2026-09-18).** A first-pass mockup (Claude artifact, "Cockpit Today Surface") was
+built and **approved as a starting composition** — the treatment-tiered brief with promote / highlight
+/ counts / per-category entry, the low transactional rung, and the Tail with honest recompose progress.
+S1's build reproduces it in `docs/` (or as the linked artifact) and refines from there. Two
+forward-carries from that review are recorded on their slices rather than left in the PR: **ephemeral
+login-code mail should be trashable** (S3 classifies it; S8 is where the disposition lands), and **the
+offer tier must roll up at volume** (S4).
+
 ### Read first
 
 `docs/TODAY-EXPERIENCE.md` §5–6 (surfaces and `Clear`); DECISIONS §24 (organize-not-select; the
@@ -288,6 +296,12 @@ existing per-sender override (the correction mechanism the fifth treatment also 
   reuse it; do not add a detector heavier than the one-and-a-half-stream rule allows.
 - **Place it low in the hierarchy** per the S1 note — transactional mail is reference, not attention;
   it is present and countable, never suppressed, and never elevated above personal or newsletters.
+- **Flag the ephemeral / OTP sub-case** (login and verification codes). Jon (2026-09-18): a login code
+  would have been dealt with immediately in a standard reader, so by the morning brief it is stale
+  noise. S3 only needs to *recognize* it deterministically (a distinguishable transactional sub-kind) —
+  the **disposition (auto-Trash) is Phase 4 and lands in S8** as an explicit user policy, never a
+  silent classification-driven delete here (§7; §8; the read-only→mutation line). Classifying it now is
+  what lets S8's policy target it cleanly.
 - **The per-sender override applies.** A misplacement (a real person's mail caught by a machine-sender
   heuristic, or vice-versa) is corrected by the existing explicit per-sender flip, which wins over the
   default and persists — grown only by correction (DECISIONS §24).
@@ -341,6 +355,11 @@ preserve); `M4-gmail-today.md` S7 out-of-scope + device pass (what S7 deliberate
 - **View-layer on existing data.** S5(M4)/S7/S8 already produce the treatment tags, summaries, extracted
   grab-bag items, and personal emphasis; S3 adds the transactional tag. S4 composes them; it does not
   add persistence or a new judgment call.
+- **Roll up the offer tier at volume** (Jon, 2026-09-18). The mockup showed one full capsule per offer,
+  which does not scale — five wine offers must not become five large capsules. The offer tier groups
+  (by domain/type — e.g. "5 wine offers") into a compact aggregate with drill-in, rather than a capsule
+  each. Keep it presentational grouping here; deeper evolution (rolling grouped offers into a single
+  grouped Find) is a later Finds concern (Phase 6), not S4.
 - **Preserve the built invariants.** `Clear` still resolves Today attention with no Gmail mutation; an
   email piece still opens in the one Reader (now with legible body from S2) and carries no Edition-only
   affordances; the uncurated tail section (S9) still renders within Today.
@@ -563,6 +582,12 @@ model"); the S7 disposition barrier + Undo log (the policy rides them).
   extracting a Find" (the wine-offer / promo case): the user authorizes it explicitly, and thereafter a
   message the classifier matches is disposed **through the same barrier** (Find committed and verified
   first). The policy is a small explicit record, not a rule in an engine.
+- **Candidate to prove the model: auto-Trash login/verification codes** (the S3 ephemeral sub-case;
+  Jon, 2026-09-18). It is arguably the cleanest demonstration — an OTP has *no* promised durable result
+  to retain, so the barrier is trivially satisfied (nothing to commit before Trash) and it isolates the
+  authority question on its own. The wine-offer case exercises the commit-then-Trash barrier more fully;
+  either (or both) can be the "smallest explicit policy" — still explicit, still logged and reversible,
+  never a silent learned delete. Which one proves the model is Jon's / the architect's call at S8.
 - **AI classifies to apply, and may propose — never authorizes.** The model may tag a message as
   matching an authorized policy, and may *surface a proposal* for a new policy, but the policy only
   exists once Jon establishes it explicitly; no destructive authority is inferred (D7; §8).
