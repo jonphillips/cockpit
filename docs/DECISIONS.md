@@ -681,6 +681,19 @@ routing first; an explicit per-sender override wins; no Contacts scope, learned 
 model-primary classification, suppression, or provider action. A clearly human one-to-one message is
 personal even if its subject resembles a transactional notice.
 
+**Override status (2026-09-18) — the correction mechanism is built; its UI is the last unbuilt piece.**
+The per-sender override engine exists and is tested (`EmailSenderTreatmentOverride` +
+`EmailTreatmentOperations.setSenderOverride`, M4 S5): an explicit correction wins over the deterministic
+default, reclassifies all mail from that sender, survives recomposition, and is never learned or
+auto-added. What is missing is the **affordance to invoke it** — nothing in the app calls
+`setSenderOverride`, so a visible misplacement (e.g. an editorial-styled retail promo like Ministry of
+Supply that carries no `sale`/`shop now` marker routes to `newsletter` instead of `offer`) is currently
+*visible but not correctable on device*. Exposing the existing override in the Today row overflow menu
+(and the reader) is a **small correction-affordance slice** (M5-adjacent / early M6); it is the intended
+and only sanctioned fix for such misses — not classifier perfection, a model call, or a learned
+reputation store, all still forbidden above. Known limit of per-sender granularity: an override forces
+*all* of a sender's mail to one treatment, accepted here.
+
 **The AI boundary this sharpens (extends §22).** For curated input the model classifies, summarizes,
 extracts, and highlights — it **never admits/declines or suppresses**. Organization changes order,
 grouping, and summary; it never changes *membership* of curated mail. This is strictly more faithful to
