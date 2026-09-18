@@ -1,0 +1,611 @@
+<title>Cockpit Today Surface</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground: #EBEEF3;
+    --surface: #FFFFFF;
+    --surface-2: #F3F5F8;
+    --rung-muted: #EEF0F4;
+    --ink: #171A20;
+    --ink-soft: #3A414D;
+    --muted: #626B7A;
+    --faint: #909AA8;
+    --line: #DFE3EA;
+    --line-soft: #E9ECF2;
+    --teal: #147A6C;
+    --teal-ink: #0E5A50;
+    --teal-wash: #E4F1EE;
+    --amber: #A86E22;
+    --amber-wash: #F6ECD9;
+    --amber-edge: #CFA24E;
+    --shadow: 0 1px 2px rgba(20,26,38,.05), 0 6px 20px rgba(20,26,38,.05);
+    --shadow-lift: 0 2px 6px rgba(20,26,38,.08), 0 12px 32px rgba(20,26,38,.09);
+    --radius: 14px;
+    --font-serif: "Newsreader", Georgia, "Times New Roman", serif;
+    --font-sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0E1116;
+      --surface: #171B22;
+      --surface-2: #12161C;
+      --rung-muted: #12161C;
+      --ink: #E9ECF1;
+      --ink-soft: #C2C8D2;
+      --muted: #98A1B0;
+      --faint: #6C7686;
+      --line: #262C36;
+      --line-soft: #1E242D;
+      --teal: #3BB6A5;
+      --teal-ink: #6FD3C5;
+      --teal-wash: #10312D;
+      --amber: #D5A356;
+      --amber-wash: #2C2413;
+      --amber-edge: #7A5E2C;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.35);
+      --shadow-lift: 0 2px 6px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0E1116;
+    --surface: #171B22;
+    --surface-2: #12161C;
+    --rung-muted: #12161C;
+    --ink: #E9ECF1;
+    --ink-soft: #C2C8D2;
+    --muted: #98A1B0;
+    --faint: #6C7686;
+    --line: #262C36;
+    --line-soft: #1E242D;
+    --teal: #3BB6A5;
+    --teal-ink: #6FD3C5;
+    --teal-wash: #10312D;
+    --amber: #D5A356;
+    --amber-wash: #2C2413;
+    --amber-edge: #7A5E2C;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.35);
+    --shadow-lift: 0 2px 6px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app {
+    display: grid;
+    grid-template-columns: 216px minmax(0, 1fr);
+    min-height: 100%;
+  }
+
+  /* ---- Rail ---- */
+  .rail {
+    border-right: 1px solid var(--line);
+    background: var(--surface);
+    padding: 22px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    align-self: start;
+    height: 100vh;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 9px;
+    padding: 2px 8px 20px;
+  }
+  .brand .mark {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: linear-gradient(150deg, var(--teal), var(--teal-ink));
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+  }
+  .brand b { font-weight: 600; letter-spacing: .2px; font-size: 15px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 11px;
+    padding: 9px 10px; border-radius: 9px;
+    color: var(--muted); font-weight: 500; font-size: 14.5px;
+    text-decoration: none; cursor: pointer;
+  }
+  .nav-item .ico { width: 16px; height: 16px; flex: none; color: currentColor; }
+  .nav-item:hover { background: var(--surface-2); color: var(--ink-soft); }
+  .nav-item.active { background: var(--teal-wash); color: var(--teal-ink); font-weight: 600; }
+  .rail .spacer { flex: 1; }
+  .rail-foot { padding: 8px; color: var(--faint); font-size: 11.5px; font-family: var(--font-mono); }
+
+  /* ---- Main ---- */
+  .main { min-width: 0; }
+  .brief {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 30px 24px 80px;
+  }
+
+  /* Masthead */
+  .masthead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .masthead-l { min-width: 0; }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--faint); margin: 0 0 6px;
+  }
+  h1.today {
+    font-family: var(--font-serif); font-weight: 500; font-size: 44px;
+    line-height: .98; letter-spacing: -.01em; margin: 0;
+  }
+  .summary { color: var(--muted); margin: 10px 0 0; font-size: 14.5px; }
+  .summary b { color: var(--ink-soft); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .controls { display: flex; align-items: center; gap: 8px; }
+  .toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .04em;
+    color: var(--muted); background: var(--surface); border: 1px solid var(--line);
+    padding: 7px 11px; border-radius: 999px; cursor: pointer;
+  }
+  .toggle:hover { border-color: var(--faint); }
+  .toggle .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--faint); }
+  body.spec .toggle .dot { background: var(--teal); }
+  body.spec .toggle { color: var(--teal-ink); border-color: var(--teal); }
+  .mock-tag {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--amber); background: var(--amber-wash); border: 1px solid var(--amber-edge);
+    padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+  }
+
+  .rule { height: 1px; background: var(--line); margin: 22px 0 4px; }
+
+  /* Promote band */
+  .promote { margin-top: 24px; }
+  .promote-row {
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(210px, 1fr);
+    gap: 12px; overflow-x: auto; padding: 4px 2px 8px; scroll-snap-type: x mandatory;
+  }
+  .promo {
+    scroll-snap-align: start;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 13px 14px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+    display: flex; flex-direction: column; gap: 6px; min-height: 104px;
+  }
+  .promo::before { content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background: var(--amber-edge); }
+  .promo .src { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em; color: var(--amber); text-transform: uppercase; }
+  .promo .ttl { font-family: var(--font-serif); font-size: 16px; line-height: 1.15; color: var(--ink); }
+  .promo .meta { margin-top: auto; font-size: 12px; color: var(--muted); }
+  .new-dot { display:inline-block; width:6px; height:6px; border-radius:999px; background: var(--amber); margin-right:5px; vertical-align: middle; }
+
+  /* Sections */
+  .section { margin-top: 30px; }
+  .section-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+  .section-head h2 {
+    font-family: var(--font-sans); font-size: 12px; font-weight: 700; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-soft); margin: 0;
+  }
+  .count {
+    font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .entry {
+    margin-left: auto; font-size: 12.5px; color: var(--teal-ink); cursor: pointer;
+    font-weight: 600; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+  }
+  .entry:hover { text-decoration: underline; }
+  .entry .chev { width: 13px; height: 13px; }
+
+  /* Spec annotation (design-review aid) */
+  .spec-tag {
+    display: none;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: .05em;
+    color: var(--teal-ink); background: var(--teal-wash);
+    border: 1px dashed var(--teal); border-radius: 6px; padding: 2px 7px; white-space: nowrap;
+  }
+  body.spec .spec-tag { display: inline-block; }
+  body.spec .section-head { flex-wrap: wrap; }
+
+  /* Rung: personal (highlighted) */
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .personal { display: flex; flex-direction: column; gap: 12px; }
+  .p-card {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: start;
+    padding: 16px 18px; border-left: 3px solid var(--amber-edge);
+    background: linear-gradient(90deg, var(--amber-wash) 0%, var(--surface) 34%);
+  }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 999px; flex: none;
+    background: var(--surface-2); border: 1px solid var(--line);
+    display: grid; place-items: center; font-weight: 600; color: var(--ink-soft); font-size: 14px;
+  }
+  .p-body { min-width: 0; }
+  .p-from { display: flex; align-items: baseline; gap: 8px; }
+  .p-from .name { font-weight: 600; color: var(--ink); }
+  .p-from .addr { font-size: 12.5px; color: var(--faint); }
+  .p-subj { font-family: var(--font-serif); font-size: 18px; line-height: 1.2; margin: 3px 0 4px; color: var(--ink); }
+  .p-prev { color: var(--muted); font-size: 13.5px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .when { font-family: var(--font-mono); font-size: 11.5px; color: var(--faint); white-space: nowrap; }
+
+  /* Rung: newsletters (listed) */
+  .list { padding: 4px 0; }
+  .row {
+    display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center;
+    padding: 11px 18px; border-top: 1px solid var(--line-soft); cursor: pointer;
+  }
+  .row:first-child { border-top: 0; }
+  .row:hover { background: var(--surface-2); }
+  .row .l { min-width: 0; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .row .pub { font-weight: 600; color: var(--ink); }
+  .row .writer { color: var(--muted); font-size: 13px; }
+  .row .subj { color: var(--ink-soft); font-size: 13.5px; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pill-new {
+    font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--amber); background: var(--amber-wash); border: 1px solid var(--amber-edge);
+    padding: 1px 6px; border-radius: 999px;
+  }
+
+  /* Rung: offers (summarized + Find) */
+  .offers { display: flex; flex-direction: column; gap: 10px; }
+  .offer { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; padding: 14px 18px; }
+  .offer .sum { min-width: 0; }
+  .offer .sum .h { font-weight: 600; color: var(--ink); margin-bottom: 2px; }
+  .offer .sum .d { color: var(--muted); font-size: 13px; }
+  .find {
+    display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+    font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .03em;
+    color: var(--teal-ink); background: var(--teal-wash); border: 1px solid var(--teal);
+    padding: 7px 12px; border-radius: 999px; font-weight: 500;
+  }
+  .find .g { width: 13px; height: 13px; }
+
+  /* Rung: grab-bag (extracted) */
+  .grab { padding: 6px 6px 10px; }
+  .grab-src {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px 10px;
+    color: var(--muted); font-size: 12.5px;
+  }
+  .grab-src .n { font-weight: 600; color: var(--ink-soft); }
+  .grab-items { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .gi {
+    display: flex; gap: 9px; align-items: flex-start; padding: 10px 12px;
+    background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: 10px;
+  }
+  .gi .b { width: 5px; height: 5px; border-radius: 999px; background: var(--teal); margin-top: 7px; flex: none; }
+  .gi .t { font-size: 13px; color: var(--ink-soft); line-height: 1.35; }
+  .gi .k { font-family: var(--font-mono); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); display:block; margin-bottom:2px; }
+
+  /* Rung: transactional (low, muted) */
+  .trans {
+    background: var(--rung-muted); border: 1px solid var(--line-soft); border-radius: 12px;
+    padding: 4px 4px;
+  }
+  .trans-row {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 11px; align-items: center;
+    padding: 9px 14px; border-top: 1px solid var(--line-soft);
+  }
+  .trans-row:first-child { border-top: 0; }
+  .trans .ico { width: 15px; height: 15px; color: var(--faint); flex: none; }
+  .trans .txt { color: var(--muted); font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trans .txt b { color: var(--ink-soft); font-weight: 600; }
+
+  /* The Tail */
+  .tail {
+    border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .tail-head {
+    display: flex; align-items: center; gap: 12px; padding: 15px 18px;
+    background: linear-gradient(180deg, var(--surface-2), var(--surface));
+    border-bottom: 1px solid var(--line-soft); flex-wrap: wrap;
+  }
+  .tail-head .ttl { font-weight: 600; color: var(--ink); }
+  .tail-head .sub { color: var(--muted); font-size: 12.5px; width: 100%; }
+  .tail-status { margin-left: auto; display: flex; align-items: center; gap: 9px; }
+  .recompose {
+    font-family: var(--font-mono); font-size: 11px; color: var(--teal-ink);
+    background: var(--teal-wash); border: 1px solid var(--teal); border-radius: 999px;
+    padding: 5px 10px; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .prog { width: 46px; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--teal) 26%, transparent); overflow: hidden; }
+  .prog i { display: block; height: 100%; width: 64%; background: var(--teal); border-radius: 999px; animation: fill 2.4s ease-in-out infinite; }
+  @keyframes fill { 0% { width: 22%; } 50% { width: 74%; } 100% { width: 22%; } }
+  @media (prefers-reduced-motion: reduce) { .prog i { animation: none; width: 64%; } }
+  .tail-list { padding: 4px 0; }
+  .t-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 11px 18px; border-top: 1px solid var(--line-soft); cursor: pointer; align-items: baseline; }
+  .t-row:first-child { border-top: 0; }
+  .t-row:hover { background: var(--surface-2); }
+  .t-row .subj { color: var(--ink); font-weight: 500; font-size: 14px; }
+  .t-row .src { color: var(--muted); font-size: 12.5px; }
+  .t-foot { padding: 12px 18px; border-top: 1px solid var(--line-soft); }
+
+  /* mobile */
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .rail {
+      position: static; height: auto; flex-direction: row; align-items: center;
+      gap: 2px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+      overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line);
+    }
+    .brand { padding: 0 10px 0 4px; }
+    .brand b { display: none; }
+    .rail .spacer, .rail-foot { display: none; }
+    .nav-item { white-space: nowrap; }
+    h1.today { font-size: 38px; }
+    .grab-items { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .brief { padding: 22px 16px 72px; }
+    h1.today { font-size: 33px; }
+    .offer { grid-template-columns: 1fr; align-items: start; gap: 10px; }
+    .p-card { grid-template-columns: auto 1fr; }
+    .p-card .when { grid-column: 2; }
+  }
+</style>
+
+<div class="app">
+  <!-- Shell rail: Today / Later / Library / Settings -->
+  <nav class="rail" aria-label="Cockpit">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><b>Cockpit</b></div>
+    <a class="nav-item active" aria-current="page">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16M4 12h16M4 19h10"/></svg>
+      Today
+    </a>
+    <a class="nav-item">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>
+      Later
+    </a>
+    <a class="nav-item">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h11l3 3v13H5z"/><path d="M9 4v6l2-1.4L13 10V4"/></svg>
+      Library
+    </a>
+    <a class="nav-item">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.5 5.5l2 2M16.5 16.5l2 2M18.5 5.5l-2 2M7.5 16.5l-2 2"/></svg>
+      Settings
+    </a>
+    <div class="spacer"></div>
+    <div class="rail-foot">Following · 41 streams</div>
+  </nav>
+
+  <main class="main">
+    <div class="brief">
+
+      <header class="masthead">
+        <div class="masthead-l">
+          <p class="eyebrow">Friday · September 18, 2026 · 6:14 AM</p>
+          <h1 class="today">Today</h1>
+          <p class="summary">Morning brief — <b>28</b> to orient on: <b>2</b> personal, <b>5</b> newsletters, <b>2</b> offers, a Feed&nbsp;Me grab-bag, and <b>6</b> transactional. The Tail screened <b>12</b> from <b>148</b>.</p>
+        </div>
+        <div class="controls">
+          <span class="mock-tag">Mockup · S1</span>
+          <button class="toggle" id="specToggle" aria-pressed="false"><span class="dot" aria-hidden="true"></span>Annotations</button>
+        </div>
+      </header>
+
+      <div class="rule"></div>
+
+      <!-- PROMOTE -->
+      <section class="promote section" style="margin-top:22px">
+        <div class="section-head">
+          <h2>Fresh this morning</h2>
+          <span class="spec-tag">promote · enticing new arrivals surfaced above the fold</span>
+        </div>
+        <div class="promote-row">
+          <article class="promo">
+            <span class="src">Slow Boring</span>
+            <span class="ttl">The case for abundance liberalism, revisited</span>
+            <span class="meta"><span class="new-dot"></span>New issue · Matt Yglesias</span>
+          </article>
+          <article class="promo">
+            <span class="src">Noahpinion</span>
+            <span class="ttl">Why Japan's economy is quietly booming</span>
+            <span class="meta"><span class="new-dot"></span>New issue · Noah Smith</span>
+          </article>
+          <article class="promo">
+            <span class="src">Feed Me</span>
+            <span class="ttl">The Friday grab-bag</span>
+            <span class="meta"><span class="new-dot"></span>6 items pulled out</span>
+          </article>
+          <article class="promo">
+            <span class="src">Wine offer</span>
+            <span class="ttl">2019 Barolo allocation — 20% off</span>
+            <span class="meta"><span class="new-dot"></span>Report surfaced · K&amp;L</span>
+          </article>
+        </div>
+      </section>
+
+      <!-- PERSONAL -->
+      <section class="section">
+        <div class="section-head">
+          <h2>Personal</h2>
+          <span class="count">2</span>
+          <span class="spec-tag">highlight · elevated by relationship, not a score</span>
+          <span class="entry">Open all <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span>
+        </div>
+        <div class="personal">
+          <article class="card p-card">
+            <div class="avatar">SM</div>
+            <div class="p-body">
+              <div class="p-from"><span class="name">Sarah Mendez</span><span class="addr">sarah.mendez@gmail.com</span></div>
+              <div class="p-subj">Re: Thanksgiving logistics</div>
+              <div class="p-prev">Okay so if you two can grab the flights Wednesday morning I'll handle the rental and we can meet everyone at the house by 4. My mom keeps asking about the pie situation —</div>
+            </div>
+            <span class="when">7:52 PM</span>
+          </article>
+          <article class="card p-card">
+            <div class="avatar">DP</div>
+            <div class="p-body">
+              <div class="p-from"><span class="name">Dad</span><span class="addr">rjphillips@icloud.com</span></div>
+              <div class="p-subj">Photos from the Utah trip</div>
+              <div class="p-prev">Finally got these off the camera. The one of you at Delicate Arch came out great — printing a big one for the hallway. Call your mother this weekend.</div>
+            </div>
+            <span class="when">Yesterday</span>
+          </article>
+        </div>
+      </section>
+
+      <!-- NEWSLETTERS -->
+      <section class="section">
+        <div class="section-head">
+          <h2>Newsletters</h2>
+          <span class="count">5</span>
+          <span class="spec-tag">list · title + writer, arrival order within the tier</span>
+          <span class="entry">Open all <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span>
+        </div>
+        <div class="card list">
+          <div class="row">
+            <div class="l"><span class="pub">Slow Boring</span><span class="writer">Matt Yglesias</span><span class="pill-new">New</span><span class="subj">The case for abundance liberalism, revisited</span></div>
+            <span class="when">5:30 AM</span>
+          </div>
+          <div class="row">
+            <div class="l"><span class="pub">Noahpinion</span><span class="writer">Noah Smith</span><span class="pill-new">New</span><span class="subj">Why Japan's economy is quietly booming</span></div>
+            <span class="when">4:02 AM</span>
+          </div>
+          <div class="row">
+            <div class="l"><span class="pub">Cartoons Hate Her</span><span class="writer">CHH</span><span class="subj">The group chat is a public utility now</span></div>
+            <span class="when">Thu</span>
+          </div>
+          <div class="row">
+            <div class="l"><span class="pub">Puck · Dry Powder</span><span class="writer">William Cohan</span><span class="subj">What the latest rate cut really signals</span></div>
+            <span class="when">Thu</span>
+          </div>
+          <div class="row">
+            <div class="l"><span class="pub">Sepinwall on TV</span><span class="writer">Alan Sepinwall</span><span class="subj">The fall pilots worth your time</span></div>
+            <span class="when">Wed</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- OFFERS -->
+      <section class="section">
+        <div class="section-head">
+          <h2>Offers</h2>
+          <span class="count">2</span>
+          <span class="spec-tag">summarize → Pending Find (specialist-app candidate)</span>
+          <span class="entry">See all <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span>
+        </div>
+        <div class="offers">
+          <article class="card offer">
+            <div class="sum">
+              <div class="h">K&amp;L Wine — 2019 Barolo allocation, 20% off</div>
+              <div class="d">Ends Sunday · 6 producers · avg $54/btl after discount</div>
+            </div>
+            <span class="find"><svg class="g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.2-3.2"/></svg>Find · Wine</span>
+          </article>
+          <article class="card offer">
+            <div class="sum">
+              <div class="h">Williams Sonoma — 25% off cookware</div>
+              <div class="d">Through 9/22 · excludes electrics</div>
+            </div>
+            <span class="find"><svg class="g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.2-3.2"/></svg>Find · Product</span>
+          </article>
+        </div>
+      </section>
+
+      <!-- GRAB-BAG -->
+      <section class="section">
+        <div class="section-head">
+          <h2>Grab-bag</h2>
+          <span class="count">6 items</span>
+          <span class="spec-tag">extract · sifting runs inside the issue, never across pieces</span>
+          <span class="entry">Open issue <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span>
+        </div>
+        <div class="card grab">
+          <div class="grab-src"><span class="n">Feed Me</span> · Emily Sundberg · Friday edition — worthwhile items pulled out:</div>
+          <div class="grab-items">
+            <div class="gi"><span class="b"></span><span class="t"><span class="k">Place · Hudson NY</span>A natural-wine bar opening on Warren St from the Oxbow team</span></div>
+            <div class="gi"><span class="b"></span><span class="t"><span class="k">Recipe</span>Miso-braised short ribs for the first cold weekend</span></div>
+            <div class="gi"><span class="b"></span><span class="t"><span class="k">Event · NYC</span>Pop-up dinner series at Otway, October dates</span></div>
+            <div class="gi"><span class="b"></span><span class="t"><span class="k">Product</span>The $18 sesame oil the food world won't shut up about</span></div>
+            <div class="gi"><span class="b"></span><span class="t"><span class="k">Read</span>On the quiet death of the celebrity restaurant</span></div>
+            <div class="gi"><span class="b"></span><span class="t"><span class="k">Place · LA</span>Where to actually eat near the new Sphere</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TRANSACTIONAL -->
+      <section class="section">
+        <div class="section-head">
+          <h2>Transactional</h2>
+          <span class="count">6</span>
+          <span class="spec-tag">§24's new 5th rung · reference, not attention · low weight, never suppressed</span>
+          <span class="entry">Show <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span>
+        </div>
+        <div class="trans">
+          <div class="trans-row">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7h13v8H3zM16 10h4l1 3v2h-5z"/><circle cx="7" cy="17" r="1.6"/><circle cx="18" cy="17" r="1.6"/></svg>
+            <span class="txt"><b>UPS</b> — Your package was delivered · front door</span>
+            <span class="when">6:03 AM</span>
+          </div>
+          <div class="trans-row">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h6M9 11h6"/></svg>
+            <span class="txt"><b>Apple Store</b> — We received your trade-in (do_not_reply)</span>
+            <span class="when">Thu</span>
+          </div>
+          <div class="trans-row">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+            <span class="txt"><b>Kickstarter</b> — Your sign-in code is 448-201</span>
+            <span class="when">Thu</span>
+          </div>
+          <div class="trans-row">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 20V8l8-4 8 4v12"/><path d="M9 20v-5h6v5"/></svg>
+            <span class="txt"><b>Marriott</b> — Reservation confirmed · Nov 25–28</span>
+            <span class="when">Wed</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- THE TAIL -->
+      <section class="section">
+        <div class="section-head">
+          <h2>From the Tail</h2>
+          <span class="count">12 of 148</span>
+          <span class="spec-tag">uncurated screening (the demoted Edition) · honest recompose progress → S5</span>
+        </div>
+        <div class="tail">
+          <div class="tail-head">
+            <div>
+              <span class="ttl">Aggregator streams you haven't curated</span>
+            </div>
+            <div class="tail-status">
+              <span class="recompose"><span class="prog" aria-hidden="true"><i></i></span>Recomposing · ~2 min</span>
+            </div>
+            <span class="sub">Ruthlessly screened down to what's worth it — the one place Cockpit still judges. Composed at 6:12&nbsp;AM; refreshing in the background.</span>
+          </div>
+          <div class="tail-list">
+            <div class="t-row"><span class="subj">The GPU shortage is finally breaking</span><span class="src">Hacker News</span></div>
+            <div class="t-row"><span class="subj">A field guide to the new EU AI rules</span><span class="src">Ars Technica</span></div>
+            <div class="t-row"><span class="subj">Why small nuclear reactors keep slipping</span><span class="src">The Verge · Science</span></div>
+            <div class="t-row"><span class="subj">The quiet standardization of passkeys</span><span class="src">Techmeme</span></div>
+          </div>
+          <div class="t-foot"><span class="entry">See all 12 surfaced <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span></div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  (function () {
+    var body = document.body, btn = document.getElementById('specToggle');
+    var KEY = 'cockpit-today-spec';
+    function apply(on) {
+      body.classList.toggle('spec', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    var saved = false;
+    try { saved = localStorage.getItem(KEY) === '1'; } catch (e) {}
+    apply(saved);
+    btn.addEventListener('click', function () {
+      var on = !body.classList.contains('spec');
+      apply(on);
+      try { localStorage.setItem(KEY, on ? '1' : '0'); } catch (e) {}
+    });
+  })();
+</script>
