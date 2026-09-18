@@ -24,9 +24,15 @@ open, using the evidence in `docs/m4-s4-gmail-observations.md`.
 
 The device read forced one finding to the front: Gmail's category tabs all carry the `INBOX` label,
 so the real Inbox is ~40k messages (Promotions 16,212; Updates 14,295) behind a 41-message Primary
-tab; `messages.get` bills 5 quota units against a **per-minute per-user** ceiling. Full-inbox,
-re-read-every-time ingest is not viable. That is why several decisions below are non-negotiable
-rather than open.
+tab; `messages.get` bills **20 quota units** against a **per-minute per-user** ceiling of **6,000
+units** (Google's published Gmail API limits, effective 2026-05-01). Full-inbox, re-read-every-time
+ingest is not viable. That is why several decisions below are non-negotiable rather than open.
+
+> **Quota correction (2026-09-18).** This ADR was drafted assuming `messages.get` = 5 units, the
+> pre-2026-05-01 figure. Google's current published cost is **20 units** — 4× higher — which only
+> strengthens the case against full-inbox ingest and reshapes the D2 backfill pacing. The documented
+> constants are recorded in D2; what remains genuinely empirical (still Open) is whether they hold on
+> this account under a real paced backfill, which the first delta-sync build (M5 S6) measures.
 
 The Gate-3 checklist (V1-SCOPE) is answered decision-by-decision. Where S4 did not produce evidence,
 the item is listed under **Open — measure before ratifying** rather than guessed.
@@ -68,14 +74,19 @@ The read side has three standing rules, forced by the quota evidence:
    `CATEGORY_PERSONAL` on all Primary mail). Promotions/Social/Updates are in scope for later stages
    (promo sifting, retail/wine Finds) but are read on their own budget and cadence, not folded into
    the Primary read.
-3. **A quota budget.** `messages.get` = 5 units; the ceiling is per-minute per-user. Backfill of a
-   large category proceeds in bounded, paced batches across minutes, not in one pass. Concurrency is
-   windowed (S4 uses 6 in flight). The Gmail batch endpoint may reduce round-trips but does **not**
-   reduce quota units and is optional.
+3. **A quota budget.** Documented Gmail API costs (effective 2026-05-01): `messages.get` = **20**
+   units, `messages.list` = 5, `messages.modify` (Archive) = 5, `messages.trash` = 20,
+   `messages.untrash` = 5, `history.list` = 2; the ceiling is **6,000 units per user per minute**
+   (≈100/sec). So a delta sync's dominant cost is the `messages.get` per changed message (20 units →
+   ~300 gets/minute/user ceiling), and backfill of a large category proceeds in bounded, paced batches
+   across minutes, not in one pass. Concurrency is windowed (S4 uses 6 in flight). The Gmail batch
+   endpoint may reduce round-trips but does **not** reduce quota units and is optional.
 
-**Open — measure before ratifying:** the exact per-minute unit ceiling on this account; the batch
-endpoint's real benefit; the backfill pacing that reads Promotions/Social without user-visible
-stalls.
+**Open — measure before ratifying:** whether the documented ceiling holds on this account under a real
+paced backfill (429/`userRateLimitExceeded` behavior at the edge); the batch endpoint's real benefit;
+the backfill pacing that reads Promotions/Social without user-visible stalls. The unit *constants*
+above are no longer open — they are Google's published figures; what is open is their behavior under
+load on this account, which the M5 S6 delta-sync build measures.
 
 ---
 
@@ -141,8 +152,11 @@ individually reversible for a bounded window where Gmail permits it (Archive alw
 Gmail purges the message). Undo issues the inverse label operation and records that it did so; it is
 not a separate "parallel thread-resolution state" (§7).
 
-**Open — measure before ratifying:** Gmail's actual Trash purge window on this account; whether the
-log is synced across devices or device-local (lean device-local first, consistent with ADR-0001 D2).
+**Open — measure before ratifying:** Gmail documents a **30-day** Trash auto-purge window, so that is
+the recorded reversibility horizon; the empirical part — that `messages.untrash` actually recovers a
+Cockpit-trashed message within it — is only exercisable once `Trash`/Undo exist (M5 S7), not a
+standalone measurement now. Also: whether the log is synced across devices or device-local (lean
+device-local first, consistent with ADR-0001 D2).
 
 ---
 
@@ -175,16 +189,21 @@ ContentPiece. Clearing a Gmail source in Today is not clearing the ContentPiece 
 
 ## Open — measure before ratifying
 
-These Gate-3 items had no S4 evidence and must be observed on device before this ADR moves from Draft
-to Accepted:
+These Gate-3 items had no S4 evidence and must be settled before this ADR moves from Draft to
+Accepted. Two are genuinely empirical (need the code or the provider to be exercised); two turned out
+to be documented constants that only need on-account confirmation under load:
 
-- **Multi-message thread distinctness** — S4 read at least one 2-message thread but did not inspect
-  per-message `id`/`threadID` distinctness. Confirm before relying on D1.
-- **New-reply re-entry** — confirm a reply returning a thread to `INBOX` re-surfaces through
-  `history.list` (the assumption D3/D4 lean on).
-- **Quota constants** — the per-minute unit ceiling, batch-endpoint benefit, and safe backfill pacing
-  for the large categories.
-- **Trash purge window** — the real reversibility horizon for D6.
+- **Multi-message thread distinctness** *(empirical — inspect ingested data)* — S4 read at least one
+  2-message thread but did not inspect per-message `id`/`threadID` distinctness. Confirm before relying
+  on D1.
+- **New-reply re-entry** *(empirical — needs delta sync)* — confirm a reply returning a thread to
+  `INBOX` re-surfaces through `history.list` (the assumption D3/D4 lean on). Only observable once the
+  M5 S6 delta-sync build exists.
+- **Quota constants** *(documented; confirm under load)* — the unit costs and 6,000/min/user ceiling
+  are Google's published figures (recorded in D2, corrected 2026-09-18: `messages.get` is 20, not the
+  drafted 5). What remains open is their behavior on this account under a real paced backfill (M5 S6).
+- **Trash purge window** *(documented; confirm in S7)* — Gmail's documented 30-day auto-purge is the
+  recorded horizon (D6). The empirical part — Cockpit `untrash` recovering within it — rides M5 S7.
 
 ## Consequences
 
