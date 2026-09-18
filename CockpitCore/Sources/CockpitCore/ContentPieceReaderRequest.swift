@@ -8,6 +8,7 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
   public struct Row: Equatable, Identifiable, Sendable {
     public let id: ContentPiece.ID
     public let title: String
+    public let creator: String?
     public let publisher: String
     public let summary: String?
     public let canonicalURL: String?
@@ -20,6 +21,8 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
     public let offlineExpiresAt: Date?
     public let laterAddedAt: Date?
     public let libraryAddedAt: Date?
+
+    public var sender: String { creator ?? publisher }
   }
 
   public struct Value: Equatable, Sendable {
@@ -43,7 +46,8 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
       .leftJoin(LocalAvailability.all) { $0.id.eq($4.contentPieceID) }
       .select {
         Row.Columns(
-          id: $0.id, title: $0.title, publisher: $0.publisher, summary: $0.summary,
+          id: $0.id, title: $0.title, creator: $0.creator, publisher: $0.publisher,
+          summary: $0.summary,
           canonicalURL: $0.canonicalURL, isSubstantivePrimary: $0.isSubstantivePrimary,
           bodyCompleteness: $0.bodyCompleteness, localNormalizedText: $3.normalizedText,
           localAvailabilityMode: $4.mode, offlineExpiresAt: $4.expiresAt,

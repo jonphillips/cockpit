@@ -164,7 +164,7 @@ struct EmailTreatmentTests {
     expectNoDifference(classified.first?.emailTreatment, .grabBag)
   }
 
-  @Test("Explicit sender corrections survive recomposition and no provider evidence changes")
+  @Test("Explicit sender corrections re-tier mail and survive recomposition")
   func senderOverrideWinsAndPersists() async throws {
     let snapshot = GmailInboxSnapshot(
       accountID: "jon@example.com",
@@ -180,9 +180,18 @@ struct EmailTreatmentTests {
       try Artifact.where { $0.contentPieceID.eq(piece.id) }.fetchAll(db)
     }
 
+    let defaultReclassified = try await database.write { db in
+      try EmailTreatmentOperations.reclassifyAll(in: db)
+    }
+    expectNoDifference(
+      defaultReclassified.first { $0.id == piece.id }?.emailTreatment, .transactional)
+    try await database.read { db in
+      expectNoDifference(try EmailSenderTreatmentOverride.fetchCount(db), 0)
+    }
+
     let first = try await database.write { db in
       try EmailTreatmentOperations.setSenderOverride(
-        .newsletter, for: "Service <noreply@example.com>", in: db)
+        .offer, for: "Service <noreply@example.com>", in: db)
     }
     let recomposed = try await database.write { db in
       try EmailTreatmentOperations.reclassifyAll(in: db)
@@ -191,12 +200,12 @@ struct EmailTreatmentTests {
       try Artifact.where { $0.contentPieceID.eq(piece.id) }.fetchAll(db)
     }
 
-    expectNoDifference(first.first { $0.id == piece.id }?.emailTreatment, .newsletter)
-    expectNoDifference(recomposed.first { $0.id == piece.id }?.emailTreatment, .newsletter)
+    expectNoDifference(first.first { $0.id == piece.id }?.emailTreatment, .offer)
+    expectNoDifference(recomposed.first { $0.id == piece.id }?.emailTreatment, .offer)
     expectNoDifference(artifactsAfter, artifactsBefore)
     try await database.read { db in
       let override = try EmailSenderTreatmentOverride.find("noreply@example.com").fetchOne(db)
-      expectNoDifference(override?.treatment, .newsletter)
+      expectNoDifference(override?.treatment, .offer)
     }
   }
 
