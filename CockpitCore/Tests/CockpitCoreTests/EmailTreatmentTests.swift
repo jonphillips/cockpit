@@ -150,28 +150,38 @@ struct EmailTreatmentTests {
           subject: "We received your mobile check deposit"
         ),
         message(
-          id: "att-bill", from: "AT&T <att-services@att.com>",
+          id: "att-bill", from: "AT&T <billing@att.com>",
           subject: "Your Home Phone bill is ready"
+        ),
+        message(
+          id: "unknown-statement", from: "Regional Utility <receipts@regional-utility.example>",
+          subject: "Your statement is ready",
+          to: "jon@example.com, household@example.com, archive@example.com"
+        ),
+        message(
+          id: "unknown-payment", from: "Regional Utility <receipts@regional-utility.example>",
+          subject: "Your payment is ready",
+          to: "jon@example.com, household@example.com, archive@example.com"
         ),
         message(
           id: "apple-shipment", from: "Apple <shipping_notification@orders.apple.com>",
           subject: "Your shipment is on its way. Order No. W1234"
         ),
         message(
-          id: "ups-delivery", from: "UPS Update <mcinfo@ups.com>",
+          id: "ups-delivery", from: "UPS Update <delivery@ups.com>",
           subject: "UPS Update: Package Scheduled for Delivery"
         ),
         message(
-          id: "weck-order", from: "Weck Jars <info@weckjars.com>",
+          id: "weck-order", from: "Weck Jars <orders@weckjars.com>",
           subject: "Your Weck Jars order has been received!"
         ),
         message(
-          id: "weck-publication", from: "Weck Jars <info@weckjars.com>",
+          id: "weck-publication", from: "Weck Jars <orders@weckjars.com>",
           subject: "A note from Weck Jars",
           extraHeaders: [GmailInboxHeader(name: "List-ID", value: "Weck Jars <weck.example>")]
         ),
         message(
-          id: "unc-estimate", from: "MyUNCChart <myuncchart@myuncchart.org>",
+          id: "unc-estimate", from: "Health Services <notifications@care.example>",
           subject: "Jon, you have a new estimate for your visit"
         ),
         message(
@@ -196,6 +206,9 @@ struct EmailTreatmentTests {
       expectNoDifference(pieces[title]?.emailTreatment, .transactional)
       expectNoDifference(pieces[title]?.emailTransactionalKind, .finance)
     }
+    expectNoDifference(pieces["Your statement is ready"]?.emailTransactionalKind, .finance)
+    expectNoDifference(pieces["Your payment is ready"]?.emailTreatment, .newsletter)
+    expectNoDifference(pieces["Your payment is ready"]?.emailTransactionalKind, nil)
     for title in [
       "Your shipment is on its way. Order No. W1234",
       "UPS Update: Package Scheduled for Delivery", "Your Weck Jars order has been received!",
@@ -210,7 +223,7 @@ struct EmailTreatmentTests {
     expectNoDifference(pieces["Dinner next week"]?.emailTransactionalKind, nil)
 
     let corrected = try await database.write { db in
-      try EmailTreatmentOperations.setSenderOverride(.offer, for: "info@weckjars.com", in: db)
+      try EmailTreatmentOperations.setSenderOverride(.offer, for: "orders@weckjars.com", in: db)
     }
     let correctedByTitle = Dictionary(uniqueKeysWithValues: corrected.map { ($0.title, $0) })
     // A per-sender publication correction cannot demote a clearly typed order confirmation.
@@ -311,14 +324,15 @@ struct EmailTreatmentTests {
   }
 
   private func message(
-    id: String, from: String, subject: String, extraHeaders: [GmailInboxHeader] = []
+    id: String, from: String, subject: String, to: String = "jon@example.com",
+    extraHeaders: [GmailInboxHeader] = []
   ) -> GmailInboxMessage {
     GmailInboxMessage(
       id: id, threadID: "thread-\(id)",
       headers: [
         GmailInboxHeader(name: "From", value: from),
         GmailInboxHeader(name: "Subject", value: subject),
-        GmailInboxHeader(name: "To", value: "jon@example.com"),
+        GmailInboxHeader(name: "To", value: to),
       ] + extraHeaders,
       bodyPlainText: "A readable email body."
     )
