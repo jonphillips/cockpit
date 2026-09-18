@@ -121,18 +121,23 @@ public final class TodayModel {
   /// Applies the one sanctioned correction for a visible treatment misplacement. The database
   /// writer performs the operation off the main actor; reloading the projection makes the row
   /// move tiers and updates the landing counts immediately.
-  public func setSenderOverride(_ treatment: EmailTreatment, for sender: String) async {
+  @discardableResult
+  public func setSenderOverride(_ treatment: EmailTreatment, for sender: String) async -> [ContentPiece] {
     do {
-      try await database.write { db in
-        _ = try EmailTreatmentOperations.setSenderOverride(treatment, for: sender, in: db)
+      let reclassified = try await database.write { db in
+        try EmailTreatmentOperations.setSenderOverride(treatment, for: sender, in: db)
       }
       try await $content.load()
       errorMessage = nil
+      return reclassified
     } catch is CancellationError {
+      return []
     } catch EmailTreatmentOperations.Failure.emptySender {
       errorMessage = "This message has no sender address to correct."
+      return []
     } catch {
       errorMessage = error.localizedDescription
+      return []
     }
   }
 

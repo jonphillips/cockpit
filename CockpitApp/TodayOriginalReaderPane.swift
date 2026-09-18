@@ -198,9 +198,9 @@ struct TodayOriginalReaderPane: View {
     Menu {
       SenderTreatmentSubmenu(currentTreatment: model.treatment) { treatment in
         Task {
-          await todayModel.setSenderOverride(treatment, for: model.sender)
-          if todayModel.errorMessage == nil {
-            model.treatment = treatment
+          let reclassified = await todayModel.setSenderOverride(treatment, for: model.sender)
+          if let piece = reclassified.first(where: { $0.id == presentation.id }) {
+            model.treatment = piece.emailTreatment
           }
         }
       }

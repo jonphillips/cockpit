@@ -136,7 +136,7 @@ struct EmailTreatmentTests {
     }
   }
 
-  @Test("S3b keeps real transactional examples out of Personal")
+  @Test("S3b keeps typed transactional mail ahead of publication sender overrides")
   func classificationQualityUsesMarkersAndSenderShape() async throws {
     let snapshot = GmailInboxSnapshot(
       accountID: "jon@example.com",
@@ -226,7 +226,7 @@ struct EmailTreatmentTests {
       try EmailTreatmentOperations.setSenderOverride(.offer, for: "orders@weckjars.com", in: db)
     }
     let correctedByTitle = Dictionary(uniqueKeysWithValues: corrected.map { ($0.title, $0) })
-    // A per-sender publication correction cannot demote a clearly typed order confirmation.
+    // Invariant A: a publication override cannot demote a clearly typed transactional message.
     expectNoDifference(correctedByTitle["Your Weck Jars order has been received!"]?.emailTreatment, .transactional)
     expectNoDifference(
       correctedByTitle["Your Weck Jars order has been received!"]?.emailTransactionalKind, .shipment)

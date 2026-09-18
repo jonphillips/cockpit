@@ -15,7 +15,13 @@ struct SenderTreatmentSubmenu: View {
             treatment.displayName,
             systemImage: currentTreatment == treatment ? "checkmark" : "circle")
         }
-        .disabled(currentTreatment == treatment)
+        .disabled(
+          currentTreatment == treatment
+            || (currentTreatment == .transactional && treatment != .transactional))
+      }
+      if currentTreatment == .transactional {
+        Divider()
+        Text("Transactional type is detected automatically")
       }
     }
   }
