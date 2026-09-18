@@ -273,7 +273,3 @@ private struct TodayOriginalWebView: UIViewRepresentable {
 
   func updateUIView(_ webView: WKWebView, context: Context) {}
 }
-
-enum TodayReaderPaneMetrics {
-  static let heightFraction: CGFloat = 0.94
-}

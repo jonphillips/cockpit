@@ -26,19 +26,21 @@ struct TodayView: View {
           }
         }
         .navigationTitle("Today")
-        .sheet(item: $originalReaderModel.presentation, onDismiss: originalReaderModel.dismiss) {
-          presentation in
+        // A full-screen cover, not a sheet: on iPad a sheet is a fixed-width centered card
+        // (detents size only its height), which read as "small". The cover fills the screen —
+        // as close to a Mac Mail detail view as the platform gives — and the zoom transition,
+        // applied to the presented ROOT (not a child inside), makes the tapped row expand into
+        // the reader instead of a default slide-up. Dismissal zooms back to the row.
+        .fullScreenCover(
+          item: $originalReaderModel.presentation, onDismiss: originalReaderModel.dismiss
+        ) { presentation in
           NavigationStack {
             TodayOriginalReaderPane(
               model: originalReaderModel, presentation: presentation)
               .navigationTitle("Reader")
               .navigationBarTitleDisplayMode(.inline)
-              .navigationTransition(.zoom(sourceID: presentation.id, in: readerTransition))
           }
-            // Tune on device: the maximum readable area minus a clear tap-out margin keeps
-            // Today visibly present beneath the single large reader presentation.
-            .presentationDetents([.fraction(TodayReaderPaneMetrics.heightFraction)])
-            .presentationDragIndicator(.visible)
+          .navigationTransition(.zoom(sourceID: presentation.id, in: readerTransition))
         }
     }
     .task {
