@@ -5,13 +5,15 @@ struct TodayLandingView: View {
   @Bindable var model: TodayModel
   @Bindable var tailModel: EditionModel
   @Binding var isConfirmingRecompose: Bool
+  let readerNamespace: Namespace.ID
+  let openReader: (ContentPiece.ID) -> Void
 
   var body: some View {
     ScrollView {
       LazyVStack(alignment: .leading, spacing: 0) {
         orientationHeader
         promotionBand
-        TodayTierListView(model: model)
+        TodayTierListView(model: model, readerNamespace: readerNamespace, openReader: openReader)
         tailSection("Essentials", rows: tailRows(in: .essentials))
         tailSection("From the Tail", rows: tailBodyRows)
         tailSection("Essential Backlog", rows: tailRows(in: .essentialBacklog))
@@ -41,8 +43,10 @@ struct TodayLandingView: View {
       VStack(alignment: .leading, spacing: 8) {
         Text(title).font(.title3.weight(.semibold)).padding(.top, 24)
         ForEach(rows) { row in
-          Button { model.selectedContentPieceID = row.contentPieceID } label: {
-            TailRowView(row: row).frame(maxWidth: .infinity, alignment: .leading)
+          Button { openReader(row.contentPieceID) } label: {
+            TailRowView(row: row)
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .matchedTransitionSource(id: row.contentPieceID, in: readerNamespace)
           }
           .buttonStyle(.plain)
         }
@@ -76,7 +80,7 @@ struct TodayLandingView: View {
         ScrollView(.horizontal, showsIndicators: false) {
           HStack(alignment: .top, spacing: 10) {
             ForEach(model.promotedRows) { row in
-              Button { model.selectedContentPieceID = row.id } label: {
+              Button { openReader(row.id) } label: {
                 VStack(alignment: .leading, spacing: 5) {
                   Text(row.treatment.displayName.uppercased())
                     .font(.caption2.weight(.bold)).foregroundStyle(.secondary)
@@ -86,6 +90,7 @@ struct TodayLandingView: View {
                 .frame(width: 210, alignment: .leading)
                 .padding(12)
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                .matchedTransitionSource(id: row.id, in: readerNamespace)
               }
               .buttonStyle(.plain)
             }

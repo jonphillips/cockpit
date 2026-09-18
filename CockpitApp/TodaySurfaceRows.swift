@@ -93,6 +93,8 @@ struct TodayRowView: View {
 
 struct TodayTierListView: View {
   @Bindable var model: TodayModel
+  let readerNamespace: Namespace.ID
+  let openReader: (ContentPiece.ID) -> Void
   @State private var expandedTreatment: EmailTreatment?
   @State private var expandedOfferGroupID: String?
 
@@ -134,7 +136,7 @@ struct TodayTierListView: View {
     ForEach(model.offerGroups) { group in
       VStack(alignment: .leading, spacing: 6) {
         Button {
-          if group.count == 1 { model.selectedContentPieceID = group.representative.id }
+          if group.count == 1 { openReader(group.representative.id) }
           else { expandedOfferGroupID = expandedOfferGroupID == group.id ? nil : group.id }
         } label: {
           HStack {
@@ -154,6 +156,7 @@ struct TodayTierListView: View {
           }
           .padding(12)
           .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+          .matchedTransitionSource(id: group.representative.id, in: readerNamespace)
         }
         .buttonStyle(.plain)
 
@@ -166,9 +169,10 @@ struct TodayTierListView: View {
 
   private func emailRow(_ row: TodayRequest.Row, emphasis: Bool) -> some View {
     HStack(alignment: .top, spacing: 8) {
-      Button { model.selectedContentPieceID = row.id } label: {
-        TodayRowView(row: row, emphasis: emphasis)
-          .frame(maxWidth: .infinity, alignment: .leading)
+        Button { openReader(row.id) } label: {
+          TodayRowView(row: row, emphasis: emphasis)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .matchedTransitionSource(id: row.id, in: readerNamespace)
       }
       .buttonStyle(.plain)
       Menu {

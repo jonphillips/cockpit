@@ -4,12 +4,20 @@ import SwiftUI
 struct TodayView: View {
   @Bindable var model: TodayModel
   @Bindable var tailModel: EditionModel
+  @State private var originalReaderModel = TodayOriginalReaderModel()
+  @Namespace private var readerTransition
   @State private var isConfirmingTailRecompose = false
 
   var body: some View {
+    @Bindable var originalReaderModel = originalReaderModel
+
     NavigationStack {
       TodayLandingView(
-        model: model, tailModel: tailModel, isConfirmingRecompose: $isConfirmingTailRecompose)
+        model: model,
+        tailModel: tailModel,
+        isConfirmingRecompose: $isConfirmingTailRecompose,
+        readerNamespace: readerTransition,
+        openReader: beginReader(for:))
         .overlay {
           if model.tiers.isEmpty && tailRows.isEmpty && !tailModel.isComposing {
             ContentUnavailableView(
@@ -18,9 +26,18 @@ struct TodayView: View {
           }
         }
         .navigationTitle("Today")
-        .sheet(item: selectedReaderSheetItem) { item in
-          SpikeReaderSheet(contentPieceID: item.id)
-            .presentationDetents([.medium, .large])
+        .sheet(item: $originalReaderModel.presentation, onDismiss: originalReaderModel.dismiss) {
+          presentation in
+          NavigationStack {
+            TodayOriginalReaderPane(
+              model: originalReaderModel, presentation: presentation)
+              .navigationTitle("Reader")
+              .navigationBarTitleDisplayMode(.inline)
+              .navigationTransition(.zoom(sourceID: presentation.id, in: readerTransition))
+          }
+            // Tune on device: the maximum readable area minus a clear tap-out margin keeps
+            // Today visibly present beneath the single large reader presentation.
+            .presentationDetents([.fraction(TodayReaderPaneMetrics.heightFraction)])
             .presentationDragIndicator(.visible)
         }
     }
@@ -71,14 +88,10 @@ struct TodayView: View {
     tailModel.entries.filter { $0.entryState == .admitted || $0.entryState == .seen }
   }
 
-  private var selectedReaderSheetItem: Binding<TodayReaderSheetItem?> {
-    Binding(
-      get: { model.selectedContentPieceID.map(TodayReaderSheetItem.init) },
-      set: { model.selectedContentPieceID = $0?.id }
-    )
+  private func beginReader(for contentPieceID: ContentPiece.ID) {
+    if let tailRow = tailRows.first(where: { $0.contentPieceID == contentPieceID }) {
+      Task { await tailModel.markSeen(tailRow.id) }
+    }
+    originalReaderModel.begin(contentPieceID: contentPieceID)
   }
-}
-
-private struct TodayReaderSheetItem: Identifiable {
-  let id: ContentPiece.ID
 }
