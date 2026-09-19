@@ -162,6 +162,7 @@ enum CockpitMigrations {
     registerTransactionalTreatment(in: &migrator)
     registerTodayAttention(in: &migrator)
     registerGmailSyncState(in: &migrator)
+    registerGmailDispositionLog(in: &migrator)
     return migrator
   }
 }
