@@ -347,3 +347,11 @@ no-materialization boundary; the next compose re-drives the existing recoverable
 remaining device pass is not another latency measurement: confirm that this progress language reads as
 working rather than broken, and decide whether the already-recorded ~360s is tolerable pending the
 deferred model swap.
+
+2026-09-19 — **M5 S6 · Gate-3 real-Inbox observations (jon@jonphillips.com, Simulator).** The delta-sync + partial-commit build was exercised against the real account: a 79-message paced backfill (`currentInbox`, `category:primary`), then a delta sync (`history.list`) after the cursor was set. Settles the three empirical Gate-3 items ADR-0002 held open:
+
+- **Multi-message thread distinctness (D1).** A real two-message thread ("Voice Mail Follow-up", the account holder + Nancy Perrin) ingested as two Artifacts with distinct message IDs (`1a0a53f9…`, `1a0a615b…`) sharing one thread ID (`1a0a53f9…`). The message is the unit; the thread is not collapsed. Confirmed.
+- **New-reply re-entry (D3/D4).** The 79-message backfill committed and set the cursor; a subsequent external reply that landed in Primary re-surfaced through `history.list` on the next sync (one message), and the cursor advanced (to `50671005`). A message re-entering INBOX surfaces through delta sync, which is the assumption the barrier leans on. Confirmed. (Incidental: the thread's *original* message was spam-filtered and never reached Primary INBOX, so it was correctly not ingested — Primary scoping excludes Spam. This is Gmail delivery behaviour, not a delta miss.)
+- **Quota under a real paced backfill (D2).** 79 Primary messages read through the six-wide fetch window, all committed, zero per-message failures, no 429/`userRateLimitExceeded`. ~1,580 units against the 6,000/min/user ceiling — the pacing holds on the real account; the ceiling was not approached at real backfill scale, which is expected because Primary is capped at 100. Sufficient for V1.
+
+The fourth open item (Trash 30-day `untrash` recovery, D6) is not S6's — it rides M5 S7, when Trash first exists. With the three above recorded, `ADR-0002` moves Draft → **Accepted**.

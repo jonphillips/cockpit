@@ -295,6 +295,12 @@ From real provider behavior, settle:
 
 Only after this gate should source mutation become enabled.
 
+**Closed 2026-09-19.** Settled in `docs/ADR-0002-GMAIL-INTEGRATION-AND-DISPOSITION.md` (Accepted). The
+read-side hardening the ADR named as a build requirement — `historyId` delta sync and per-message
+partial commit — landed in **M5 S6**, and its three empirical open items were observed on the real
+account (`docs/eval-log.md` 2026-09-19). Source mutation is now enabled, behind the ADR's barrier, from
+Phase 4.
+
 ### Phase 4 — Gmail dispositions
 
 Enable deterministic:

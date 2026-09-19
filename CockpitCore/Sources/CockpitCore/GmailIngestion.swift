@@ -2,100 +2,6 @@ import Dependencies
 import Foundation
 import SQLiteData
 
-/// A read-only snapshot of Gmail's current Inbox. The client is injected so persistence and
-/// normalization are deterministic in tests; the live constructor issues GET requests only.
-public struct GmailInboxClient: Sendable {
-  public var currentInbox: @Sendable () async throws -> GmailInboxSnapshot
-
-  public init(currentInbox: @escaping @Sendable () async throws -> GmailInboxSnapshot) {
-    self.currentInbox = currentInbox
-  }
-
-  public static func live(accessToken: String) -> Self {
-    Self { try await GmailInboxAPI(accessToken: accessToken).currentInbox() }
-  }
-}
-
-public struct GmailInboxSnapshot: Equatable, Sendable {
-  public let accountID: String
-  public let historyID: String?
-  public let pageCount: Int
-  public let messages: [GmailInboxMessage]
-
-  public init(
-    accountID: String,
-    historyID: String? = nil,
-    pageCount: Int = 1,
-    messages: [GmailInboxMessage]
-  ) {
-    self.accountID = accountID
-    self.historyID = historyID
-    self.pageCount = pageCount
-    self.messages = messages
-  }
-}
-
-public struct GmailInboxMessage: Equatable, Sendable {
-  public let id: String
-  public let threadID: String
-  public let headers: [GmailInboxHeader]
-  public let bodyHTML: String?
-  public let bodyPlainText: String?
-
-  public init(
-    id: String,
-    threadID: String,
-    headers: [GmailInboxHeader],
-    bodyHTML: String? = nil,
-    bodyPlainText: String? = nil
-  ) {
-    self.id = id
-    self.threadID = threadID
-    self.headers = headers
-    self.bodyHTML = bodyHTML
-    self.bodyPlainText = bodyPlainText
-  }
-
-  public func header(named name: String) -> String? {
-    headers.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value
-  }
-
-  var normalizedText: String? {
-    if let bodyPlainText, !bodyPlainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-      return HTMLText.normalizedText(from: bodyPlainText)
-    }
-    return HTMLText.normalizedText(from: bodyHTML)
-  }
-
-  var sourceText: String? { bodyHTML ?? bodyPlainText }
-}
-
-public struct GmailInboxHeader: Codable, Equatable, Sendable {
-  public let name: String
-  public let value: String
-
-  public init(name: String, value: String) {
-    self.name = name
-    self.value = value
-  }
-}
-
-public struct GmailInboxIngestReport: Equatable, Sendable {
-  public let accountID: String
-  public let historyID: String?
-  public let pageCount: Int
-  public let messageCount: Int
-  public let contentPieces: [ContentPiece]
-
-  public init(snapshot: GmailInboxSnapshot, contentPieces: [ContentPiece]) {
-    accountID = snapshot.accountID
-    historyID = snapshot.historyID
-    pageCount = snapshot.pageCount
-    messageCount = snapshot.messages.count
-    self.contentPieces = contentPieces
-  }
-}
-
 public struct GmailInboxIngestor {
   @Dependency(\.uuid) private var uuid
 
@@ -120,35 +26,78 @@ public struct GmailInboxIngestor {
 
   @discardableResult
   public func ingest(into database: any DatabaseWriter) async throws -> GmailInboxIngestReport {
-    let snapshot = try await client.currentInbox()
+    try Task.checkCancellation()
+    let savedCursor = try await database.read { db in
+      try GmailSyncState.all.fetchAll(db).first
+    }
+    let snapshot: GmailInboxSnapshot
+    if let savedCursor {
+      snapshot = try await client.inboxChanges(savedCursor.accountID, savedCursor.historyID)
+    } else {
+      snapshot = try await client.currentInbox()
+    }
     let acquiredAt = now()
-    let artifactIDs = snapshot.messages.map { _ in uuid() }
     let namespace = identityNamespace
-    let pieces = try await database.write { db in
-      let recorded = try zip(snapshot.messages, artifactIDs).map { message, artifactID in
-        try Self.record(
-          message: message,
-          artifactID: artifactID,
-          accountID: snapshot.accountID,
-          acquiredAt: acquiredAt,
-          namespace: namespace,
-          in: db
-        )
+    var pieces: [ContentPiece] = []
+    var failures = snapshot.failures
+
+    // Every successful message gets its own durable write. One bad message therefore cannot throw
+    // away its neighbours, and the history cursor below remains behind the failure for a retry.
+    for message in snapshot.messages {
+      try Task.checkCancellation()
+      let artifactID = uuid()
+      do {
+        let piece = try await database.write { db in
+          let recorded = try Self.record(
+            message: message,
+            artifactID: artifactID,
+            accountID: snapshot.accountID,
+            acquiredAt: acquiredAt,
+            namespace: namespace,
+            in: db
+          )
+          let reconciled = try GmailStreamResolver.linkUnresolvedArtifacts(in: db)
+          let classified = try EmailTreatmentOperations.classify(
+            emailContentPieceIDs: [recorded.id] + reconciled, in: db)
+          return classified.first(where: { $0.id == recorded.id }) ?? recorded
+        }
+        pieces.append(piece)
+      } catch is CancellationError {
+        throw CancellationError()
+      } catch {
+        failures.append(GmailInboxMessageFailure(messageID: message.id, description: error.localizedDescription))
       }
-      // A manually configured Gmail Stream may have been added after an earlier inbox read. Link
-      // its retained source evidence before routing, then reroute only the affected curated mail.
-      let reconciled = try GmailStreamResolver.linkUnresolvedArtifacts(in: db)
-      // S5 routing is part of email ingest, so every new Gmail ContentPiece receives a visible
-      // treatment immediately. It writes only Cockpit's local projection, never Gmail.
-      return try EmailTreatmentOperations.classify(
-        emailContentPieceIDs: recorded.map(\.id) + reconciled, in: db)
     }
     if let treatmentProcessor {
       _ = try? await treatmentProcessor.process(emailContentPieceIDs: pieces.map(\.id), in: database)
     }
-    return GmailInboxIngestReport(snapshot: snapshot, contentPieces: pieces)
-  }
 
+    // Advancing is itself a committed local write and happens only after every message in the range
+    // is durable. Keeping the old cursor on even one failure makes the next history request retry
+    // that message without inventing a parallel retry queue.
+    if failures.isEmpty, let historyID = snapshot.historyID {
+      let accountID = Self.canonicalAccountID(snapshot.accountID)
+      try await database.write { db in
+        try GmailSyncState.upsert {
+          GmailSyncState.Draft(
+            GmailSyncState(accountID: accountID, historyID: historyID, updatedAt: acquiredAt)
+          )
+        }.execute(db)
+      }
+    }
+
+    let reportSnapshot = GmailInboxSnapshot(
+      accountID: snapshot.accountID,
+      historyID: snapshot.historyID,
+      pageCount: snapshot.pageCount,
+      messages: snapshot.messages,
+      failures: failures
+    )
+    return GmailInboxIngestReport(snapshot: reportSnapshot, contentPieces: pieces)
+  }
+}
+
+extension GmailInboxIngestor {
   private static func record(
     message: GmailInboxMessage,
     artifactID: UUID,

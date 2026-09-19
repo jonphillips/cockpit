@@ -48,7 +48,11 @@ then open provider mutation, behind the gate:
 M5 ends with **Phase 4 complete**. The next architecture gate — **Gate 4, the major model review that
 the email-delivered recurring Stream (Phase 5) forces** — opens M6, not M5 (scope decision, 2026-09-18).
 
-## The gate before M5's mutation work — Gate 3 is not yet closed
+## The gate before M5's mutation work — Gate 3
+
+> **Closed 2026-09-19 (S6).** `ADR-0002` is **Accepted**; the three empirical open items were observed
+> on the real account (`docs/eval-log.md`). The framing below is the slice's authored premise — the
+> gate was open when the mutation job began. S7–S8 now open on a *closed* Gate 3.
 
 **M4's deepening job opens on nothing owed.** S1–S9 are merged; the Today hierarchy, treatments, and
 the Edition fold are built and device-passed. The presentation job (S1–S5 below) has no gate in front
@@ -87,7 +91,7 @@ observable, then ratify. **No provider mutation happens before S6 lands and the 
 
 **Open provider mutation — Gmail dispositions (Phase 4), behind the gate:**
 
-- [ ] **S6 — Close Gate 3: `historyId` delta sync + per-message partial commit; measure the open ADR-0002 items; ratify** *(read-side hardening + gate close)*
+- [x] **S6 — Close Gate 3: `historyId` delta sync + per-message partial commit; measure the open ADR-0002 items; ratify** *(read-side hardening + gate close; ADR-0002 Accepted 2026-09-19, real-Inbox items in `docs/eval-log.md`)*
 - [ ] **S7 — Phase 4 dispositions: `Leave` / `Archive` / `Trash` + the disposition barrier + bounded Undo** *(the first provider write)*
 - [ ] **S8 — The smallest explicit disposition policy that proves the authority model** *(ADR-0002 D7; no rules engine)*
 

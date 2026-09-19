@@ -213,6 +213,8 @@ New replies naturally re-enter if Gmail returns the thread/message to Inbox; Coc
 
 A generalized rules engine, learned auto-deletion, automatic unsubscribe, broad reply/composition, and permanent deletion are out of V1.
 
+The executable contract for all of the above is **`ADR-0002` (Accepted 2026-09-19)**: D1 (message is the unit), D4 (the per-message barrier — read → classify/extract → persist the promised durable result → verify the commit → advance `historyId` → apply the disposition), D5 (Leave/Archive/Trash map to label operations; no `Delete Forever`; idempotent), D6 (the bounded, inspectable Undo log), and D7 (explicit-per-action first; policies are explicit and user-established). This §7 states the policy; the ADR is where it is settled against real provider behaviour, and it governs the Phase 4 mutation slices (M5 S7–S8).
+
 ---
 
 ## 8. Personal Knowledge — RESOLVED

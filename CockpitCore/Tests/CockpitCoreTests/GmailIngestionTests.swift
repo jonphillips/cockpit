@@ -4,6 +4,7 @@ import Dependencies
 import DependenciesTestSupport
 import Foundation
 import SQLiteData
+import Synchronization
 import Testing
 
 @Suite(
@@ -96,6 +97,98 @@ struct GmailIngestionTests {
     expectNoDifference(provenance.sendingDomain, "friends.example")
     expectNoDifference(provenance.toRecipientCount, 1)
     expectNoDifference(provenance.ccRecipientCount, 0)
+  }
+
+  @Test("Delta sync: once a cursor commits, a re-read goes through history.list and never re-lists the Inbox")
+  func deltaSyncReadsFromCommittedCursor() async throws {
+    let listCalls = Mutex(0)
+    let deltaArgs = Mutex<[String]>([])
+    let client = GmailInboxClient(
+      currentInbox: {
+        listCalls.withLock { $0 += 1 }
+        return GmailInboxSnapshot(
+          accountID: "Jon@Example.com", historyID: "h1",
+          messages: [Self.simpleMessage(id: "message-1", threadID: "thread-1", subject: "First")]
+        )
+      },
+      inboxChanges: { accountID, historyID in
+        deltaArgs.withLock { $0.append("\(accountID)@\(historyID)") }
+        return GmailInboxSnapshot(
+          accountID: "jon@example.com", historyID: "h2",
+          messages: [Self.simpleMessage(id: "message-2", threadID: "thread-2", subject: "Reply")]
+        )
+      }
+    )
+    let ingestor = GmailInboxIngestor(client: client, now: { Date(timeIntervalSince1970: 1) })
+
+    _ = try await ingestor.ingest(into: database)
+    // Cursor advanced to h1 on the first commit; the account is canonicalized before it is stored.
+    let firstCursor = try await database.read { db in try GmailSyncState.all.fetchAll(db) }
+    expectNoDifference(firstCursor.map(\.accountID), ["jon@example.com"])
+    expectNoDifference(firstCursor.map(\.historyID), ["h1"])
+
+    _ = try await ingestor.ingest(into: database)
+
+    // The full-Inbox list ran exactly once; the second read went through history.list with the
+    // committed cursor, and the cursor advanced only after that delta committed.
+    expectNoDifference(listCalls.withLock { $0 }, 1)
+    expectNoDifference(deltaArgs.withLock { $0 }, ["jon@example.com@h1"])
+    let secondCursor = try await database.read { db in try GmailSyncState.all.fetchAll(db) }
+    expectNoDifference(secondCursor.map(\.historyID), ["h2"])
+  }
+
+  @Test("Partial commit: a per-message failure keeps the range and re-enters, without discarding its neighbours")
+  func partialCommitPreservesCursorAndReEnters() async throws {
+    let deltaArgs = Mutex<[String]>([])
+    let client = GmailInboxClient(
+      currentInbox: {
+        GmailInboxSnapshot(
+          accountID: "jon@example.com", historyID: "h1",
+          messages: [Self.simpleMessage(id: "message-1", threadID: "thread-1", subject: "Clean")]
+        )
+      },
+      inboxChanges: { _, historyID in
+        deltaArgs.withLock { $0.append(historyID) }
+        return GmailInboxSnapshot(
+          accountID: "jon@example.com", historyID: "h2",
+          messages: [Self.simpleMessage(id: "message-2", threadID: "thread-2", subject: "Committed")],
+          failures: [GmailInboxMessageFailure(messageID: "message-3", description: "Read failed.")]
+        )
+      }
+    )
+    let ingestor = GmailInboxIngestor(client: client, now: { Date(timeIntervalSince1970: 1) })
+
+    // A clean first sync commits its cursor at h1.
+    _ = try await ingestor.ingest(into: database)
+
+    // The delta sync reads a good message alongside a failed one.
+    let report = try await ingestor.ingest(into: database)
+
+    // The good neighbour is committed even though the batch carried a failure.
+    expectNoDifference(report.messageCount, 1)
+    expectNoDifference(report.failures.map(\.messageID), ["message-3"])
+    let committed = try await database.read { db in
+      try ContentPiece.where { $0.title.eq("Committed") }.fetchCount(db)
+    }
+    expectNoDifference(committed, 1)
+
+    // The cursor stays at h1 because the range did not fully commit, so the failure re-enters.
+    let cursor = try await database.read { db in try GmailSyncState.all.fetchAll(db) }
+    expectNoDifference(cursor.map(\.historyID), ["h1"])
+
+    // A subsequent sync re-requests the same history range rather than advancing past the failure.
+    _ = try await ingestor.ingest(into: database)
+    expectNoDifference(deltaArgs.withLock { $0 }, ["h1", "h1"])
+  }
+
+  private static func simpleMessage(id: String, threadID: String, subject: String) -> GmailInboxMessage {
+    GmailInboxMessage(
+      id: id, threadID: threadID,
+      headers: [
+        GmailInboxHeader(name: "From", value: "Sender <sender@example.com>"),
+        GmailInboxHeader(name: "Subject", value: subject),
+      ]
+    )
   }
 
   private var sampleSnapshot: GmailInboxSnapshot {
