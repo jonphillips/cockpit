@@ -100,6 +100,7 @@ struct ReaderView: View {
     }
     .navigationTitle("Reader")
     .navigationBarTitleDisplayMode(.inline)
+    .toolbar { ReaderDispositionToolbar(model: model) }
     .task { await readerAppeared() }
     .sheet(item: $model.teachingStage) { stage in
       ReaderTeachingView(model: model, stage: stage)

@@ -14,6 +14,7 @@ public final class ContentPieceReaderModel {
   @ObservationIgnored @Dependency(\.modelClient) private var modelClient
   @ObservationIgnored @Dependency(\.apiKeyStore) private var apiKeyStore
   @ObservationIgnored @Dependency(\.frontierPreferenceStore) private var preferenceStore
+  @ObservationIgnored @Dependency(\.gmailDispositionClient) private var dispositionClient
   @ObservationIgnored @Dependency(\.uuid) private var uuid
   @ObservationIgnored @Fetch public var content = ContentPieceReaderRequest.Value()
   @ObservationIgnored @Fetch public var readerTeaching = ReaderTeachingClaimRequest.Value()
@@ -43,6 +44,10 @@ public final class ContentPieceReaderModel {
   public var matchedClaim: PersonalKnowledgeRequest.Row? { matchedPersonalKnowledge.claim }
 
   public var bodyPresentation: ReaderBodyPresentation { readerBodyPresentation(for: row) }
+
+  /// In V1 an email ContentPiece is a Gmail message, so the Reader offers a source disposition only
+  /// for these. Other transports have no provider disposition yet.
+  public var isGmailSource: Bool { row?.kind == .email }
 
   public func saveForLater() async {
     guard let id = row?.id else { return }
@@ -139,6 +144,45 @@ public final class ContentPieceReaderModel {
     } catch {
       errorMessage = error.localizedDescription
     }
+  }
+}
+
+extension ContentPieceReaderModel {
+  /// Archives the Gmail source of the piece being read, behind the disposition barrier.
+  public func archiveSource() async { await applyDisposition(.archive) }
+
+  /// Trashes the Gmail source of the piece being read; reversible via `undoDisposition`.
+  public func trashSource() async { await applyDisposition(.trash) }
+
+  /// Reverses the current disposition of the piece being read, if any.
+  public func undoDisposition() async {
+    guard let id = row?.id else { return }
+    do {
+      guard let entry = try await database.read({ db in
+        try GmailDispositionOperations.activeDisposition(forContentPieceID: id, in: db)
+      }) else { return }
+      try await dispositionService.undo(entry, in: database)
+      errorMessage = nil
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  private func applyDisposition(_ disposition: GmailSourceDisposition) async {
+    guard let id = row?.id else { return }
+    do {
+      _ = try await dispositionService.apply(disposition, toContentPieceID: id, in: database)
+      errorMessage = nil
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  private var dispositionService: GmailDispositionService {
+    let date = now
+    return GmailDispositionService(client: dispositionClient, now: { date })
   }
 }
 

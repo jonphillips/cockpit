@@ -11,6 +11,7 @@ import Testing
   .serialized,
   .dependencies {
     $0.uuid = .incrementing
+    $0.date.now = Date(timeIntervalSince1970: 10_000)
     try $0.bootstrapDatabase()
   }
 )
@@ -113,6 +114,40 @@ struct GmailDispositionTests {
         .fetchCount(db)
     }
     expectNoDifference(stillPresent, 1)
+  }
+
+  @MainActor
+  @Test("Today row menu archives and undoes the source through the injected client")
+  func todayModelDispositionWiring() async throws {
+    let pieceID = try await seedGmailMessage(id: "message-today")
+    let log = CallLog()
+    try await withDependencies {
+      $0.gmailDispositionClient = log.client
+    } operation: {
+      let model = TodayModel()
+      try await model.$content.load()
+      let row = try #require(model.content.rows.first { $0.id == pieceID })
+      await model.archive(row)
+      await model.undoDisposition(row)
+    }
+    expectNoDifference(log.calls, ["archive:message-today", "reAddInbox:message-today"])
+  }
+
+  @MainActor
+  @Test("Reader archives and undoes the Gmail source, and offers it only for email pieces")
+  func readerModelDispositionWiring() async throws {
+    let pieceID = try await seedGmailMessage(id: "message-reader")
+    let log = CallLog()
+    try await withDependencies {
+      $0.gmailDispositionClient = log.client
+    } operation: {
+      let model = ContentPieceReaderModel(contentPieceID: pieceID)
+      try await model.$content.load()
+      #expect(model.isGmailSource)
+      await model.trashSource()
+      await model.undoDisposition()
+    }
+    expectNoDifference(log.calls, ["trash:message-reader", "untrash:message-reader"])
   }
 
   // MARK: - Helpers

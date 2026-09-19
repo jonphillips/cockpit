@@ -123,6 +123,20 @@ public enum GmailDispositionOperations {
     try GmailDispositionLogEntry.order { $0.appliedAt.desc() }.limit(limit).fetchAll(db)
   }
 
+  /// The current un-reversed disposition for the message backing a ContentPiece, or `nil` if the
+  /// message is still in `INBOX`. This is the entry an Undo affordance acts on.
+  public static func activeDisposition(
+    forContentPieceID id: ContentPiece.ID, in db: Database
+  ) throws -> GmailDispositionLogEntry? {
+    guard let artifact = try Artifact.where({
+      $0.contentPieceID.eq(id) && $0.transport.eq(StreamTransport.gmail)
+    }).fetchOne(db), let providerID = artifact.providerID else { return nil }
+    return try GmailDispositionLogEntry
+      .where { $0.providerID.eq(providerID) && $0.reversedAt.is(nil) }
+      .order { $0.appliedAt.desc() }
+      .fetchOne(db)
+  }
+
   static func markReversed(entryID: UUID, at date: Date, in db: Database) throws {
     guard try GmailDispositionLogEntry.find(entryID).fetchOne(db) != nil else {
       throw Failure.unknownLogEntry

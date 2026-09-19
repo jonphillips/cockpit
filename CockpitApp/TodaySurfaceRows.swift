@@ -190,6 +190,12 @@ struct TodayTierListView: View {
           Task { await model.setSenderOverride(treatment, for: row) }
         }
         Divider()
+        GmailDispositionButtons(
+          archive: { Task { await model.archive(row) } },
+          trash: { Task { await model.trash(row) } },
+          undo: { Task { await model.undoDisposition(row) } }
+        )
+        Divider()
         Button("Clear", systemImage: "checkmark.circle", role: .destructive) {
           Task { await model.clear(row) }
         }
