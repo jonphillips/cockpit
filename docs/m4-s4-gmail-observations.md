@@ -66,6 +66,12 @@ Primary-only scope are pragmatic probe choices, not tuned against measured Gmail
 
 ## Deliberately not settled by S4
 
+> **Superseded 2026-09-19 by `ADR-0002` (Accepted).** The open questions below were settled at Gate 3:
+> message-versus-thread semantics (D1), account boundaries (D8), delta strategy (D2), retained provider
+> IDs (D1), re-entry (D3/D4), partial-failure retry (D3), Undo (D6), and the commit barrier (D4). The
+> three empirical items were confirmed on the real account in M5 S6 (`docs/eval-log.md` 2026-09-19).
+> This file remains as the S4 read-path worksheet; for the mutation contract, read the ADR.
+
 This slice captures evidence but does not establish the provider-mutation contract. Gate 3 will use
 the completed observations to decide message-versus-thread action semantics, account boundaries,
 pagination/delta strategy, retained provider IDs, re-entry, partial-failure retry, Undo capability,

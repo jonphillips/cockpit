@@ -1,7 +1,9 @@
 # ADR-0002 — Gmail Integration and Provider Disposition
 
-**Status:** Draft — Gate 3 proposal. Ratify before any Phase 4 mutation.
-**Date:** 2026-09-17
+**Status:** Accepted (2026-09-19) — Gate 3 closed. Ratified once the three empirical open items were
+observed on the real account (M5 S6; see `docs/eval-log.md` 2026-09-19). Phase 4 mutation may proceed
+behind the barrier.
+**Date:** 2026-09-17 (Accepted 2026-09-19)
 **Phase:** 3 gate — closes M4 and must be settled before source mutation is enabled (Phase 4).
 
 ---
@@ -187,23 +189,22 @@ ContentPiece. Clearing a Gmail source in Today is not clearing the ContentPiece 
 
 ---
 
-## Open — measure before ratifying
+## Open items — settled at ratification (M5 S6)
 
-These Gate-3 items had no S4 evidence and must be settled before this ADR moves from Draft to
-Accepted. Two are genuinely empirical (need the code or the provider to be exercised); two turned out
-to be documented constants that only need on-account confirmation under load:
+The three Gate-3 items that gated ratification were observed on the real account on 2026-09-19
+(`jon@jonphillips.com`, Simulator; full evidence in `docs/eval-log.md`). The fourth is deferred to S7
+by construction, because Trash does not exist until then.
 
-- **Multi-message thread distinctness** *(empirical — inspect ingested data)* — S4 read at least one
-  2-message thread but did not inspect per-message `id`/`threadID` distinctness. Confirm before relying
-  on D1.
-- **New-reply re-entry** *(empirical — needs delta sync)* — confirm a reply returning a thread to
-  `INBOX` re-surfaces through `history.list` (the assumption D3/D4 lean on). Only observable once the
-  M5 S6 delta-sync build exists.
-- **Quota constants** *(documented; confirm under load)* — the unit costs and 6,000/min/user ceiling
-  are Google's published figures (recorded in D2, corrected 2026-09-18: `messages.get` is 20, not the
-  drafted 5). What remains open is their behavior on this account under a real paced backfill (M5 S6).
-- **Trash purge window** *(documented; confirm in S7)* — Gmail's documented 30-day auto-purge is the
-  recorded horizon (D6). The empirical part — Cockpit `untrash` recovering within it — rides M5 S7.
+- **Multi-message thread distinctness** *(settled — D1)* — a real 2-message thread ingested as two
+  Artifacts with distinct message IDs sharing one thread ID. The message is the unit.
+- **New-reply re-entry** *(settled — D3/D4)* — a reply that returned to Primary `INBOX` re-surfaced
+  through `history.list` on the next delta sync, and the cursor advanced only on commit.
+- **Quota constants** *(settled under a real paced backfill — D2)* — a 79-message Primary backfill read
+  through the six-wide fetch window committed with zero failures and no 429/`userRateLimitExceeded`.
+  The published figures (D2, corrected 2026-09-18: `messages.get` is 20, not the drafted 5) hold on this
+  account; the 6,000/min/user ceiling was not approached, as expected with Primary capped at 100.
+- **Trash purge window** *(deferred to S7 — D6)* — Gmail's documented 30-day auto-purge is the recorded
+  horizon. The empirical part — Cockpit `untrash` recovering within it — rides M5 S7, when Trash exists.
 
 ## Consequences
 

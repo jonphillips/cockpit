@@ -113,7 +113,7 @@ Do not build a generalized rules language, visual rule builder, precedence engin
 
 ## 5. Processing/disposition barrier
 
-Cockpit must not Archive/Trash the upstream Artifact before any promised durable result has been successfully committed.
+Cockpit must not Archive/Trash the upstream Artifact before any promised durable result has been successfully committed. This barrier is the executable contract in **`ADR-0002` D4 (Accepted 2026-09-19)**, applied per message and sitting on the M5 S6 delta-sync / per-message-commit read path; the disposition slices are M5 S7 (Leave/Archive/Trash + Undo) and S8 (the one explicit policy).
 
 Conceptually:
 
