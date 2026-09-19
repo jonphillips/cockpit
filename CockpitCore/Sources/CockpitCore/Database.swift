@@ -161,6 +161,7 @@ enum CockpitMigrations {
     registerEmailTreatmentDetails(in: &migrator)
     registerTransactionalTreatment(in: &migrator)
     registerTodayAttention(in: &migrator)
+    registerGmailSyncState(in: &migrator)
     return migrator
   }
 }
