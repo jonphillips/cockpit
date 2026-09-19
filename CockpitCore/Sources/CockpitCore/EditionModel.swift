@@ -12,6 +12,13 @@ public enum EditionCompositionState: Equatable, Sendable {
   case composed
   case empty
   case failed
+
+  /// The action label used by every Today-surface affordance. Keeping it with the state makes a
+  /// terminal failure read consistently whether it appears in the tail itself or the toolbar.
+  public func controlTitle(hasEdition: Bool) -> String {
+    if case .failed = self { return "Retry Tail" }
+    return hasEdition ? "Recompose Tail" : "Compose Tail"
+  }
 }
 
 public enum EditionCompositionPhase: Equatable, Sendable {
@@ -47,18 +54,86 @@ private enum EditionCompositionTimeoutError: LocalizedError {
   }
 }
 
+/// Resolves the caller exactly once while allowing the visible timeout to finish even when the
+/// underlying model API ignores cooperative cancellation. All mutable state is actor-isolated.
+private actor CompositionTimeoutRace<Value: Sendable> {
+  typealias Outcome = Result<Value, Error>
+
+  private var outcome: Outcome?
+  private var continuation: CheckedContinuation<Value, Error>?
+  private var operationTask: Task<Void, Never>?
+  private var timeoutTask: Task<Void, Never>?
+
+  func install(_ continuation: CheckedContinuation<Value, Error>) {
+    if let outcome {
+      continuation.resume(with: outcome)
+    } else {
+      self.continuation = continuation
+    }
+  }
+
+  func setTasks(operation: Task<Void, Never>, timeout: Task<Void, Never>) {
+    guard outcome == nil else {
+      operation.cancel()
+      timeout.cancel()
+      return
+    }
+    operationTask = operation
+    timeoutTask = timeout
+  }
+
+  func resolve(_ outcome: Outcome) {
+    guard self.outcome == nil else { return }
+    self.outcome = outcome
+
+    let continuation = self.continuation
+    self.continuation = nil
+    let operationTask = self.operationTask
+    self.operationTask = nil
+    let timeoutTask = self.timeoutTask
+    self.timeoutTask = nil
+
+    // Cancelling is still valuable for cooperative clients. An uncooperative client may retain
+    // its detached task until it returns, but it cannot hold this continuation or mutate UI state.
+    operationTask?.cancel()
+    timeoutTask?.cancel()
+    continuation?.resume(with: outcome)
+  }
+}
+
 private func runWithinTimeout<T: Sendable>(
   _ timeout: Duration, operation: @escaping @Sendable () async throws -> T
 ) async throws -> T {
-  try await withThrowingTaskGroup(of: T.self) { group in
-    group.addTask { try await operation() }
-    group.addTask {
-      try await Task.sleep(for: timeout)
-      throw EditionCompositionTimeoutError.exceeded
+  let race = CompositionTimeoutRace<T>()
+  return try await withTaskCancellationHandler {
+    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
+      // These are intentionally detached from the caller: structured child tasks must finish
+      // before their group returns, which would make an uncancellable model call a soft timeout.
+      // The race owns their cancellation and resumes the UI-facing continuation at the deadline.
+      let operationTask = Task.detached {
+        do {
+          await race.resolve(.success(try await operation()))
+        } catch {
+          await race.resolve(.failure(error))
+        }
+      }
+      let timeoutTask = Task.detached {
+        do {
+          try await Task.sleep(for: timeout)
+          await race.resolve(.failure(EditionCompositionTimeoutError.exceeded))
+        } catch is CancellationError {
+          // Another terminal outcome won the race.
+        } catch {
+          await race.resolve(.failure(error))
+        }
+      }
+      Task {
+        await race.install(continuation)
+        await race.setTasks(operation: operationTask, timeout: timeoutTask)
+      }
     }
-    defer { group.cancelAll() }
-    guard let result = try await group.next() else { throw CancellationError() }
-    return result
+  } onCancel: {
+    Task { await race.resolve(.failure(CancellationError())) }
   }
 }
 
@@ -86,7 +161,7 @@ public final class EditionModel {
   private let timeout: Duration
   private var attemptID: UUID?
 
-  public init(timeout: Duration = .seconds(8 * 60)) {
+  public init(timeout: Duration = EditionModel.compositionTimeout) {
     self.timeout = timeout
   }
 
@@ -145,9 +220,12 @@ public final class EditionModel {
         compositionState = .empty
       }
       try await $current.load()
+      guard self.attemptID == attemptID else { return }
       errorMessage = nil
+      self.attemptID = nil
     } catch {
       guard self.attemptID == attemptID else { return }
+      self.attemptID = nil
       compositionState = .failed
       errorMessage = error.localizedDescription
     }

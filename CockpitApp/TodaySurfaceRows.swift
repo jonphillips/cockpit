@@ -27,7 +27,7 @@ struct TailCompositionControl: View {
           }
         } else {
           Label(
-            controlTitle,
+            tailModel.compositionState.controlTitle(hasEdition: tailModel.edition != nil),
             systemImage: tailModel.edition == nil ? "sparkles" : "arrow.clockwise")
         }
       }
@@ -38,11 +38,6 @@ struct TailCompositionControl: View {
   private var composingPhase: EditionCompositionPhase? {
     guard case let .composing(phase) = tailModel.compositionState else { return nil }
     return phase
-  }
-
-  private var controlTitle: String {
-    if case .failed = tailModel.compositionState { return "Retry Tail" }
-    return tailModel.edition == nil ? "Compose Tail" : "Recompose Tail"
   }
 }
 

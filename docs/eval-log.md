@@ -337,9 +337,13 @@ stays one finite-package call), sequenced before the Gmail spine. See DECISIONS 
 2026-09-18 — **M5 S5 · Tail-compose observability and bounded failure.** The 2026-09-16 iPad
 recompose above remains the real-device evidence: **~360s / $0.48**, so cost remains within the $1.00
 budget and latency remains roughly **6×** the 60s target. The composition path now reports its actual
-coarse phase — planning, type screening, editorial selection, then saving — and bounds an attempt at
-eight minutes. A timeout cancels before materialization, surfaces a retryable error, and leaves no
-opened Edition or entries; the next compose re-drives the existing recoverable `composing` row. The
-model test covers that adversarial path plus a definite empty-tail state. The remaining device pass is
-not another latency measurement: confirm that this progress language reads as working rather than
-broken, and decide whether the already-recorded ~360s is tolerable pending the deferred model swap.
+coarse phase — planning, type screening, editorial selection, then saving — and its UI-facing attempt
+has a hard eight-minute bound: timeout resolves the state to a retryable error without awaiting an
+uncooperative model call. The timed-out task is still cancelled; if FoundationModels ignores that
+request it may continue consuming device resources until it returns, but it cannot materialize an
+Edition or reset the visible failure state. FoundationModels cancellation/resource cleanup remains an
+explicit device risk to observe. The cancellation-ignoring model test proves the definite-state and
+no-materialization boundary; the next compose re-drives the existing recoverable `composing` row. The
+remaining device pass is not another latency measurement: confirm that this progress language reads as
+working rather than broken, and decide whether the already-recorded ~360s is tolerable pending the
+deferred model swap.
