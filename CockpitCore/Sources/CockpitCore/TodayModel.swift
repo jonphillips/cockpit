@@ -42,6 +42,7 @@ public final class TodayModel {
 
   @ObservationIgnored @Dependency(\.defaultDatabase) private var database
   @ObservationIgnored @Dependency(\.date.now) private var now
+  @ObservationIgnored @Dependency(\.gmailDispositionClient) private var dispositionClient
   @ObservationIgnored @Fetch(TodayRequest()) public var content = .init()
   public var selectedContentPieceID: ContentPiece.ID?
   public var errorMessage: String?
@@ -157,6 +158,48 @@ public final class TodayModel {
       .split(separator: "<", maxSplits: 1, omittingEmptySubsequences: true)[0]
       .trimmingCharacters(in: .whitespacesAndNewlines)
     return label.isEmpty ? "Offers" : label
+  }
+}
+
+extension TodayModel {
+  /// Archives the Gmail source behind the disposition barrier. Independent of `clear`: archiving the
+  /// provider message does not resolve Today attention, and clearing does not mutate Gmail (§7).
+  public func archive(_ row: TodayRequest.Row) async {
+    await applyDisposition(.archive, to: row.id)
+  }
+
+  /// Trashes the Gmail source behind the disposition barrier; reversible via `undoDisposition`.
+  public func trash(_ row: TodayRequest.Row) async {
+    await applyDisposition(.trash, to: row.id)
+  }
+
+  /// Reverses the message's current disposition, if any, by issuing the inverse label operation.
+  public func undoDisposition(_ row: TodayRequest.Row) async {
+    do {
+      guard let entry = try await database.read({ db in
+        try GmailDispositionOperations.activeDisposition(forContentPieceID: row.id, in: db)
+      }) else { return }
+      try await dispositionService.undo(entry, in: database)
+      errorMessage = nil
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  private func applyDisposition(_ disposition: GmailSourceDisposition, to id: ContentPiece.ID) async {
+    do {
+      _ = try await dispositionService.apply(disposition, toContentPieceID: id, in: database)
+      errorMessage = nil
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  private var dispositionService: GmailDispositionService {
+    let date = now
+    return GmailDispositionService(client: dispositionClient, now: { date })
   }
 }
 
