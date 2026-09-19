@@ -172,7 +172,7 @@ struct GmailDispositionTests {
 
 /// A fake Gmail label API that records each operation by message id, standing in for the live
 /// transport so the barrier and Undo are exercised without touching Gmail.
-private final class CallLog: Sendable {
+final class CallLog: Sendable {
   private let entries = Mutex<[String]>([])
 
   var calls: [String] { entries.withLock { $0 } }

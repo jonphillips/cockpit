@@ -163,6 +163,7 @@ enum CockpitMigrations {
     registerTodayAttention(in: &migrator)
     registerGmailSyncState(in: &migrator)
     registerGmailDispositionLog(in: &migrator)
+    registerGmailDispositionPolicies(in: &migrator)
     return migrator
   }
 }
