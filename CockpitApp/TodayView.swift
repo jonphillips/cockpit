@@ -55,8 +55,9 @@ struct TodayView: View {
       ToolbarItem(placement: .topBarTrailing) {
         if tailModel.isComposing {
           ProgressView()
+            .accessibilityLabel("Tail composition in progress")
         } else if tailModel.edition == nil {
-          Button("Compose Tail", systemImage: "sparkles") {
+          Button(tailModel.compositionState.controlTitle(hasEdition: false), systemImage: "sparkles") {
             Task { await tailModel.composeIfNeeded() }
           }
         } else {
@@ -93,7 +94,6 @@ struct TodayView: View {
   private var tailRows: [CurrentEditionRequest.Row] {
     tailModel.entries.filter { $0.entryState == .admitted || $0.entryState == .seen }
   }
-
   private func beginReader(for contentPieceID: ContentPiece.ID) {
     if let tailRow = tailRows.first(where: { $0.contentPieceID == contentPieceID }) {
       Task { await tailModel.markSeen(tailRow.id) }

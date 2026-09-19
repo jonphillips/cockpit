@@ -5,6 +5,15 @@ import os
 private let compositionLatencyLog = Logger(
   subsystem: "com.jonphillips.cockpit", category: "edition-composition")
 
+/// Coarse, truthful milestones for a tail compose. The UI deliberately does not invent a
+/// percentage: type batches finish out of order and selection is one finite-package call.
+public enum EditionCompositionProgress: Sendable {
+  case preparing
+  case classifyingCandidates
+  case selectingEdition
+  case saving
+}
+
 /// Materialises the daily Edition (ADR-0001 D5). It drives the S2 `JudgmentEngine` **once** over
 /// the day's candidates and writes the Edition, its entries, and the ContentPiece classifications
 /// from the same pass. A plain `Sendable` value with `async` methods so the heavy judgment call
@@ -40,15 +49,18 @@ public struct EditionComposer: Sendable {
   private let writer = EditionEntryWriter()
   private let targetSize: Int
   private let currentContext: String
+  private let reportProgress: @Sendable (EditionCompositionProgress) async -> Void
 
   public init(
     engine: JudgmentEngine = JudgmentEngine(),
     targetSize: Int = EditionPolicy.defaultTargetSize,
-    currentContext: String = ""
+    currentContext: String = "",
+    reportProgress: @escaping @Sendable (EditionCompositionProgress) async -> Void = { _ in }
   ) {
     self.engine = engine
     self.targetSize = targetSize
     self.currentContext = currentContext
+    self.reportProgress = reportProgress
   }
 
   /// Compose today's Edition if it does not already exist. Three phases keep the model call outside
@@ -59,6 +71,7 @@ public struct EditionComposer: Sendable {
     now: Date, in database: any DatabaseWriter
   ) async throws -> Result {
     let editionID = EditionDay.editionID(for: now)
+    await reportProgress(.preparing)
 
     let plan = try await database.write { db -> EditionPlan? in
       if let existing = try Edition.find(editionID).fetchOne(db) {
@@ -94,9 +107,15 @@ public struct EditionComposer: Sendable {
     guard !plan.candidates.isEmpty else { return .nothingToCompose }
 
     // Phase 2 (no database): the single judgment pass, off the main actor.
+    await reportProgress(.classifyingCandidates)
     let run = await engine.judge(
       candidates: plan.candidates, personalKnowledge: plan.personalKnowledge,
-      currentContext: currentContext, targetSize: targetSize)
+      currentContext: currentContext, targetSize: targetSize,
+      onEditorialPassStart: { await reportProgress(.selectingEdition) })
+
+    // If an uncooperative model only returns after the visible deadline, cancellation still
+    // prevents that late result from materialising an Edition after the UI offered a retry.
+    try Task.checkCancellation()
 
     Self.logCompositionLatency(run, candidates: plan.candidates.count, targetSize: targetSize)
 
@@ -116,6 +135,7 @@ public struct EditionComposer: Sendable {
     }
 
     // Phase 3 (write): back-write classifications, materialise entries, record cost, open.
+    await reportProgress(.saving)
     let outcomesByID = Dictionary(
       uniqueKeysWithValues: run.outcomes.map { ($0.contentPieceID, $0) })
     try await database.write { db in

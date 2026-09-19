@@ -49,6 +49,34 @@ private final class PromptBox: @unchecked Sendable {
   func set(_ value: String?) { lock.withLock { stored = value } }
 }
 
+/// A test-only model-request gate that deliberately ignores cancellation while waiting. Unlike
+/// `Task.sleep`, its checked continuation remains suspended until `open()` is called.
+private actor CancellationIgnoringGate {
+  private var entered = false
+  private var isOpen = false
+  private var enteredContinuation: CheckedContinuation<Void, Never>?
+  private var waiter: CheckedContinuation<Void, Never>?
+
+  func wait() async {
+    entered = true
+    enteredContinuation?.resume()
+    enteredContinuation = nil
+    guard !isOpen else { return }
+    await withCheckedContinuation { waiter = $0 }
+  }
+
+  func waitUntilEntered() async {
+    guard !entered else { return }
+    await withCheckedContinuation { enteredContinuation = $0 }
+  }
+
+  func open() {
+    isOpen = true
+    waiter?.resume()
+    waiter = nil
+  }
+}
+
 /// Like `editionStub` but records the prompt it was sent, so a test can assert what the judge saw.
 private func capturingStub(into prompt: PromptBox) -> StubModelClient {
   StubModelClient { request in
@@ -182,6 +210,46 @@ struct EditionTests {
     expectNoDifference(piece.isSubstantivePrimary, true)
     expectNoDifference(piece.summary, "A concise summary.")
     #expect(piece.subjects?.contains("housing") == true)
+    expectNoDifference(model.compositionState, .composed)
+  }
+
+  @Test("Tail composition reaches a retryable error when a model ignores cancellation")
+  func compositionTimeoutIsVisibleAndDoesNotMaterialize() async throws {
+    let streamID = UUID(1151)
+    try await seedStream(id: streamID, essential: false)
+    try await seedPiece(id: UUID(1152), streamID: streamID, createdAt: base)
+
+    let gate = CancellationIgnoringGate()
+    let slowStub = StubModelClient { _ in
+      // `withCheckedContinuation` deliberately does not react to task cancellation. This models
+      // a model framework that keeps its request alive after the timeout asks it to stop.
+      await gate.wait()
+      return ModelResponse(text: "{\"judgments\":[]}")
+    }
+    let model = withDependencies { $0.modelClient = slowStub } operation: {
+      EditionModel(timeout: .seconds(1))
+    }
+
+    let task = Task { await model.composeIfNeeded() }
+    await gate.waitUntilEntered()
+    expectNoDifference(model.compositionState, .composing(.screeningCandidates))
+    await task.value
+
+    expectNoDifference(model.compositionState, .failed)
+    #expect(model.errorMessage?.contains("eight minutes") == true)
+    let timedOutEdition = try await database.read { try Edition.find(EditionDay.editionID(for: self.base)).fetchOne($0) }
+    expectNoDifference(timedOutEdition?.state, .composing)
+    let entryCount = try await database.read { try EditionEntry.fetchCount($0) }
+    expectNoDifference(entryCount, 0)
+    await gate.open()
+  }
+
+  @Test("An empty tail is a definite completion state")
+  func emptyTailIsVisibleAsEmpty() async {
+    let model = withDependencies { $0.modelClient = editionStub() } operation: { EditionModel() }
+    await model.composeIfNeeded()
+    expectNoDifference(model.compositionState, .empty)
+    #expect(model.errorMessage == nil)
   }
 
   @Test("Composing twice on the same day is a no-op (materialise once, ADR-0001 D5)")

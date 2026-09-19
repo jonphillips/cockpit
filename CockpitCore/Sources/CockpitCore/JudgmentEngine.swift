@@ -112,7 +112,8 @@ public struct JudgmentEngine: Sendable {
     candidates: [JudgmentCandidate],
     personalKnowledge: PersonalKnowledgeProjection,
     currentContext: String = "",
-    targetSize: Int = 20
+    targetSize: Int = 20,
+    onEditorialPassStart: @escaping @Sendable () async -> Void = {}
   ) async -> JudgmentRun {
     guard !candidates.isEmpty else { return .empty }
     let startedAt = now()
@@ -133,6 +134,9 @@ public struct JudgmentEngine: Sendable {
           isSubstantivePrimary: isSubstantivePrimary, subjects: subjects, summary: summary,
           bodyCompleteness: classification.bodyCompleteness))
     }
+    // The editorial pass is the finite-package call and is normally the slowest part of a tail
+    // compose. Tell the caller exactly when it begins; this does not alter judgment inputs.
+    await onEditorialPassStart()
     let editorialRun = await judgeEditorial(
       candidates: editorialCandidates, personalKnowledge: personalKnowledge,
       currentContext: currentContext, targetSize: targetSize)
