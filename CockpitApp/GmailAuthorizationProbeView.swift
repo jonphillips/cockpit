@@ -79,6 +79,7 @@ final class GmailInboxIngestModel {
   }
 
   @ObservationIgnored @Dependency(\.defaultDatabase) private var database
+  @ObservationIgnored @Dependency(\.gmailDispositionClient) private var dispositionClient
   private(set) var status = Status.ready
 
   func ingestCurrentInbox() async {
@@ -89,6 +90,10 @@ final class GmailInboxIngestModel {
         client: .live(accessToken: accessToken), treatmentProcessor: EmailTreatmentProcessor()
       ).ingest(into: database)
       status = .ingested(report)
+      // Established policies run over the freshly classified messages, through the same barrier and
+      // Undo log as a manual disposition. A failure here must not fail the read that already landed.
+      try? await GmailDispositionPolicyService(client: dispositionClient)
+        .applyEnabledPolicies(in: database)
     } catch is CancellationError {
       status = .ready
     } catch {

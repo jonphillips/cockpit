@@ -6,6 +6,7 @@ struct SettingsView: View {
   let model: ShellModel
   let followingModel: FollowingModel
   @State private var gmailAuthorizationProbe = GmailAuthorizationProbe()
+  @State private var dispositionPolicyModel = GmailDispositionPolicyModel()
 
   var body: some View {
     @Bindable var model = model
@@ -35,6 +36,22 @@ struct SettingsView: View {
           }
         }
 
+        Section {
+          ForEach(dispositionPolicyModel.allKinds, id: \.rawValue) { kind in
+            Toggle(
+              kind.displayName,
+              isOn: Binding(
+                get: { dispositionPolicyModel.isEnabled(kind) },
+                set: { on in Task { await dispositionPolicyModel.setEnabled(kind, on) } }
+              )
+            )
+          }
+        } header: {
+          Text("Automatic dispositions")
+        } footer: {
+          Text("When on, Cockpit disposes matching messages through the same barrier and Undo log as a manual Archive or Trash. You turn each policy on yourself — Cockpit never establishes one for you, and turning one off leaves past dispositions in place.")
+        }
+
         Section("Developer") {
           NavigationLink(value: SettingsRoute.gmailAuthorizationProbe) {
             Label("Gmail authorization probe", systemImage: "envelope.badge")
@@ -42,6 +59,7 @@ struct SettingsView: View {
         }
       }
       .navigationTitle("Settings")
+      .task { try? await dispositionPolicyModel.$policies.load() }
       .navigationDestination(for: SettingsRoute.self) { route in
         switch route {
         case .following:

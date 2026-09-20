@@ -92,8 +92,8 @@ observable, then ratify. **No provider mutation happens before S6 lands and the 
 **Open provider mutation — Gmail dispositions (Phase 4), behind the gate:**
 
 - [x] **S6 — Close Gate 3: `historyId` delta sync + per-message partial commit; measure the open ADR-0002 items; ratify** *(read-side hardening + gate close; ADR-0002 Accepted 2026-09-19, real-Inbox items in `docs/eval-log.md`)*
-- [ ] **S7 — Phase 4 dispositions: `Leave` / `Archive` / `Trash` + the disposition barrier + bounded Undo** *(the first provider write)*
-- [ ] **S8 — The smallest explicit disposition policy that proves the authority model** *(ADR-0002 D7; no rules engine)*
+- [x] **S7 — Phase 4 dispositions: `Leave` / `Archive` / `Trash` + the disposition barrier + bounded Undo** *(the first provider write; real-label device pass 2026-09-19)*
+- [x] **S8 — The smallest explicit disposition policy that proves the authority model** *(ADR-0002 D7; two explicit policies — offer-with-Find + login-code — through the same barrier and Undo log; no rules engine)*
 
 The two jobs are ordered by the method trap, not by preference: **the deepen job (S1–S5) comes first**
 because "feel" is only judgeable against a real design, and the mutation job depends on nothing in it.
