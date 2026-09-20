@@ -99,6 +99,20 @@ struct GmailIngestionTests {
     expectNoDifference(provenance.ccRecipientCount, 0)
   }
 
+  @Test("Delta keeps changed messages by Primary membership, not by category label")
+  func deltaSelectsByPrimaryMembership() {
+    // "updates-in-primary" is a message Gmail tagged CATEGORY_UPDATES but folds into the Primary tab
+    // (the account has no Updates tab). The old label-exclusion heuristic dropped it; selecting by
+    // `category:primary` membership keeps it. A message that just left Primary is dropped though it
+    // still appears as a change, and order is preserved.
+    let changed = ["updates-in-primary", "personal", "archived-left-primary", "promo-not-primary"]
+    let primary: Set<String> = ["personal", "updates-in-primary"]
+    expectNoDifference(
+      GmailInboxAPI.primaryChangedIDs(changedIDs: changed, primaryInboxIDs: primary),
+      ["updates-in-primary", "personal"]
+    )
+  }
+
   @Test("Delta sync: once a cursor commits, a re-read goes through history.list and never re-lists the Inbox")
   func deltaSyncReadsFromCommittedCursor() async throws {
     let listCalls = Mutex(0)

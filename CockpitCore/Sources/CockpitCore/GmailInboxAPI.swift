@@ -24,6 +24,13 @@ struct GmailInboxAPI {
   /// Returns the changed Primary-Inbox messages from Gmail's history feed. The profile request
   /// verifies the persisted account before Cockpit touches its local state; the returned profile
   /// history ID is the committed cursor only after every message is persisted by the ingestor.
+  ///
+  /// Primary membership is resolved by the *same* `category:primary` query the bounded backfill uses,
+  /// not a per-message label heuristic. Gmail folds whichever category tabs the account has disabled
+  /// (commonly Updates/Forums) back into the Primary tab, so a label-exclusion filter and
+  /// `category:primary` disagree exactly for that mail — a divergence that made the delta silently drop
+  /// Primary messages the backfill would have kept. Asking Gmail the one authoritative question keeps
+  /// the two reads in lockstep.
   func inboxChanges(accountID: String, since historyID: String) async throws -> GmailInboxSnapshot {
     async let profile: GmailProfile = get(path: "profile")
     let history = try await listHistory(since: historyID)
@@ -32,15 +39,24 @@ struct GmailInboxAPI {
       == GmailInboxIngestor.canonicalAccountID(accountID)
     else { throw GmailInboxError.accountChanged }
 
-    let reads = try await fetchMessages(ids: history.messageIDs)
-    let primaryMessages = reads.messages.filter(\.isPrimaryInbox)
+    let primaryInboxIDs = try await primaryInboxMessageIDs()
+    let targetIDs = Self.primaryChangedIDs(
+      changedIDs: history.messageIDs, primaryInboxIDs: primaryInboxIDs)
+    let reads = try await fetchMessages(ids: targetIDs)
     return GmailInboxSnapshot(
       accountID: resolvedProfile.emailAddress,
       historyID: resolvedProfile.historyID,
       pageCount: history.pageCount,
-      messages: primaryMessages,
+      messages: reads.messages,
       failures: reads.failures
     )
+  }
+
+  /// The intersection at the heart of the delta: keep only changed messages that are currently in the
+  /// Primary set. Membership decides inclusion, so a message Gmail tagged `CATEGORY_UPDATES`/`FORUMS`
+  /// but shows in Primary is kept, and a message that just left Primary (archived/trashed) is dropped.
+  static func primaryChangedIDs(changedIDs: [String], primaryInboxIDs: Set<String>) -> [String] {
+    changedIDs.filter(primaryInboxIDs.contains)
   }
 }
 
@@ -103,6 +119,18 @@ extension GmailInboxAPI {
     let page: GmailMessageList = try await get(path: "messages", query: query)
     let ids = Array((page.messages?.map(\.id) ?? []).prefix(Self.maxMessagesToRead))
     return (ids, 1)
+  }
+
+  /// The current Primary set, by the same `category:primary` query as the backfill. Delta changes are
+  /// recent and Primary is returned most-recent-first, so one bounded page covers any changed message.
+  private func primaryInboxMessageIDs() async throws -> Set<String> {
+    let query = [
+      URLQueryItem(name: "labelIds", value: "INBOX"),
+      URLQueryItem(name: "q", value: "category:primary"),
+      URLQueryItem(name: "maxResults", value: "500"),
+    ]
+    let page: GmailMessageList = try await get(path: "messages", query: query)
+    return Set(page.messages?.map(\.id) ?? [])
   }
 
   private func listHistory(since historyID: String) async throws -> (messageIDs: [String], pageCount: Int) {
@@ -247,16 +275,6 @@ private struct GmailMessageReads: Sendable {
 private enum GmailMessageReadResult: Sendable {
   case success(GmailInboxMessage)
   case failure(GmailInboxMessageFailure)
-}
-
-private extension GmailInboxMessage {
-  /// Gmail does not assign `CATEGORY_PERSONAL` to all Primary mail. Primary is therefore Inbox
-  /// minus the explicit non-Primary category labels, matching the bounded-backfill query.
-  var isPrimaryInbox: Bool {
-    guard labelIDs.contains("INBOX") else { return false }
-    let nonPrimary = ["CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_UPDATES", "CATEGORY_FORUMS"]
-    return !labelIDs.contains(where: nonPrimary.contains)
-  }
 }
 
 private struct GmailAPIErrorEnvelope: Decodable {
