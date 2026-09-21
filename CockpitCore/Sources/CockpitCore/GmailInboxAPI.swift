@@ -48,7 +48,9 @@ struct GmailInboxAPI {
       historyID: resolvedProfile.historyID,
       pageCount: history.pageCount,
       messages: reads.messages,
-      failures: reads.failures
+      failures: reads.failures,
+      departedMessageIDs: Self.departedChangedIDs(
+        changedIDs: history.messageIDs, primaryInboxIDs: primaryInboxIDs)
     )
   }
 
@@ -57,6 +59,14 @@ struct GmailInboxAPI {
   /// but shows in Primary is kept, and a message that just left Primary (archived/trashed) is dropped.
   static func primaryChangedIDs(changedIDs: [String], primaryInboxIDs: Set<String>) -> [String] {
     changedIDs.filter(primaryInboxIDs.contains)
+  }
+
+  /// The complement of `primaryChangedIDs`: changed messages that are *no longer* in the Primary set.
+  /// These left the Inbox in Gmail (archived/trashed/re-categorized) since the cursor, so the ingestor
+  /// clears them from Today. This is the read half of the fix for "trashed in Gmail still shows in
+  /// Cockpit" — the same intersection, kept rather than discarded.
+  static func departedChangedIDs(changedIDs: [String], primaryInboxIDs: Set<String>) -> [String] {
+    changedIDs.filter { !primaryInboxIDs.contains($0) }
   }
 }
 

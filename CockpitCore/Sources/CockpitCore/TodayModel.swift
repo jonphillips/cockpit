@@ -173,6 +173,18 @@ extension TodayModel {
     await applyDisposition(.trash, to: row.id)
   }
 
+  /// Archives every message in a landing group (an offer publisher's rows) in one gesture, reloading
+  /// the projection once. Each disposition still rides its own barrier; a row that cannot be verified
+  /// is skipped, never mutated.
+  public func archiveAll(_ rows: [TodayRequest.Row]) async {
+    await applyDisposition(.archive, to: rows.map(\.id))
+  }
+
+  /// Trashes every message in a landing group in one gesture. Reversible per row via `undoDisposition`.
+  public func trashAll(_ rows: [TodayRequest.Row]) async {
+    await applyDisposition(.trash, to: rows.map(\.id))
+  }
+
   /// Reverses the message's current disposition, if any, by issuing the inverse label operation.
   public func undoDisposition(_ row: TodayRequest.Row) async {
     do {
@@ -180,6 +192,7 @@ extension TodayModel {
         try GmailDispositionOperations.activeDisposition(forContentPieceID: row.id, in: db)
       }) else { return }
       try await dispositionService.undo(entry, in: database)
+      try await $content.load()
       errorMessage = nil
     } catch is CancellationError {
     } catch {
@@ -188,8 +201,17 @@ extension TodayModel {
   }
 
   private func applyDisposition(_ disposition: GmailSourceDisposition, to id: ContentPiece.ID) async {
+    await applyDisposition(disposition, to: [id])
+  }
+
+  private func applyDisposition(_ disposition: GmailSourceDisposition, to ids: [ContentPiece.ID]) async {
     do {
-      _ = try await dispositionService.apply(disposition, toContentPieceID: id, in: database)
+      let service = dispositionService
+      for id in ids {
+        _ = try await service.apply(disposition, toContentPieceID: id, in: database)
+      }
+      // The disposition log now hides these rows (`TodayRequest`); reload so Today reflects it now.
+      try await $content.load()
       errorMessage = nil
     } catch is CancellationError {
     } catch {

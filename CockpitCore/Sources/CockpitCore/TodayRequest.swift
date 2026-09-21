@@ -41,6 +41,19 @@ public struct TodayRequest: FetchKeyRequest {
       $0.transport.eq(StreamTransport.gmail)
     }.fetchAll(db)
     let clearedContentPieceIDs = Set(try TodayAttention.all.fetchAll(db).map(\.contentPieceID))
+    // A message archived or trashed from Cockpit leaves Today at once, without waiting for the next
+    // Gmail sync to observe the departure. The disposition barrier already performed the provider
+    // write and logged this un-reversed entry; excluding it here is the visible half. Undo reverses
+    // the log entry, which drops the provider id from this set and returns the row to Today.
+    let disposedProviderIDs = Set(
+      try GmailDispositionLogEntry.where { $0.reversedAt.is(nil) }.fetchAll(db).map(\.providerID))
+    let disposedContentPieceIDs = Set(
+      gmailArtifacts.compactMap { artifact -> ContentPiece.ID? in
+        guard let providerID = artifact.providerID, disposedProviderIDs.contains(providerID),
+          let contentPieceID = artifact.contentPieceID
+        else { return nil }
+        return contentPieceID
+      })
     let detailsByContentPieceID = Dictionary(
       uniqueKeysWithValues: try EmailTreatmentDetails.all.fetchAll(db).map { ($0.contentPieceID, $0) })
     var acquiredAtByContentPieceID: [ContentPiece.ID: Date] = [:]
@@ -59,6 +72,7 @@ public struct TodayRequest: FetchKeyRequest {
     value.rows = try ContentPiece.where { $0.kind.eq(ContentKind.email) }.fetchAll(db).compactMap { piece in
       guard let treatment = piece.emailTreatment,
         !clearedContentPieceIDs.contains(piece.id),
+        !disposedContentPieceIDs.contains(piece.id),
         let acquiredAt = acquiredAtByContentPieceID[piece.id]
       else { return nil }
       return Row(

@@ -111,6 +111,52 @@ struct GmailIngestionTests {
       GmailInboxAPI.primaryChangedIDs(changedIDs: changed, primaryInboxIDs: primary),
       ["updates-in-primary", "personal"]
     )
+    // The complement is the departure set: changed messages no longer in Primary (archived/trashed in
+    // Gmail). Order is preserved, and messages still in Primary are never treated as departed.
+    expectNoDifference(
+      GmailInboxAPI.departedChangedIDs(changedIDs: changed, primaryInboxIDs: primary),
+      ["archived-left-primary", "promo-not-primary"]
+    )
+  }
+
+  @Test("A message trashed in Gmail is reconciled out of Today on the next delta sync")
+  func departedMessageIsClearedFromToday() async throws {
+    let client = GmailInboxClient(
+      currentInbox: {
+        GmailInboxSnapshot(
+          accountID: "jon@example.com", historyID: "h1",
+          messages: [Self.simpleMessage(id: "message-1", threadID: "thread-1", subject: "Morning")]
+        )
+      },
+      inboxChanges: { _, _ in
+        // The delta observed message-1 change (it left Primary in Gmail) and carried no new mail.
+        GmailInboxSnapshot(
+          accountID: "jon@example.com", historyID: "h2",
+          messages: [], departedMessageIDs: ["message-1"]
+        )
+      }
+    )
+    let ingestor = GmailInboxIngestor(client: client, now: { Date(timeIntervalSince1970: 1) })
+
+    // First sync lands message-1 on Today.
+    let first = try await ingestor.ingest(into: database)
+    let pieceID = try #require(first.contentPieces.first).id
+    let beforeRows = try await database.read { db in try TodayRequest().fetch(db).rows }
+    expectNoDifference(beforeRows.map(\.id), [pieceID])
+
+    // Second sync reconciles the Gmail-side departure: the row leaves Today, but the Artifact and
+    // ContentPiece are untouched (custody is not a Today decision) and no provider write is made.
+    _ = try await ingestor.ingest(into: database)
+    let afterRows = try await database.read { db in try TodayRequest().fetch(db).rows }
+    expectNoDifference(afterRows, [])
+    let cleared = try await database.read { db in try TodayAttention.all.fetchAll(db).map(\.contentPieceID) }
+    expectNoDifference(cleared, [pieceID])
+    let artifacts = try await database.read { db in
+      try Artifact.where { $0.contentPieceID.eq(pieceID) }.fetchCount(db)
+    }
+    expectNoDifference(artifacts, 1)
+    let dispositions = try await database.read { db in try GmailDispositionLogEntry.fetchCount(db) }
+    expectNoDifference(dispositions, 0)
   }
 
   @Test("Delta sync: once a cursor commits, a re-read goes through history.list and never re-lists the Inbox")

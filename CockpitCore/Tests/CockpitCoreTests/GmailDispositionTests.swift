@@ -134,6 +134,30 @@ struct GmailDispositionTests {
   }
 
   @MainActor
+  @Test("Archiving from Cockpit removes the row from Today at once, and Undo returns it")
+  func archivedRowLeavesTodayImmediately() async throws {
+    let pieceID = try await seedGmailMessage(id: "message-vanish")
+    let log = CallLog()
+    try await withDependencies {
+      $0.gmailDispositionClient = log.client
+    } operation: {
+      let model = TodayModel()
+      try await model.$content.load()
+      let row = try #require(model.content.rows.first { $0.id == pieceID })
+
+      await model.archive(row)
+      // The disposition log hides the archived row from the reloaded projection without waiting for
+      // a Gmail sync to observe the departure.
+      #expect(!model.content.rows.contains { $0.id == pieceID })
+
+      await model.undoDisposition(row)
+      // Undo reverses the log entry, so the row returns to Today.
+      #expect(model.content.rows.contains { $0.id == pieceID })
+    }
+    expectNoDifference(log.calls, ["archive:message-vanish", "reAddInbox:message-vanish"])
+  }
+
+  @MainActor
   @Test("Reader archives and undoes the Gmail source, and offers it only for email pieces")
   func readerModelDispositionWiring() async throws {
     let pieceID = try await seedGmailMessage(id: "message-reader")
