@@ -8,13 +8,19 @@ struct ReaderDispositionToolbar: ToolbarContent {
 
   var body: some ToolbarContent {
     if model.isGmailSource {
+      // Archive is the one-tap default; Trash and Undo stay under the menu so the common gesture does
+      // not require choosing between dispositions first.
+      ToolbarItem(placement: .topBarTrailing) {
+        Button("Archive", systemImage: "archivebox") { Task { await model.archiveSource() } }
+      }
       ToolbarItem(placement: .topBarTrailing) {
         Menu {
-          GmailDispositionButtons(
-            archive: { Task { await model.archiveSource() } },
-            trash: { Task { await model.trashSource() } },
-            undo: { Task { await model.undoDisposition() } }
-          )
+          Button("Trash", systemImage: "trash", role: .destructive) {
+            Task { await model.trashSource() }
+          }
+          Button("Undo disposition", systemImage: "arrow.uturn.backward") {
+            Task { await model.undoDisposition() }
+          }
         } label: {
           Image(systemName: "ellipsis.circle")
         }

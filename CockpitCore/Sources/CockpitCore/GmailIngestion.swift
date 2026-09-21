@@ -72,19 +72,10 @@ public struct GmailInboxIngestor {
       _ = try? await treatmentProcessor.process(emailContentPieceIDs: pieces.map(\.id), in: database)
     }
 
-    // Advancing is itself a committed local write and happens only after every message in the range
-    // is durable. Keeping the old cursor on even one failure makes the next history request retry
-    // that message without inventing a parallel retry queue.
-    if failures.isEmpty, let historyID = snapshot.historyID {
-      let accountID = Self.canonicalAccountID(snapshot.accountID)
-      try await database.write { db in
-        try GmailSyncState.upsert {
-          GmailSyncState.Draft(
-            GmailSyncState(accountID: accountID, historyID: historyID, updatedAt: acquiredAt)
-          )
-        }.execute(db)
-      }
-    }
+    await Self.reconcileDepartures(in: snapshot, at: acquiredAt, database: database)
+
+    try await Self.advanceCursorIfClean(
+      snapshot: snapshot, failures: failures, at: acquiredAt, database: database)
 
     let reportSnapshot = GmailInboxSnapshot(
       accountID: snapshot.accountID,
@@ -98,6 +89,40 @@ public struct GmailInboxIngestor {
 }
 
 extension GmailInboxIngestor {
+  /// Reconciles Gmail-side departures: any Primary message that left the Inbox since the cursor
+  /// (archived/trashed/re-categorized in Gmail) is cleared from Today, so the surface reflects the
+  /// provider instead of growing without bound. Best-effort and idempotent — it clears Today attention
+  /// only and never fails an otherwise-successful read.
+  /// Advances the history cursor — itself a committed local write — only after every message in the
+  /// range is durable. Keeping the old cursor on even one failure makes the next history request retry
+  /// that message without inventing a parallel retry queue.
+  private static func advanceCursorIfClean(
+    snapshot: GmailInboxSnapshot, failures: [GmailInboxMessageFailure], at date: Date,
+    database: any DatabaseWriter
+  ) async throws {
+    guard failures.isEmpty, let historyID = snapshot.historyID else { return }
+    let accountID = canonicalAccountID(snapshot.accountID)
+    try await database.write { db in
+      try GmailSyncState.upsert {
+        GmailSyncState.Draft(
+          GmailSyncState(accountID: accountID, historyID: historyID, updatedAt: date)
+        )
+      }.execute(db)
+    }
+  }
+
+  private static func reconcileDepartures(
+    in snapshot: GmailInboxSnapshot, at date: Date, database: any DatabaseWriter
+  ) async {
+    guard !snapshot.departedMessageIDs.isEmpty else { return }
+    let providerIDs = snapshot.departedMessageIDs.map {
+      stableProviderID(accountID: snapshot.accountID, messageID: $0)
+    }
+    try? await database.write { db in
+      try TodayAttentionOperations.clearDeparted(providerIDs: providerIDs, at: date, in: db)
+    }
+  }
+
   private static func record(
     message: GmailInboxMessage,
     artifactID: UUID,

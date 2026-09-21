@@ -5,6 +5,7 @@ struct TodayView: View {
   @Bindable var model: TodayModel
   @Bindable var tailModel: EditionModel
   @State private var originalReaderModel = TodayOriginalReaderModel()
+  @State private var inboxIngest = GmailInboxIngestModel()
   @Namespace private var readerTransition
   @State private var isConfirmingTailRecompose = false
 
@@ -52,6 +53,16 @@ struct TodayView: View {
       await tailModel.composeIfNeeded()
     }
     .toolbar {
+      ToolbarItem(placement: .topBarLeading) {
+        if inboxIngest.status == .ingesting {
+          ProgressView()
+            .accessibilityLabel("Refreshing Today")
+        } else {
+          Button("Refresh", systemImage: "arrow.clockwise") {
+            Task { await refreshToday() }
+          }
+        }
+      }
       ToolbarItem(placement: .topBarTrailing) {
         if tailModel.isComposing {
           ProgressView()
@@ -94,6 +105,17 @@ struct TodayView: View {
   private var tailRows: [CurrentEditionRequest.Row] {
     tailModel.entries.filter { $0.entryState == .admitted || $0.entryState == .seen }
   }
+
+  /// Pulls new Gmail mail (delta sync) and reconciles anything archived/trashed in Gmail out of Today,
+  /// then reloads the projection — so the surface reflects the provider without a trip to Settings.
+  private func refreshToday() async {
+    await inboxIngest.ingestCurrentInbox()
+    if case let .failed(message) = inboxIngest.status {
+      model.errorMessage = message
+    }
+    try? await model.$content.load()
+  }
+
   private func beginReader(for contentPieceID: ContentPiece.ID) {
     if let tailRow = tailRows.first(where: { $0.contentPieceID == contentPieceID }) {
       Task { await tailModel.markSeen(tailRow.id) }

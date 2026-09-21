@@ -111,6 +111,101 @@ struct GmailIngestionTests {
       GmailInboxAPI.primaryChangedIDs(changedIDs: changed, primaryInboxIDs: primary),
       ["updates-in-primary", "personal"]
     )
+    // The complement is the departure set: changed messages no longer in Primary (archived/trashed in
+    // Gmail). Order is preserved, and messages still in Primary are never treated as departed.
+    expectNoDifference(
+      GmailInboxAPI.departedChangedIDs(changedIDs: changed, primaryInboxIDs: primary),
+      ["archived-left-primary", "promo-not-primary"]
+    )
+  }
+
+  @Test("A message trashed in Gmail is reconciled out of Today on the next delta sync")
+  func departedMessageIsClearedFromToday() async throws {
+    let client = GmailInboxClient(
+      currentInbox: {
+        GmailInboxSnapshot(
+          accountID: "jon@example.com", historyID: "h1",
+          messages: [Self.simpleMessage(id: "message-1", threadID: "thread-1", subject: "Morning")]
+        )
+      },
+      inboxChanges: { _, _ in
+        // The delta observed message-1 change (it left Primary in Gmail) and carried no new mail.
+        GmailInboxSnapshot(
+          accountID: "jon@example.com", historyID: "h2",
+          messages: [], departedMessageIDs: ["message-1"]
+        )
+      }
+    )
+    let ingestor = GmailInboxIngestor(client: client, now: { Date(timeIntervalSince1970: 1) })
+
+    // First sync lands message-1 on Today.
+    let first = try await ingestor.ingest(into: database)
+    let pieceID = try #require(first.contentPieces.first).id
+    let beforeRows = try await database.read { db in try TodayRequest().fetch(db).rows }
+    expectNoDifference(beforeRows.map(\.id), [pieceID])
+
+    // Second sync reconciles the Gmail-side departure: the row leaves Today, but the Artifact and
+    // ContentPiece are untouched (custody is not a Today decision) and no provider write is made.
+    _ = try await ingestor.ingest(into: database)
+    let afterRows = try await database.read { db in try TodayRequest().fetch(db).rows }
+    expectNoDifference(afterRows, [])
+    let cleared = try await database.read { db in try TodayAttention.all.fetchAll(db).map(\.contentPieceID) }
+    expectNoDifference(cleared, [pieceID])
+    let artifacts = try await database.read { db in
+      try Artifact.where { $0.contentPieceID.eq(pieceID) }.fetchCount(db)
+    }
+    expectNoDifference(artifacts, 1)
+    let dispositions = try await database.read { db in try GmailDispositionLogEntry.fetchCount(db) }
+    expectNoDifference(dispositions, 0)
+  }
+
+  @Test("A Cockpit archive that Gmail later reports departed is still restored by Undo (D9)")
+  func cockpitArchiveIsNotStrandedByReconciliation() async throws {
+    let client = GmailInboxClient(
+      currentInbox: {
+        GmailInboxSnapshot(
+          accountID: "jon@example.com", historyID: "h1",
+          messages: [Self.simpleMessage(id: "message-1", threadID: "thread-1", subject: "Morning")]
+        )
+      },
+      inboxChanges: { _, _ in
+        // Cockpit's Archive removed INBOX in Gmail, so the next delta reports message-1 as departed —
+        // exactly like an external archive. Reconciliation must tell the two apart.
+        GmailInboxSnapshot(
+          accountID: "jon@example.com", historyID: "h2",
+          messages: [], departedMessageIDs: ["message-1"]
+        )
+      }
+    )
+    let ingestor = GmailInboxIngestor(client: client, now: { Date(timeIntervalSince1970: 1) })
+    let first = try await ingestor.ingest(into: database)
+    let pieceID = try #require(first.contentPieces.first).id
+
+    // Archive from Cockpit: the barrier writes the reversible log entry, and TodayRequest hides the row.
+    let log = CallLog()
+    let service = GmailDispositionService(client: log.client, now: { Date(timeIntervalSince1970: 2) })
+    _ = try await service.apply(.archive, toContentPieceID: pieceID, in: database)
+    let afterArchive = try await database.read { db in try TodayRequest().fetch(db).rows }
+    expectNoDifference(afterArchive, [])
+
+    // A delta sync now reports the Gmail-side departure. Because Cockpit caused it (an un-reversed
+    // disposition), reconciliation must NOT record a terminal attention marker (D9): doing so would
+    // shadow the reversible log entry and strand the row off Today after Undo.
+    _ = try await ingestor.ingest(into: database)
+    let markers = try await database.read { db in
+      try TodayAttention.all.fetchAll(db).map(\.contentPieceID)
+    }
+    expectNoDifference(markers, [])
+
+    // Undo reverses the disposition and returns the row to Today.
+    let entry = try #require(
+      try await database.read { db in
+        try GmailDispositionOperations.activeDisposition(forContentPieceID: pieceID, in: db)
+      })
+    try await service.undo(entry, in: database)
+    let afterUndo = try await database.read { db in try TodayRequest().fetch(db).rows }
+    expectNoDifference(afterUndo.map(\.id), [pieceID])
+    expectNoDifference(log.calls, ["archive:message-1", "reAddInbox:message-1"])
   }
 
   @Test("Delta sync: once a cursor commits, a re-read goes through history.list and never re-lists the Inbox")

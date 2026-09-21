@@ -145,36 +145,63 @@ struct TodayTierListView: View {
   private func offerTier(isExpanded: Bool) -> some View {
     ForEach(model.offerGroups) { group in
       VStack(alignment: .leading, spacing: 6) {
-        Button {
-          if group.count == 1 { openReader(group.representative.id) }
-          else { expandedOfferGroupID = expandedOfferGroupID == group.id ? nil : group.id }
-        } label: {
-          HStack {
-            VStack(alignment: .leading, spacing: 3) {
-              Text(group.count > 1 ? "\(group.count) \(group.label) offers" : group.label)
-                .font(.headline)
-              if let summary = group.representative.treatmentSummary, !summary.isEmpty {
-                Text(summary).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
-              } else {
-                Text(group.representative.title)
-                  .font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+        HStack(alignment: .top, spacing: 8) {
+          Button {
+            if group.count == 1 { openReader(group.representative.id) }
+            else { expandedOfferGroupID = expandedOfferGroupID == group.id ? nil : group.id }
+          } label: {
+            HStack {
+              VStack(alignment: .leading, spacing: 3) {
+                Text(group.count > 1 ? "\(group.count) \(group.label) offers" : group.label)
+                  .font(.headline)
+                if let summary = group.representative.treatmentSummary, !summary.isEmpty {
+                  Text(summary).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                } else {
+                  Text(group.representative.title)
+                    .font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                }
               }
+              Spacer()
+              Image(systemName: group.count > 1 ? "chevron.down" : "chevron.right")
+                .foregroundStyle(.secondary)
             }
-            Spacer()
-            Image(systemName: group.count > 1 ? "chevron.down" : "chevron.right")
-              .foregroundStyle(.secondary)
+            .padding(12)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .matchedTransitionSource(id: group.representative.id, in: readerNamespace)
           }
-          .padding(12)
-          .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
-          .matchedTransitionSource(id: group.representative.id, in: readerNamespace)
+          .buttonStyle(.plain)
+
+          offerGroupMenu(group)
         }
-        .buttonStyle(.plain)
 
         if isExpanded || expandedOfferGroupID == group.id {
           ForEach(group.rows) { row in emailRow(row, emphasis: false) }
         }
       }
     }
+  }
+
+  /// Disposes a whole publisher's offers in one gesture — the common "clear out Nordstrom" case — so
+  /// offers no longer require expanding the group and acting row by row. Each row still rides its own
+  /// disposition barrier inside the model.
+  private func offerGroupMenu(_ group: TodayModel.OfferGroup) -> some View {
+    Menu {
+      Button(
+        group.count > 1 ? "Archive all \(group.count)" : "Archive",
+        systemImage: "archivebox"
+      ) { Task { await model.archiveAll(group.rows) } }
+      Button(
+        group.count > 1 ? "Trash all \(group.count)" : "Trash",
+        systemImage: "trash", role: .destructive
+      ) { Task { await model.trashAll(group.rows) } }
+      Divider()
+      Button("Undo disposition", systemImage: "arrow.uturn.backward") {
+        Task { for row in group.rows { await model.undoDisposition(row) } }
+      }
+    } label: {
+      Image(systemName: "ellipsis.circle").foregroundStyle(.secondary).padding(.top, 8)
+    }
+    .accessibilityLabel("Offer group actions")
   }
 
   private func emailRow(_ row: TodayRequest.Row, emphasis: Bool) -> some View {

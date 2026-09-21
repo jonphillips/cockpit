@@ -35,19 +35,27 @@ public struct GmailInboxSnapshot: Equatable, Sendable {
   public let pageCount: Int
   public let messages: [GmailInboxMessage]
   public let failures: [GmailInboxMessageFailure]
+  /// The Gmail message ids that a delta report saw *change* but that are no longer in the Primary
+  /// Inbox — archived, trashed, or otherwise moved out of Primary directly in Gmail. The ingestor
+  /// reconciles these out of Today so the surface reflects the provider (§Gmail boundary), rather
+  /// than growing without bound. A full read carries none: departure is only knowable against a
+  /// prior cursor.
+  public let departedMessageIDs: [String]
 
   public init(
     accountID: String,
     historyID: String? = nil,
     pageCount: Int = 1,
     messages: [GmailInboxMessage],
-    failures: [GmailInboxMessageFailure] = []
+    failures: [GmailInboxMessageFailure] = [],
+    departedMessageIDs: [String] = []
   ) {
     self.accountID = accountID
     self.historyID = historyID
     self.pageCount = pageCount
     self.messages = messages
     self.failures = failures
+    self.departedMessageIDs = departedMessageIDs
   }
 }
 

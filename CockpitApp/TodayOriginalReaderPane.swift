@@ -184,7 +184,16 @@ struct TodayOriginalReaderPane: View {
     }
     .background(Color(uiColor: .systemBackground))
     .toolbar {
-      ToolbarItem(placement: .primaryAction) { treatmentMenu }
+      // One decision while reading: Archive. Trash and the sender/treatment tools live under the
+      // menu so the common gesture is a single tap. Both dispositions advance to the next piece in
+      // the same category and close the reader once the category is cleared.
+      ToolbarItem(placement: .primaryAction) {
+        Button("Archive", systemImage: "archivebox") {
+          Task { await disposeAndAdvance { await todayModel.archive($0) } }
+        }
+        .disabled(currentRow == nil)
+      }
+      ToolbarItem(placement: .primaryAction) { readerMenu }
       ToolbarItem(placement: .cancellationAction) {
         // Environment dismiss drives the sheet away; the framework nils the binding and the
         // sheet's onDismiss (presentationDismissed) does the load teardown. Don't also write
@@ -194,7 +203,30 @@ struct TodayOriginalReaderPane: View {
     }
   }
 
-  private var treatmentMenu: some View {
+  private var currentRow: TodayRequest.Row? {
+    todayModel.content.rows.first { $0.id == presentation.id }
+  }
+
+  /// Applies a disposition to the piece on screen, then advances to the next piece in the same
+  /// treatment. When that treatment is exhausted the reader closes — "close out when done with the
+  /// category". The category is captured before the write because the write reloads the projection.
+  private func disposeAndAdvance(_ dispose: (TodayRequest.Row) async -> Void) async {
+    let currentID = presentation.id
+    let treatment = model.treatment
+    guard let row = currentRow else { dismiss(); return }
+    await dispose(row)
+    guard let treatment,
+      let next = todayModel.content.rows.first(where: { $0.treatment == treatment && $0.id != currentID })
+    else {
+      dismiss()
+      return
+    }
+    // Reassigning the presentation identity re-presents the sheet on the next piece; the guarded
+    // onDismiss teardown treats this as the "quick swap" case and leaves the incoming load alone.
+    model.begin(contentPieceID: next.id)
+  }
+
+  private var readerMenu: some View {
     Menu {
       SenderTreatmentSubmenu(currentTreatment: model.treatment) { treatment in
         Task {
@@ -204,11 +236,20 @@ struct TodayOriginalReaderPane: View {
           }
         }
       }
+      if let row = currentRow {
+        Divider()
+        Button("Trash", systemImage: "trash", role: .destructive) {
+          Task { await disposeAndAdvance { await todayModel.trash($0) } }
+        }
+        Button("Undo disposition", systemImage: "arrow.uturn.backward") {
+          Task { await todayModel.undoDisposition(row) }
+        }
+      }
     } label: {
       Image(systemName: "ellipsis.circle")
     }
-    .disabled(model.sender.isEmpty)
-    .accessibilityLabel("Correct sender treatment")
+    .disabled(model.sender.isEmpty && currentRow == nil)
+    .accessibilityLabel("More reader tools")
   }
 
   @ViewBuilder

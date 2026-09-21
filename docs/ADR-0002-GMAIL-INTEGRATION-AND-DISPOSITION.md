@@ -2,8 +2,9 @@
 
 **Status:** Accepted (2026-09-19) — Gate 3 closed. Ratified once the three empirical open items were
 observed on the real account (M5 S6; see `docs/eval-log.md` 2026-09-19). Phase 4 mutation may proceed
-behind the barrier.
-**Date:** 2026-09-17 (Accepted 2026-09-19)
+behind the barrier. **Amended 2026-09-21 (D9)** to ratify reflecting Gmail-side departures out of
+Today (PR #54).
+**Date:** 2026-09-17 (Accepted 2026-09-19; amended 2026-09-21)
 **Phase:** 3 gate — closes M4 and must be settled before source mutation is enabled (Phase 4).
 
 ---
@@ -186,6 +187,50 @@ provider evidence; the email ContentPiece is the shared, provider-neutral result
 ContentPiece.id`, and disposition acts on the **Artifact/provider message**, never on the
 ContentPiece. Clearing a Gmail source in Today is not clearing the ContentPiece from Edition
 (EMAIL-INTELLIGENCE §6; §7).
+
+---
+
+## D9 — Reflecting Gmail-side departures out of Today (amendment, 2026-09-21).
+
+Ratifies the reconciliation shipped in PR #54. Two things forced it: messages the user
+archived/trashed **directly in Gmail** stayed on Today, and even a disposition **from Cockpit** left
+the row until a full re-read. Today was "growing and growing" instead of reflecting the provider.
+
+**The decision.** A delta sync (`history.list`, D2) already distinguishes changed messages still in
+Primary from changed messages that left it. The complement — changed-but-no-longer-Primary — is the
+**departure set** (`GmailInboxAPI.departedChangedIDs`). On each delta sync the ingestor clears those
+messages' Today concerns, so the surface reflects Gmail without re-costing the backlog. This is a
+Today-surface resolution only:
+
+- **No provider write.** Reconciliation issues no `messages.modify`/`trash`; it only reads the delta
+  Cockpit already fetched. It cannot violate the barrier (D4) because it mutates nothing at the provider.
+- **Custody untouched (D8).** Clearing a Today concern is not clearing the ContentPiece; the Artifact,
+  ContentPiece, normalized text, and any Find/Later/Library custody are all retained. A reconciled
+  departure removes only the *attention*, never the *knowledge*.
+- **One-directional — orientation, not a live mirror.** The clear is terminal: a later un-archive in
+  Gmail does **not** auto-resurface the row on Today. Today orients the user for the day; it is not a
+  second Gmail client that tracks Inbox membership in both directions. New mail re-enters through the
+  normal ingest path (D3); a resurrected old message does not.
+
+**External-only.** Reconciliation records its terminal clear (the reused `TodayAttention` marker, see
+below) **only for departures Gmail made on its own** — an archive/trash performed outside Cockpit. A
+departure that **Cockpit itself caused** (an Archive/Trash whose disposition-log entry is still
+un-reversed, D6) is excluded, because that row is already hidden by `TodayRequest` **and is still
+reversible**. If reconciliation also stamped the terminal marker for it, a later Undo would re-add the
+message in Gmail and clear the log entry, yet the marker — which nothing un-clears — would strand the
+row off Today, silently breaking the D6 undo guarantee. So reconciliation is the strict *complement*
+of Cockpit-initiated disposition, never an overlap:
+
+| Departure cause | Hidden from Today by | Reversible by Undo? |
+| --- | --- | --- |
+| Cockpit Archive/Trash | un-reversed disposition-log entry (D6) | yes |
+| External Gmail archive/trash | terminal `TodayAttention` clear (this D9) | no (one-directional) |
+
+**Marker reuse, ratified.** Reconciliation reuses the `TodayAttention` "cleared" marker rather than
+inventing a parallel table. This widens the marker's meaning from "the user's explicit `Clear`" to
+"this concern is resolved for Today — by an explicit `Clear` **or** an external Gmail departure." The
+widening stays inside §7/§8: it grants no destructive authority (no provider mutation) and crosses no
+custody boundary (D8). It does not extend to Cockpit-caused departures, per *External-only* above.
 
 ---
 
