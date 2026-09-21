@@ -11,12 +11,16 @@ private struct GmailArtifactRoutingRow: Sendable {
 /// can deliver either a followed Stream issue or loose Primary mail.
 struct CurationRoutingSnapshot: Sendable {
   let followedGmailStreamContentPieceIDs: Set<ContentPiece.ID>
-  let primaryGmailContentPieceIDs: Set<ContentPiece.ID>
+  /// Gmail ContentPieces that remain in Today's loose Primary triage. This includes artifacts
+  /// with no Stream and artifacts linked to a paused or stopped Stream: only an active Stream is
+  /// currently a followed Stream for routing purposes. Keep that state decision explicit here so
+  /// a future paused-Stream policy is not hidden by the old `primary` name.
+  let todayTriageGmailContentPieceIDs: Set<ContentPiece.ID>
 
-  /// Both Gmail roles are curated input under §24 and stay outside the uncurated Edition tail.
-  /// S-b supplies the Stream Handling surface for the first role; Today already owns the second.
+  /// Both Gmail roles stay outside the uncurated Edition tail. S-b supplies the Stream Handling
+  /// surface for the first role; Today owns the second.
   var editionExcludedContentPieceIDs: Set<ContentPiece.ID> {
-    followedGmailStreamContentPieceIDs.union(primaryGmailContentPieceIDs)
+    followedGmailStreamContentPieceIDs.union(todayTriageGmailContentPieceIDs)
   }
 }
 
@@ -52,7 +56,7 @@ enum CurationRouting {
 
     return CurationRoutingSnapshot(
       followedGmailStreamContentPieceIDs: followedGmailStreamContentPieceIDs,
-      primaryGmailContentPieceIDs: gmailContentPieceIDs.subtracting(followedGmailStreamContentPieceIDs)
+      todayTriageGmailContentPieceIDs: gmailContentPieceIDs.subtracting(followedGmailStreamContentPieceIDs)
     )
   }
 }

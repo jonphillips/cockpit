@@ -40,6 +40,11 @@ public struct TodayRequest: FetchKeyRequest {
     let gmailArtifacts = try Artifact.where {
       $0.transport.eq(StreamTransport.gmail)
     }.fetchAll(db)
+    // A Gmail Artifact linked to an active Stream is reachable through Stream Handling, not
+    // Today's loose Primary triage. Gmail transport alone is not the discriminator: linked mail
+    // from a paused or stopped Stream remains in the explicit Today-triage bucket for now.
+    let followedGmailStreamContentPieceIDs = try CurationRouting.snapshot(in: db)
+      .followedGmailStreamContentPieceIDs
     let clearedContentPieceIDs = Set(try TodayAttention.all.fetchAll(db).map(\.contentPieceID))
     // A message archived or trashed from Cockpit leaves Today at once, without waiting for the next
     // Gmail sync to observe the departure. The disposition barrier already performed the provider
@@ -71,6 +76,7 @@ public struct TodayRequest: FetchKeyRequest {
     // ContentPiece corpus merely to discard non-email rows in Swift.
     value.rows = try ContentPiece.where { $0.kind.eq(ContentKind.email) }.fetchAll(db).compactMap { piece in
       guard let treatment = piece.emailTreatment,
+        !followedGmailStreamContentPieceIDs.contains(piece.id),
         !clearedContentPieceIDs.contains(piece.id),
         !disposedContentPieceIDs.contains(piece.id),
         let acquiredAt = acquiredAtByContentPieceID[piece.id]

@@ -24,7 +24,7 @@ struct TodayView: View {
           if model.tiers.isEmpty && tailRows.isEmpty && !tailModel.isComposing {
             ContentUnavailableView(
               "Nothing to Review", systemImage: "sun.max",
-              description: Text("Gmail messages and screened tail stories will appear here."))
+              description: Text("Loose Gmail messages and screened tail stories will appear here."))
           }
         }
         .navigationTitle("Today")
