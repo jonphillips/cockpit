@@ -4,6 +4,10 @@ import SQLiteData
 /// The deliberately small, consultable trace for Gmail Trash operations. It is a projection of the
 /// existing disposition log, not a second history table.
 public struct RecentTrashRequest: FetchKeyRequest {
+  /// The trace is a recent-glance, not the whole history — bound it so the query and the list stay
+  /// small as the disposition log grows. Undo of anything older still works from its own row.
+  static let limit = 100
+
   @Selection
   public struct Row: Equatable, Identifiable, Sendable {
     public let id: GmailDispositionLogEntry.ID
@@ -39,6 +43,7 @@ public struct RecentTrashRequest: FetchKeyRequest {
           reversedAt: $0.reversedAt
         )
       }
+      .limit(Self.limit)
       .fetchAll(db)
     return value
   }
