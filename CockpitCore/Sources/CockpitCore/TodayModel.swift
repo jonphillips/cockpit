@@ -40,10 +40,11 @@ public final class TodayModel {
     }
   }
 
-  @ObservationIgnored @Dependency(\.defaultDatabase) private var database
-  @ObservationIgnored @Dependency(\.date.now) private var now
-  @ObservationIgnored @Dependency(\.gmailDispositionClient) private var dispositionClient
+  @ObservationIgnored @Dependency(\.defaultDatabase) var database
+  @ObservationIgnored @Dependency(\.date.now) var now
+  @ObservationIgnored @Dependency(\.gmailDispositionClient) var dispositionClient
   @ObservationIgnored @Fetch(TodayRequest()) public var content = .init()
+  public var recentTrashes = RecentTrashRequest.Value()
   public var selectedContentPieceID: ContentPiece.ID?
   public var errorMessage: String?
 
@@ -188,17 +189,7 @@ extension TodayModel {
 
   /// Reverses the message's current disposition, if any, by issuing the inverse label operation.
   public func undoDisposition(_ row: TodayRequest.Row) async {
-    do {
-      guard let entry = try await database.read({ db in
-        try GmailDispositionOperations.activeDisposition(forContentPieceID: row.id, in: db)
-      }) else { return }
-      try await dispositionService.undo(entry, in: database)
-      try await $content.load()
-      errorMessage = nil
-    } catch is CancellationError {
-    } catch {
-      errorMessage = error.localizedDescription
-    }
+    await undoDisposition(forContentPieceID: row.id)
   }
 
   private func applyDisposition(_ disposition: GmailSourceDisposition, to id: ContentPiece.ID) async {
@@ -213,17 +204,19 @@ extension TodayModel {
       }
       // The disposition log now hides these rows (`TodayRequest`); reload so Today reflects it now.
       try await $content.load()
+      await loadRecentTrashes()
       errorMessage = nil
     } catch is CancellationError {
     } catch {
       // A failed barrier aborts the batch, but any rows disposed before it are already durable and
       // hidden by `TodayRequest`; reload so they leave Today instead of lingering until the next load.
       try? await $content.load()
+      await loadRecentTrashes()
       errorMessage = error.localizedDescription
     }
   }
 
-  private var dispositionService: GmailDispositionService {
+  var dispositionService: GmailDispositionService {
     let date = now
     return GmailDispositionService(client: dispositionClient, now: { date })
   }

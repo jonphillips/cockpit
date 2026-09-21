@@ -103,11 +103,6 @@ public enum GmailDispositionPolicyOperations {
 
   /// True once any Trash has been logged for the message, reversed or not — the once-per-message guard.
   static func hasTrashLogEntry(forContentPieceID id: ContentPiece.ID, in db: Database) throws -> Bool {
-    guard let artifact = try Artifact.where({
-      $0.contentPieceID.eq(id) && $0.transport.eq(StreamTransport.gmail)
-    }).fetchOne(db), let providerID = artifact.providerID else { return false }
-    return try GmailDispositionLogEntry
-      .where { $0.providerID.eq(providerID) && $0.operation.eq(GmailDispositionOperation.trash) }
-      .fetchCount(db) > 0
+    try GmailDispositionOperations.hasTrashLogEntry(forContentPieceID: id, in: db)
   }
 }

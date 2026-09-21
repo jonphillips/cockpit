@@ -107,6 +107,11 @@ For V1, keep policy mechanisms narrow:
 - Stream-specific email disposition;
 - a very small number of explicit non-Stream provider/category policies when useful.
 
+M6 S1 adds one explicit, reader-triggered shape within that boundary: a user-declared newsletter
+series may Trash its Gmail source only when Jon leaves the piece after reading it. The declaration is
+keyed by normalized List-ID (sender fallback), is guarded to newsletter treatment at both declaration
+and application, and never arises from observed behavior or sync.
+
 Do not build a generalized rules language, visual rule builder, precedence engine, or learned policy system before real usage demands it.
 
 ---

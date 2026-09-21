@@ -109,6 +109,17 @@ public enum GmailDispositionOperations {
     }.fetchOne(db)
   }
 
+  /// True once any Trash has been logged for the message, reversed or not. Series-triggered Trash
+  /// uses this shared guard so reopening a message cannot fight an Undo or create a second log entry.
+  public static func hasTrashLogEntry(forContentPieceID id: ContentPiece.ID, in db: Database) throws -> Bool {
+    guard let artifact = try Artifact.where({
+      $0.contentPieceID.eq(id) && $0.transport.eq(StreamTransport.gmail)
+    }).fetchOne(db), let providerID = artifact.providerID else { return false }
+    return try GmailDispositionLogEntry
+      .where { $0.providerID.eq(providerID) && $0.operation.eq(GmailDispositionOperation.trash) }
+      .fetchCount(db) > 0
+  }
+
   static func recordApplied(
     id: UUID, providerID: String, operation: GmailDispositionOperation, at date: Date, in db: Database
   ) throws -> GmailDispositionLogEntry {
