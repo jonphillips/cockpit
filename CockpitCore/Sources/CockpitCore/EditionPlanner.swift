@@ -39,10 +39,11 @@ struct EditionPlanner: Sendable {
     previousEditionID: Edition.ID?, since: Date?, in db: Database
   ) throws -> EditionPlan {
     let essentialStreamPieceIDs = try EditionOperations.essentialStreamPieceIDs(in: db)
-    let gmailContentPieceIDs = try gmailContentPieceIDs(in: db)
+    let excludedContentPieceIDs = try CurationRouting.snapshot(in: db)
+      .editionExcludedContentPieceIDs
     let carriedByPiece = try carryovers(
-      previousEditionID: previousEditionID, excluding: gmailContentPieceIDs, in: db)
-    let newPieceIDs = try newPieceIDs(since: since, excluding: gmailContentPieceIDs, in: db)
+      previousEditionID: previousEditionID, excluding: excludedContentPieceIDs, in: db)
+    let newPieceIDs = try newPieceIDs(since: since, excluding: excludedContentPieceIDs, in: db)
 
     let candidatePieceIDs = Array(carriedByPiece.keys) + newPieceIDs
     let builds = try candidateBuilds(for: candidatePieceIDs, carriedByPiece: carriedByPiece, in: db)
@@ -97,19 +98,6 @@ struct EditionPlanner: Sendable {
     return candidatePieces.filter {
       !existingEntryPieceIDs.contains($0) && !excludedContentPieceIDs.contains($0)
     }
-  }
-
-  /// A Gmail Artifact is the durable marker that a ContentPiece came from curated inbox input.
-  /// Excluding by Artifact rather than display kind is conservative when the same piece is acquired
-  /// through more than one transport: one curated provenance is enough to keep it out of the
-  /// cross-item editorial pass.
-  private func gmailContentPieceIDs(in db: Database) throws -> Set<ContentPiece.ID> {
-    Set(
-      try Artifact
-        .where { $0.transport.eq(StreamTransport.gmail) }
-        .select(\.contentPieceID)
-        .fetchAll(db)
-        .compactMap { $0 })
   }
 
   /// Assemble a `JudgmentCandidate` per piece. One piece can have several (Artifact, Stream) rows;
