@@ -174,8 +174,9 @@ extension TodayModel {
   }
 
   /// Archives every message in a landing group (an offer publisher's rows) in one gesture, reloading
-  /// the projection once. Each disposition still rides its own barrier; a row that cannot be verified
-  /// is skipped, never mutated.
+  /// the projection once. Each disposition still rides its own barrier. If one row fails the barrier
+  /// the batch stops there and surfaces the error; rows disposed before the failure keep their
+  /// disposition and leave Today (the reload runs on both paths).
   public func archiveAll(_ rows: [TodayRequest.Row]) async {
     await applyDisposition(.archive, to: rows.map(\.id))
   }
@@ -215,6 +216,9 @@ extension TodayModel {
       errorMessage = nil
     } catch is CancellationError {
     } catch {
+      // A failed barrier aborts the batch, but any rows disposed before it are already durable and
+      // hidden by `TodayRequest`; reload so they leave Today instead of lingering until the next load.
+      try? await $content.load()
       errorMessage = error.localizedDescription
     }
   }

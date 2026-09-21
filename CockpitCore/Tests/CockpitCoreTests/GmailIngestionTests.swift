@@ -159,6 +159,55 @@ struct GmailIngestionTests {
     expectNoDifference(dispositions, 0)
   }
 
+  @Test("A Cockpit archive that Gmail later reports departed is still restored by Undo (D9)")
+  func cockpitArchiveIsNotStrandedByReconciliation() async throws {
+    let client = GmailInboxClient(
+      currentInbox: {
+        GmailInboxSnapshot(
+          accountID: "jon@example.com", historyID: "h1",
+          messages: [Self.simpleMessage(id: "message-1", threadID: "thread-1", subject: "Morning")]
+        )
+      },
+      inboxChanges: { _, _ in
+        // Cockpit's Archive removed INBOX in Gmail, so the next delta reports message-1 as departed —
+        // exactly like an external archive. Reconciliation must tell the two apart.
+        GmailInboxSnapshot(
+          accountID: "jon@example.com", historyID: "h2",
+          messages: [], departedMessageIDs: ["message-1"]
+        )
+      }
+    )
+    let ingestor = GmailInboxIngestor(client: client, now: { Date(timeIntervalSince1970: 1) })
+    let first = try await ingestor.ingest(into: database)
+    let pieceID = try #require(first.contentPieces.first).id
+
+    // Archive from Cockpit: the barrier writes the reversible log entry, and TodayRequest hides the row.
+    let log = CallLog()
+    let service = GmailDispositionService(client: log.client, now: { Date(timeIntervalSince1970: 2) })
+    _ = try await service.apply(.archive, toContentPieceID: pieceID, in: database)
+    let afterArchive = try await database.read { db in try TodayRequest().fetch(db).rows }
+    expectNoDifference(afterArchive, [])
+
+    // A delta sync now reports the Gmail-side departure. Because Cockpit caused it (an un-reversed
+    // disposition), reconciliation must NOT record a terminal attention marker (D9): doing so would
+    // shadow the reversible log entry and strand the row off Today after Undo.
+    _ = try await ingestor.ingest(into: database)
+    let markers = try await database.read { db in
+      try TodayAttention.all.fetchAll(db).map(\.contentPieceID)
+    }
+    expectNoDifference(markers, [])
+
+    // Undo reverses the disposition and returns the row to Today.
+    let entry = try #require(
+      try await database.read { db in
+        try GmailDispositionOperations.activeDisposition(forContentPieceID: pieceID, in: db)
+      })
+    try await service.undo(entry, in: database)
+    let afterUndo = try await database.read { db in try TodayRequest().fetch(db).rows }
+    expectNoDifference(afterUndo.map(\.id), [pieceID])
+    expectNoDifference(log.calls, ["archive:message-1", "reAddInbox:message-1"])
+  }
+
   @Test("Delta sync: once a cursor commits, a re-read goes through history.list and never re-lists the Inbox")
   func deltaSyncReadsFromCommittedCursor() async throws {
     let listCalls = Mutex(0)
