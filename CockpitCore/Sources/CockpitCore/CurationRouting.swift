@@ -1,5 +1,11 @@
 import SQLiteData
 
+@Selection
+private struct GmailArtifactRoutingRow: Sendable {
+  let streamID: Stream.ID?
+  let contentPieceID: ContentPiece.ID?
+}
+
 /// The current surface role of Gmail-backed ContentPieces. This is deliberately derived from
 /// Stream membership and follow state rather than from Gmail transport alone: the same provider
 /// can deliver either a followed Stream issue or loose Primary mail.
@@ -18,6 +24,12 @@ enum CurationRouting {
   static func snapshot(in db: Database) throws -> CurationRoutingSnapshot {
     let gmailArtifacts = try Artifact
       .where { $0.transport.eq(StreamTransport.gmail) }
+      .select {
+        GmailArtifactRoutingRow.Columns(
+          streamID: $0.streamID,
+          contentPieceID: $0.contentPieceID
+        )
+      }
       .fetchAll(db)
     let gmailContentPieceIDs = Set(gmailArtifacts.compactMap { $0.contentPieceID })
 
