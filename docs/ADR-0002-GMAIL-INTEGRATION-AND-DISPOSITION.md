@@ -2,8 +2,8 @@
 
 **Status:** Accepted (2026-09-19) — Gate 3 closed. Ratified once the three empirical open items were
 observed on the real account (M5 S6; see `docs/eval-log.md` 2026-09-19). Phase 4 mutation may proceed
-behind the barrier. **Amended 2026-09-21 (D9)** to ratify reflecting Gmail-side departures out of
-Today (PR #54).
+behind the barrier. **Amended 2026-09-21 (D9, D10)** to ratify reflecting Gmail-side departures out of
+Today and read-triggered, series-scoped disposition preferences.
 **Date:** 2026-09-17 (Accepted 2026-09-19; amended 2026-09-21)
 **Phase:** 3 gate — closes M4 and must be settled before source mutation is enabled (Phase 4).
 
@@ -233,6 +233,26 @@ widening stays inside §7/§8: it grants no destructive authority (no provider m
 custody boundary (D8). It does not extend to Cockpit-caused departures, per *External-only* above.
 
 ---
+
+## D10 — Read-triggered, series-scoped disposition preferences (amendment, 2026-09-21).
+
+Cockpit may apply an explicit series-scoped Trash preference when Jon has declared that newsletter
+series and then leaves the piece in the Today Reader. The trigger is a human read in the Reader —
+never sync, arrival, or any passive behavior — because the briefing's value is the material Jon has
+actually read. An unread declared piece is untouched.
+
+The scope is a user-declared set of series keyed by normalized Gmail `List-ID`, falling back to the
+normalized sender mailbox only when `List-ID` is absent. It is deliberately independent of `Stream.ID`:
+Streams are manually configured and must not be required for this provider preference. The path is
+guarded to `EmailTreatment.newsletter` both when the declaration is offered and again when the action
+is applied, so Primary/person-to-person mail and other treatments can never enter it. Declaration is
+explicit only; observed reads may not establish authority, and a future propose-and-confirm nudge
+would remain a proposal until accepted.
+
+The action is Gmail `Trash`, applied through D4's existing commit barrier and D6's bounded Undo log.
+It is once per message, idempotent against an existing Trash log entry, fully reversible while Gmail
+permits `untrash`, and leaves ContentPiece custody plus any Find, Later, or Library result untouched
+(D8). Removing the declaration row stops future automatic Trash; it does not undo prior dispositions.
 
 ## Open items — settled at ratification (M5 S6)
 

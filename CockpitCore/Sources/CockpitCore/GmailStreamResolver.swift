@@ -10,16 +10,16 @@ enum GmailStreamResolver {
   ) throws -> Stream.ID? {
     let streams = try Stream.where { $0.transport.eq(StreamTransport.gmail) }.fetchAll(db)
     let senderKey = GmailHeaderParser.senderKey(from: sender)
-    let listIDKeys = locatorKeys(provenance.listID)
+    let listIDKeys = GmailSeriesKey.locatorKeys(provenance.listID)
     let senderMatches = streams.filter { stream in
       guard let senderKey else { return false }
-      return locatorKeys(stream.locator).contains(senderKey)
+      return GmailSeriesKey.locatorKeys(stream.locator).contains(senderKey)
     }
     if senderMatches.count == 1 { return senderMatches[0].id }
     if senderMatches.count > 1 { return nil }
 
     let listMatches = streams.filter { stream in
-      !listIDKeys.isEmpty && !locatorKeys(stream.locator).isDisjoint(with: listIDKeys)
+      !listIDKeys.isEmpty && !GmailSeriesKey.locatorKeys(stream.locator).isDisjoint(with: listIDKeys)
     }
     return listMatches.count == 1 ? listMatches[0].id : nil
   }
@@ -47,17 +47,4 @@ enum GmailStreamResolver {
     return try? JSONDecoder().decode(GmailArtifactProvenance.self, from: Data(value.utf8))
   }
 
-  /// A Gmail Stream locator may be an exact sender mailbox or an exact List-ID value. Angle-bracket
-  /// List-ID syntax is normalized so `Feed Me <digest.example.com>` and `digest.example.com` refer
-  /// to the same explicit source without introducing fuzzy domain matching.
-  private static func locatorKeys(_ locator: String?) -> Set<String> {
-    guard let locator = locator?.lowercased().trimmedNonEmpty else { return [] }
-    var keys = Set([locator])
-    if let email = GmailHeaderParser.senderKey(from: locator) { keys.insert(email) }
-    if let open = locator.lastIndex(of: "<"), let close = locator[open...].firstIndex(of: ">") {
-      let inner = String(locator[locator.index(after: open)..<close]).trimmingCharacters(in: .whitespaces)
-      if let inner = inner.trimmedNonEmpty { keys.insert(inner) }
-    }
-    return keys
-  }
 }

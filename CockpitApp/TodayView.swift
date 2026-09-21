@@ -8,8 +8,9 @@ struct TodayView: View {
   @State private var inboxIngest = GmailInboxIngestModel()
   @Namespace private var readerTransition
   @State private var isConfirmingTailRecompose = false
+  @State private var isShowingRecentTrashes = false
 
-  var body: some View {
+    var body: some View {
     @Bindable var originalReaderModel = originalReaderModel
 
     NavigationStack {
@@ -34,7 +35,11 @@ struct TodayView: View {
         // presented ROOT so the tapped row expands in rather than sliding up.
         .sheet(
           item: $originalReaderModel.presentation,
-          onDismiss: originalReaderModel.presentationDismissed
+          onDismiss: {
+            if let dismissedID = originalReaderModel.presentationDismissed() {
+              Task { await model.applySeriesTrashOnLeave(dismissedID) }
+            }
+          }
         ) { presentation in
           NavigationStack {
             TodayOriginalReaderPane(
@@ -46,6 +51,9 @@ struct TodayView: View {
           .presentationDetents([.large])
           .presentationDragIndicator(.visible)
           .navigationTransition(.zoom(sourceID: presentation.id, in: readerTransition))
+        }
+        .sheet(isPresented: $isShowingRecentTrashes) {
+          RecentTrashSheet(model: model)
         }
     }
     .task {
@@ -77,6 +85,7 @@ struct TodayView: View {
           }
         }
       }
+      RecentTrashToolbar(model: model, isShowing: $isShowingRecentTrashes)
     }
     .confirmationDialog(
       "Recompose the tail?", isPresented: $isConfirmingTailRecompose, titleVisibility: .visible
