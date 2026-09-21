@@ -64,6 +64,8 @@ struct SettingsView: View {
         switch route {
         case .following:
           FollowingView(model: followingModel)
+        case let .streamHandling(streamID):
+          StreamHandlingView(streamID: streamID)
         case .interestAreas:
           InterestAreasView()
         case .personalKnowledge:

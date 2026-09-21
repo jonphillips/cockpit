@@ -34,6 +34,10 @@ struct FollowingView: View {
               }
             }
             Text(row.publisher).foregroundStyle(.secondary)
+            NavigationLink(value: SettingsRoute.streamHandling(streamID: row.id)) {
+              Label("Open Stream", systemImage: "list.bullet.rectangle")
+                .font(.subheadline)
+            }
             if !row.handlingGuidance.isEmpty {
               Text(row.handlingGuidance)
                 .font(.subheadline)

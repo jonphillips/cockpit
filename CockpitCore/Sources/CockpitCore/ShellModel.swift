@@ -43,6 +43,7 @@ public final class ShellModel {
 /// optionally open a specific claim once M3's stewardship work makes that affordance real.
 public enum SettingsRoute: Hashable, Sendable {
   case following
+  case streamHandling(streamID: UUID)
   case interestAreas
   case personalKnowledge(claimID: UUID?)
   case ai

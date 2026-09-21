@@ -91,10 +91,12 @@ struct EmailTreatmentProcessorTests {
     #expect(requestedPieceIDs.withLock { $0.count } == 1)
     #expect(requestedPieceIDs.withLock { $0.first?.contains(piece.id.uuidString) } == true)
     #expect(details.first?.decodedGrabBagItems.map(\.title) == ["Swift concurrency notes", "A useful wine essay"])
-    let model = TodayModel()
-    try await model.$content.load()
-    let row = try #require(model.tiers.first { $0.treatment == .grabBag }?.rows.first)
-    #expect(row.grabBagItems.map(\.title) == ["Swift concurrency notes", "A useful wine essay"])
+    let streamRows = try await database.read { db in
+      try StreamHandlingRequest(streamID: stream.id).fetch(db).rows
+    }
+    #expect(streamRows.map(\.id) == [piece.id])
+    let todayRows = try await database.read { db in try TodayRequest().fetch(db).rows }
+    #expect(todayRows.contains { $0.id == piece.id } == false)
   }
 
   @Test("Treatment processing is one message at a time and never turns a model failure into hiding")

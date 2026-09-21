@@ -65,7 +65,7 @@ struct CurationRoutingTests {
 
     let snapshot = try await database.read { db in try CurationRouting.snapshot(in: db) }
     #expect(snapshot.followedGmailStreamContentPieceIDs == [activePieceID])
-    #expect(snapshot.primaryGmailContentPieceIDs == [pausedPieceID, loosePieceID])
+    #expect(snapshot.todayTriageGmailContentPieceIDs == [pausedPieceID, loosePieceID])
     #expect(snapshot.editionExcludedContentPieceIDs == [activePieceID, pausedPieceID, loosePieceID])
     #expect(!snapshot.editionExcludedContentPieceIDs.contains(rssPieceID))
   }
