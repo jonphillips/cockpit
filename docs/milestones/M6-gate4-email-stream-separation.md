@@ -99,6 +99,16 @@ scaffold, so the gate's architecture ratification must not wait on the placement
    or do always-read Streams want a stronger surface than merely reachable? (Answer on device; if it
    pulls hard toward promotion, that reopens I5 — but as an additive keep-side policy *after* the gate,
    never inside it.)
+4. **Grab-bag / Feed Me digests became reachable-only (introduced by S-b, PR #57).** A manually-created
+   Gmail Stream defaults to `followState == .active` (`Domain.swift` ~line 100), so a grab-bag digest
+   (e.g. Feed Me) now *leaves Today entirely* and is reachable only via its Stream. Extraction stays
+   durable (`decodedGrabBagItems` still persists), but the digest no longer fans its extracted items
+   out into Today triage — the whole issue collapses to a single Stream row that surfaces none of its
+   items in any list. This is a genuine surfacing change, not just a routing one, and it answers
+   question #3 for grab-bags by side effect of the `.active` default rather than by decision. Confirm at
+   the review: is a Feed Me digest a followed Stream (reachable-first is correct), or does an
+   items-bearing digest want its extracted items surfaced somewhere (Today, or a richer Stream row)?
+   Do not let this ride in silently.
 
 ## Continuity with shipped work
 
