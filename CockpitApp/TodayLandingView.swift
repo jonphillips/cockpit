@@ -43,15 +43,39 @@ struct TodayLandingView: View {
       VStack(alignment: .leading, spacing: 8) {
         Text(title).font(.title3.weight(.semibold)).padding(.top, 24)
         ForEach(rows) { row in
-          Button { openReader(row.contentPieceID) } label: {
-            TailRowView(row: row)
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .matchedTransitionSource(id: row.contentPieceID, in: readerNamespace)
+          HStack(alignment: .top, spacing: 8) {
+            Button { openReader(row.contentPieceID) } label: {
+              TailRowView(row: row)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .matchedTransitionSource(id: row.contentPieceID, in: readerNamespace)
+            }
+            .buttonStyle(.plain)
+            tailRowMenu(row)
           }
-          .buttonStyle(.plain)
         }
       }
     }
+  }
+
+  /// Tail stories are RSS/screened content, not Gmail, so their resolution is `Dismiss` (the Edition
+  /// action) rather than an Archive/Trash provider mutation. Save for Later and Add to Library are the
+  /// two durable homes offered alongside it.
+  private func tailRowMenu(_ row: CurrentEditionRequest.Row) -> some View {
+    Menu {
+      Button("Dismiss", systemImage: "xmark.circle", role: .destructive) {
+        Task { await tailModel.dismiss(row.id) }
+      }
+      Divider()
+      Button("Save for Later", systemImage: "clock") {
+        Task { await tailModel.saveForLater(row.id) }
+      }
+      Button("Add to Library", systemImage: "books.vertical") {
+        Task { await tailModel.addToLibrary(row.id) }
+      }
+    } label: {
+      Image(systemName: "ellipsis.circle").foregroundStyle(.secondary).padding(.top, 4)
+    }
+    .accessibilityLabel("Tail story actions")
   }
 
   private var orientationHeader: some View {
