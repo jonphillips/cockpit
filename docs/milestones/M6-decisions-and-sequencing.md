@@ -3,7 +3,8 @@
 > **Read-first forward-carry doc.** Architect-recorded 2026-09-21 from the M6 design session. It exists
 > so decisions that outlive a slice — especially the things we chose *not* to do yet — have a durable
 > home instead of evaporating in chat or a PR comment. Companion to the slice/design notes:
-> `M6-S1-series-trash-after-reading.md` (shipped, in review) and `M6-gate5-find-handoff-design.md`.
+> `M6-S1-series-trash-after-reading.md` (shipped, in review), `M6-gate5-find-handoff-design.md`
+> (rationale), and `M6-gate5-find-handoff-slice-plan.md` (contract + decomposition).
 
 ## M6 shape
 

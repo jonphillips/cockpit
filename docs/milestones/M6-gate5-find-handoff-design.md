@@ -1,10 +1,15 @@
 # M6 Gate 5 — First specialist Find handoff (Yes Chef): design note
 
-> **Design note, not yet a slice spec.** Architect-recorded 2026-09-21 from the M6 design session, to
+> **Design note — now promoted.** Architect-recorded 2026-09-21 from the M6 design session, to
 > hand a *fresh* session a warm start. It captures every decision we locked so the return-channel
 > investigation and the two-repo build don't re-derive them. It is normative against
 > `docs/APP-FAMILY-INTERACTION.md` (§3/§6/§7/§9) and ADR-0002 D8, and inherits the deferred/permanent
 > ledger in `docs/milestones/M6-decisions-and-sequencing.md`.
+>
+> **The three open questions below were answered against real code (2026-09-21) and this note is now a
+> sliceable plan: `M6-gate5-find-handoff-slice-plan.md` (the frozen contract, invariants, and
+> decomposition). This note remains the rationale of record; the slice plan is what the executor builds
+> to.**
 
 ## What Gate 5 proves
 
