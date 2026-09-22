@@ -8,7 +8,7 @@
 **Dependency shape:** S-r1 → S-r2 → S-r5. S-r3 and S-r4 float (S-r3 is easiest after S-r2 because both
 touch `ReaderView.swift`).
 
-- [ ] S-r1 — Queue flow: disposed issues leave the queue, advance to next, Undo
+- [x] S-r1 — Queue flow: disposed issues leave the queue, advance to next, Undo
 - [ ] S-r2 — Reader chrome: actions in the toolbar, inline Tell Cockpit, Delete archives
 - [ ] S-r3 — Reader facts: sender names, received dates, links open in Safari
 - [ ] S-r4 — Sync on open/foreground (throttled)

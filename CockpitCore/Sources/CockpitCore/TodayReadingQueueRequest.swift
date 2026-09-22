@@ -128,7 +128,7 @@ extension TodayReadingQueueRequest {
     let followedStream = inputs.routing.followedGmailStreamContentPieceIDs.contains(piece.id)
     let editionEntry = inputs.editionEntryByContentPieceID[piece.id]
     let routedRole = inputs.routing.role(for: piece.id)
-    if isGmailSource && !followedStream
+    if isGmailSource
       && (inputs.clearedIDs.contains(piece.id) || inputs.disposedIDs.contains(piece.id))
     {
       return nil

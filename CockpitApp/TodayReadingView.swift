@@ -60,6 +60,15 @@ struct TodayReadingView: View {
         }
         .padding()
         .background(.regularMaterial)
+      } else if let disposition = model.lastDisposition {
+        HStack {
+          Text("\(disposition.disposition == .archive ? "Archived" : "Trashed") “\(disposition.title)”")
+          Spacer()
+          Button("Undo") { Task { await model.undoLastDisposition() } }
+          Button("Dismiss") { model.lastDisposition = nil }
+        }
+        .padding()
+        .background(.regularMaterial)
       }
     }
   }
@@ -104,8 +113,7 @@ private struct TodayReadingQueueSidebar: View {
             TodayReadingQueueRow(
               row: row,
               archive: { Task { await model.archive(row) } },
-              trash: { Task { await model.trash(row) } },
-              undo: { Task { await model.undoDisposition(row) } }
+              trash: { Task { await model.trash(row) } }
             )
             .tag(row.id)
           }
@@ -157,6 +165,10 @@ private struct TodayReadingQueueDetail: View {
       ReaderView(
         contentPieceID: row.id,
         editionContext: editionContext(for: row),
+        queueContext: ReaderQueueContext(
+          archive: { await model.archive(row) },
+          trash: { await model.trash(row) }
+        ),
         isReachableStreamPiece: row.isFollowedStreamPiece,
         originalWebViewStore: originalWebViewStore
       )
@@ -203,52 +215,5 @@ private struct ReadingDividerHandle: View {
       .accessibilityElement()
       .accessibilityLabel("Reading list divider")
       .accessibilityHint("Drag to resize the reading list")
-  }
-}
-
-private struct TodayReadingQueueRow: View {
-  let row: TodayReadingQueueRequest.Row
-  let archive: () -> Void
-  let trash: () -> Void
-  let undo: () -> Void
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      HStack(alignment: .firstTextBaseline, spacing: 6) {
-        Text(row.title)
-          .font(.headline)
-          .lineLimit(2)
-        Spacer(minLength: 0)
-        if row.isFollowedStreamPiece {
-          Image(systemName: "arrow.triangle.branch")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .accessibilityLabel("Followed Stream")
-        }
-      }
-      Text(row.sourceLabel)
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
-      if let summary = row.summary, !summary.isEmpty {
-        Text(summary)
-          .font(.caption)
-          .foregroundStyle(.secondary)
-          .lineLimit(2)
-      }
-    }
-    .padding(.vertical, 4)
-    .accessibilityElement(children: .combine)
-    .accessibilityHint("Open in Reader.")
-    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-      if row.isGmailSource {
-        Button("Trash", systemImage: "trash", role: .destructive, action: trash)
-        Button("Archive", systemImage: "archivebox", action: archive)
-      }
-    }
-    .swipeActions(edge: .leading, allowsFullSwipe: false) {
-      if row.isGmailSource {
-        Button("Undo", systemImage: "arrow.uturn.backward", action: undo)
-      }
-    }
   }
 }

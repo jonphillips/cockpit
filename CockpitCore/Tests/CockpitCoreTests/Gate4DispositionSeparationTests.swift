@@ -29,6 +29,25 @@ struct Gate4DispositionSeparationTests {
       .trash, messageID: "gate4-s-c-trash", in: database)
   }
 
+  @Test("External departure hides a followed Gmail issue from the queue, not Stream Handling")
+  func externalDepartureHidesQueueOnly() async throws {
+    let fixture = try await seedFixture(messageID: "gate4-followed-external", in: database)
+    let before = try await database.read { db in try state(for: fixture, in: db) }
+    try await database.write { db in
+      try TodayAttentionOperations.clearDeparted(providerIDs: [fixture.providerID], at: .distantPast, in: db)
+    }
+    let projection = try await database.read { db in
+      (
+        try TodayReadingQueueRequest().fetch(db).rows.first { $0.id == fixture.pieceID },
+        try StreamHandlingRequest(streamID: fixture.streamID).fetch(db).rows.first { $0.id == fixture.pieceID }
+      )
+    }
+    #expect(projection.0 == nil)
+    #expect(projection.1 != nil)
+    let after = try await database.read { db in try state(for: fixture, in: db) }
+    expectNoDifference(after, before)
+  }
+
   @Test("Substantive-primary classification cannot change followed Gmail Stream routing")
   func substantivePrimaryDoesNotRouteGmailStreamContent() async throws {
     let fixture = try await seedRoutingFixture(in: database)
@@ -93,7 +112,8 @@ private func assertDispositionPreservesStreamAndEditionState(
   let queueAfter = try await database.read { db in
     try TodayReadingQueueRequest().fetch(db).rows.first { $0.id == fixture.pieceID }
   }
-  #expect(queueAfter == queueBefore)
+  #expect(queueAfter == nil)
+  #expect(queueBefore?.isFollowedStreamPiece == true)
 
   // The applied source disposition is the only new state: it points at the provider Artifact and
   // does not become a ContentPiece, Stream, Edition, or Essential-state mutation.
