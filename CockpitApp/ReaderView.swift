@@ -13,6 +13,7 @@ struct ReaderView: View {
   @Environment(\.openURL) private var openURL
   @State private var correctingClaim: PersonalKnowledgeRequest.Row?
   @State private var offlineSheet: OfflineAvailabilitySheet?
+  @FocusState private var isTeachingReasonFocused: Bool
 
   init(
     contentPieceID: ContentPiece.ID,
@@ -43,6 +44,7 @@ struct ReaderView: View {
           VStack(alignment: .leading, spacing: 4) {
             Text(row.title).font(.title2).bold()
             Text(row.publisher).foregroundStyle(.secondary)
+            OfflineAvailabilityStatus(presentation: model.offlinePresentation)
           }
 
           if let rationale = editionContext?.rationale, !rationale.isEmpty {
@@ -75,21 +77,33 @@ struct ReaderView: View {
 
           Divider()
 
-          ReaderActionControls(
-            editionContext: editionContext,
-            dismissScreen: dismissScreen,
-            saveForLater: saveForLaterButtonTapped,
-            addToLibrary: addToLibraryButtonTapped,
-            offlinePresentation: model.offlinePresentation,
-            chooseOfflineUntil: {
-              offlineSheet = .until
-            },
-            keepOffline: { Task { await model.keepOffline() } },
-            releaseOffline: { Task { await model.releaseOffline() } },
-            beginTeaching: model.beginTeaching,
-            readerTaughtClaim: model.readerTaughtClaim,
-            correctClaim: { correctingClaim = $0 }
-          )
+          HStack(spacing: 8) {
+            TextField("Tell Cockpit why this matters", text: $model.teachingReason)
+              .textFieldStyle(.roundedBorder)
+              .focused($isTeachingReasonFocused)
+              .submitLabel(.send)
+              .disabled(model.isReviewingTeaching)
+              .onSubmit { submitTeachingReason() }
+
+            if model.isReviewingTeaching {
+              ProgressView()
+                .controlSize(.small)
+                .accessibilityLabel("Reviewing teaching")
+            }
+
+            Button {
+              submitTeachingReason()
+            } label: {
+              Image(systemName: "arrow.up.circle.fill")
+                .font(.title2)
+            }
+            .buttonStyle(.plain)
+            .disabled(
+              model.isReviewingTeaching
+                || model.teachingReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            )
+            .accessibilityLabel("Submit why this matters")
+          }
         }
         .padding()
       } else {
@@ -98,7 +112,21 @@ struct ReaderView: View {
     }
     .navigationTitle("Reader")
     .navigationBarTitleDisplayMode(.inline)
-    .toolbar { ReaderDispositionToolbar(model: model, queueContext: queueContext) }
+    .toolbar {
+      ReaderDispositionToolbar(
+        model: model,
+        editionContext: editionContext,
+        queueContext: queueContext,
+        isTeachingReasonFocused: isTeachingReasonFocused,
+        dismissEdition: dismissEditionButtonTapped,
+        saveForLater: saveForLaterButtonTapped,
+        addToLibrary: addToLibraryButtonTapped,
+        chooseOfflineUntil: { offlineSheet = .until },
+        keepOffline: { Task { await model.keepOffline() } },
+        releaseOffline: { Task { await model.releaseOffline() } },
+        correctClaim: { correctingClaim = $0 }
+      )
+    }
     .task { await readerAppeared() }
     .sheet(item: $model.teachingStage) { stage in
       ReaderTeachingView(model: model, stage: stage)
@@ -141,6 +169,15 @@ private extension ReaderView {
     }
   }
 
+  func dismissEditionButtonTapped() async {
+    guard let editionContext else { return }
+    await editionContext.model.dismiss(editionContext.entryID)
+    if editionContext.model.errorMessage == nil {
+      editionContext.clearSelection()
+      dismissScreen()
+    }
+  }
+
   func saveForLaterButtonTapped() async {
     if let editionContext {
       await editionContext.model.saveForLater(editionContext.entryID)
@@ -158,6 +195,11 @@ private extension ReaderView {
     } else {
       await model.addToLibrary()
     }
+  }
+
+  func submitTeachingReason() {
+    guard !model.isReviewingTeaching else { return }
+    Task { await model.submitTeachingReason() }
   }
 }
 
@@ -195,61 +237,5 @@ private struct ReaderRationaleView: View {
     }
     .padding()
     .background(.thinMaterial, in: .rect(cornerRadius: 12))
-  }
-}
-
-private struct ReaderActionControls: View {
-  let editionContext: EditionReaderContext?
-  let dismissScreen: DismissAction
-  let saveForLater: () async -> Void
-  let addToLibrary: () async -> Void
-  let offlinePresentation: OfflineAvailabilityPresentation
-  let chooseOfflineUntil: () -> Void
-  let keepOffline: () -> Void
-  let releaseOffline: () -> Void
-  let beginTeaching: () -> Void
-  let readerTaughtClaim: PersonalKnowledgeRequest.Row?
-  let correctClaim: (PersonalKnowledgeRequest.Row) -> Void
-
-  var body: some View {
-    HStack(spacing: 20) {
-      if let editionContext {
-        Button("Dismiss", systemImage: "xmark.circle") {
-          Task {
-            await editionContext.model.dismiss(editionContext.entryID)
-            if editionContext.model.errorMessage == nil {
-              editionContext.clearSelection()
-              dismissScreen()
-            }
-          }
-        }
-      }
-      Button("Save for Later", systemImage: "clock") {
-        Task { await saveForLater() }
-      }
-      Button("Add to Library", systemImage: "books.vertical") {
-        Task { await addToLibrary() }
-      }
-    }
-    .buttonStyle(.bordered)
-    .font(.subheadline)
-
-    OfflineAvailabilityControls(
-      presentation: offlinePresentation,
-      chooseOfflineUntil: chooseOfflineUntil,
-      keepOffline: keepOffline,
-      releaseOffline: releaseOffline
-    )
-
-    VStack(alignment: .leading, spacing: 8) {
-      Button("Tell Cockpit why this matters", systemImage: "lightbulb", action: beginTeaching)
-      if let readerTaughtClaim {
-        Button("Correct this understanding", systemImage: "pencil") {
-          correctClaim(readerTaughtClaim)
-        }
-      }
-    }
-    .buttonStyle(.bordered)
-    .font(.subheadline)
   }
 }
