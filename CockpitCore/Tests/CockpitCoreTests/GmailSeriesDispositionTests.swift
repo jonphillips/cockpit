@@ -100,6 +100,7 @@ struct GmailSeriesDispositionTests {
       await model.applySeriesTrashOnLeave(declaredID)
       await model.applySeriesTrashOnLeave(declaredID)
       #expect(!model.rows.contains { $0.id == declaredID })
+      expectNoDifference(model.lastDisposition?.title, "Subject series-read-declared")
     }
     expectNoDifference(log.calls, ["trash:series-read-declared"])
   }
@@ -134,7 +135,6 @@ struct GmailSeriesDispositionTests {
     } operation: {
       let model = TodayReadingQueueModel()
       try await model.$content.load()
-      let row = try #require(model.rows.first { $0.id == pieceID })
       await model.applySeriesTrashOnLeave(pieceID)
 
       // D9 reconciliation must skip a Cockpit-caused departure or Undo would be stranded.
@@ -146,7 +146,7 @@ struct GmailSeriesDispositionTests {
       }
       expectNoDifference(markerCount, 0)
 
-      await model.undoDisposition(row)
+      await model.undoLastDisposition()
       #expect(model.rows.contains { $0.id == pieceID })
     }
 
@@ -178,11 +178,16 @@ struct GmailSeriesDispositionTests {
       // Select two known test rows in their actual queue order, independent of older fixture rows.
       let inserted = model.rows.filter { $0.title.hasPrefix("Subject queue-") }
       let selected = try #require(inserted.first)
-      let expectedNext = ReadingQueueSelection.neighbour(of: selected.id, in: model.rows)
+      let nonSelected = try #require(inserted.last { $0.id != selected.id })
       model.selectedContentPieceID = selected.id
+      await model.archive(nonSelected)
+      expectNoDifference(model.selectedContentPieceID, selected.id)
+
+      let selectedIndex = try #require(model.rows.firstIndex { $0.id == selected.id })
+      let expectedNext = try #require(model.rows.dropFirst(selectedIndex + 1).first)
       await model.archive(selected)
 
-      expectNoDifference(model.selectedContentPieceID, expectedNext)
+      expectNoDifference(model.selectedContentPieceID, expectedNext.id)
       #expect(!model.rows.contains { $0.id == selected.id })
       #expect(model.lastDisposition?.contentPieceID == selected.id)
       await model.undoLastDisposition()
@@ -190,8 +195,8 @@ struct GmailSeriesDispositionTests {
       #expect(model.rows.contains { $0.id == selected.id })
       #expect(model.lastDisposition == nil)
     }
-    #expect(log.calls.count == 2)
-    #expect(log.calls.first?.hasPrefix("archive:queue-") == true)
+    #expect(log.calls.count == 3)
+    #expect(log.calls.prefix(2).allSatisfy { $0.hasPrefix("archive:queue-") })
     #expect(log.calls.last?.hasPrefix("reAddInbox:queue-") == true)
   }
 
@@ -212,11 +217,53 @@ struct GmailSeriesDispositionTests {
       try await model.$content.load()
       let row = try #require(model.rows.first { $0.id == pieceID })
       model.selectedContentPieceID = pieceID
+      let previousDisposition = TodayReadingQueueModel.LastDisposition(
+        contentPieceID: UUID(), title: "Earlier issue", disposition: .trash)
+      model.lastDisposition = previousDisposition
       await model.archive(row)
       expectNoDifference(model.selectedContentPieceID, pieceID)
       #expect(model.rows.contains { $0.id == pieceID })
       #expect(model.errorMessage != nil)
+      expectNoDifference(model.lastDisposition, previousDisposition)
     }
+  }
+
+  @MainActor
+  @Test("Undo after auto-advance does not trash the item it advanced to")
+  func undoSkipsSeriesTrashForAdvancedItem() async throws {
+    _ = try await seed(id: "queue-before-series", treatment: .personal, sender: "before@example.com")
+    let advancedID = try await seed(
+      id: "queue-series-after-advance", treatment: .newsletter, sender: "morning@example.com",
+      listID: "morning.example.com")
+    try await database.write { db in
+      try GmailSeriesDispositionOperations.declare(
+        seriesKey: "morning.example.com", at: .distantPast, in: db)
+    }
+    let log = CallLog()
+    try await withDependencies {
+      $0.gmailDispositionClient = log.client
+    } operation: {
+      let model = TodayReadingQueueModel()
+      try await model.$content.load()
+      _ = try #require(model.rows.first { $0.id == advancedID })
+      let advancedIndex = try #require(model.rows.firstIndex { $0.id == advancedID })
+      let previous = try #require(model.rows[..<advancedIndex].last { $0.isGmailSource })
+      model.selectedContentPieceID = previous.id
+
+      await model.archive(previous)
+      expectNoDifference(model.selectedContentPieceID, advancedID)
+      // This mirrors the first selection-change callback; the archived issue must not be auto-trashed.
+      await model.applySeriesTrashOnLeave(previous.id)
+      await model.undoLastDisposition()
+      expectNoDifference(model.selectedContentPieceID, previous.id)
+      await model.applySeriesTrashOnLeave(advancedID)
+
+      #expect(model.rows.contains { $0.id == advancedID })
+      #expect(model.lastDisposition == nil)
+    }
+    #expect(log.calls.count == 2)
+    #expect(log.calls.first?.hasPrefix("archive:") == true)
+    #expect(log.calls.last?.hasPrefix("reAddInbox:") == true)
   }
 
   @Test("An active archive prevents series trash-on-leave")

@@ -5,7 +5,6 @@ struct TodayReadingQueueRow: View {
   let row: TodayReadingQueueRequest.Row
   let archive: () -> Void
   let trash: () -> Void
-  let undo: () -> Void
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
@@ -38,11 +37,6 @@ struct TodayReadingQueueRow: View {
       if row.isGmailSource {
         Button("Trash", systemImage: "trash", role: .destructive, action: trash)
         Button("Archive", systemImage: "archivebox", action: archive)
-      }
-    }
-    .swipeActions(edge: .leading, allowsFullSwipe: false) {
-      if row.isGmailSource {
-        Button("Undo", systemImage: "arrow.uturn.backward", action: undo)
       }
     }
   }

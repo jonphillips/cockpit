@@ -113,8 +113,7 @@ private struct TodayReadingQueueSidebar: View {
             TodayReadingQueueRow(
               row: row,
               archive: { Task { await model.archive(row) } },
-              trash: { Task { await model.trash(row) } },
-              undo: { Task { await model.undoDisposition(row) } }
+              trash: { Task { await model.trash(row) } }
             )
             .tag(row.id)
           }

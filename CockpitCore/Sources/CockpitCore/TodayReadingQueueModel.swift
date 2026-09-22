@@ -36,6 +36,7 @@ public final class TodayReadingQueueModel {
   @ObservationIgnored @Dependency(\.date.now) private var now
   @ObservationIgnored @Dependency(\.gmailDispositionClient) private var dispositionClient
   @ObservationIgnored @Fetch(TodayReadingQueueRequest()) public var content = .init()
+  @ObservationIgnored private var skipSeriesTrashOnLeaveIDs: Set<ContentPiece.ID> = []
   public var selectedContentPieceID: ContentPiece.ID?
   public var errorMessage: String?
   public var lastDisposition: LastDisposition?
@@ -69,10 +70,6 @@ public final class TodayReadingQueueModel {
     await applyDisposition(.trash, to: row.id)
   }
 
-  public func undoDisposition(_ row: TodayReadingQueueRequest.Row) async {
-    await undoDisposition(contentPieceID: row.id)
-  }
-
   public func undoLastDisposition() async {
     guard let lastDisposition else { return }
     await undoDisposition(contentPieceID: lastDisposition.contentPieceID)
@@ -85,6 +82,9 @@ public final class TodayReadingQueueModel {
       }) else { return }
       try await dispositionService.undo(entry, in: database)
       await reload()
+      if let movedAwayFrom = selectedContentPieceID, movedAwayFrom != contentPieceID {
+        skipSeriesTrashOnLeaveIDs.insert(movedAwayFrom)
+      }
       selectedContentPieceID = contentPieceID
       lastDisposition = nil
     } catch is CancellationError {
@@ -95,12 +95,14 @@ public final class TodayReadingQueueModel {
 
   /// Applies the explicit M6 S1 series policy when a followed-stream issue leaves the Reader.
   public func applySeriesTrashOnLeave(_ contentPieceID: ContentPiece.ID) async {
+    guard skipSeriesTrashOnLeaveIDs.remove(contentPieceID) == nil else { return }
+    let title = rows.first(where: { $0.id == contentPieceID })?.title
     do {
       let didTrash = try await GmailSeriesDispositionOperations.applyTrashOnLeave(
         contentPieceID: contentPieceID, in: database, using: dispositionService)
       guard didTrash else { return }
-      if let row = rows.first(where: { $0.id == contentPieceID }) {
-        lastDisposition = LastDisposition(contentPieceID: contentPieceID, title: row.title, disposition: .trash)
+      if let title {
+        lastDisposition = LastDisposition(contentPieceID: contentPieceID, title: title, disposition: .trash)
       }
       await reload()
       errorMessage = nil
@@ -114,12 +116,11 @@ public final class TodayReadingQueueModel {
     guard let row = rows.first(where: { $0.id == id }), row.isGmailSource else { return }
     let shouldAdvance = selectedContentPieceID == id
     let nextSelection = shouldAdvance ? ReadingQueueSelection.neighbour(of: id, in: rows) : nil
-    lastDisposition = nil
     do {
       _ = try await dispositionService.apply(disposition, toContentPieceID: id, in: database)
       lastDisposition = LastDisposition(contentPieceID: row.id, title: row.title, disposition: disposition)
-      await reload()
       if shouldAdvance { selectedContentPieceID = nextSelection }
+      await reload()
       errorMessage = nil
     } catch is CancellationError {
     } catch {
