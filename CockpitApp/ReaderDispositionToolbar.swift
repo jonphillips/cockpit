@@ -5,13 +5,16 @@ import SwiftUI
 /// actions as the Today row menu (`GmailDispositionButtons`) so status can be changed while reading.
 struct ReaderDispositionToolbar: ToolbarContent {
   let model: ContentPieceReaderModel
+  var queueContext: ReaderQueueContext? = nil
 
   var body: some ToolbarContent {
     if model.isGmailSource {
       // Archive is the one-tap default; Trash and Undo stay under the menu so the common gesture does
       // not require choosing between dispositions first.
       ToolbarItem(placement: .topBarTrailing) {
-        Button("Archive", systemImage: "archivebox") { Task { await model.archiveSource() } }
+        Button("Archive", systemImage: "archivebox") {
+          Task { await archive() }
+        }
       }
       ToolbarItem(placement: .topBarTrailing) {
         Menu {
@@ -24,7 +27,7 @@ struct ReaderDispositionToolbar: ToolbarContent {
           }
           Divider()
           Button("Trash", systemImage: "trash", role: .destructive) {
-            Task { await model.trashSource() }
+            Task { await trash() }
           }
           Button("Undo disposition", systemImage: "arrow.uturn.backward") {
             Task { await model.undoDisposition() }
@@ -34,5 +37,15 @@ struct ReaderDispositionToolbar: ToolbarContent {
         }
       }
     }
+  }
+
+  private func archive() async {
+    if let queueContext { await queueContext.archive() }
+    else { await model.archiveSource() }
+  }
+
+  private func trash() async {
+    if let queueContext { await queueContext.trash() }
+    else { await model.trashSource() }
   }
 }

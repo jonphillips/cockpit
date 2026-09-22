@@ -5,6 +5,7 @@ import SwiftUI
 struct ReaderView: View {
   let contentPieceID: ContentPiece.ID
   let editionContext: EditionReaderContext?
+  let queueContext: ReaderQueueContext?
   let isReachableStreamPiece: Bool
   @State private var originalWebViewStore: TodayOriginalWebViewStore
   @LazyState private var model: ContentPieceReaderModel
@@ -16,11 +17,13 @@ struct ReaderView: View {
   init(
     contentPieceID: ContentPiece.ID,
     editionContext: EditionReaderContext? = nil,
+    queueContext: ReaderQueueContext? = nil,
     isReachableStreamPiece: Bool = false,
     originalWebViewStore: TodayOriginalWebViewStore? = nil
   ) {
     self.contentPieceID = contentPieceID
     self.editionContext = editionContext
+    self.queueContext = queueContext
     self.isReachableStreamPiece = isReachableStreamPiece
     _originalWebViewStore = State(
       initialValue: originalWebViewStore ?? TodayOriginalWebViewStore())
@@ -95,7 +98,7 @@ struct ReaderView: View {
     }
     .navigationTitle("Reader")
     .navigationBarTitleDisplayMode(.inline)
-    .toolbar { ReaderDispositionToolbar(model: model) }
+    .toolbar { ReaderDispositionToolbar(model: model, queueContext: queueContext) }
     .task { await readerAppeared() }
     .sheet(item: $model.teachingStage) { stage in
       ReaderTeachingView(model: model, stage: stage)
@@ -166,6 +169,11 @@ struct EditionReaderContext {
   /// The parent list owns split-view selection. Clearing it after a terminal tail action prevents
   /// a regular-width detail column from re-rendering the resolved row as a plain Reader.
   let clearSelection: @MainActor () -> Void
+}
+
+struct ReaderQueueContext {
+  let archive: @MainActor () async -> Void
+  let trash: @MainActor () async -> Void
 }
 
 private struct ReaderRationaleView: View {

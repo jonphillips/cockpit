@@ -164,6 +164,80 @@ struct GmailSeriesDispositionTests {
   }
 
   @MainActor
+  @Test("Selected queue disposition advances and Undo restores and reselects the issue")
+  func queueSelectionAndUndo() async throws {
+    for suffix in ["queue-a", "queue-b", "queue-c"] {
+      _ = try await seed(id: suffix, treatment: .personal, sender: "friend-\(suffix)@example.com")
+    }
+    let log = CallLog()
+    try await withDependencies {
+      $0.gmailDispositionClient = log.client
+    } operation: {
+      let model = TodayReadingQueueModel()
+      try await model.$content.load()
+      // Select two known test rows in their actual queue order, independent of older fixture rows.
+      let inserted = model.rows.filter { $0.title.hasPrefix("Subject queue-") }
+      let selected = try #require(inserted.first)
+      let expectedNext = ReadingQueueSelection.neighbour(of: selected.id, in: model.rows)
+      model.selectedContentPieceID = selected.id
+      await model.archive(selected)
+
+      expectNoDifference(model.selectedContentPieceID, expectedNext)
+      #expect(!model.rows.contains { $0.id == selected.id })
+      #expect(model.lastDisposition?.contentPieceID == selected.id)
+      await model.undoLastDisposition()
+      expectNoDifference(model.selectedContentPieceID, selected.id)
+      #expect(model.rows.contains { $0.id == selected.id })
+      #expect(model.lastDisposition == nil)
+    }
+    #expect(log.calls.count == 2)
+    #expect(log.calls.first?.hasPrefix("archive:queue-") == true)
+    #expect(log.calls.last?.hasPrefix("reAddInbox:queue-") == true)
+  }
+
+  @MainActor
+  @Test("A failed disposition leaves the selected queue row unchanged")
+  func queueSelectionSurvivesFailure() async throws {
+    let pieceID = try await seed(id: "queue-failure", treatment: .personal, sender: "friend@example.com")
+    let failingClient = GmailDispositionClient(
+      archive: { _ in throw GmailDispositionOperations.Failure.notGmailArtifact },
+      trash: { _ in throw GmailDispositionOperations.Failure.notGmailArtifact },
+      reAddInbox: { _ in throw GmailDispositionOperations.Failure.notGmailArtifact },
+      untrash: { _ in throw GmailDispositionOperations.Failure.notGmailArtifact }
+    )
+    try await withDependencies {
+      $0.gmailDispositionClient = failingClient
+    } operation: {
+      let model = TodayReadingQueueModel()
+      try await model.$content.load()
+      let row = try #require(model.rows.first { $0.id == pieceID })
+      model.selectedContentPieceID = pieceID
+      await model.archive(row)
+      expectNoDifference(model.selectedContentPieceID, pieceID)
+      #expect(model.rows.contains { $0.id == pieceID })
+      #expect(model.errorMessage != nil)
+    }
+  }
+
+  @Test("An active archive prevents series trash-on-leave")
+  func archivePreventsSeriesTrashOnLeave() async throws {
+    let pieceID = try await seed(
+      id: "series-already-archived", treatment: .newsletter, sender: "morning@example.com",
+      listID: "morning.example.com")
+    try await database.write { db in
+      try GmailSeriesDispositionOperations.declare(
+        seriesKey: "morning.example.com", at: .distantPast, in: db)
+    }
+    let log = CallLog()
+    let service = GmailDispositionService(client: log.client, now: { .distantPast })
+    _ = try await service.apply(.archive, toContentPieceID: pieceID, in: database)
+    let didTrash = try await GmailSeriesDispositionOperations.applyTrashOnLeave(
+      contentPieceID: pieceID, in: database, using: service)
+    #expect(!didTrash)
+    expectNoDifference(log.calls, ["archive:series-already-archived"])
+  }
+
+  @MainActor
   @Test("Un-declaring stops future read-triggered Trash")
   func undeclarationStopsFutureTrash() async throws {
     let pieceID = try await seed(

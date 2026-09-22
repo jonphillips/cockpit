@@ -59,4 +59,16 @@ struct TodayReadingQueueTests {
 
     #expect(ReadingQueueOrdering.ordered(rows).map(\.id) == [UUID(10_013), UUID(10_011), UUID(10_012)])
   }
+
+  @Test("selection advances, falls back, and clears for a one-row queue")
+  func selectionNeighbour() {
+    let first = UUID(10_021), middle = UUID(10_022), last = UUID(10_023)
+    let rows = [first, middle, last].map {
+      TodayReadingQueueRequest.Row(id: $0, title: "Piece", publisher: "Publisher", role: .forYou,
+        arrivedAt: .distantPast, isGmailSource: true)
+    }
+    #expect(ReadingQueueSelection.neighbour(of: middle, in: rows) == last)
+    #expect(ReadingQueueSelection.neighbour(of: last, in: rows) == middle)
+    #expect(ReadingQueueSelection.neighbour(of: first, in: [rows[0]]) == nil)
+  }
 }

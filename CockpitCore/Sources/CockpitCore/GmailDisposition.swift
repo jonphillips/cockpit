@@ -7,7 +7,7 @@ import SQLiteData
 ///
 /// Named to distinguish it from `JudgmentFixtureSupport.GmailDisposition`, which is the *observed*
 /// state of a harvested message (inbox/archived/trashed); this is the *action* Cockpit applies.
-public enum GmailSourceDisposition: String, CaseIterable, Codable, Sendable {
+public enum GmailSourceDisposition: String, CaseIterable, Codable, Equatable, Sendable {
   case leave
   case archive
   case trash

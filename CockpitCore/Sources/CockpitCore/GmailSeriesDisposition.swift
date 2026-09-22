@@ -51,7 +51,7 @@ public enum GmailSeriesDispositionOperations {
     let shouldTrash = try await database.read { db in
       guard let seriesKey = try GmailSeriesKey.seriesKey(forContentPieceID: contentPieceID, in: db),
         try isDeclared(seriesKey: seriesKey, in: db),
-        try !GmailDispositionOperations.hasTrashLogEntry(forContentPieceID: contentPieceID, in: db)
+        try GmailDispositionOperations.activeDisposition(forContentPieceID: contentPieceID, in: db) == nil
       else { return false }
       return true
     }
