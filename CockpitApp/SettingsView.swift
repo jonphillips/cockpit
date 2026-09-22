@@ -25,6 +25,9 @@ struct SettingsView: View {
           NavigationLink(value: SettingsRoute.interestAreas) {
             Label("Interest Areas", systemImage: "square.grid.2x2")
           }
+          NavigationLink(value: SettingsRoute.subfeedRouting) {
+            Label("Sub-feed routing", systemImage: "arrow.triangle.branch")
+          }
         }
 
         Section("Intelligence") {
@@ -64,6 +67,8 @@ struct SettingsView: View {
         switch route {
         case .following:
           FollowingView(model: followingModel)
+        case .subfeedRouting:
+          SubfeedRoutingView(model: followingModel)
         case let .streamHandling(streamID):
           StreamHandlingView(streamID: streamID)
         case .interestAreas:

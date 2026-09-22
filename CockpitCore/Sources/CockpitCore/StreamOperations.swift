@@ -39,6 +39,7 @@ public enum StreamOperations {
   public enum Failure: Error, Equatable, Sendable {
     case missingStream
     case missingRequiredField
+    case emptyRoutingLocator
   }
 
   public static func activeStreams(in db: Database) throws -> [Stream] {
@@ -116,6 +117,20 @@ public enum StreamOperations {
   ) throws {
     guard try Stream.find(streamID).fetchOne(db) != nil else { throw Failure.missingStream }
     try Stream.find(streamID).update { $0.followState = #bind(followState) }.execute(db)
+  }
+
+  /// Persists one explicit sub-feed routing edit. The locator is canonicalized before the write so
+  /// a List-ID display form and its bracketed value always update the same rule.
+  public static func saveRoutingRule(
+    _ rule: ContentRoleRoutingRule, in db: Database
+  ) throws {
+    let locator = CurationRouting.canonicalLocator(rule.locator)
+    guard !locator.isEmpty else { throw Failure.emptyRoutingLocator }
+    try ContentRoleRoutingRule.upsert {
+      ContentRoleRoutingRule.Draft(
+        ContentRoleRoutingRule(
+          locator: locator, role: rule.role, isFollowed: rule.isFollowed, isMuted: rule.isMuted))
+    }.execute(db)
   }
 
   public static func insertSeedsIfMissing(in db: Database) throws {

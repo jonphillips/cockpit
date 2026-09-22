@@ -245,4 +245,51 @@ struct CurationRoutingTests {
     #expect(snapshot.role(for: pieceID) == .opinion)
     #expect(!snapshot.mutedContentPieceIDs.contains(pieceID))
   }
+
+  @Test("An explicit sub-feed edit persists and changes the next routing snapshot")
+  func editableRoutingRuleReroutesPieces() async throws {
+    let locator = "list.washingtonpost.com/morning-edit"
+    let pieceID = UUID(9_601)
+
+    try await database.write { db in
+      try ContentPiece.insert {
+        ContentPiece.Draft(ContentPiece(
+          id: pieceID, kind: .email, title: "Morning", publisher: "Washington Post",
+          emailTreatment: .newsletter, createdAt: .distantPast))
+      }.execute(db)
+      let provenance = GmailArtifactProvenance(
+        accountID: "jon@example.com", messageID: "editable", threadID: "thread",
+        rfcMessageID: nil, listUnsubscribe: nil, listID: "Morning <\(locator)>",
+        precedence: "bulk", senderAddress: "news@washingtonpost.com",
+        sendingDomain: "washingtonpost.com", dkimDomain: nil, toRecipientCount: 1,
+        ccRecipientCount: 0)
+      let provenanceJSON = String(
+        data: try JSONEncoder().encode(provenance), encoding: .utf8)
+      try Artifact.insert {
+        Artifact.Draft(Artifact(
+          id: UUID(9_602), transport: .gmail, acquiredAt: .distantPast,
+          providerProvenance: provenanceJSON, contentPieceID: pieceID))
+      }.execute(db)
+
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: locator, role: .opinion), in: db)
+    }
+
+    let initial = try await database.read { db in
+      try CurationRouting.snapshot(in: db).role(for: pieceID)
+    }
+    #expect(initial == .opinion)
+
+    try await database.write { db in
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: "Morning <\(locator)>", role: .opinion, isMuted: true), in: db)
+    }
+
+    let updated = try await database.read { db in
+      let snapshot = try CurationRouting.snapshot(in: db)
+      return (snapshot.role(for: pieceID), snapshot.mutedContentPieceIDs.contains(pieceID))
+    }
+    #expect(updated.0 == nil)
+    #expect(updated.1)
+  }
 }

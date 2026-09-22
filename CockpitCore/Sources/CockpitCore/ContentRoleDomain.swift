@@ -33,12 +33,16 @@ public enum ContentRole: String, Codable, QueryBindable, CaseIterable, Hashable,
 
 /// A deterministic locator rule. `role` records the intended destination even when a locator is
 /// muted so Settings can later show the route that was silenced. Muted or unfollowed locators do
-/// not produce a surface section.
-public struct ContentRoleRoutingRule: Equatable, Sendable {
-  public let locator: String
-  public let role: ContentRole
-  public let isFollowed: Bool
-  public let isMuted: Bool
+/// not produce a surface section. The table stores only explicit edits; seeded defaults remain in
+/// `CurationRouting` so adding a new seed does not require a data migration.
+@Table("contentRoleRoutingRules")
+public struct ContentRoleRoutingRule: Codable, Equatable, Identifiable, Sendable {
+  @Column(primaryKey: true) public let locator: String
+  public var role: ContentRole
+  public var isFollowed: Bool
+  public var isMuted: Bool
+
+  public var id: String { locator }
 
   public init(
     locator: String, role: ContentRole, isFollowed: Bool = true, isMuted: Bool = false

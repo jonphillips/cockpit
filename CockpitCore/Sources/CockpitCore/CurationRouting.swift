@@ -7,9 +7,16 @@ private struct RouteCandidate {
   let artifactID: Artifact.ID
 }
 
+private func normalizedRule(_ rule: ContentRoleRoutingRule) -> ContentRoleRoutingRule {
+  ContentRoleRoutingRule(
+    locator: CurationRouting.canonicalLocator(rule.locator), role: rule.role,
+    isFollowed: rule.isFollowed, isMuted: rule.isMuted)
+}
+
 private func normalizedSeededRules() -> [String: ContentRoleRoutingRule] {
   Dictionary(uniqueKeysWithValues: CurationRouting.seededRules.map {
-    ($0.locator.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), $0)
+    let rule = normalizedRule($0)
+    return (rule.locator, rule)
   })
 }
 
@@ -118,6 +125,26 @@ public enum CurationRouting {
       locator: "substack.com/emilysundberg", role: .grabBag),
   ]
 
+  /// The single canonical locator normalizer shared with Gmail Stream resolution and series
+  /// identity. A List-ID display form becomes its bracketed value; ordinary locators are trimmed
+  /// and lowercased. This is the identity used by persisted user edits.
+  public static func canonicalLocator(_ locator: String) -> String {
+    GmailSeriesKey.normalizedListID(locator)
+      ?? locator.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+  }
+
+  /// Returns seeded rules overlaid by durable user edits. The overlay is intentionally narrow:
+  /// it changes only the route for a known locator and does not become a sender reputation store.
+  public static func effectiveRules(in db: Database) throws -> [ContentRoleRoutingRule] {
+    var rules = normalizedSeededRules()
+    let persistedRules = try ContentRoleRoutingRule.all.fetchAll(db)
+    for persistedRule in persistedRules.sorted(by: { $0.locator < $1.locator }) {
+      let rule = normalizedRule(persistedRule)
+      rules[rule.locator] = rule
+    }
+    return rules.values.sorted { $0.locator < $1.locator }
+  }
+
   public static func snapshot(in db: Database) throws -> CurationRoutingSnapshot {
     // One ordered Artifact read supplies both Gmail curation membership and role-routing evidence.
     // ContentPiece identity can converge across several Artifacts, so role resolution happens once
@@ -147,7 +174,9 @@ public enum CurationRouting {
 
     let streamsByID = Dictionary(
       uniqueKeysWithValues: try Stream.all.fetchAll(db).map { ($0.id, $0) })
-    let rules = normalizedSeededRules()
+    let rules = Dictionary(uniqueKeysWithValues: try effectiveRules(in: db).map {
+      ($0.locator, $0)
+    })
     var candidatesByContentPieceID: [ContentPiece.ID: [RouteCandidate]] = [:]
     for artifact in artifacts {
       guard let contentPieceID = artifact.contentPieceID else { continue }
@@ -185,6 +214,14 @@ public enum CurationRouting {
 
   public static func role(for locator: String) -> ContentRole? {
     let rules = normalizedSeededRules()
+    guard let rule = matchingRule(for: locator, in: rules) else { return .forYou }
+    return rule.isRouted ? rule.role : nil
+  }
+
+  public static func role(for locator: String, in db: Database) throws -> ContentRole? {
+    let rules = Dictionary(uniqueKeysWithValues: try effectiveRules(in: db).map {
+      ($0.locator, $0)
+    })
     guard let rule = matchingRule(for: locator, in: rules) else { return .forYou }
     return rule.isRouted ? rule.role : nil
   }

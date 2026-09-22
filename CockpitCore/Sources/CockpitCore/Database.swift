@@ -165,6 +165,7 @@ enum CockpitMigrations {
     registerGmailDispositionLog(in: &migrator)
     registerGmailDispositionPolicies(in: &migrator)
     registerGmailSeriesDispositions(in: &migrator)
+    registerCurationRouting(in: &migrator)
     return migrator
   }
 }
