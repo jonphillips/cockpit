@@ -896,6 +896,33 @@ boundary), §16 / ADR-0001 D6 (custody unchanged), §24 (Today stays the base su
 no-server law — rules out proxying). Live docs: `docs/TODAY-EXPERIENCE.md` §5.1, `docs/IPAD-FIRST-EXPERIENCE.md`
 §7, `docs/milestones/` (M6, when authored).
 
+**Amendment (2026-09-22, Jon, reader dogfooding) — links open outside Cockpit.** Blocking every link tap
+made unsubscribe links and article links unusable. A **user-activated** tap on an `http`, `https`, or
+`mailto` link now opens in the system browser/mail app; the web view itself still performs only the
+initial `loadHTMLString` and never navigates, and every other scheme or navigation stays cancelled. The
+webview is still not a browser. Slice: `docs/milestones/M6-reader-dogfood-slices.md` S-r3.
+
+---
+
+## 26. Narrow reply: plain text, in thread, to the sender — RESOLVED (2026-09-22, Jon)
+
+**Evidence.** Dogfooding Today's reading queue, Jon triages personal mail in Cockpit and then has to
+remember to go to his mail client to answer it. The triage loop is broken at exactly the messages that
+matter most.
+
+**Decision.** Cockpit may send a **plain-text reply to the sender, in the original Gmail thread**, from
+the Reader, for Gmail pieces in the For you and Transactional roles. The body is written by Jon; no model
+drafts or edits it. Recipient is `Reply-To` or `From`; threading uses `In-Reply-To`/`References` and the
+Gmail `threadId`. Sending uses the already-granted `gmail.modify` scope. Sending is never retried
+automatically. Cockpit keeps no drafts and no sent-mail record — Gmail is the record.
+
+**Still out (the "broad reply/composition" exclusion stands).** Reply-all, CC/BCC, forwarding, new
+compose, attachments, rich text, drafts, templates, signatures, send-later, AI-drafted replies, and
+reply on newsletter roles. Any of these needs its own decision.
+
+**Relates to:** ADR-0002 D7 (out-of-V1 list now points here), V1-SCOPE out-of-scope list, AGENTS.md Gmail
+boundary. Slice: `docs/milestones/M6-reader-dogfood-slices.md` S-r5.
+
 ---
 
 # Deliberately deferred decisions

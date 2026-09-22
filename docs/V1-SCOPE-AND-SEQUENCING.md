@@ -96,7 +96,7 @@ V1 includes:
 - mutation only after retained results are safely committed;
 - bounded recent dispositions / Undo where Gmail permits it.
 
-V1 does **not** include a generic rules engine, silent learned deletion, automatic unsubscribe, broad reply/composition, or permanent Delete Forever.
+V1 does **not** include a generic rules engine, silent learned deletion, automatic unsubscribe, broad reply/composition (a narrow in-thread plain-text reply is ratified in DECISIONS §26), or permanent Delete Forever.
 
 ### Personal Knowledge
 

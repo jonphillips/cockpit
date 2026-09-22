@@ -171,7 +171,8 @@ disposition is applied. The only automation permitted is an **explicit user-esta
 authorized policy and may **propose** a new policy, but never acquires destructive authority from
 observed behavior (DECISIONS §7, §8 "knowledge does not grant agency"). Explicitly out of V1: a
 generalized rules/Disposition-Rule engine, learned auto-deletion, automatic unsubscribe, and broad
-reply/composition (V1-SCOPE out-of-scope list). Add only the smallest explicit recurring policies
+reply/composition (V1-SCOPE out-of-scope list; the narrow in-thread plain-text reply is ratified in
+DECISIONS §26). Add only the smallest explicit recurring policies
 needed to prove the authority model (V1-SCOPE Phase 4).
 
 ---

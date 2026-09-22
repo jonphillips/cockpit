@@ -230,6 +230,9 @@ Settings-buried stub.
   source email trashes automatically — this issue stays in its stream, custody intact"). Row swipe =
   disposition. This is where the shipped S-c separation work (I2/I4) finally has a legible UI. The
   device eval (real I5) runs against this surface (S-d0), not the Settings-buried stub.
+  **Dogfood amendment (2026-09-22, Jon):** a followed-Stream issue whose source is disposed (in Cockpit
+  or externally) leaves the Today reading queue and stays in its Stream — the queue is attention, not
+  membership, so I2/I4 hold. Slices: `M6-reader-dogfood-slices.md`.
 
 - **Grab-bag surfacing (answers open question #4).** An items-bearing digest (Feed Me) does **not**
   collapse to one dead row: its extracted items fan out inside the Grab-bag section and each is

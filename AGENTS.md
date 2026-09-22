@@ -103,7 +103,7 @@ Provider disposition is explicitly one of the supported actions such as Leave in
 
 Never perform Archive/Trash before any promised retained ContentPiece/Find/result has been safely committed.
 
-Do not add permanent Delete Forever, broad reply/composition, silent learned deletion, or a generalized rules engine to V1 without an explicit product decision.
+Do not add permanent Delete Forever, broad reply/composition, silent learned deletion, or a generalized rules engine to V1 without an explicit product decision. (DECISIONS §26 ratifies only a narrow plain-text, in-thread reply to the sender.)
 
 ## Custody and offline
 
