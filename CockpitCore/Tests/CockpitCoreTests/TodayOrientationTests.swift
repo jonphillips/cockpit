@@ -16,6 +16,7 @@ struct TodayOrientationTests {
   @Test("Orientation exposes role sections and pointer-only Highlights")
   func roleSections() async throws {
     let dailyNews = UUID(7_301)
+    let wapoOpinion = UUID(7_306)
     let opinion = UUID(7_302)
     let digest = UUID(7_303)
     let offer = UUID(7_304)
@@ -24,6 +25,9 @@ struct TodayOrientationTests {
     try await seed(
       dailyNews, treatment: .newsletter, receivedAt: 9_995, publisher: "Washington Post",
       listID: "Morning <list.washingtonpost.com/morning>")
+    try await seed(
+      wapoOpinion, treatment: .newsletter, receivedAt: 9_994.5, publisher: "Washington Post",
+      listID: "Opinion <list.washingtonpost.com/opinions>")
     try await seed(
       opinion, treatment: .newsletter, receivedAt: 9_994, publisher: "Matthew Yglesias",
       listID: "Slow Boring <substack.com/slowboring>")
@@ -44,6 +48,7 @@ struct TodayOrientationTests {
 
     #expect(model.sections.map(\.role) == [.forYou, .dailyNews, .opinion, .grabBag, .offers])
     #expect(model.rows(for: .dailyNews).map(\.id) == [dailyNews])
+    #expect(model.rows(for: .opinion).map(\.id) == [wapoOpinion, opinion])
     #expect(model.rows(for: .forYou).map(\.id) == [loose])
     #expect(model.offerGroups.map(\.label) == ["Nordstrom"])
     #expect(model.grabBagGroups.map(\.itemCount) == [2])

@@ -74,9 +74,9 @@ public struct TodayRequest: FetchKeyRequest {
     // Keep the email predicate in SQL. Today reloads repeatedly and must not scan Library's entire
     // ContentPiece corpus merely to discard non-email rows in Swift.
     value.rows = try ContentPiece.where { $0.kind.eq(ContentKind.email) }.fetchAll(db).compactMap { piece in
+      let role = routing.role(for: piece.id) ?? .forYou
       guard let treatment = piece.emailTreatment,
         !routing.mutedContentPieceIDs.contains(piece.id),
-        let role = routing.role(for: piece.id),
         !clearedContentPieceIDs.contains(piece.id),
         !disposedContentPieceIDs.contains(piece.id),
         let acquiredAt = acquiredAtByContentPieceID[piece.id]
