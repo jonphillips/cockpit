@@ -109,4 +109,140 @@ struct CurationRoutingTests {
     #expect(values.0 == streamID)
     #expect(values.1 == "morning.example.com")
   }
+
+  @Test("Locator routing fans one publisher into roles and preserves mute")
+  func routesPublisherSubfeedsByListID() async throws {
+    let morningID = UUID(9_301)
+    let opinionID = UUID(9_302)
+    let foodID = UUID(9_303)
+    let sender = "Washington Post <news@washingtonpost.com>"
+    let pieces = [
+      (morningID, "Morning <list.washingtonpost.com/morning>"),
+      (opinionID, "Opinion <list.washingtonpost.com/opinions>"),
+      (foodID, "Food <list.washingtonpost.com/food>"),
+    ]
+
+    try await database.write { db in
+      for (pieceID, listID) in pieces {
+        let provenance = GmailArtifactProvenance(
+          accountID: "jon@example.com", messageID: pieceID.uuidString, threadID: "thread",
+          rfcMessageID: nil, listUnsubscribe: nil, listID: listID, precedence: "bulk",
+          senderAddress: sender, sendingDomain: "washingtonpost.com", dkimDomain: nil,
+          toRecipientCount: 1, ccRecipientCount: 0)
+        let provenanceJSON = String(
+          data: try JSONEncoder().encode(provenance), encoding: .utf8)
+        try ContentPiece.insert {
+          ContentPiece.Draft(ContentPiece(
+            id: pieceID, kind: .email, title: listID, publisher: "Washington Post",
+            emailTreatment: .newsletter, createdAt: .distantPast))
+        }.execute(db)
+        try Artifact.insert {
+          Artifact.Draft(Artifact(
+            id: UUID(), transport: .gmail, acquiredAt: .distantPast,
+            providerProvenance: provenanceJSON,
+            contentPieceID: pieceID))
+        }.execute(db)
+      }
+    }
+
+    let snapshot = try await database.read { db in try CurationRouting.snapshot(in: db) }
+    #expect(snapshot.role(for: morningID) == .dailyNews)
+    #expect(snapshot.role(for: opinionID) == .opinion)
+    #expect(snapshot.role(for: foodID) == nil)
+    #expect(snapshot.mutedContentPieceIDs == [foodID])
+  }
+
+  @Test("Author and transport do not change a locator's configured role")
+  func roleIsLocatorBasedAcrossTransport() async throws {
+    let rssID = UUID(9_401)
+    let gmailID = UUID(9_402)
+    let streamID = UUID(9_403)
+    let locator = "substack.com/slowboring"
+
+    try await database.write { db in
+      try Stream.insert {
+        Stream.Draft(Stream(
+          id: streamID, name: "Slow Boring", publisher: "Matthew Yglesias",
+          transport: .rss, locator: locator))
+      }.execute(db)
+      try ContentPiece.insert {
+        ContentPiece.Draft(ContentPiece(
+          id: rssID, kind: .article, title: "RSS issue", publisher: "Matthew Yglesias",
+          createdAt: .distantPast))
+      }.execute(db)
+      try Artifact.insert {
+        Artifact.Draft(Artifact(
+          id: UUID(), streamID: streamID, transport: .rss, acquiredAt: .distantPast,
+          contentPieceID: rssID))
+      }.execute(db)
+
+      let provenance = GmailArtifactProvenance(
+        accountID: "jon@example.com", messageID: gmailID.uuidString, threadID: "thread",
+        rfcMessageID: nil, listUnsubscribe: nil, listID: "Slow Boring <\(locator)>",
+        precedence: "bulk", senderAddress: "Matthew Yglesias <slow@example.com>",
+        sendingDomain: "substack.com", dkimDomain: nil, toRecipientCount: 1, ccRecipientCount: 0)
+      try ContentPiece.insert {
+        ContentPiece.Draft(ContentPiece(
+          id: gmailID, kind: .email, title: "Gmail issue", publisher: "Matthew Yglesias",
+          emailTreatment: .newsletter, createdAt: .distantPast))
+      }.execute(db)
+      let provenanceJSON = String(
+        data: try JSONEncoder().encode(provenance), encoding: .utf8)
+      try Artifact.insert {
+        Artifact.Draft(Artifact(
+          id: UUID(), transport: .gmail, acquiredAt: .distantPast,
+          providerProvenance: provenanceJSON,
+          contentPieceID: gmailID))
+      }.execute(db)
+    }
+
+    let snapshot = try await database.read { db in try CurationRouting.snapshot(in: db) }
+    #expect(snapshot.role(for: rssID) == .opinion)
+    #expect(snapshot.role(for: gmailID) == .opinion)
+    #expect(CurationRouting.role(for: locator) == .opinion)
+    #expect(CurationRouting.role(for: "SUBSTACK.COM/SLOWBORING") == .opinion)
+  }
+
+  @Test("Multi-artifact pieces resolve once using explicit locator precedence")
+  func resolvesMultiArtifactPieceDeterministically() async throws {
+    let pieceID = UUID(9_501)
+    let streamID = UUID(9_502)
+
+    try await database.write { db in
+      try Stream.insert {
+        Stream.Draft(Stream(
+          id: streamID, name: "Slow Boring", publisher: "Matthew Yglesias",
+          transport: .rss, locator: "substack.com/slowboring"))
+      }.execute(db)
+      try ContentPiece.insert {
+        ContentPiece.Draft(ContentPiece(
+          id: pieceID, kind: .email, title: "Converged issue", publisher: "Washington Post",
+          emailTreatment: .newsletter, createdAt: .distantPast))
+      }.execute(db)
+      try Artifact.insert {
+        Artifact.Draft(Artifact(
+          id: UUID(9_503), streamID: streamID, transport: .rss,
+          acquiredAt: .distantPast, contentPieceID: pieceID))
+      }.execute(db)
+
+      let provenance = GmailArtifactProvenance(
+        accountID: "jon@example.com", messageID: "multi-artifact", threadID: "thread",
+        rfcMessageID: nil, listUnsubscribe: nil, listID: "Food <list.washingtonpost.com/food>",
+        precedence: "bulk", senderAddress: "news@washingtonpost.com",
+        sendingDomain: "washingtonpost.com", dkimDomain: nil, toRecipientCount: 1,
+        ccRecipientCount: 0)
+      let provenanceJSON = String(
+        data: try JSONEncoder().encode(provenance), encoding: .utf8)
+      try Artifact.insert {
+        Artifact.Draft(Artifact(
+          id: UUID(9_504), transport: .gmail, acquiredAt: .distantPast,
+          providerProvenance: provenanceJSON,
+          contentPieceID: pieceID))
+      }.execute(db)
+    }
+
+    let snapshot = try await database.read { db in try CurationRouting.snapshot(in: db) }
+    #expect(snapshot.role(for: pieceID) == .opinion)
+    #expect(!snapshot.mutedContentPieceIDs.contains(pieceID))
+  }
 }
