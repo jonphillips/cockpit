@@ -7,7 +7,11 @@ struct SubfeedRoutingView: View {
   var body: some View {
     List {
       Section {
-        Text("Choose where each configured List-ID appears on Today. Routing is based on the sub-feed locator, not on whether the message arrived through Gmail or RSS.")
+        Text(
+          "This editor covers configured sub-feeds known to Cockpit. New List-IDs stay on the "
+            + "default route until explicitly configured; per-feed classification remains deferred. "
+            + "Routing uses the sub-feed locator, not whether mail arrived through Gmail or RSS."
+        )
           .font(.subheadline)
           .foregroundStyle(.secondary)
       }
@@ -57,6 +61,7 @@ private struct SubfeedRoutingRow: View {
           Text(role.displayName).tag(role)
         }
       }
+      .disabled(!rule.isRouted)
 
       Toggle("Follow this sub-feed", isOn: Binding(
         get: { rule.isFollowed },
@@ -73,6 +78,16 @@ private struct SubfeedRoutingRow: View {
           updated.isMuted = isMuted
           update(updated)
         }))
+
+      if !rule.isFollowed {
+        Text("Not followed — this sub-feed stays out of Today.")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      } else if rule.isMuted {
+        Text("Muted — this sub-feed stays out of Today.")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
     }
     .padding(.vertical, 4)
     .accessibilityElement(children: .contain)

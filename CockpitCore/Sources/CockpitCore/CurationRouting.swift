@@ -217,13 +217,4 @@ public enum CurationRouting {
     guard let rule = matchingRule(for: locator, in: rules) else { return .forYou }
     return rule.isRouted ? rule.role : nil
   }
-
-  public static func role(for locator: String, in db: Database) throws -> ContentRole? {
-    let rules = Dictionary(uniqueKeysWithValues: try effectiveRules(in: db).map {
-      ($0.locator, $0)
-    })
-    guard let rule = matchingRule(for: locator, in: rules) else { return .forYou }
-    return rule.isRouted ? rule.role : nil
-  }
-
 }
