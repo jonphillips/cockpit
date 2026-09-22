@@ -17,7 +17,6 @@ let package = Package(
     .package(path: "../../jon-platform/packages/CloudSyncKit"),
     .package(path: "../../jon-platform/packages/LLMClientKit"),
     .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.0.0"),
-    .package(url: "https://github.com/scinfu/SwiftSoup", from: "2.7.0"),
   ],
   targets: [
     .target(

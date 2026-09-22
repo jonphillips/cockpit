@@ -8,11 +8,15 @@ import SwiftUI
 struct TailCompositionControl: View {
   let tailModel: EditionModel
   @Binding var isConfirmingRecompose: Bool
+  let didChangeEdition: () -> Void
 
   var body: some View {
     Button {
       if tailModel.edition == nil {
-        Task { await tailModel.composeIfNeeded() }
+        Task {
+          await tailModel.composeIfNeeded()
+          didChangeEdition()
+        }
       } else {
         isConfirmingRecompose = true
       }

@@ -17,8 +17,9 @@ public struct GmailSeriesDisposition: Codable, Equatable, Identifiable, Sendable
   }
 }
 
-/// Database-only operations for the explicit series declaration. Provider mutation belongs to
-/// `GmailDispositionService`; these operations only establish or remove authority.
+/// Operations for the explicit series declaration and its guarded read-triggered application.
+/// Declaration writes remain database-only; provider mutation still belongs to the injected
+/// `GmailDispositionService` behind the shared guard.
 public enum GmailSeriesDispositionOperations {
   public static func declare(seriesKey: String, at date: Date, in db: Database) throws {
     try GmailSeriesDisposition
@@ -36,5 +37,26 @@ public enum GmailSeriesDispositionOperations {
 
   public static func declaredKeys(in db: Database) throws -> [String] {
     try GmailSeriesDisposition.order { $0.seriesKey }.fetchAll(db).map(\.seriesKey)
+  }
+
+  /// Applies the explicit read-triggered series policy. The declaration, newsletter identity, and
+  /// once-per-message guards are checked together immediately before the provider mutation so every
+  /// reader path shares the same safety boundary.
+  @discardableResult
+  public static func applyTrashOnLeave(
+    contentPieceID: ContentPiece.ID,
+    in database: any DatabaseWriter,
+    using service: GmailDispositionService
+  ) async throws -> Bool {
+    let shouldTrash = try await database.read { db in
+      guard let seriesKey = try GmailSeriesKey.seriesKey(forContentPieceID: contentPieceID, in: db),
+        try isDeclared(seriesKey: seriesKey, in: db),
+        try !GmailDispositionOperations.hasTrashLogEntry(forContentPieceID: contentPieceID, in: db)
+      else { return false }
+      return true
+    }
+    guard shouldTrash else { return false }
+    _ = try await service.apply(.trash, toContentPieceID: contentPieceID, in: database)
+    return true
   }
 }

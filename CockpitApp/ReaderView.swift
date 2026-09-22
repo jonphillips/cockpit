@@ -5,15 +5,21 @@ import SwiftUI
 struct ReaderView: View {
   let contentPieceID: ContentPiece.ID
   let editionContext: EditionReaderContext?
+  let isReachableStreamPiece: Bool
   @LazyState private var model: ContentPieceReaderModel
   @Environment(\.dismiss) private var dismissScreen
   @Environment(\.openURL) private var openURL
   @State private var correctingClaim: PersonalKnowledgeRequest.Row?
   @State private var offlineSheet: OfflineAvailabilitySheet?
 
-  init(contentPieceID: ContentPiece.ID, editionContext: EditionReaderContext? = nil) {
+  init(
+    contentPieceID: ContentPiece.ID,
+    editionContext: EditionReaderContext? = nil,
+    isReachableStreamPiece: Bool = false
+  ) {
     self.contentPieceID = contentPieceID
     self.editionContext = editionContext
+    self.isReachableStreamPiece = isReachableStreamPiece
     _model = LazyState {
       ContentPieceReaderModel(
         contentPieceID: contentPieceID,
@@ -43,37 +49,21 @@ struct ReaderView: View {
             isCompactPreview: row.isSubstantivePrimary == false
           )
 
-          if let isSubstantivePrimary = row.isSubstantivePrimary {
-            HStack {
-              Image(systemName: isSubstantivePrimary ? "doc.text.fill" : "list.bullet")
-              Text(isSubstantivePrimary ? "Substantive primary piece" : "Accessory / not primary")
-              Spacer()
-              Button("Correct") {
-                Task { await model.correctIsSubstantivePrimary(to: !isSubstantivePrimary) }
-              }
-              .font(.caption)
+          ReaderClassificationStatus(
+            isSubstantivePrimary: row.isSubstantivePrimary,
+            bodyCompleteness: row.bodyCompleteness,
+            correct: { value in
+              Task { await model.correctIsSubstantivePrimary(to: value) }
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-          }
-
-          if row.isSubstantivePrimary != false,
-            let bodyCompleteness = row.bodyCompleteness, bodyCompleteness != .full
-          {
-            Label(bodyCompleteness.readerLabel, systemImage: bodyCompleteness == .teaser ? "rectangle.slash" : "scissors")
-              .font(.caption)
-              .foregroundStyle(.orange)
-              .padding(.horizontal, 10)
-              .padding(.vertical, 6)
-              .background(.orange.opacity(0.12), in: .capsule)
-              .accessibilityLabel("Body completeness: \(bodyCompleteness.readerLabel)")
-          }
+          )
 
           ReaderBodyView(
             presentation: model.bodyPresentation,
             canonicalURL: row.canonicalURL,
             openURL: openURL
           )
+
+          if isReachableStreamPiece { ReaderCustodyLine() }
 
           Divider()
 

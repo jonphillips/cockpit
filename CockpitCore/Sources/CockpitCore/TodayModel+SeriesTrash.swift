@@ -2,29 +2,6 @@ import Foundation
 import SQLiteData
 
 extension TodayModel {
-  /// Applies the explicitly declared series policy only when a newsletter piece is left after being
-  /// read. The key lookup repeats the newsletter and Gmail guards at application time; declaration
-  /// state alone can never widen this path to personal or transactional mail.
-  public func applySeriesTrashOnLeave(_ pieceID: ContentPiece.ID) async {
-    do {
-      let shouldTrash = try await database.read { db in
-        guard let seriesKey = try GmailSeriesKey.seriesKey(forContentPieceID: pieceID, in: db),
-          try GmailSeriesDispositionOperations.isDeclared(seriesKey: seriesKey, in: db),
-          try !GmailDispositionOperations.hasTrashLogEntry(forContentPieceID: pieceID, in: db)
-        else { return false }
-        return true
-      }
-      guard shouldTrash else { return }
-      _ = try await dispositionService.apply(.trash, toContentPieceID: pieceID, in: database)
-      try await $content.load()
-      await loadRecentTrashes()
-      errorMessage = nil
-    } catch is CancellationError {
-    } catch {
-      errorMessage = error.localizedDescription
-    }
-  }
-
   /// Whether the visible row is a newsletter in a declared series. The key resolution is the same
   /// one used by application, so a missing List-ID/sender or non-newsletter row returns false.
   public func seriesTrashState(for row: TodayRequest.Row) async -> Bool {
