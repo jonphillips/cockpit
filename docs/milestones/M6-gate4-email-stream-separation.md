@@ -179,7 +179,8 @@ Settings-buried stub.
 - **D-B — Sections are content *role*, not transport and not sender (reframes I1; answers Q-C).** The
   surface's organizing axis is a third axis the original doc did not name: **content role**. Sections
   are: **For you** (personal/transactional) · **Daily news** (roundups/briefings) · **Opinion**
-  (author voices) · **Grab-bag** (digests, items fanned out) · **Offers** (retail roll-ups). This
+  (author voices) · **Grab-bag** (digests, items fanned out) · **Food** (food and recipe reading) ·
+  **Offers** (retail roll-ups). This
   splits the old M5 treatment buckets (Personal/Newsletter/offer/grab-bag/transactional) into
   reading-role sections. I1 strengthens from "transport ≠ curation role" to **"transport ≠ curation
   role ≠ surface placement"** — three separable things.
@@ -214,7 +215,7 @@ Settings-buried stub.
 - **D-F — Reading is ONE ordered queue across all sections, not per-section lists.** Categorization
   runs twice: to **orient** (grouping shows the shape of the morning) and to **order** (one linear
   priority queue for reading). On entering Reading, the left pane is the *entire* morning in decided
-  priority order (For you → Daily news → Opinion → Grab-bag → Offers), with sections as headers you
+  priority order (For you → Daily news → Opinion → Grab-bag → Food → Offers), with sections as headers you
   pass, not lists you re-enter. Once oriented, you march straight down — no clicking in and out of
   sections. Emergent property: the order decays must-read → skimmable → bulk-trash, so the queue ends
   where attention should; Offers roll-ups sit at the bottom as a natural stop cliff.
@@ -252,7 +253,7 @@ decouple: it takes I1 from "transport ≠ curation role" to the three-axis **"tr
 ≠ surface placement."**
 
 **Build.**
-- Add a `ContentRole` enum (five cases: `forYou`, `dailyNews`, `opinion`, `grabBag`, `offers`) in
+- Add a `ContentRole` enum (six cases: `forYou`, `dailyNews`, `opinion`, `grabBag`, `food`, `offers`) in
   `CockpitCore` (near `EmailTreatmentDomain.swift`). It is the *surface placement* axis — keep it
   distinct from `EmailTreatment` (attention/treatment) and from `Stream` membership.
 - Extend `CurationRouting.swift`: add a locator → `ContentRole` resolver keyed on the **same**
@@ -263,8 +264,8 @@ decouple: it takes I1 from "transport ≠ curation role" to the three-axis **"tr
   identity — reuse the resolver, per the "identity stays unified" requirement).
 
 **Prove (extend `Gate4DispositionSeparationTests.swift` or a sibling).**
-- WaPo Morning List-ID → `dailyNews`; WaPo Opinion List-ID → `opinion`; WaPo food List-ID → muted
-  (no section). **One publisher, ≥2 roles from distinct locators** — the pick-apart, at the model layer.
+- WaPo Morning List-ID → `dailyNews`; WaPo Opinion List-ID → `opinion`; WaPo food List-ID → `food`
+  (unmuted). **One publisher, ≥3 roles from distinct locators** — the pick-apart, at the model layer.
 - An author locator (Yglesias) → exactly one role (`opinion`).
 - Role is derived from locator, not transport (I1/I3): an RSS and a Gmail locator with the same
   configured role resolve identically.
@@ -282,7 +283,7 @@ tests; grep shows no section derived from transport or treatment alone.
 
 **Build.**
 - Rebuild `TodayLandingView.swift` (+ `TodayModel.swift`, `TodaySurfaceRows.swift`): sections are
-  `ContentRole` (For you / Daily news / Opinion / Grab-bag / Offers), not `EmailTreatment.todayHierarchy`.
+  `ContentRole` (For you / Daily news / Opinion / Grab-bag / Food / Offers), not `EmailTreatment.todayHierarchy`.
   Retire `orientationSummary`'s treatment counts for a role-based summary.
 - **Roll-up rows** for Offers and Grab-bag: collapse a publisher/digest to one row with a count;
   Grab-bag digest items fan out (`decodedGrabBagItems` unchanged — surfacing change only).
@@ -298,7 +299,7 @@ piece appears in its role section and **not** in a promotion band and **not** tw
 **Do not.** Do not reintroduce `model.promotedRows` as a promotion carousel (D-D); Highlights is
 navigation, not promotion.
 
-**Done when.** Today renders the five role sections full-width, WaPo shows in two sections, offers/
+**Done when.** Today renders the six role sections full-width, WaPo shows in three sections, offers/
 grab-bag roll up, matches the mockup.
 
 ### S-d0c — Reading split + ordered queue (parallel with S-d0b)
@@ -310,7 +311,7 @@ grab-bag roll up, matches the mockup.
   pattern and `ShellModel.swift`'s `streamHandling` route. Detail reuses `ReaderView.swift` +
   `ReaderDispositionToolbar.swift`.
 - **One ordered queue across all sections** in priority order (For you → Daily news → Opinion →
-  Grab-bag → Offers), sections as headers, not re-enterable lists. Back it with a new request/model
+  Grab-bag → Food → Offers), sections as headers, not re-enterable lists. Back it with a new request/model
   that flattens the role sections into the decided order; entry point selects+scrolls to the tapped item.
 - **Draggable divider** (custom): clamped min/max, remembered width, plus a full-width read toggle.
 - Reader carries Save-for-later / Add-to-library / Trash and the trash-after-read custody line — this

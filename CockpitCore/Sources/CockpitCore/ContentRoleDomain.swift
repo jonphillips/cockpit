@@ -8,6 +8,7 @@ public enum ContentRole: String, Codable, QueryBindable, CaseIterable, Hashable,
   case dailyNews = "daily-news"
   case opinion
   case grabBag = "grab-bag"
+  case food = "food"
   case offers
 
   public var displayName: String {
@@ -16,6 +17,7 @@ public enum ContentRole: String, Codable, QueryBindable, CaseIterable, Hashable,
     case .dailyNews: "Daily news"
     case .opinion: "Opinion"
     case .grabBag: "Grab-bag"
+    case .food: "Food"
     case .offers: "Offers"
     }
   }
@@ -26,7 +28,8 @@ public enum ContentRole: String, Codable, QueryBindable, CaseIterable, Hashable,
     case .dailyNews: 1
     case .opinion: 2
     case .grabBag: 3
-    case .offers: 4
+    case .food: 4
+    case .offers: 5
     }
   }
 }

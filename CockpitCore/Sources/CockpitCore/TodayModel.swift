@@ -49,7 +49,7 @@ public final class TodayModel {
 
   public var totalCount: Int { content.rows.count }
 
-  /// The five orientation sections are content roles, in the same order used by the future reading
+  /// The orientation sections are content roles, in the same order used by the future reading
   /// queue. Rows stay in the projection's arrival order within a role.
   public var sections: [RoleSection] {
     ContentRole.allCases.sorted { $0.sortOrder < $1.sortOrder }.compactMap { role in

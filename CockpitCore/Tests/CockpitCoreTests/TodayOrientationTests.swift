@@ -21,6 +21,7 @@ struct TodayOrientationTests {
     let digest = UUID(7_303)
     let offer = UUID(7_304)
     let loose = UUID(7_305)
+    let food = UUID(7_307)
 
     try await seed(
       dailyNews, treatment: .newsletter, receivedAt: 9_995, publisher: "Washington Post",
@@ -41,15 +42,19 @@ struct TodayOrientationTests {
     try await seed(
       offer, treatment: .offer, receivedAt: 9_992, publisher: "Nordstrom",
       listID: "Promos <e.nordstrom.com>")
+    try await seed(
+      food, treatment: .newsletter, receivedAt: 9_991.5, publisher: "Washington Post",
+      listID: "Food <list.washingtonpost.com/food>")
     try await seed(loose, treatment: .personal, receivedAt: 9_991, publisher: "Mom")
 
     let model = TodayModel()
     try await model.$content.load()
 
-    #expect(model.sections.map(\.role) == [.forYou, .dailyNews, .opinion, .grabBag, .offers])
+    #expect(model.sections.map(\.role) == [.forYou, .dailyNews, .opinion, .grabBag, .food, .offers])
     #expect(model.rows(for: .dailyNews).map(\.id) == [dailyNews])
     #expect(model.rows(for: .opinion).map(\.id) == [wapoOpinion, opinion])
     #expect(model.rows(for: .forYou).map(\.id) == [loose])
+    #expect(model.rows(for: .food).map(\.id) == [food])
     #expect(model.offerGroups.map(\.label) == ["Nordstrom"])
     #expect(model.grabBagGroups.map(\.itemCount) == [2])
 
@@ -57,8 +62,8 @@ struct TodayOrientationTests {
     #expect(Set(model.highlightRows.map(\.id)).isSubset(of: sectionIDs))
   }
 
-  @Test("A muted routed feed never reaches a Today role section")
-  func mutedFeedIsAbsent() async throws {
+  @Test("A Food-routed feed reaches its own Today role section")
+  func foodFeedIsVisible() async throws {
     let muted = UUID(7_401)
     try await seed(
       muted, treatment: .newsletter, receivedAt: 9_900, publisher: "Washington Post",
@@ -67,8 +72,8 @@ struct TodayOrientationTests {
     let model = TodayModel()
     try await model.$content.load()
 
-    #expect(model.content.rows.isEmpty)
-    #expect(model.sections.isEmpty)
+    #expect(model.rows(for: .food).map(\.id) == [muted])
+    #expect(model.sections.map(\.role) == [.food])
   }
 
   @Test("Every landing-visible item resolves to a reading queue row")
@@ -80,6 +85,9 @@ struct TodayOrientationTests {
 
     let editionID = UUID(7_403)
     try await database.write { db in
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(
+          locator: "list.washingtonpost.com/food", role: .food, isMuted: true), in: db)
       try Edition.insert {
         Edition.Draft(Edition(
           id: editionID, date: Date(timeIntervalSince1970: 10_000), state: .open))

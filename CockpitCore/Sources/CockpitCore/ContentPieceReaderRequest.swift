@@ -5,6 +5,25 @@ import SQLiteData
 /// rationale and resolution state as an optional context layer; the substance lives here.
 public struct ContentPieceReaderRequest: FetchKeyRequest {
   @Selection
+  struct BaseRow: Equatable, Identifiable, Sendable {
+    let id: ContentPiece.ID
+    let kind: ContentKind
+    let title: String
+    let creator: String?
+    let publisher: String
+    let summary: String?
+    let canonicalURL: String?
+    let isSubstantivePrimary: Bool?
+    let bodyCompleteness: BodyCompleteness?
+    let emailTreatment: EmailTreatment?
+    let localNormalizedText: String?
+    let localAvailabilityMode: LocalAvailabilityMode?
+    let offlineExpiresAt: Date?
+    let laterAddedAt: Date?
+    let libraryAddedAt: Date?
+  }
+
+  @Selection
   public struct Row: Equatable, Identifiable, Sendable {
     public let id: ContentPiece.ID
     public let kind: ContentKind
@@ -15,6 +34,10 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
     public let canonicalURL: String?
     public let isSubstantivePrimary: Bool?
     public let bodyCompleteness: BodyCompleteness?
+    public let emailTreatment: EmailTreatment?
+    /// The newest non-empty original source body held by an Artifact. This is intentionally
+    /// device-local and is only presented as HTML for email ContentPieces.
+    public let rawSourceText: String?
     /// Device-local readable substance. Completeness syncs with the ContentPiece, but this text
     /// deliberately does not, so the Reader must never infer its presence from completeness.
     public let localNormalizedText: String?
@@ -22,6 +45,25 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
     public let offlineExpiresAt: Date?
     public let laterAddedAt: Date?
     public let libraryAddedAt: Date?
+
+    init(base: BaseRow, rawSourceText: String?) {
+      id = base.id
+      kind = base.kind
+      title = base.title
+      creator = base.creator
+      publisher = base.publisher
+      summary = base.summary
+      canonicalURL = base.canonicalURL
+      isSubstantivePrimary = base.isSubstantivePrimary
+      bodyCompleteness = base.bodyCompleteness
+      emailTreatment = base.emailTreatment
+      self.rawSourceText = rawSourceText
+      localNormalizedText = base.localNormalizedText
+      localAvailabilityMode = base.localAvailabilityMode
+      offlineExpiresAt = base.offlineExpiresAt
+      laterAddedAt = base.laterAddedAt
+      libraryAddedAt = base.libraryAddedAt
+    }
 
     public var sender: String { creator ?? publisher }
   }
@@ -39,23 +81,33 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
 
   public func fetch(_ db: Database) throws -> Value {
     var value = Value()
-    value.row = try ContentPiece
+    let base = try ContentPiece
       .where { $0.id.eq(contentPieceID) }
       .leftJoin(LaterMembership.all) { $0.id.eq($1.contentPieceID) }
       .leftJoin(LibraryMembership.all) { $0.id.eq($2.contentPieceID) }
       .leftJoin(LocalNormalizedText.all) { $0.id.eq($3.contentPieceID) }
       .leftJoin(LocalAvailability.all) { $0.id.eq($4.contentPieceID) }
       .select {
-        Row.Columns(
+        BaseRow.Columns(
           id: $0.id, kind: $0.kind, title: $0.title, creator: $0.creator, publisher: $0.publisher,
           summary: $0.summary,
           canonicalURL: $0.canonicalURL, isSubstantivePrimary: $0.isSubstantivePrimary,
-          bodyCompleteness: $0.bodyCompleteness, localNormalizedText: $3.normalizedText,
+          bodyCompleteness: $0.bodyCompleteness, emailTreatment: $0.emailTreatment,
+          localNormalizedText: $3.normalizedText,
           localAvailabilityMode: $4.mode, offlineExpiresAt: $4.expiresAt,
           laterAddedAt: $1.addedAt,
           libraryAddedAt: $2.addedAt)
       }
       .fetchOne(db)
+    guard let base else { return value }
+
+    let rawSourceText = try Artifact
+      .where { $0.contentPieceID.eq(contentPieceID) }
+      .order { $0.acquiredAt.desc() }
+      .fetchAll(db)
+      .compactMap(\.rawSourceText)
+      .first
+    value.row = Row(base: base, rawSourceText: rawSourceText)
     return value
   }
 }
@@ -92,6 +144,7 @@ public func offlineAvailabilityPresentation(
 }
 
 public enum ReaderBodyPresentation: Equatable, Sendable {
+  case html(rawHTML: String)
   case inline(text: String, isTruncated: Bool)
   case compactPreview
   case preview
@@ -105,6 +158,16 @@ public func readerBodyPresentation(
   for row: ContentPieceReaderRequest.Row?
 ) -> ReaderBodyPresentation {
   guard let row else { return .unavailable }
+
+  if row.kind == .email,
+    row.isSubstantivePrimary != false,
+    row.bodyCompleteness != .teaser,
+    let rawHTML = row.rawSourceText,
+    !rawHTML.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+  {
+    return .html(rawHTML: rawHTML)
+  }
+
   guard row.isSubstantivePrimary != false else { return .compactPreview }
 
   guard let text = row.localNormalizedText,

@@ -6,6 +6,7 @@ struct ReaderView: View {
   let contentPieceID: ContentPiece.ID
   let editionContext: EditionReaderContext?
   let isReachableStreamPiece: Bool
+  @State private var originalWebViewStore: TodayOriginalWebViewStore
   @LazyState private var model: ContentPieceReaderModel
   @Environment(\.dismiss) private var dismissScreen
   @Environment(\.openURL) private var openURL
@@ -15,11 +16,14 @@ struct ReaderView: View {
   init(
     contentPieceID: ContentPiece.ID,
     editionContext: EditionReaderContext? = nil,
-    isReachableStreamPiece: Bool = false
+    isReachableStreamPiece: Bool = false,
+    originalWebViewStore: TodayOriginalWebViewStore? = nil
   ) {
     self.contentPieceID = contentPieceID
     self.editionContext = editionContext
     self.isReachableStreamPiece = isReachableStreamPiece
+    _originalWebViewStore = State(
+      initialValue: originalWebViewStore ?? TodayOriginalWebViewStore())
     _model = LazyState {
       ContentPieceReaderModel(
         contentPieceID: contentPieceID,
@@ -60,7 +64,8 @@ struct ReaderView: View {
           ReaderBodyView(
             presentation: model.bodyPresentation,
             canonicalURL: row.canonicalURL,
-            openURL: openURL
+            openURL: openURL,
+            originalWebViewStore: originalWebViewStore
           )
 
           if isReachableStreamPiece { ReaderCustodyLine() }
@@ -127,6 +132,7 @@ private extension ReaderView {
     try? await model.$content.load()
     try? await model.$readerTeaching.load()
     try? await model.$matchedPersonalKnowledge.load()
+    await model.loadRoutingResolution()
     if let editionContext {
       await editionContext.model.markSeen(editionContext.entryID)
     }

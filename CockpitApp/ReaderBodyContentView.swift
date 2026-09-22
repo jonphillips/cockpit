@@ -27,9 +27,19 @@ struct ReaderBodyView: View {
   let presentation: ReaderBodyPresentation
   let canonicalURL: String?
   let openURL: OpenURLAction
+  let originalWebViewStore: TodayOriginalWebViewStore
 
   var body: some View {
     switch presentation {
+    case let .html(rawHTML):
+      TodayOriginalWebView(webView: originalWebViewStore.webView)
+        .frame(minHeight: 480)
+        .clipShape(.rect(cornerRadius: 12))
+        .onAppear { originalWebViewStore.load(rawHTML: rawHTML) }
+        .onChange(of: rawHTML) { _, newValue in
+          originalWebViewStore.load(rawHTML: newValue)
+        }
+
     case let .inline(text, isTruncated):
       Text(text)
         .font(.body)

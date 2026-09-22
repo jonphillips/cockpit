@@ -15,6 +15,11 @@ struct ReaderDispositionToolbar: ToolbarContent {
       }
       ToolbarItem(placement: .topBarTrailing) {
         Menu {
+          SenderTreatmentSubmenu(currentTreatment: model.currentTreatment) { treatment in
+            Task { await model.setSenderOverride(treatment) }
+          }
+          ReaderContentRoleRoutingSubmenu(model: model)
+          Divider()
           Button("Trash", systemImage: "trash", role: .destructive) {
             Task { await model.trashSource() }
           }
@@ -26,5 +31,35 @@ struct ReaderDispositionToolbar: ToolbarContent {
         }
       }
     }
+  }
+}
+
+private struct ReaderContentRoleRoutingSubmenu: View {
+  let model: ContentPieceReaderModel
+
+  private let routingRoles: [ContentRole] = [
+    .forYou, .dailyNews, .opinion, .grabBag, .offers
+  ]
+
+  var body: some View {
+    Menu("Move to section…", systemImage: "arrow.right") {
+      ForEach(routingRoles, id: \.self) { role in
+        Button {
+          guard let locator = model.resolvedRoutingLocator else { return }
+          Task {
+            await model.saveRoutingRule(
+              ContentRoleRoutingRule(locator: locator, role: role, isFollowed: true, isMuted: false)
+            )
+          }
+        } label: {
+          Label(
+            role.displayName,
+            systemImage: model.currentRoutingRule?.role == role
+              && model.currentRoutingRule?.isRouted == true ? "checkmark" : "circle"
+          )
+        }
+      }
+    }
+    .disabled(model.resolvedRoutingLocator == nil)
   }
 }

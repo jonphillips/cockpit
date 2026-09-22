@@ -44,6 +44,48 @@ struct ContentPieceReaderModelTests {
     expectNoDifference(memberships.1?.admittedBy, "explicit")
   }
 
+  @Test("Reader routing edits change the next CurationRouting snapshot")
+  func readerRoutingRuleReroutesPiece() async throws {
+    let pieceID = UUID(9008)
+    let locator = "list.example.com/morning"
+    let provenance = GmailArtifactProvenance(
+      accountID: "jon@example.com", messageID: "reader-routing", threadID: "thread",
+      rfcMessageID: nil, listUnsubscribe: nil, listID: "Morning <\(locator)>",
+      precedence: "bulk", senderAddress: "Newsletter <news@example.com>",
+      sendingDomain: "example.com", dkimDomain: nil, toRecipientCount: 1, ccRecipientCount: 0)
+    let provenanceJSON = String(
+      data: try JSONEncoder().encode(provenance), encoding: .utf8)
+
+    try await database.write { db in
+      try ContentPiece.insert {
+        ContentPiece.Draft(ContentPiece(
+          id: pieceID, kind: .email, title: "Morning", creator: "Newsletter <news@example.com>",
+          publisher: "Newsletter", emailTreatment: .newsletter, createdAt: .distantPast))
+      }.execute(db)
+      try Artifact.insert {
+        Artifact.Draft(Artifact(
+          id: UUID(9009), transport: .gmail, acquiredAt: .distantPast,
+          providerProvenance: provenanceJSON, contentPieceID: pieceID))
+      }.execute(db)
+    }
+
+    let model = ContentPieceReaderModel(contentPieceID: pieceID)
+    try await model.$content.load()
+    await model.loadRoutingResolution()
+    let resolvedLocator = try #require(model.resolvedRoutingLocator)
+    expectNoDifference(resolvedLocator, CurationRouting.canonicalLocator(locator))
+    expectNoDifference(model.currentTreatment, .newsletter)
+
+    await model.saveRoutingRule(
+      ContentRoleRoutingRule(locator: resolvedLocator, role: .opinion))
+
+    let snapshot = try await database.read { db in
+      try CurationRouting.snapshot(in: db)
+    }
+    expectNoDifference(snapshot.role(for: pieceID), .opinion)
+    expectNoDifference(model.currentRoutingRule?.role, .opinion)
+  }
+
   @Test("Reader renders a locally held full body inline")
   func fullBodyPresentation() async throws {
     let pieceID = UUID(9010)
@@ -58,6 +100,41 @@ struct ContentPieceReaderModelTests {
       model.bodyPresentation,
       .inline(text: "The complete held article.", isTruncated: false)
     )
+  }
+
+  @Test("Email Reader renders the newest held original HTML rather than normalized text")
+  func emailOriginalHTMLPresentation() async throws {
+    let pieceID = UUID(9015)
+    try await seedReaderPiece(
+      id: pieceID, kind: .email, isSubstantivePrimary: true, bodyCompleteness: .full,
+      localNormalizedText: "Flattened email text", rawSourceText: "<p>Designed <strong>email</strong></p>",
+      acquiredAt: Date(timeIntervalSince1970: 20))
+    try await database.write { db in
+      try Artifact.insert {
+        Artifact.Draft(
+          id: UUID(9017), transport: .gmail, acquiredAt: Date(timeIntervalSince1970: 30),
+          rawSourceText: "<p>Newest <em>email</em></p>", contentPieceID: pieceID)
+      }.execute(db)
+    }
+
+    let model = ContentPieceReaderModel(contentPieceID: pieceID)
+    try await model.$content.load()
+
+    expectNoDifference(model.bodyPresentation, .html(rawHTML: "<p>Newest <em>email</em></p>"))
+  }
+
+  @Test("A teaser email with source material keeps the Open Original fallback")
+  func teaserEmailDoesNotRenderOriginalHTML() async throws {
+    let pieceID = UUID(9016)
+    try await seedReaderPiece(
+      id: pieceID, kind: .email, isSubstantivePrimary: true, bodyCompleteness: .teaser,
+      localNormalizedText: nil, rawSourceText: "<p>Teaser only</p>",
+      acquiredAt: Date(timeIntervalSince1970: 20))
+
+    let model = ContentPieceReaderModel(contentPieceID: pieceID)
+    try await model.$content.load()
+
+    expectNoDifference(model.bodyPresentation, .preview)
   }
 
   @Test("Reader renders a locally held truncated body inline with a source remainder")
@@ -183,19 +260,29 @@ struct ContentPieceReaderModelTests {
 
   private func seedReaderPiece(
     id: ContentPiece.ID,
+    kind: ContentKind = .article,
     isSubstantivePrimary: Bool,
     bodyCompleteness: BodyCompleteness,
-    localNormalizedText: String?
+    localNormalizedText: String?,
+    rawSourceText: String? = nil,
+    acquiredAt: Date = .distantPast
   ) async throws {
     try await database.write { db in
       try ContentPiece.insert {
         ContentPiece.Draft(
-          id: id, kind: .article, title: "Piece", publisher: "Publisher", summary: "A preview.",
+          id: id, kind: kind, title: "Piece", publisher: "Publisher", summary: "A preview.",
           isSubstantivePrimary: isSubstantivePrimary, bodyCompleteness: bodyCompleteness,
           createdAt: .distantPast)
       }.execute(db)
       if let localNormalizedText {
         try NormalizedTextOperations.store(localNormalizedText, for: id, in: db)
+      }
+      if rawSourceText != nil {
+        try Artifact.insert {
+          Artifact.Draft(
+            id: UUID(id.uuidString.hashValue), transport: .gmail, acquiredAt: acquiredAt,
+            rawSourceText: rawSourceText, contentPieceID: id)
+        }.execute(db)
       }
     }
   }

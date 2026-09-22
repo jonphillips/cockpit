@@ -19,6 +19,7 @@ public final class ContentPieceReaderModel {
   @ObservationIgnored @Fetch public var content = ContentPieceReaderRequest.Value()
   @ObservationIgnored @Fetch public var readerTeaching = ReaderTeachingClaimRequest.Value()
   @ObservationIgnored @Fetch public var matchedPersonalKnowledge = MatchedPersonalKnowledgeClaimRequest.Value()
+  public private(set) var routingResolution: CurationRoutingResolution?
   public var errorMessage: String?
   public var teachingReason = ""
   public var teachingStage: ReaderTeachingStage?
@@ -139,6 +140,63 @@ public final class ContentPieceReaderModel {
     do {
       try await database.write { db in try operation(db) }
       try await $content.load()
+      errorMessage = nil
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+}
+
+extension ContentPieceReaderModel {
+  public var currentSender: String? { row?.sender }
+  public var currentTreatment: EmailTreatment? { row?.emailTreatment }
+  public var resolvedRoutingLocator: String? { routingResolution?.locator }
+  public var currentRoutingRule: ContentRoleRoutingRule? { routingResolution?.rule }
+  public var resolvedContentRole: ContentRole? { routingResolution?.role }
+
+  /// Loads the Reader's current content-role locator and rule through CurationRouting's canonical
+  /// per-piece resolution path. This keeps route edits aligned with the surface snapshot.
+  public func loadRoutingResolution() async {
+    guard let id = row?.id else {
+      routingResolution = nil
+      return
+    }
+    do {
+      routingResolution = try await database.read { db in
+        try CurationRouting.resolution(for: id, in: db)
+      }
+      errorMessage = nil
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  /// Applies the explicit sender-treatment correction for this email's sender.
+  public func setSenderOverride(_ treatment: EmailTreatment) async {
+    guard let sender = currentSender else { return }
+    do {
+      _ = try await database.write { db in
+        try EmailTreatmentOperations.setSenderOverride(treatment, for: sender, in: db)
+      }
+      try await $content.load()
+      errorMessage = nil
+    } catch is CancellationError {
+    } catch EmailTreatmentOperations.Failure.emptySender {
+      errorMessage = "This message has no sender address to correct."
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  /// Persists an explicit sub-feed route using the same operation as Settings.
+  public func saveRoutingRule(_ rule: ContentRoleRoutingRule) async {
+    do {
+      try await database.write { db in
+        try StreamOperations.saveRoutingRule(rule, in: db)
+      }
+      await loadRoutingResolution()
       errorMessage = nil
     } catch is CancellationError {
     } catch {

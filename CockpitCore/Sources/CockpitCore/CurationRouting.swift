@@ -1,7 +1,7 @@
 import Foundation
 import SQLiteData
 
-private struct RouteCandidate {
+struct RouteCandidate {
   let locator: String
   let priority: Int
   let artifactID: Artifact.ID
@@ -13,14 +13,14 @@ private func normalizedRule(_ rule: ContentRoleRoutingRule) -> ContentRoleRoutin
     isFollowed: rule.isFollowed, isMuted: rule.isMuted)
 }
 
-private func normalizedSeededRules() -> [String: ContentRoleRoutingRule] {
+func normalizedSeededRules() -> [String: ContentRoleRoutingRule] {
   Dictionary(uniqueKeysWithValues: CurationRouting.seededRules.map {
     let rule = normalizedRule($0)
     return (rule.locator, rule)
   })
 }
 
-private func routeCandidates(
+func routeCandidates(
   for artifact: Artifact, stream: Stream?
 ) -> [RouteCandidate] {
   var candidates: [RouteCandidate] = []
@@ -53,7 +53,7 @@ private func routeCandidates(
   return candidates
 }
 
-private func routeCandidatePrecedes(_ lhs: RouteCandidate, _ rhs: RouteCandidate) -> Bool {
+func routeCandidatePrecedes(_ lhs: RouteCandidate, _ rhs: RouteCandidate) -> Bool {
   if lhs.priority != rhs.priority { return lhs.priority < rhs.priority }
   let lhsLocator = lhs.locator.lowercased()
     .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -63,7 +63,7 @@ private func routeCandidatePrecedes(_ lhs: RouteCandidate, _ rhs: RouteCandidate
   return lhs.artifactID.uuidString < rhs.artifactID.uuidString
 }
 
-private func matchingRule(
+func matchingRule(
   for locator: String, in rules: [String: ContentRoleRoutingRule]
 ) -> ContentRoleRoutingRule? {
   // locatorKeys returns a Set because aliases are equivalent. Sort it before lookup so an
@@ -72,6 +72,24 @@ private func matchingRule(
     if let rule = rules[key] { return rule }
   }
   return nil
+}
+
+/// The locator and rule that currently resolve one ContentPiece's surface route. The locator is
+/// still returned when no rule exists so an explicit Reader correction can create the rule at the
+/// same identity CurationRouting would use for the piece.
+public struct CurationRoutingResolution: Equatable, Sendable {
+  public let locator: String?
+  public let rule: ContentRoleRoutingRule?
+
+  public init(locator: String?, rule: ContentRoleRoutingRule?) {
+    self.locator = locator
+    self.rule = rule
+  }
+
+  public var role: ContentRole? {
+    guard let rule else { return locator == nil ? nil : .forYou }
+    return rule.isRouted ? rule.role : nil
+  }
 }
 
 /// The current surface role of ContentPieces. This is deliberately derived from configured
@@ -90,6 +108,10 @@ public struct CurationRoutingSnapshot: Sendable {
   public let roleByContentPieceID: [ContentPiece.ID: ContentRole]
   public let mutedContentPieceIDs: Set<ContentPiece.ID>
   public let routingRules: [String: ContentRoleRoutingRule]
+  /// Gmail locators seen on ingested ContentPieces that still fall through to `.forYou`.
+  /// These are intentionally observations only; saving one as a rule remains an explicit user
+  /// action in Settings.
+  public let discoveredLocators: [DiscoveredLocator]
 
   /// Both Gmail roles stay outside the uncurated Edition tail. S-b supplies the Stream Handling
   /// surface for the first role; Today owns the second.
@@ -99,6 +121,21 @@ public struct CurationRoutingSnapshot: Sendable {
 
   public func role(for contentPieceID: ContentPiece.ID) -> ContentRole? {
     roleByContentPieceID[contentPieceID]
+  }
+}
+
+/// A Gmail sub-feed that has been observed but has no seeded or explicit routing rule yet.
+public struct DiscoveredLocator: Equatable, Identifiable, Sendable {
+  public let locator: String
+  public let displayLabel: String
+  public let pieceCount: Int
+
+  public var id: String { locator }
+
+  public init(locator: String, displayLabel: String, pieceCount: Int) {
+    self.locator = locator
+    self.displayLabel = displayLabel
+    self.pieceCount = pieceCount
   }
 }
 
@@ -114,7 +151,7 @@ public enum CurationRouting {
     ContentRoleRoutingRule(
       locator: "list.washingtonpost.com/opinions", role: .opinion),
     ContentRoleRoutingRule(
-      locator: "list.washingtonpost.com/food", role: .forYou, isMuted: true),
+      locator: "list.washingtonpost.com/food", role: .food),
     ContentRoleRoutingRule(
       locator: "substack.com/slowboring", role: .opinion),
     ContentRoleRoutingRule(
@@ -203,18 +240,48 @@ public enum CurationRouting {
       }
     }
 
+    let discoveredLocators = try discoveredGmailLocators(
+      in: db, artifacts: gmailArtifacts, rules: rules, streamsByID: streamsByID)
+
     return CurationRoutingSnapshot(
       followedGmailStreamContentPieceIDs: followedGmailStreamContentPieceIDs,
       todayTriageGmailContentPieceIDs: gmailContentPieceIDs.subtracting(followedGmailStreamContentPieceIDs),
       roleByContentPieceID: roleByContentPieceID,
       mutedContentPieceIDs: mutedContentPieceIDs,
-      routingRules: rules
+      routingRules: rules,
+      discoveredLocators: discoveredLocators
     )
   }
+}
 
-  public static func role(for locator: String) -> ContentRole? {
-    let rules = normalizedSeededRules()
-    guard let rule = matchingRule(for: locator, in: rules) else { return .forYou }
-    return rule.isRouted ? rule.role : nil
+extension CurationRouting {
+  /// Resolves the same ordered locator candidates used by `snapshot` for one ContentPiece. This is
+  /// the Reader-facing seam for editing a route without introducing a second locator policy.
+  public static func resolution(
+    for contentPieceID: ContentPiece.ID, in db: Database
+  ) throws -> CurationRoutingResolution {
+    let artifacts = try Artifact.where { $0.contentPieceID.eq(contentPieceID) }
+      .fetchAll(db)
+      .sorted { $0.id.uuidString < $1.id.uuidString }
+    let streamsByID = Dictionary(
+      uniqueKeysWithValues: try Stream.all.fetchAll(db).map { ($0.id, $0) })
+    let rules = Dictionary(uniqueKeysWithValues: try effectiveRules(in: db).map {
+      ($0.locator, $0)
+    })
+    let candidates = artifacts.flatMap { artifact in
+      routeCandidates(for: artifact, stream: artifact.streamID.flatMap { streamsByID[$0] })
+    }.sorted(by: routeCandidatePrecedes)
+
+    guard let candidate = candidates.first else {
+      return CurationRoutingResolution(locator: nil, rule: nil)
+    }
+    if let matched = candidates.compactMap({ candidate in
+      matchingRule(for: candidate.locator, in: rules).map { (candidate, $0) }
+    }).first {
+      return CurationRoutingResolution(
+        locator: canonicalLocator(matched.0.locator), rule: matched.1)
+    }
+    return CurationRoutingResolution(locator: canonicalLocator(candidate.locator), rule: nil)
   }
+
 }

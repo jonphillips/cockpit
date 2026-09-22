@@ -157,7 +157,7 @@ struct TodayRoleSectionListView: View {
         ForEach(model.grabBagGroups) { group in
           grabBagRollup(group)
         }
-      default:
+      case .forYou, .dailyNews, .opinion, .food:
         ForEach(section.rows) { row in
           emailRow(row)
         }
@@ -172,6 +172,7 @@ struct TodayRoleSectionListView: View {
     case .dailyNews: .blue
     case .opinion: .orange
     case .grabBag: .teal
+    case .food: .green
     case .offers: .brown
     }
   }

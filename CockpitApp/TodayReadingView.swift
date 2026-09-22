@@ -148,6 +148,7 @@ private struct TodayReadingQueueSidebar: View {
 private struct TodayReadingQueueDetail: View {
   @Bindable var model: TodayReadingQueueModel
   @Bindable var tailModel: EditionModel
+  @State private var originalWebViewStore = TodayOriginalWebViewStore()
 
   var body: some View {
     if let selectedContentPieceID = model.selectedContentPieceID,
@@ -156,7 +157,8 @@ private struct TodayReadingQueueDetail: View {
       ReaderView(
         contentPieceID: row.id,
         editionContext: editionContext(for: row),
-        isReachableStreamPiece: row.isFollowedStreamPiece
+        isReachableStreamPiece: row.isFollowedStreamPiece,
+        originalWebViewStore: originalWebViewStore
       )
       .id(row.id)
     } else {

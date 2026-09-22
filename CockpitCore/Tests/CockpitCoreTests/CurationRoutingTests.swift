@@ -110,7 +110,7 @@ struct CurationRoutingTests {
     #expect(values.1 == "morning.example.com")
   }
 
-  @Test("Locator routing fans one publisher into roles and preserves mute")
+  @Test("Locator routing fans one publisher into roles, including Food")
   func routesPublisherSubfeedsByListID() async throws {
     let morningID = UUID(9_301)
     let opinionID = UUID(9_302)
@@ -148,8 +148,8 @@ struct CurationRoutingTests {
     let snapshot = try await database.read { db in try CurationRouting.snapshot(in: db) }
     #expect(snapshot.role(for: morningID) == .dailyNews)
     #expect(snapshot.role(for: opinionID) == .opinion)
-    #expect(snapshot.role(for: foodID) == nil)
-    #expect(snapshot.mutedContentPieceIDs == [foodID])
+    #expect(snapshot.role(for: foodID) == .food)
+    #expect(!snapshot.mutedContentPieceIDs.contains(foodID))
   }
 
   @Test("Author and transport do not change a locator's configured role")
@@ -291,5 +291,65 @@ struct CurationRoutingTests {
     }
     #expect(updated.0 == nil)
     #expect(updated.1)
+  }
+
+  @Test("Unconfigured Gmail List-IDs are discovered until explicitly routed")
+  func discoversUnconfiguredGmailLocators() async throws {
+    let feedMeID = UUID(9_701)
+    let vinousID = UUID(9_702)
+    let feedMeLocator = "feedme.example.com"
+    let vinousLocator = "vinous.example.com"
+
+    try await database.write { db in
+      for (pieceID, publisher, listID) in [
+        (feedMeID, "Feed Me", "Feed Me <" + feedMeLocator + ">") as (UUID, String, String),
+        (vinousID, "Vinous", "Vinous <" + vinousLocator + ">") as (UUID, String, String),
+      ] {
+        let provenance = GmailArtifactProvenance(
+          accountID: "jon@example.com", messageID: pieceID.uuidString, threadID: "thread",
+          rfcMessageID: nil, listUnsubscribe: nil, listID: listID, precedence: "bulk",
+          senderAddress: "newsletter@" + publisher.lowercased() + ".example.com",
+          sendingDomain: "example.com", dkimDomain: nil, toRecipientCount: 1, ccRecipientCount: 0)
+        let provenanceJSON = String(
+          data: try JSONEncoder().encode(provenance), encoding: .utf8)
+        try ContentPiece.insert {
+          ContentPiece.Draft(ContentPiece(
+            id: pieceID, kind: .email, title: "Issue", publisher: publisher,
+            emailTreatment: .newsletter, createdAt: .distantPast))
+        }.execute(db)
+        try Artifact.insert {
+          Artifact.Draft(Artifact(
+            id: UUID(), transport: .gmail, acquiredAt: .distantPast,
+            providerProvenance: provenanceJSON, contentPieceID: pieceID))
+        }.execute(db)
+      }
+    }
+
+    let initial = try await database.read { db in
+      try CurationRouting.snapshot(in: db)
+    }
+    #expect(initial.discoveredLocators == [
+      DiscoveredLocator(locator: feedMeLocator, displayLabel: "Feed Me", pieceCount: 1),
+      DiscoveredLocator(locator: vinousLocator, displayLabel: "Vinous", pieceCount: 1),
+    ])
+
+    try await database.write { db in
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: feedMeLocator, role: .grabBag), in: db)
+    }
+
+    let updated = try await database.read { db in
+      (
+        try CurationRouting.snapshot(in: db),
+        try CurationRouting.effectiveRules(in: db)
+      )
+    }
+    #expect(updated.0.discoveredLocators == [
+      DiscoveredLocator(locator: vinousLocator, displayLabel: "Vinous", pieceCount: 1),
+    ])
+    #expect(updated.0.role(for: feedMeID) == .grabBag)
+    #expect(updated.1.contains {
+      $0.locator == feedMeLocator && $0.role == .grabBag && $0.isRouted
+    })
   }
 }

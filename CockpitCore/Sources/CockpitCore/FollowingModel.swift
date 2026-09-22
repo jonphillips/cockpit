@@ -15,6 +15,7 @@ public final class FollowingModel {
   public var proposedStream: StreamDraft?
   public var editingStream: StreamDraft?
   public var routingRules: [ContentRoleRoutingRule] = []
+  public var discoveredLocators: [DiscoveredLocator] = []
   public var errorMessage: String?
 
   public init() {}
@@ -138,9 +139,11 @@ public final class FollowingModel {
 extension FollowingModel {
   public func loadRoutingRules() async {
     do {
-      routingRules = try await database.read { db in
-        try CurationRouting.effectiveRules(in: db)
+      let snapshot = try await database.read { db in
+        try CurationRouting.snapshot(in: db)
       }
+      routingRules = snapshot.routingRules.values.sorted { $0.locator < $1.locator }
+      discoveredLocators = snapshot.discoveredLocators
     } catch is CancellationError {
     } catch {
       errorMessage = error.localizedDescription

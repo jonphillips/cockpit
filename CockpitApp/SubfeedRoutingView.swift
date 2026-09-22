@@ -8,12 +8,26 @@ struct SubfeedRoutingView: View {
     List {
       Section {
         Text(
-          "This editor covers configured sub-feeds known to Cockpit. New List-IDs stay on the "
-            + "default route until explicitly configured; per-feed classification remains deferred. "
+          "New List-IDs appear below after mail is ingested and stay on the default route until "
+            + "explicitly configured. Per-feed classification remains deferred. "
             + "Routing uses the sub-feed locator, not whether mail arrived through Gmail or RSS."
         )
           .font(.subheadline)
           .foregroundStyle(.secondary)
+      }
+
+      if !model.discoveredLocators.isEmpty {
+        Section("Discovered — not yet routed") {
+          ForEach(model.discoveredLocators) { discovered in
+            SubfeedRoutingRow(
+              rule: ContentRoleRoutingRule(locator: discovered.locator, role: .forYou),
+              displayLabel: discovered.displayLabel,
+              pieceCount: discovered.pieceCount
+            ) { updatedRule in
+              Task { await model.saveRoutingRule(updatedRule) }
+            }
+          }
+        }
       }
 
       Section("Configured sub-feeds") {
@@ -42,12 +56,24 @@ struct SubfeedRoutingView: View {
 
 private struct SubfeedRoutingRow: View {
   let rule: ContentRoleRoutingRule
+  var displayLabel: String?
+  var pieceCount: Int?
   let update: (ContentRoleRoutingRule) -> Void
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
+      if let displayLabel {
+        Text(displayLabel)
+          .font(.headline)
+        if let pieceCount {
+          Text(pieceCount == 1 ? "1 piece seen" : String(pieceCount) + " pieces seen")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        }
+      }
       Text(rule.locator)
-        .font(.headline)
+        .font(displayLabel == nil ? .headline : .caption)
+        .foregroundStyle(displayLabel == nil ? .primary : .secondary)
         .textSelection(.enabled)
 
       Picker("Section", selection: Binding(

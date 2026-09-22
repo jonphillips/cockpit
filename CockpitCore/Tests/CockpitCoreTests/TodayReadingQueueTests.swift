@@ -19,6 +19,9 @@ struct TodayReadingQueueTests {
         id: UUID(10_003), title: "Offer", publisher: "Shop", role: .offers,
         arrivedAt: Date(timeIntervalSince1970: 300)),
       TodayReadingQueueRequest.Row(
+        id: UUID(10_005), title: "Food", publisher: "Publisher", role: .food,
+        arrivedAt: Date(timeIntervalSince1970: 250)),
+      TodayReadingQueueRequest.Row(
         id: UUID(10_001), title: "Opinion", publisher: "Author", role: .opinion,
         arrivedAt: Date(timeIntervalSince1970: 100)),
       TodayReadingQueueRequest.Row(
@@ -31,7 +34,7 @@ struct TodayReadingQueueTests {
 
     expectNoDifference(
       ReadingQueueOrdering.ordered(rows).map(\.role),
-      [.forYou, .dailyNews, .opinion, .offers]
+      [.forYou, .dailyNews, .opinion, .food, .offers]
     )
   }
 

@@ -33,6 +33,9 @@ packages:
   LazyState:
     url: https://github.com/pointfreeco/swiftui-lazy-state
     from: 1.0.0
+  SwiftSoup:
+    url: https://github.com/scinfu/SwiftSoup
+    from: 2.7.0
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS
     from: 9.0.0
@@ -77,6 +80,8 @@ targets:
         product: StructuredQueriesCore
       - package: LazyState
         product: LazyState
+      - package: SwiftSoup
+        product: SwiftSoup
       - package: GoogleSignIn
         product: GoogleSignIn
       - package: GoogleSignIn
@@ -86,6 +91,17 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.jonphillips.cockpit
         CODE_SIGN_ENTITLEMENTS: CockpitApp/Cockpit.entitlements
         TARGETED_DEVICE_FAMILY: "2"
+  CockpitTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "27.0"
+    sources:
+      - CockpitAppTests
+    dependencies:
+      - target: Cockpit
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
 schemes:
   Cockpit:
     build:
@@ -93,3 +109,7 @@ schemes:
         Cockpit: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - CockpitTests
