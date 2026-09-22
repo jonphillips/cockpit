@@ -6,6 +6,8 @@ struct TodayLandingView: View {
   @Bindable var tailModel: EditionModel
   @Binding var isConfirmingRecompose: Bool
   let readerNamespace: Namespace.ID
+  let readableContentPieceIDs: Set<ContentPiece.ID>
+  let didChangeEdition: () -> Void
   let openReader: (ContentPiece.ID) -> Void
 
   var body: some View {
@@ -16,7 +18,9 @@ struct TodayLandingView: View {
         TodayRoleSectionListView(
           model: model, readerNamespace: readerNamespace, openReader: openReader)
         TailCompositionControl(
-          tailModel: tailModel, isConfirmingRecompose: $isConfirmingRecompose)
+          tailModel: tailModel,
+          isConfirmingRecompose: $isConfirmingRecompose,
+          didChangeEdition: didChangeEdition)
         tailSection("Essentials", rows: tailRows(in: .essentials))
         tailSection("From the Tail", rows: tailBodyRows)
         tailSection("Essential Backlog", rows: tailRows(in: .essentialBacklog))
@@ -27,7 +31,10 @@ struct TodayLandingView: View {
   }
 
   private var tailRows: [CurrentEditionRequest.Row] {
-    tailModel.entries.filter { $0.entryState == .admitted || $0.entryState == .seen }
+    tailModel.entries.filter {
+      ($0.entryState == .admitted || $0.entryState == .seen)
+        && readableContentPieceIDs.contains($0.contentPieceID)
+    }
   }
 
   private func tailRows(in section: JudgmentSection) -> [CurrentEditionRequest.Row] {

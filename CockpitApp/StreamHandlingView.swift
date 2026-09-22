@@ -42,7 +42,7 @@ struct StreamHandlingView: View {
       .navigationTitle(model.stream?.name ?? "Stream")
     } detail: {
       if let selectedContentPieceID {
-        ReaderView(contentPieceID: selectedContentPieceID)
+        ReaderView(contentPieceID: selectedContentPieceID, isReachableStreamPiece: true)
           .id(selectedContentPieceID)
       } else {
         ContentUnavailableView(

@@ -89,18 +89,17 @@ struct GmailSeriesDispositionTests {
     try await withDependencies {
       $0.gmailDispositionClient = log.client
     } operation: {
-      let model = TodayModel()
+      let model = TodayReadingQueueModel()
       try await model.$content.load()
       // No leave event is sent for this piece: being declared is not itself a trigger.
-      #expect(model.content.rows.contains { $0.id == unreadID })
+      #expect(model.rows.contains { $0.id == unreadID })
 
       await model.applySeriesTrashOnLeave(undeclaredID)
-      #expect(model.content.rows.contains { $0.id == undeclaredID })
+      #expect(model.rows.contains { $0.id == undeclaredID })
 
       await model.applySeriesTrashOnLeave(declaredID)
       await model.applySeriesTrashOnLeave(declaredID)
-      #expect(!model.content.rows.contains { $0.id == declaredID })
-      #expect(model.recentTrashes.rows.contains { $0.contentPieceID == declaredID })
+      #expect(!model.rows.contains { $0.id == declaredID })
     }
     expectNoDifference(log.calls, ["trash:series-read-declared"])
   }
@@ -133,8 +132,9 @@ struct GmailSeriesDispositionTests {
     try await withDependencies {
       $0.gmailDispositionClient = log.client
     } operation: {
-      let model = TodayModel()
+      let model = TodayReadingQueueModel()
       try await model.$content.load()
+      let row = try #require(model.rows.first { $0.id == pieceID })
       await model.applySeriesTrashOnLeave(pieceID)
 
       // D9 reconciliation must skip a Cockpit-caused departure or Undo would be stranded.
@@ -146,8 +146,8 @@ struct GmailSeriesDispositionTests {
       }
       expectNoDifference(markerCount, 0)
 
-      await model.undoDisposition(forContentPieceID: pieceID)
-      #expect(model.content.rows.contains { $0.id == pieceID })
+      await model.undoDisposition(row)
+      #expect(model.rows.contains { $0.id == pieceID })
     }
 
     let custody = try await database.read { db in
@@ -179,10 +179,12 @@ struct GmailSeriesDispositionTests {
     await model.undeclareSeriesTrash(for: row)
 
     let log = CallLog()
-    await withDependencies {
+    try await withDependencies {
       $0.gmailDispositionClient = log.client
     } operation: {
-      await model.applySeriesTrashOnLeave(pieceID)
+      let queueModel = TodayReadingQueueModel()
+      try await queueModel.$content.load()
+      await queueModel.applySeriesTrashOnLeave(pieceID)
     }
     #expect(log.calls.isEmpty)
     #expect(try await database.read { db in

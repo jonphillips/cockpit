@@ -72,6 +72,11 @@ private func assertDispositionPreservesStreamAndEditionState(
   let before = try await database.read { db in
     try state(for: fixture, in: db)
   }
+  let queueBefore = try await database.read { db in
+    try TodayReadingQueueRequest().fetch(db).rows.first { $0.id == fixture.pieceID }
+  }
+  #expect(queueBefore?.isFollowedStreamPiece == true)
+  #expect(queueBefore?.editionEntryID == fixture.entryID)
 
   let log = CallLog()
   let service = GmailDispositionService(client: log.client, now: { .distantPast })
@@ -85,6 +90,10 @@ private func assertDispositionPreservesStreamAndEditionState(
     try state(for: fixture, in: db)
   }
   expectNoDifference(after, before)
+  let queueAfter = try await database.read { db in
+    try TodayReadingQueueRequest().fetch(db).rows.first { $0.id == fixture.pieceID }
+  }
+  #expect(queueAfter == queueBefore)
 
   // The applied source disposition is the only new state: it points at the provider Artifact and
   // does not become a ContentPiece, Stream, Edition, or Essential-state mutation.

@@ -71,6 +71,45 @@ struct TodayOrientationTests {
     #expect(model.sections.isEmpty)
   }
 
+  @Test("Every landing-visible item resolves to a reading queue row")
+  func landingItemsOpenInQueue() async throws {
+    let mutedTail = UUID(7_402)
+    try await seed(
+      mutedTail, treatment: .newsletter, receivedAt: 9_900, publisher: "Washington Post",
+      listID: "Food <list.washingtonpost.com/food>")
+
+    let editionID = UUID(7_403)
+    try await database.write { db in
+      try Edition.insert {
+        Edition.Draft(Edition(
+          id: editionID, date: Date(timeIntervalSince1970: 10_000), state: .open))
+      }.execute(db)
+      try EditionEntry.insert {
+        EditionEntry.Draft(EditionEntry(
+          id: UUID(7_404), editionID: editionID, contentPieceID: mutedTail,
+          section: .forYou, rank: 1, firstAdmittedEditionID: editionID))
+      }.execute(db)
+    }
+
+    let projection = try await database.read { db in
+      let todayIDs = Set(try TodayRequest().fetch(db).rows.map(\.id))
+      let currentEdition = try CurrentEditionRequest().fetch(db)
+      let routing = try CurationRouting.snapshot(in: db)
+      let landingTailIDs = Set<ContentPiece.ID>(currentEdition.entries.compactMap { entry in
+        guard (entry.entryState == .admitted || entry.entryState == .seen),
+          !routing.mutedContentPieceIDs.contains(entry.contentPieceID)
+        else { return nil }
+        return entry.contentPieceID
+      })
+      let queueIDs = Set(try TodayReadingQueueRequest().fetch(db).rows.map(\.id))
+      return (todayIDs.union(landingTailIDs), queueIDs)
+    }
+
+    #expect(projection.0.isSubset(of: projection.1))
+    #expect(!projection.0.contains(mutedTail))
+    #expect(!projection.1.contains(mutedTail))
+  }
+
   private func seed(
     _ pieceID: ContentPiece.ID,
     treatment: EmailTreatment,

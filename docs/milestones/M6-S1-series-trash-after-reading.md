@@ -72,7 +72,7 @@ enum GmailSeriesKey {
 Two different List-IDs from the same From: address (e.g. NYT "The Morning" vs NYT account notices) must
 produce **different** keys — that is the whole reason for keying on List-ID.
 
-## Operations (core, DB-only, no provider calls)
+## Operations (core declaration and guarded application)
 
 ```
 enum GmailSeriesDispositionOperations {
@@ -80,6 +80,11 @@ enum GmailSeriesDispositionOperations {
   static func undeclare(seriesKey: String, in db: Database) throws                // delete row
   static func isDeclared(seriesKey: String, in db: Database) throws -> Bool
   static func declaredKeys(in db: Database) throws -> [String]
+  static func applyTrashOnLeave(
+    contentPieceID: ContentPiece.ID,
+    in database: any DatabaseWriter,
+    using service: GmailDispositionService
+  ) async throws -> Bool
 }
 ```
 
@@ -90,21 +95,20 @@ is re-checked at application time via `GmailSeriesKey.seriesKey` (which returns 
 
 Drive this from the Today reader, **not** from the sync-time `GmailDispositionPolicyService`.
 
-- **Trigger point:** when a piece that was presented in the reader is **left** — the reader is
-  dismissed, or `disposeAndAdvance` / `model.begin(contentPieceID:)` advances off it. Reuse the existing
-  leave/advance plumbing in `TodayOriginalReaderPane.swift`.
-- **On leave of piece P:** resolve P's series key; if it is declared **and** P is newsletter **and** P is
-  not already trashed (`GmailDispositionOperations.hasTrashLogEntry`), apply
-  `dispositionService.apply(.trash, toContentPieceID: P, ...)` (the same service `TodayModel` already
-  holds), then reload the projection. The barrier verifies P's ContentPiece is committed before mutating
-  — always true for a piece that was on Today and read.
+- **Trigger point:** when a piece that was presented in the reader is **left** — the split reader is
+  dismissed, or selection advances off it. Reuse the shared leave/advance plumbing in the current
+  reading queue model.
+- **On leave of piece P:** `applyTrashOnLeave` resolves P's series key; if it is declared **and** P is
+  newsletter **and** P is not already trashed (`GmailDispositionOperations.hasTrashLogEntry`), it applies
+  the injected disposition service and returns whether it mutated the provider. The reading queue then
+  reloads its projection. The barrier verifies P's ContentPiece is committed before mutating — always
+  true for a piece that was on Today and read.
 - **Unread pieces are untouched.** A declared-series row that is never opened stays on Today.
 - **Once per message.** The `hasTrashLogEntry` guard makes re-entry / re-read idempotent.
 
-Add to `TodayModel` (or the reader model that owns disposition):
+The reading model owns the leave trigger; Today retains the declaration and recent-trash controls:
 
 ```
-func applySeriesTrashOnLeave(_ pieceID: ContentPiece.ID) async   // the trigger above
 func seriesTrashState(for row: TodayRequest.Row) async -> Bool   // is this row's series declared?
 func declareSeriesTrash(for row: TodayRequest.Row) async         // newsletter-guarded
 func undeclareSeriesTrash(for row: TodayRequest.Row) async
@@ -119,7 +123,7 @@ Today even after a sync observed the trash. Assert this in a test.
 
 ## UI
 
-**Reader (`TodayOriginalReaderPane.swift`) — declared-series piece = fate hidden.**
+**Reader — declared-series piece = fate hidden.**
 - Do **not** render the primary Archive button or the Trash/Undo primary decision for a piece whose
   series is declared. The default path has **zero** disposition decisions.
 - The `⋯` menu for a declared-series piece carries only: the sender-treatment submenu (unchanged),
