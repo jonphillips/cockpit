@@ -185,7 +185,7 @@ struct S5Tests {
       try Artifact.insert {
         Artifact.Draft(
           Artifact(
-            id: UUID(id.hashValue), streamID: streamID, transport: .rss, acquiredAt: self.base,
+            id: id.seededArtifactID, streamID: streamID, transport: .rss, acquiredAt: self.base,
             contentPieceID: id))
       }.execute(db)
       try NormalizedTextOperations.store("A concrete article body.", for: id, in: db)

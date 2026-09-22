@@ -280,7 +280,7 @@ struct ContentPieceReaderModelTests {
       if rawSourceText != nil {
         try Artifact.insert {
           Artifact.Draft(
-            id: UUID(id.uuidString.hashValue), transport: .gmail, acquiredAt: acquiredAt,
+            id: id.seededArtifactID, transport: .gmail, acquiredAt: acquiredAt,
             rawSourceText: rawSourceText, contentPieceID: id)
         }.execute(db)
       }
