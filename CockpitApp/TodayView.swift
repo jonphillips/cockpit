@@ -21,7 +21,7 @@ struct TodayView: View {
         readerNamespace: readerTransition,
         openReader: beginReader(for:))
         .overlay {
-          if model.tiers.isEmpty && tailRows.isEmpty && !tailModel.isComposing {
+          if model.sections.isEmpty && tailRows.isEmpty && !tailModel.isComposing {
             ContentUnavailableView(
               "Nothing to Review", systemImage: "sun.max",
               description: Text("Loose Gmail messages and screened tail stories will appear here."))
@@ -58,7 +58,6 @@ struct TodayView: View {
     }
     .task {
       try? await model.$content.load()
-      await tailModel.composeIfNeeded()
     }
     .toolbar {
       ToolbarItem(placement: .topBarLeading) {

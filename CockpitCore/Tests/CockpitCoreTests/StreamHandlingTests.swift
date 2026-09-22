@@ -67,8 +67,8 @@ struct StreamHandlingTests {
     #expect(rows.map(\.title).contains("Loose mail") == false)
   }
 
-  @Test("Today keeps loose and paused Gmail mail while routing active Stream mail to Stream Handling")
-  func todayExcludesOnlyActiveFollowedStreamMail() async throws {
+  @Test("Today surfaces loose, paused, and followed Gmail mail by content role")
+  func todayIncludesFollowedStreamMailForOrientation() async throws {
     let activeStreamID = UUID(9_421)
     let pausedStreamID = UUID(9_422)
     let activePieceID = UUID(9_431)
@@ -119,7 +119,7 @@ struct StreamHandlingTests {
     }
 
     let rows = try await database.read { db in try TodayRequest().fetch(db).rows }
-    #expect(Set(rows.map(\.id)) == [pausedPieceID, loosePieceID])
-    #expect(rows.contains(where: { $0.id == activePieceID }) == false)
+    #expect(Set(rows.map(\.id)) == [activePieceID, pausedPieceID, loosePieceID])
+    #expect(rows.first(where: { $0.id == activePieceID })?.role == .forYou)
   }
 }
