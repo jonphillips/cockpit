@@ -14,6 +14,7 @@ public final class FollowingModel {
   public var addURL = ""
   public var proposedStream: StreamDraft?
   public var editingStream: StreamDraft?
+  public var routingRules: [ContentRoleRoutingRule] = []
   public var errorMessage: String?
 
   public init() {}
@@ -130,6 +131,32 @@ public final class FollowingModel {
     } catch {
       errorMessage = error.localizedDescription
       return false
+    }
+  }
+}
+
+extension FollowingModel {
+  public func loadRoutingRules() async {
+    do {
+      routingRules = try await database.read { db in
+        try CurationRouting.effectiveRules(in: db)
+      }
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  public func saveRoutingRule(_ rule: ContentRoleRoutingRule) async {
+    do {
+      try await database.write { db in
+        try StreamOperations.saveRoutingRule(rule, in: db)
+      }
+      await loadRoutingRules()
+      errorMessage = nil
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
     }
   }
 }
