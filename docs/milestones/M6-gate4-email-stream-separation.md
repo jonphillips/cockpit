@@ -110,6 +110,56 @@ scaffold, so the gate's architecture ratification must not wait on the placement
    items-bearing digest want its extracted items surfaced somewhere (Today, or a richer Stream row)?
    Do not let this ride in silently.
 
+## Gate 4 model review — agenda (architect-recorded 2026-09-22)
+
+> **The mechanics landed; the surface is a stub.** S-a/S-b/S-c (PRs #56/#57/#58) prove the seams hold in
+> the model — I1–I4, I6 are test-backed. But a device look at Today (2026-09-22) shows the gate's
+> load-bearing concepts have **no legible UI expression**, so the S-d "reachable-first *feel*" eval (I5)
+> cannot run yet: there is nothing to feel. This is the recurring-method trap named at the top of this
+> doc — feel can't be judged against a scaffold. **Resolve this agenda first, then a surface slice
+> (S-d0), then the device eval.** These are review decisions, not implementation choices; do not
+> pre-decide them in the surface slice.
+
+**What the device look showed (the evidence).** Today (`CockpitApp/TodayLandingView.swift`) is still the
+M5 treatment-typed triage: sections are `EmailTreatment` buckets (Personal / Newsletter / offer /
+grab-bag / transactional, via `orientationSummary`), rows show raw sender addresses. **No row is a
+Stream and none is labeled by transport.** The only home for reachable-first is `StreamHandlingView`,
+reachable *only* from Settings → a stream (`CockpitApp/SettingsView.swift` ~line 68). A followed Gmail
+Stream (The Washington Post) appeared in **both** "Fresh this morning" and "Newsletters 64" — the
+"appears in both" failure from open question #2, live. So reachable-first, Stream identity, and transport
+are all invisible on the surface the user actually reads.
+
+**Q-A — Where do followed Streams live as a first-class place?** Not Settings. Reachable-first only means
+something if there is a Streams surface that is a peer to Today / Later / Library. Absent that, "reachable"
+degrades to "buried in Settings." Decide whether Streams becomes a top-level surface (and what it is
+called) before the surface slice is scoped.
+
+**Q-B — Does the promotion band survive?** "Fresh this morning" is `model.promotedRows`
+(`TodayLandingView.swift` ~line 100), a horizontal *promotion* carousel — the exact effect §24 /
+reachable-first says to **dissolve** for curated streams. It is the live contradiction with I5. Either it
+is the sanctioned always-read surface (Yglesias/Puck/Sepinwall — see Q from open question #3) and we stop
+calling promotion dissolved, or it goes. A one-card carousel also reads as a bug, not a feature. Do not
+let the band and reachable-first coexist unexamined.
+
+**Q-C — What marks Stream identity on Today, and should followed-Stream issues be on Today at all?** A
+followed-Stream issue showing on Today (as WaPo does now, in two places) may mean routing has not actually
+removed it, or may mean Today should carry a Stream affordance. Reachable-first (open question #2) implies
+it leaves the daily triage and is reachable via its Stream. Decide: does a followed-Stream piece leave
+Today, and if any Stream identity shows on Today, what is the mark?
+
+**Q-D — Does the Edition package have a standing entry point, or is compose-on-demand the model?** The
+Edition/tail is composed on demand (sparkles control, `TodayView.swift` ~line 79); there is no standing
+Edition entry point on the landing screen, which is why "I don't see an Edition package" is the correct
+read of what is built. Decide whether that is intended or a missing surface.
+
+These fold in the earlier open model questions (RSS scope #1, appears-in-both #2, always-read #3, grab-bag
+#4): #2 is now evidence under Q-C, #3 is the deciding input to Q-B, #4 is a Q-A/Q-C surfacing case.
+
+**Sequencing consequence.** S-d as originally written (model review + device eval in one) splits: the
+**model review is this agenda** (resolve Q-A–Q-D on the shipped mechanics); a **surface slice (S-d0)**
+builds the resolved surface; the **device eval (the real I5)** runs against S-d0, not against the current
+Settings-buried stub.
+
 ## Continuity with shipped work
 
 - **S1 + D9 are the down payment.** They already proved *source disposition independent of custody*
