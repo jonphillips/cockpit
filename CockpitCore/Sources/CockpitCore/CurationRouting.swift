@@ -80,13 +80,16 @@ func matchingRule(
 public struct CurationRoutingResolution: Equatable, Sendable {
   public let locator: String?
   public let rule: ContentRoleRoutingRule?
+  private let isTransactional: Bool
 
-  public init(locator: String?, rule: ContentRoleRoutingRule?) {
+  public init(locator: String?, rule: ContentRoleRoutingRule?, isTransactional: Bool = false) {
     self.locator = locator
     self.rule = rule
+    self.isTransactional = isTransactional
   }
 
   public var role: ContentRole? {
+    if isTransactional { return .transactional }
     guard let rule else { return locator == nil ? nil : .forYou }
     return rule.isRouted ? rule.role : nil
   }
@@ -211,6 +214,8 @@ public enum CurationRouting {
 
     let streamsByID = Dictionary(
       uniqueKeysWithValues: try Stream.all.fetchAll(db).map { ($0.id, $0) })
+    let contentPiecesByID = Dictionary(
+      uniqueKeysWithValues: try ContentPiece.all.fetchAll(db).map { ($0.id, $0) })
     let rules = Dictionary(uniqueKeysWithValues: try effectiveRules(in: db).map {
       ($0.locator, $0)
     })
@@ -225,18 +230,15 @@ public enum CurationRouting {
     var roleByContentPieceID: [ContentPiece.ID: ContentRole] = [:]
     var mutedContentPieceIDs = Set<ContentPiece.ID>()
     for (contentPieceID, candidates) in candidatesByContentPieceID {
-      let rule = candidates
-        .sorted(by: routeCandidatePrecedes)
-        .compactMap { matchingRule(for: $0.locator, in: rules) }
-        .first
-      guard let rule else {
-        roleByContentPieceID[contentPieceID] = .forYou
-        continue
-      }
-      if rule.isRouted {
-        roleByContentPieceID[contentPieceID] = rule.role
-      } else {
+      switch routeDecision(
+        for: contentPiecesByID[contentPieceID], candidates: candidates, rules: rules)
+      {
+      case let .role(role):
+        roleByContentPieceID[contentPieceID] = role
+      case .muted:
         mutedContentPieceIDs.insert(contentPieceID)
+      case .unconfigured:
+        roleByContentPieceID[contentPieceID] = .forYou
       }
     }
 
@@ -268,20 +270,25 @@ extension CurationRouting {
     let rules = Dictionary(uniqueKeysWithValues: try effectiveRules(in: db).map {
       ($0.locator, $0)
     })
+    let isTransactional = try ContentPiece.find(contentPieceID).fetchOne(db)?.emailTreatment
+      == .transactional
     let candidates = artifacts.flatMap { artifact in
       routeCandidates(for: artifact, stream: artifact.streamID.flatMap { streamsByID[$0] })
     }.sorted(by: routeCandidatePrecedes)
 
     guard let candidate = candidates.first else {
-      return CurationRoutingResolution(locator: nil, rule: nil)
+      return CurationRoutingResolution(
+        locator: nil, rule: nil, isTransactional: isTransactional)
     }
     if let matched = candidates.compactMap({ candidate in
       matchingRule(for: candidate.locator, in: rules).map { (candidate, $0) }
     }).first {
       return CurationRoutingResolution(
-        locator: canonicalLocator(matched.0.locator), rule: matched.1)
+        locator: canonicalLocator(matched.0.locator), rule: matched.1,
+        isTransactional: isTransactional)
     }
-    return CurationRoutingResolution(locator: canonicalLocator(candidate.locator), rule: nil)
+    return CurationRoutingResolution(
+      locator: canonicalLocator(candidate.locator), rule: nil, isTransactional: isTransactional)
   }
 
 }

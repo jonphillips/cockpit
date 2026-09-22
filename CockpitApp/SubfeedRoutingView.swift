@@ -83,7 +83,7 @@ private struct SubfeedRoutingRow: View {
           updated.role = role
           update(updated)
         })) {
-        ForEach(ContentRole.allCases, id: \.self) { role in
+        ForEach(ContentRole.allCases.filter { $0 != .transactional }, id: \.self) { role in
           Text(role.displayName).tag(role)
         }
       }

@@ -1,5 +1,6 @@
 import Dependencies
 import Foundation
+import LLMClientKit
 import Observation
 import SQLiteData
 
@@ -40,6 +41,7 @@ public final class TodayModel {
   @ObservationIgnored @Dependency(\.defaultDatabase) var database
   @ObservationIgnored @Dependency(\.date.now) var now
   @ObservationIgnored @Dependency(\.gmailDispositionClient) var dispositionClient
+  @ObservationIgnored @Dependency(\.modelClient) private var modelClient
   @ObservationIgnored @Fetch(TodayRequest()) public var content = .init()
   public var recentTrashes = RecentTrashRequest.Value()
   public var selectedContentPieceID: ContentPiece.ID?
@@ -107,31 +109,39 @@ public final class TodayModel {
     }
   }
 
-  /// Applies the one sanctioned correction for a visible treatment misplacement. The database
-  /// writer performs the operation off the main actor; reloading the projection makes the row
-  /// move tiers and updates the landing counts immediately.
-  @discardableResult
-  public func setSenderOverride(_ treatment: EmailTreatment, for sender: String) async -> [ContentPiece] {
+  /// Routes the piece's canonical locator, reloads Today immediately, then schedules any missing
+  /// offer/grab-bag extraction independently so model failures cannot block the move.
+  public func moveToSection(_ contentPieceID: ContentPiece.ID, to role: ContentRole) async {
+    guard role != .transactional else { return }
     do {
-      let reclassified = try await database.write { db in
-        try EmailTreatmentOperations.setSenderOverride(treatment, for: sender, in: db)
+      let locator = try await database.write { db -> String? in
+        let resolution = try CurationRouting.resolution(for: contentPieceID, in: db)
+        guard resolution.role != .transactional else { return nil }
+        guard let locator = resolution.locator else { return nil }
+        try StreamOperations.saveRoutingRule(
+          ContentRoleRoutingRule(locator: locator, role: role, isFollowed: true, isMuted: false),
+          in: db)
+        return locator
+      }
+      guard let locator else {
+        errorMessage = "This message has no routable locator."
+        return
       }
       try await $content.load()
       errorMessage = nil
-      return reclassified
+      guard role == .grabBag || role == .offers else { return }
+      let processor = EmailTreatmentProcessor(modelClient: modelClient)
+      let database = database
+      Task { [weak self] in
+        _ = try? await Task.detached(priority: .utility) {
+          try await processor.processUnextractedPieces(for: locator, in: database)
+        }.value
+        try? await self?.$content.load()
+      }
     } catch is CancellationError {
-      return []
-    } catch EmailTreatmentOperations.Failure.emptySender {
-      errorMessage = "This message has no sender address to correct."
-      return []
     } catch {
       errorMessage = error.localizedDescription
-      return []
     }
-  }
-
-  public func setSenderOverride(_ treatment: EmailTreatment, for row: TodayRequest.Row) async {
-    await setSenderOverride(treatment, for: row.sender)
   }
 
 }

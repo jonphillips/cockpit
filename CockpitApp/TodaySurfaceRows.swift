@@ -157,7 +157,7 @@ struct TodayRoleSectionListView: View {
         ForEach(model.grabBagGroups) { group in
           grabBagRollup(group)
         }
-      case .forYou, .dailyNews, .opinion, .food:
+      case .forYou, .transactional, .dailyNews, .opinion, .food, .wine:
         ForEach(section.rows) { row in
           emailRow(row)
         }
@@ -169,10 +169,12 @@ struct TodayRoleSectionListView: View {
   private func sectionColor(_ role: ContentRole) -> Color {
     switch role {
     case .forYou: .accentColor
+    case .transactional: .indigo
     case .dailyNews: .blue
     case .opinion: .orange
     case .grabBag: .teal
     case .food: .green
+    case .wine: .red
     case .offers: .brown
     }
   }
@@ -252,6 +254,10 @@ struct TodayRoleSectionListView: View {
 
   private func rollupMenu(_ group: TodayModel.PublisherRollup) -> some View {
     Menu {
+      MoveToSectionMenu(currentRole: group.representative.role, isTransactional: false) { role in
+        Task { await model.moveToSection(group.representative.id, to: role) }
+      }
+      Divider()
       Button(
         group.count > 1 ? "Archive all \(group.count)" : "Archive",
         systemImage: "archivebox"
@@ -280,8 +286,10 @@ struct TodayRoleSectionListView: View {
       .buttonStyle(.plain)
 
       Menu {
-        SenderTreatmentSubmenu(currentTreatment: row.treatment) { treatment in
-          Task { await model.setSenderOverride(treatment, for: row) }
+        MoveToSectionMenu(
+          currentRole: row.role, isTransactional: row.treatment == .transactional
+        ) { role in
+          Task { await model.moveToSection(row.id, to: role) }
         }
         Divider()
         GmailDispositionButtons(

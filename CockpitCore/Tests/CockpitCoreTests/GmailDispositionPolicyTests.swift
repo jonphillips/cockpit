@@ -85,6 +85,26 @@ struct GmailDispositionPolicyTests {
     expectNoDifference(candidates, [offerID])
   }
 
+  @Test("Moving newsletter mail to Offers does not widen offer-disposition candidates")
+  func roleMoveDoesNotAuthorizeOfferDisposition() async throws {
+    let pieceID = try await seedOffer(id: "section-moved-newsletter", withFind: true)
+    try await database.write { db in
+      try ContentPiece.find(pieceID)
+        .update { $0.emailTreatment = #bind(EmailTreatment.newsletter) }.execute(db)
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: "sender@example.com", role: .offers), in: db)
+    }
+
+    let values = try await database.read { db in
+      (
+        try CurationRouting.snapshot(in: db).role(for: pieceID),
+        try GmailDispositionPolicyOperations.candidatePieceIDs(for: .offerWithFind, in: db)
+      )
+    }
+    #expect(values.0 == .offers)
+    #expect(!values.1.contains(pieceID))
+  }
+
   @Test("Turning a policy off halts future dispositions without un-disposing past ones (D3/D4)")
   func disablingHaltsFutureOnly() async throws {
     _ = try await seedLoginCode(id: "message-otp-1")

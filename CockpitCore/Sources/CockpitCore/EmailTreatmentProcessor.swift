@@ -44,8 +44,9 @@ public struct EmailTreatmentProcessor: Sendable {
   private func candidate(for id: ContentPiece.ID, in db: Database) throws -> EmailTreatmentCandidate? {
     guard let piece = try ContentPiece.find(id).fetchOne(db),
       piece.kind == .email,
-      let treatment = piece.emailTreatment,
-      treatment == .offer || treatment == .grabBag,
+      let treatment = extractionTreatment(
+        role: try CurationRouting.resolution(for: id, in: db).role,
+        treatment: piece.emailTreatment),
       let artifact = try (Artifact
         .where { $0.contentPieceID.eq(id) && $0.transport.eq(StreamTransport.gmail) }
         .order { $0.acquiredAt.desc() }
@@ -59,6 +60,16 @@ public struct EmailTreatmentProcessor: Sendable {
     return EmailTreatmentCandidate(
       id: piece.id, treatment: treatment, title: piece.title, publisher: piece.publisher,
       text: String(text.prefix(12_000)))
+  }
+
+  private func extractionTreatment(
+    role: ContentRole?, treatment: EmailTreatment?
+  ) -> EmailTreatment? {
+    switch role {
+    case .grabBag: .grabBag
+    case .offers: .offer
+    default: treatment == .offer || treatment == .grabBag ? treatment : nil
+    }
   }
 
   private func extract(_ candidate: EmailTreatmentCandidate) async throws -> EmailTreatmentOutput {

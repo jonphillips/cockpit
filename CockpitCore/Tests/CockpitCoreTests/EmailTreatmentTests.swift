@@ -65,6 +65,39 @@ struct EmailTreatmentTests {
     }
   }
 
+  @Test("M6 migrates old section-shaped sender corrections without overwriting explicit routing")
+  func senderTreatmentCorrectionsBecomeRoleRules() throws {
+    let database = try SQLiteData.defaultDatabase()
+    let migrator = CockpitMigrations.makeMigrator()
+    try migrator.migrate(database, upTo: "M6 S-d0d editable sub-feed routing")
+    try database.write { db in
+      try EmailSenderTreatmentOverride.insert {
+        EmailSenderTreatmentOverride.Draft(
+          EmailSenderTreatmentOverride(senderKey: "digest@example.com", treatment: .grabBag))
+      }.execute(db)
+      try EmailSenderTreatmentOverride.insert {
+        EmailSenderTreatmentOverride.Draft(
+          EmailSenderTreatmentOverride(senderKey: "offers@example.com", treatment: .offer))
+      }.execute(db)
+      try ContentRoleRoutingRule.insert {
+        ContentRoleRoutingRule.Draft(
+          ContentRoleRoutingRule(locator: "offers@example.com", role: .opinion))
+      }.execute(db)
+    }
+
+    try migrator.migrate(database)
+    let migrated = try database.read { db in
+      (
+        try ContentRoleRoutingRule.find("digest@example.com").fetchOne(db)?.role,
+        try ContentRoleRoutingRule.find("offers@example.com").fetchOne(db)?.role,
+        try EmailSenderTreatmentOverride.fetchCount(db)
+      )
+    }
+    #expect(migrated.0 == .grabBag)
+    #expect(migrated.1 == .opinion)
+    #expect(migrated.2 == 2)
+  }
+
   @Test("Gmail ingest routes every message with deterministic retained-header signals")
   func gmailIngestRoutesEveryMessage() async throws {
     let snapshot = GmailInboxSnapshot(

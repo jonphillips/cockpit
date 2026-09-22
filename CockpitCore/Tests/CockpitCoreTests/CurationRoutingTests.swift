@@ -293,6 +293,75 @@ struct CurationRoutingTests {
     #expect(updated.1)
   }
 
+  @Test("Transactional treatment outranks locator roles and mutes")
+  func transactionalRoleWinsOverLocatorRouting() async throws {
+    let seededTransactionalID = UUID(9_611)
+    let configuredTransactionalID = UUID(9_612)
+    let mutedTransactionalID = UUID(9_613)
+    let configuredNewsletterID = UUID(9_614)
+    let configuredLocator = "capitalone.example.com"
+    let mutedLocator = "muted.example.com"
+
+    try await database.write { db in
+      for (pieceID, treatment, listID) in [
+        (seededTransactionalID, EmailTreatment.transactional,
+         "Capital One <e.nordstrom.com>"),
+        (configuredTransactionalID, EmailTreatment.transactional,
+         "Capital One <\(configuredLocator)>"),
+        (mutedTransactionalID, EmailTreatment.transactional,
+         "Capital One <\(mutedLocator)>"),
+        (configuredNewsletterID, EmailTreatment.newsletter,
+         "Capital One <\(configuredLocator)>")
+      ] as [(UUID, EmailTreatment, String)] {
+        let provenance = GmailArtifactProvenance(
+          accountID: "jon@example.com", messageID: pieceID.uuidString, threadID: "thread",
+          rfcMessageID: nil, listUnsubscribe: nil, listID: listID, precedence: "bulk",
+          senderAddress: "Capital One <alerts@capitalone.com>", sendingDomain: "capitalone.com",
+          dkimDomain: nil, toRecipientCount: 1, ccRecipientCount: 0)
+        let provenanceJSON = String(
+          data: try JSONEncoder().encode(provenance), encoding: .utf8)
+        try ContentPiece.insert {
+          ContentPiece.Draft(ContentPiece(
+            id: pieceID, kind: .email, title: pieceID.uuidString, publisher: "Capital One",
+            emailTreatment: treatment, createdAt: .distantPast))
+        }.execute(db)
+        try Artifact.insert {
+          Artifact.Draft(Artifact(
+            id: UUID(), transport: .gmail, acquiredAt: .distantPast,
+            providerProvenance: provenanceJSON, contentPieceID: pieceID))
+        }.execute(db)
+      }
+
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: configuredLocator, role: .offers), in: db)
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: mutedLocator, role: .offers, isMuted: true), in: db)
+    }
+
+    let values = try await database.read { db in
+      let snapshot = try CurationRouting.snapshot(in: db)
+      let resolutions = try [
+        CurationRouting.resolution(for: seededTransactionalID, in: db),
+        CurationRouting.resolution(for: configuredTransactionalID, in: db),
+        CurationRouting.resolution(for: mutedTransactionalID, in: db),
+        CurationRouting.resolution(for: configuredNewsletterID, in: db),
+      ]
+      return (
+        snapshot,
+        resolutions.map(\.role),
+        resolutions.map { $0.rule?.isMuted ?? false }
+      )
+    }
+
+    #expect(values.0.role(for: seededTransactionalID) == .transactional)
+    #expect(values.0.role(for: configuredTransactionalID) == .transactional)
+    #expect(values.0.role(for: mutedTransactionalID) == .transactional)
+    #expect(values.0.role(for: configuredNewsletterID) == .offers)
+    #expect(!values.0.mutedContentPieceIDs.contains(mutedTransactionalID))
+    #expect(values.1 == [.transactional, .transactional, .transactional, .offers])
+    #expect(values.2 == [false, false, true, false])
+  }
+
   @Test("Unconfigured Gmail List-IDs are discovered until explicitly routed")
   func discoversUnconfiguredGmailLocators() async throws {
     let feedMeID = UUID(9_701)
@@ -351,5 +420,52 @@ struct CurationRoutingTests {
     #expect(updated.1.contains {
       $0.locator == feedMeLocator && $0.role == .grabBag && $0.isRouted
     })
+  }
+
+  @Test("Transactional-only locators are routed, while mixed locators remain discoverable")
+  func transactionalLocatorsDoNotAppearAsUnrouted() async throws {
+    let transactionalOnlyID = UUID(9_801)
+    let mixedTransactionalID = UUID(9_802)
+    let mixedNewsletterID = UUID(9_803)
+    let transactionalOnlyLocator = "bank.example.com"
+    let mixedLocator = "mixed.example.com"
+
+    try await database.write { db in
+      for (pieceID, treatment, listID) in [
+        (transactionalOnlyID, EmailTreatment.transactional,
+         "Bank <\(transactionalOnlyLocator)>"),
+        (mixedTransactionalID, EmailTreatment.transactional, "Mixed <\(mixedLocator)>"),
+        (mixedNewsletterID, EmailTreatment.newsletter, "Mixed <\(mixedLocator)>")
+      ] as [(UUID, EmailTreatment, String)] {
+        let provenance = GmailArtifactProvenance(
+          accountID: "jon@example.com", messageID: pieceID.uuidString, threadID: "thread",
+          rfcMessageID: nil, listUnsubscribe: nil, listID: listID, precedence: "bulk",
+          senderAddress: "alerts@example.com", sendingDomain: "example.com", dkimDomain: nil,
+          toRecipientCount: 1, ccRecipientCount: 0)
+        let provenanceJSON = String(
+          data: try JSONEncoder().encode(provenance), encoding: .utf8)
+        try ContentPiece.insert {
+          ContentPiece.Draft(ContentPiece(
+            id: pieceID, kind: .email, title: "Issue", publisher: "Example",
+            emailTreatment: treatment, createdAt: .distantPast))
+        }.execute(db)
+        try Artifact.insert {
+          Artifact.Draft(Artifact(
+            id: UUID(), transport: .gmail, acquiredAt: .distantPast,
+            providerProvenance: provenanceJSON, contentPieceID: pieceID))
+        }.execute(db)
+      }
+    }
+
+    let snapshot = try await database.read { db in try CurationRouting.snapshot(in: db) }
+
+    #expect(snapshot.discoveredLocators == [
+      DiscoveredLocator(
+        locator: CurationRouting.canonicalLocator(mixedLocator),
+        displayLabel: "Example", pieceCount: 1)
+    ])
+    #expect(snapshot.role(for: transactionalOnlyID) == .transactional)
+    #expect(snapshot.role(for: mixedTransactionalID) == .transactional)
+    #expect(snapshot.role(for: mixedNewsletterID) == .forYou)
   }
 }

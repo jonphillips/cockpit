@@ -32,10 +32,11 @@ struct TodayModelTests {
     let model = TodayModel()
     try await model.$content.load()
 
-    expectNoDifference(model.sections.map(\.role), [.forYou])
+    expectNoDifference(model.sections.map(\.role), [.forYou, .transactional])
     expectNoDifference(
       model.sections[0].rows.map(\.id),
-      [transactional, grabBag, offer, newsletter, personalLate, personalEarly])
+      [grabBag, offer, newsletter, personalLate, personalEarly])
+    expectNoDifference(model.sections[1].rows.map(\.id), [transactional])
   }
 
   @Test("Clear resolves only Cockpit attention and leaves Gmail evidence unchanged")
@@ -86,33 +87,32 @@ struct TodayModelTests {
     #expect(attention == nil)
   }
 
-  @Test("Sender correction reloads Today and moves every piece from that sender")
-  func senderCorrectionReloadsProjection() async throws {
+  @Test("Moving a Today sender writes a locator role without changing email treatment")
+  func movingSectionPreservesTreatment() async throws {
     let pieceID = UUID(7_401)
     try await seed(
       pieceID, treatment: .newsletter, receivedAt: 9_990,
       publisher: "Ministry of Supply <offers@ministry.example>",
-      providerProvenance: "{\"listID\":\"Ministry of Supply\"}")
+      providerProvenance: "{\"accountID\":\"jon@example.com\",\"messageID\":\"move-test\",\"threadID\":\"thread\",\"senderAddress\":\"offers@ministry.example\",\"toRecipientCount\":1,\"ccRecipientCount\":0}")
 
     let model = TodayModel()
     try await model.$content.load()
     let row = try #require(model.content.rows.first)
     #expect(row.treatment == .newsletter)
-    let overrideCount = try await database.read { db in
-      try EmailSenderTreatmentOverride.fetchCount(db)
-    }
-    #expect(overrideCount == 0)
 
-    await model.setSenderOverride(.offer, for: row)
+    await model.moveToSection(row.id, to: .wine)
 
-    #expect(model.content.rows.first?.treatment == .offer)
-    #expect(model.content.rows.filter { $0.treatment == .offer }.count == 1)
-    #expect(model.content.rows.filter { $0.treatment == .newsletter }.isEmpty)
+    #expect(model.content.rows.first?.treatment == .newsletter)
+    #expect(model.content.rows.first?.role == .wine)
     #expect(model.errorMessage == nil)
-    let overrideTreatment = try await database.read { db in
-      try EmailSenderTreatmentOverride.find("offers@ministry.example").fetchOne(db)?.treatment
+    let persisted = try await database.read { db in
+      (
+        try ContentRoleRoutingRule.find("offers@ministry.example").fetchOne(db),
+        try EmailSenderTreatmentOverride.fetchCount(db)
+      )
     }
-    #expect(overrideTreatment == .offer)
+    #expect(persisted.0?.role == .wine)
+    #expect(persisted.1 == 0)
   }
 
   @discardableResult

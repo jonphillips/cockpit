@@ -5,19 +5,23 @@ import SQLiteData
 /// different axes.
 public enum ContentRole: String, Codable, QueryBindable, CaseIterable, Hashable, Sendable {
   case forYou = "for-you"
+  case transactional
   case dailyNews = "daily-news"
   case opinion
   case grabBag = "grab-bag"
   case food = "food"
+  case wine
   case offers
 
   public var displayName: String {
     switch self {
     case .forYou: "For you"
+    case .transactional: "Transactional"
     case .dailyNews: "Daily news"
     case .opinion: "Opinion"
     case .grabBag: "Grab-bag"
     case .food: "Food"
+    case .wine: "Wine"
     case .offers: "Offers"
     }
   }
@@ -25,11 +29,13 @@ public enum ContentRole: String, Codable, QueryBindable, CaseIterable, Hashable,
   public var sortOrder: Int {
     switch self {
     case .forYou: 0
-    case .dailyNews: 1
-    case .opinion: 2
-    case .grabBag: 3
-    case .food: 4
-    case .offers: 5
+    case .transactional: 1
+    case .dailyNews: 2
+    case .opinion: 3
+    case .grabBag: 4
+    case .food: 5
+    case .wine: 6
+    case .offers: 7
     }
   }
 }

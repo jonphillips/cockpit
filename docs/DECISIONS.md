@@ -696,6 +696,14 @@ and only sanctioned fix for such misses — not classifier perfection, a model c
 reputation store, all still forbidden above. Known limit of per-sender granularity: an override forces
 *all* of a sender's mail to one treatment, accepted here.
 
+**M6 device-eval amendment (2026-09-22).** The correction control is **Move to section**, not Treat
+sender as. It writes the existing locator-routing rule; the treatment-override table, classifier read,
+and operations remain for compatibility, but the app no longer exposes treatment edits. Since
+section changes can alter whether a newsletter is an offer or digest, extraction follows the resolved
+role (`Offers` → offer schema; `Grab-bag` → digest schema) as well as existing offer/digest treatments.
+This grants no Gmail disposition authority: policy candidates remain treatment-gated, and finance mail
+continues to override locator routing, including mute.
+
 **The AI boundary this sharpens (extends §22).** For curated input the model classifies, summarizes,
 extracts, and highlights — it **never admits/declines or suppresses**. Organization changes order,
 grouping, and summary; it never changes *membership* of curated mail. This is strictly more faithful to

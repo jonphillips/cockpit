@@ -22,8 +22,14 @@ struct TodayReadingQueueTests {
         id: UUID(10_005), title: "Food", publisher: "Publisher", role: .food,
         arrivedAt: Date(timeIntervalSince1970: 250)),
       TodayReadingQueueRequest.Row(
+        id: UUID(10_006), title: "Wine", publisher: "Vinous", role: .wine,
+        arrivedAt: Date(timeIntervalSince1970: 225)),
+      TodayReadingQueueRequest.Row(
         id: UUID(10_001), title: "Opinion", publisher: "Author", role: .opinion,
         arrivedAt: Date(timeIntervalSince1970: 100)),
+      TodayReadingQueueRequest.Row(
+        id: UUID(10_007), title: "Transactional", publisher: "Capital One", role: .transactional,
+        arrivedAt: Date(timeIntervalSince1970: 350)),
       TodayReadingQueueRequest.Row(
         id: UUID(10_002), title: "News", publisher: "Publisher", role: .dailyNews,
         arrivedAt: Date(timeIntervalSince1970: 200)),
@@ -34,7 +40,7 @@ struct TodayReadingQueueTests {
 
     expectNoDifference(
       ReadingQueueOrdering.ordered(rows).map(\.role),
-      [.forYou, .dailyNews, .opinion, .food, .offers]
+      [.forYou, .transactional, .dailyNews, .opinion, .food, .wine, .offers]
     )
   }
 

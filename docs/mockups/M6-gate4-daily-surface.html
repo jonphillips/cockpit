@@ -203,7 +203,7 @@
       <div class="head">
         <div>
           <h1>This morning</h1>
-          <p class="subhead">Tuesday, September 22 · 3 for you · 9 across your streams · 13 offers rolled up</p>
+          <p class="subhead">Tuesday, September 22 · 2 for you · 2 transactional · 9 across your streams · 1 wine · 13 offers rolled up</p>
         </div>
         <button class="themebtn" id="theme">Dark</button>
       </div>
@@ -257,9 +257,12 @@
 <script>
   const secMeta={
     foryou:{label:"For you",dot:"var(--accent)",av:"var(--accent-bg)",avc:"var(--accent-ink)"},
+    transactional:{label:"Transactional",dot:"#5f6caf",av:"#eef0fb",avc:"#4c579b"},
     news:{label:"Daily news",dot:"var(--wapo)",av:"var(--wapo-bg)",avc:"var(--wapo)"},
     opinion:{label:"Opinion",dot:"var(--amber)",av:"var(--amber-bg)",avc:"var(--amber)"},
     grabbag:{label:"Grab-bag",dot:"var(--teal)",av:"var(--teal-bg)",avc:"var(--teal)"},
+    food:{label:"Food",dot:"#4d8b52",av:"#edf6ed",avc:"#39733d"},
+    wine:{label:"Wine",dot:"#a34f58",av:"#f8ecec",avc:"#8d3e46"},
     offers:{label:"Offers",dot:"var(--offer)",av:"var(--offer-bg)",avc:"var(--offer)"}
   };
 
@@ -268,8 +271,10 @@
       body:["So good to hear the new place is coming together. Saturday works perfectly for us — your dad wants to bring the good wine, which means he'll spend twenty minutes deciding on it.","Should we do 7 or is that too late with the little one? Either is fine. Let me know if we should bring anything besides dessert.","Love you. Can't wait to see the kitchen you keep texting me about."]},
     priya:{sec:"foryou",title:"Q3 deck — one more look before Thursday?",src:"Priya Shah",kind:"work",kindPub:false,by:"Priya Shah",date:"8:41am",trash:false,
       body:["Dropped the near-final version in the shared drive. I reworked the retention slide the way we discussed — the cohort chart is much cleaner now.","Only open question is whether we lead with revenue or with the engagement story. I lean engagement, but you have better instincts for this room.","No rush before tomorrow, but if you have ten minutes I'd love your read on the narrative arc."]},
-    drlin:{sec:"foryou",title:"Reminder: appointment Wed 9:15am",src:"Dr. Lin's office",kind:"transactional",kindPub:true,by:"Dr. Lin's office",date:"7:30am",trash:true,
+    drlin:{sec:"transactional",title:"Reminder: appointment Wed 9:15am",src:"Dr. Lin's office",kind:"transactional",kindPub:true,by:"Dr. Lin's office",date:"7:30am",trash:true,
       body:["This is a reminder of your appointment on Wednesday at 9:15am. Please arrive fifteen minutes early to complete any updated paperwork.","Reply CONFIRM to hold your slot, or call the office to reschedule."]},
+    autopay:{sec:"transactional",title:"Your AutoPay payment was processed",src:"Capital One",kind:"transactional · finance",kindPub:true,by:"Capital One",date:"7:12am",trash:true,
+      body:["Your scheduled AutoPay payment was processed successfully.","This is account mail, not a sender-wide rule: marketing from Capital One can still route elsewhere."]},
     nyt:{sec:"news",title:"Your Tuesday briefing",src:"NYT · The Morning",kind:"daily news · publisher",kindPub:true,by:"The New York Times",date:"6:00am",trash:true,
       body:["Good morning. Here's what you need to know to start your day, in about the time it takes to finish your coffee.","Markets steadied overnight after a volatile week, and negotiators signaled cautious optimism heading into the next round of talks. We walk through what actually changed and what's just noise.","Plus: a quiet revolution in how cities are rethinking their downtowns, and why the science of sleep keeps surprising the people who study it."]},
     techmeme:{sec:"news",title:"Today's tech headlines",src:"Techmeme",kind:"daily news · digest",kindPub:true,by:"Techmeme",date:"6:15am",trash:true,
@@ -286,6 +291,8 @@
       body:["The debate everyone is having about the Fed is the wrong one. The question is not whether to cut, but what the central bank is actually able to control anymore.","For a generation, monetary policy worked because expectations were anchored. That anchor is dragging now, and no amount of forward guidance pulls it back the way it used to.","Which means the next chair inherits a job that looks the same on paper and is fundamentally different in practice. We should be honest with ourselves about that before the confirmation hearings turn it into theater."]},
     wapoFood:{sec:"food",title:"The best new restaurants to try this fall",src:"Washington Post · Food",kind:"food · publisher",kindPub:true,by:"The Washington Post",date:"Sep 22",trash:true,roll:"Cooking & recipes",prov:"Food · Washington Post · Food feed — 1 of 3 WaPo feeds you follow",
       body:["A short list of the restaurants and recipes worth making room for this week.","The Washington Post's food feed is routed into its own section so it is visible without being mixed into the morning roundup."]},
+    wine1:{sec:"wine",title:"The producers changing Beaujolais",src:"Vinous",kind:"wine · publisher",kindPub:true,by:"Vinous",date:"Sep 22",trash:true,
+      body:["A close look at the growers making the region newly impossible to ignore.","Wine mail reaches its own peer section through the discovered-locator route in Settings."]},
     feedme1:{sec:"grabbag",title:"The bag everyone in New York is carrying",src:"Feed Me · Emily Sundberg",kind:"grab-bag · digest item",kindPub:false,by:"Emily Sundberg",date:"in this issue",trash:false,prov:"Grab-bag · Feed Me · item 1 of 3",
       body:["You've seen it on every downtown shoulder for a month and you've been too proud to ask. Fine. I'll tell you.","It costs more than it should and less than the ones it's quietly replacing, which is exactly the price point that makes a thing inevitable.","Here's who's carrying it, who's about to, and the knockoff that's honestly good enough."]},
     feedme2:{sec:"grabbag",title:"A restaurant list for your LA trip",src:"Feed Me · Emily Sundberg",kind:"grab-bag · digest item",kindPub:false,by:"Emily Sundberg",date:"in this issue",trash:false,prov:"Grab-bag · Feed Me · item 2 of 3",
@@ -303,11 +310,13 @@
   };
 
   const sections={
-    foryou:["mom","priya","drlin"],
+    foryou:["mom","priya"],
+    transactional:["drlin","autopay"],
     news:["nyt","techmeme","wapoMorning"],
     opinion:["slowboring","puck","chh","wapoOpinion"],
     grabbag:["feedme1","feedme2","feedme3","ph"],
     food:["wapoFood"],
+    wine:["wine1"],
     offers:["nordstrom","rei","doordash"]
   };
 
@@ -316,6 +325,7 @@
     {feed:"Evening roundup",lid:"list.washingtonpost.com/evening",dest:"Daily news",mute:false},
     {feed:"Opinion alerts",lid:"list.washingtonpost.com/opinions",dest:"Opinion",mute:false},
     {feed:"Cooking & recipes",lid:"list.washingtonpost.com/food",dest:"Food",mute:false},
+    {feed:"Vinous",lid:"vinous.example.com",dest:"Wine",mute:false},
     {feed:"Slow Boring",lid:"substack.com/slowboring",dest:"Opinion",mute:false},
     {feed:"The Morning (NYT)",lid:"nl.nytimes.com/morning",dest:"Daily news",mute:false},
     {feed:"Nordstrom promos",lid:"e.nordstrom.com",dest:"Offers",mute:false},
@@ -335,7 +345,7 @@
   }
   function buildGrid(){
     let html='';
-    for(const sk of ["foryou","news","opinion","grabbag","offers"]){
+    for(const sk of ["foryou","transactional","news","opinion","grabbag","food","wine","offers"]){
       const m=secMeta[sk];
       html+=`<section class="sec"><div class="sec-h"><span class="sec-dot" style="background:${m.dot}"></span><h3>${m.label}</h3><span class="n">${sections[sk].length}</span></div>`;
       sections[sk].forEach((k,i)=>{
@@ -371,7 +381,7 @@
     let lc=`<div class="lc-head"><span class="dot" style="background:var(--accent)"></span><h3>This morning · in order</h3><button class="doneb" id="doneb">Done</button></div>`;
     lc+=`<div class="swipehint"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>March straight down — swipe a row to save, file, or trash</div>`;
     let first=true;
-    for(const sk of ["foryou","news","opinion","grabbag","offers"]){
+    for(const sk of ["foryou","transactional","news","opinion","grabbag","food","wine","offers"]){
       const gm=secMeta[sk];
       lc+=`<div class="lgroup ${first?'first':''}"><span class="dot" style="background:${gm.dot}"></span>${gm.label}</div>`;
       first=false;

@@ -166,6 +166,7 @@ enum CockpitMigrations {
     registerGmailDispositionPolicies(in: &migrator)
     registerGmailSeriesDispositions(in: &migrator)
     registerCurationRouting(in: &migrator)
+    registerSenderTreatmentRoutingMigration(in: &migrator)
     return migrator
   }
 }

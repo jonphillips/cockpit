@@ -178,12 +178,17 @@ Settings-buried stub.
 
 - **D-B — Sections are content *role*, not transport and not sender (reframes I1; answers Q-C).** The
   surface's organizing axis is a third axis the original doc did not name: **content role**. Sections
-  are: **For you** (personal/transactional) · **Daily news** (roundups/briefings) · **Opinion**
-  (author voices) · **Grab-bag** (digests, items fanned out) · **Food** (food and recipe reading) ·
-  **Offers** (retail roll-ups). This
+  are: **For you** (personal) · **Transactional** (account, finance, and reference mail) · **Daily
+  news** (roundups/briefings) · **Opinion** (author voices) · **Grab-bag** (digests, items fanned out) ·
+  **Food** (food and recipe reading) · **Wine** (wine reading) · **Offers** (retail roll-ups). This
   splits the old M5 treatment buckets (Personal/Newsletter/offer/grab-bag/transactional) into
   reading-role sections. I1 strengthens from "transport ≠ curation role" to **"transport ≠ curation
-  role ≠ surface placement"** — three separable things.
+  role ≠ surface placement"** — three separable things. **Device-eval finding (2026-09-22):**
+  transactional mail must be its own second section and overrides locator routing, including mute;
+  this deliberately amends S-d0a's "no section derived from treatment alone" for this per-message
+  finance-safety exception. Device-eval correction: “Move to section” is the sole correction UI;
+  transactional stays detection-only, while moving a locator to Grab-bag or Offers also enables its
+  matching extraction schema without changing treatment-based Gmail disposition safety.
 
 - **D-C — Publishers pick apart; authors stay whole (answers Q-C; scopes the classifier fork).** A
   *sender is not a Stream and a Stream is not a section.* An author feed (Yglesias) is 1:1 sender =
@@ -253,7 +258,8 @@ decouple: it takes I1 from "transport ≠ curation role" to the three-axis **"tr
 ≠ surface placement."**
 
 **Build.**
-- Add a `ContentRole` enum (six cases: `forYou`, `dailyNews`, `opinion`, `grabBag`, `food`, `offers`) in
+- Add a `ContentRole` enum (eight cases: `forYou`, `transactional`, `dailyNews`, `opinion`, `grabBag`,
+  `food`, `wine`, `offers`) in
   `CockpitCore` (near `EmailTreatmentDomain.swift`). It is the *surface placement* axis — keep it
   distinct from `EmailTreatment` (attention/treatment) and from `Stream` membership.
 - Extend `CurationRouting.swift`: add a locator → `ContentRole` resolver keyed on the **same**
@@ -262,6 +268,8 @@ decouple: it takes I1 from "transport ≠ curation role" to the three-axis **"tr
   distinct roles; a mute maps to no section.
 - Provide the roles as a snapshot alongside `CurationRoutingSnapshot` (do not fork the locator
   identity — reuse the resolver, per the "identity stays unified" requirement).
+- Transactional is the one per-message exception: `emailTreatment == .transactional` wins over any
+  locator role or mute; Wine remains pure locator routing.
 
 **Prove (extend `Gate4DispositionSeparationTests.swift` or a sibling).**
 - WaPo Morning List-ID → `dailyNews`; WaPo Opinion List-ID → `opinion`; WaPo food List-ID → `food`
@@ -275,7 +283,8 @@ per-piece classifier — locator routing only; leave single-List-ID publishers u
 `forYou`/triage default) and note them for the deferred classifier.
 
 **Done when.** Every surfaced piece resolves to a role deterministically; WaPo fans to ≥2 roles in
-tests; grep shows no section derived from transport or treatment alone.
+tests; grep shows no section derived from transport or treatment alone except the documented
+transactional per-message safety override.
 
 ### S-d0b — Orientation surface (full-width; consumes S-d0a)
 
@@ -283,7 +292,8 @@ tests; grep shows no section derived from transport or treatment alone.
 
 **Build.**
 - Rebuild `TodayLandingView.swift` (+ `TodayModel.swift`, `TodaySurfaceRows.swift`): sections are
-  `ContentRole` (For you / Daily news / Opinion / Grab-bag / Food / Offers), not `EmailTreatment.todayHierarchy`.
+  `ContentRole` (For you / Transactional / Daily news / Opinion / Grab-bag / Food / Wine / Offers), not
+  `EmailTreatment.todayHierarchy`.
   Retire `orientationSummary`'s treatment counts for a role-based summary.
 - **Roll-up rows** for Offers and Grab-bag: collapse a publisher/digest to one row with a count;
   Grab-bag digest items fan out (`decodedGrabBagItems` unchanged — surfacing change only).
@@ -299,7 +309,7 @@ piece appears in its role section and **not** in a promotion band and **not** tw
 **Do not.** Do not reintroduce `model.promotedRows` as a promotion carousel (D-D); Highlights is
 navigation, not promotion.
 
-**Done when.** Today renders the six role sections full-width, WaPo shows in three sections, offers/
+**Done when.** Today renders the eight role sections full-width, WaPo shows in three sections, offers/
 grab-bag roll up, matches the mockup.
 
 ### S-d0c — Reading split + ordered queue (parallel with S-d0b)

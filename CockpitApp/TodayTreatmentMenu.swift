@@ -16,28 +16,30 @@ struct GmailDispositionButtons: View {
   }
 }
 
-struct SenderTreatmentSubmenu: View {
-  let currentTreatment: EmailTreatment?
-  let setTreatment: (EmailTreatment) -> Void
+struct MoveToSectionMenu: View {
+  let currentRole: ContentRole
+  let isTransactional: Bool
+  var isAvailable = true
+  let move: (ContentRole) -> Void
+
+  private let routingRoles = ContentRole.allCases.filter { $0 != .transactional }
 
   var body: some View {
-    Menu("Treat sender as", systemImage: "tag") {
-      ForEach(EmailTreatment.allCases, id: \.rawValue) { treatment in
-        Button {
-          setTreatment(treatment)
-        } label: {
-          Label(
-            treatment.displayName,
-            systemImage: currentTreatment == treatment ? "checkmark" : "circle")
+    Menu("Move to section…", systemImage: "arrow.right") {
+      if isTransactional {
+        Button("Transactional is detected automatically") {}
+          .disabled(true)
+      } else {
+        ForEach(routingRoles, id: \.self) { role in
+          Button {
+            move(role)
+          } label: {
+            Label(role.displayName, systemImage: currentRole == role ? "checkmark" : "circle")
+          }
+          .disabled(currentRole == role)
         }
-        .disabled(
-          currentTreatment == treatment
-            || (currentTreatment == .transactional && treatment != .transactional))
-      }
-      if currentTreatment == .transactional {
-        Divider()
-        Text("Transactional type is detected automatically")
       }
     }
+    .disabled(!isAvailable)
   }
 }

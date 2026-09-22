@@ -173,23 +173,6 @@ extension ContentPieceReaderModel {
     }
   }
 
-  /// Applies the explicit sender-treatment correction for this email's sender.
-  public func setSenderOverride(_ treatment: EmailTreatment) async {
-    guard let sender = currentSender else { return }
-    do {
-      _ = try await database.write { db in
-        try EmailTreatmentOperations.setSenderOverride(treatment, for: sender, in: db)
-      }
-      try await $content.load()
-      errorMessage = nil
-    } catch is CancellationError {
-    } catch EmailTreatmentOperations.Failure.emptySender {
-      errorMessage = "This message has no sender address to correct."
-    } catch {
-      errorMessage = error.localizedDescription
-    }
-  }
-
   /// Persists an explicit sub-feed route using the same operation as Settings.
   public func saveRoutingRule(_ rule: ContentRoleRoutingRule) async {
     do {
@@ -198,6 +181,41 @@ extension ContentPieceReaderModel {
       }
       await loadRoutingResolution()
       errorMessage = nil
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  /// Moves the current email by its canonical locator. Eligible missing treatment details are
+  /// extracted in a detached task after the route and Reader projection have been saved.
+  public func moveToSection(to role: ContentRole) async {
+    guard role != .transactional, let id = row?.id else { return }
+    do {
+      let locator = try await database.write { db -> String? in
+        let resolution = try CurationRouting.resolution(for: id, in: db)
+        guard resolution.role != .transactional, let locator = resolution.locator else { return nil }
+        try StreamOperations.saveRoutingRule(
+          ContentRoleRoutingRule(locator: locator, role: role, isFollowed: true, isMuted: false),
+          in: db)
+        return locator
+      }
+      guard let locator else {
+        errorMessage = "This message has no routable locator."
+        return
+      }
+      await loadRoutingResolution()
+      try await $content.load()
+      errorMessage = nil
+      guard role == .grabBag || role == .offers else { return }
+      let processor = EmailTreatmentProcessor(modelClient: modelClient)
+      let database = database
+      Task { [weak self] in
+        _ = try? await Task.detached(priority: .utility) {
+          try await processor.processUnextractedPieces(for: locator, in: database)
+        }.value
+        try? await self?.$content.load()
+      }
     } catch is CancellationError {
     } catch {
       errorMessage = error.localizedDescription

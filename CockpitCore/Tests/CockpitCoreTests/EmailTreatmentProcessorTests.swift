@@ -123,6 +123,52 @@ struct EmailTreatmentProcessorTests {
     #expect(Set(today.rows.map(\.id)) == [first, second])
   }
 
+  @Test("Moving a newsletter to Grab-bag enables and persists its digest extraction")
+  func locatorRoleEnablesExtraction() async throws {
+    let pieceID = UUID(8_301)
+    try await database.write { db in
+      try ContentPiece.insert {
+        ContentPiece.Draft(
+          id: pieceID, kind: .email, title: "Feed Me digest", publisher: "Feed Me",
+          emailTreatment: .newsletter, createdAt: .distantPast)
+      }.execute(db)
+      let provenance = GmailArtifactProvenance(
+        accountID: "jon@example.com", messageID: "feed-me-moved", threadID: "thread",
+        rfcMessageID: nil, listUnsubscribe: nil, listID: nil, precedence: nil,
+        senderAddress: "Feed Me <digest@example.com>", sendingDomain: "example.com",
+        dkimDomain: nil, toRecipientCount: 1, ccRecipientCount: 0)
+      let provenanceJSON = String(data: try JSONEncoder().encode(provenance), encoding: .utf8)
+      try Artifact.insert {
+        Artifact.Draft(Artifact(
+          id: UUID(8_302), transport: .gmail, acquiredAt: .distantPast,
+          rawSourceText: "Useful link https://example.com/article",
+          providerProvenance: provenanceJSON,
+          contentPieceID: pieceID))
+      }.execute(db)
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: "digest@example.com", role: .grabBag), in: db)
+    }
+
+    let processor = EmailTreatmentProcessor(modelClient: StubModelClient { request in
+      #expect(request.messages.last?.text.contains(pieceID.uuidString) == true)
+      return ModelResponse(text: #"""
+        {"items":[{"title":"Useful link","summary":"A useful article from the digest.","sourceURL":"https://example.com/article"}]}
+        """#)
+    })
+    let details = try await processor.processUnextractedPieces(
+      for: "digest@example.com", in: database)
+
+    #expect(details.first?.decodedGrabBagItems.map(\.title) == ["Useful link"])
+    let saved = try await database.read { db in
+      (
+        try CurationRouting.snapshot(in: db).role(for: pieceID),
+        try EmailTreatmentDetails.find(pieceID).fetchOne(db)?.decodedGrabBagItems.map(\.title)
+      )
+    }
+    #expect(saved.0 == .grabBag)
+    #expect(saved.1 == ["Useful link"])
+  }
+
   private func seed(_ id: UUID, treatment: EmailTreatment, text: String) async throws {
     try await database.write { db in
       try ContentPiece.insert {

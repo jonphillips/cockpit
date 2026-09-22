@@ -6,6 +6,27 @@ private struct DiscoveredLocatorEvidence {
   var displayLabel: String
 }
 
+enum RouteDecision {
+  case role(ContentRole)
+  case muted
+  case unconfigured
+}
+
+func routeDecision(
+  for contentPiece: ContentPiece?, candidates: [RouteCandidate],
+  rules: [String: ContentRoleRoutingRule]
+) -> RouteDecision {
+  if contentPiece?.emailTreatment == .transactional {
+    return .role(.transactional)
+  }
+  guard let rule = candidates
+    .sorted(by: routeCandidatePrecedes)
+    .compactMap({ matchingRule(for: $0.locator, in: rules) })
+    .first
+  else { return .unconfigured }
+  return rule.isRouted ? .role(rule.role) : .muted
+}
+
 extension CurationRouting {
   public static func role(for locator: String) -> ContentRole? {
     let rules = normalizedSeededRules()
@@ -55,10 +76,11 @@ func discoveredGmailLocators(
     $0.uuidString < $1.uuidString
   }) {
     guard let candidates = candidatesByContentPieceID[contentPieceID], !candidates.isEmpty,
+      let contentPiece = contentPiecesByID[contentPieceID],
+      contentPiece.emailTreatment != .transactional,
       candidates.allSatisfy({ matchingRule(for: $0.locator, in: rules) == nil }),
       let candidate = candidates.sorted(by: routeCandidatePrecedes).first,
-      let artifact = artifactsByID[candidate.artifactID],
-      let contentPiece = contentPiecesByID[contentPieceID]
+      let artifact = artifactsByID[candidate.artifactID]
     else { continue }
 
     let locator = CurationRouting.canonicalLocator(candidate.locator)
