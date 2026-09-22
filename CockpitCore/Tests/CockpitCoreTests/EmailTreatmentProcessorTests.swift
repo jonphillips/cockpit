@@ -44,7 +44,7 @@ struct EmailTreatmentProcessorTests {
 
     let model = TodayModel()
     try await model.$content.load()
-    #expect(model.tiers.first?.rows.first?.treatmentSummary == persisted.0?.offerSummary)
+    #expect(model.content.rows.first(where: { $0.id == pieceID })?.treatmentSummary == persisted.0?.offerSummary)
   }
 
   @Test("A Feed Me grab-bag links to its manual Stream and extracts only within that issue")
@@ -96,7 +96,7 @@ struct EmailTreatmentProcessorTests {
     }
     #expect(streamRows.map(\.id) == [piece.id])
     let todayRows = try await database.read { db in try TodayRequest().fetch(db).rows }
-    #expect(todayRows.contains { $0.id == piece.id } == false)
+    #expect(todayRows.first(where: { $0.id == piece.id })?.role == .forYou)
   }
 
   @Test("Treatment processing is one message at a time and never turns a model failure into hiding")

@@ -1,8 +1,10 @@
 import Foundation
 import SQLiteData
 
-/// The persisted, type-organized projection for Today. Its query reaches only Gmail-backed email
-/// that has not been explicitly cleared in Cockpit; there is no Gmail client on this path.
+/// The persisted, role-organized projection for Today. Its query reaches Gmail-backed email that
+/// has not been explicitly cleared in Cockpit; there is no Gmail client on this path. Content role
+/// is resolved from the same locator routing used by Stream membership, so transport remains an
+/// acquisition detail rather than a surface section.
 public struct TodayRequest: FetchKeyRequest {
   @Selection
   public struct Row: Equatable, Identifiable, Sendable {
@@ -14,6 +16,7 @@ public struct TodayRequest: FetchKeyRequest {
     public let treatmentSummary: String?
     public let grabBagItemsJSON: String?
     public let treatment: EmailTreatment
+    public let role: ContentRole
     public let publishedAt: Date?
     public let acquiredAt: Date
 
@@ -40,11 +43,7 @@ public struct TodayRequest: FetchKeyRequest {
     let gmailArtifacts = try Artifact.where {
       $0.transport.eq(StreamTransport.gmail)
     }.fetchAll(db)
-    // A Gmail Artifact linked to an active Stream is reachable through Stream Handling, not
-    // Today's loose Primary triage. Gmail transport alone is not the discriminator: linked mail
-    // from a paused or stopped Stream remains in the explicit Today-triage bucket for now.
-    let followedGmailStreamContentPieceIDs = try CurationRouting.snapshot(in: db)
-      .followedGmailStreamContentPieceIDs
+    let routing = try CurationRouting.snapshot(in: db)
     let clearedContentPieceIDs = Set(try TodayAttention.all.fetchAll(db).map(\.contentPieceID))
     // A message archived or trashed from Cockpit leaves Today at once, without waiting for the next
     // Gmail sync to observe the departure. The disposition barrier already performed the provider
@@ -76,7 +75,8 @@ public struct TodayRequest: FetchKeyRequest {
     // ContentPiece corpus merely to discard non-email rows in Swift.
     value.rows = try ContentPiece.where { $0.kind.eq(ContentKind.email) }.fetchAll(db).compactMap { piece in
       guard let treatment = piece.emailTreatment,
-        !followedGmailStreamContentPieceIDs.contains(piece.id),
+        !routing.mutedContentPieceIDs.contains(piece.id),
+        let role = routing.role(for: piece.id),
         !clearedContentPieceIDs.contains(piece.id),
         !disposedContentPieceIDs.contains(piece.id),
         let acquiredAt = acquiredAtByContentPieceID[piece.id]
@@ -86,7 +86,7 @@ public struct TodayRequest: FetchKeyRequest {
         summary: piece.summary,
         treatmentSummary: detailsByContentPieceID[piece.id]?.offerSummary,
         grabBagItemsJSON: detailsByContentPieceID[piece.id]?.grabBagItems,
-        treatment: treatment, publishedAt: piece.publishedAt, acquiredAt: acquiredAt)
+        treatment: treatment, role: role, publishedAt: piece.publishedAt, acquiredAt: acquiredAt)
     }
     value.rows.sort {
       if $0.arrivedAt != $1.arrivedAt { return $0.arrivedAt > $1.arrivedAt }

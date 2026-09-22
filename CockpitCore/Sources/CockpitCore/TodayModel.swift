@@ -3,40 +3,37 @@ import Foundation
 import Observation
 import SQLiteData
 
-/// Owns the stable treatment hierarchy and Cockpit-only resolution for the Today destination.
+/// Owns the role-oriented orientation projection and Cockpit-only resolution for the Today destination.
 /// It has no Gmail provider dependency: `Clear` deliberately cannot perform a provider write.
 @MainActor
 @Observable
 public final class TodayModel {
-  public struct OfferGroup: Equatable, Identifiable, Sendable {
+  public struct RoleSection: Equatable, Identifiable, Sendable {
+    public let role: ContentRole
+    public let rows: [TodayRequest.Row]
+
+    public var id: ContentRole { role }
+    public var title: String { role.displayName }
+
+    public init(role: ContentRole, rows: [TodayRequest.Row]) {
+      self.role = role
+      self.rows = rows
+    }
+  }
+
+  public struct PublisherRollup: Equatable, Identifiable, Sendable {
     public let id: String
     public let label: String
     public let rows: [TodayRequest.Row]
 
     public var count: Int { rows.count }
     public var representative: TodayRequest.Row { rows[0] }
+    public var itemCount: Int { rows.reduce(0) { $0 + $1.grabBagItems.count } }
 
     public init(id: String, label: String, rows: [TodayRequest.Row]) {
       self.id = id
       self.label = label
       self.rows = rows
-    }
-  }
-
-  public struct Tier: Equatable, Identifiable, Sendable {
-    public let treatment: EmailTreatment
-    public let rows: [TodayRequest.Row]
-
-    public var id: EmailTreatment { treatment }
-
-    public var title: String {
-      switch treatment {
-      case .personal: "Personal"
-      case .newsletter: "Newsletters"
-      case .offer: "Offers"
-      case .grabBag: "Grab-bags"
-      case .transactional: "Transactional"
-      }
     }
   }
 
@@ -50,59 +47,49 @@ public final class TodayModel {
 
   public init() {}
 
-  /// The live number of visible messages in each treatment. Counts are orientation, not a
-  /// completion badge: Clear remains an explicit attention action on an individual message.
-  public var tierCounts: [EmailTreatment: Int] {
-    Dictionary(grouping: content.rows, by: \.treatment).mapValues(\.count)
-  }
-
   public var totalCount: Int { content.rows.count }
 
-  /// One representative fresh arrival per enticing treatment. The treatment order is fixed and
-  /// the row order within a treatment remains the projection's arrival order; this is not ranking.
-  /// Personal mail has its own highlight and transactional mail is deliberately not promoted.
-  public var promotedRows: [TodayRequest.Row] {
-    let cutoff = now.addingTimeInterval(-24 * 60 * 60)
-    return [EmailTreatment.newsletter, .offer, .grabBag].compactMap { treatment in
-      content.rows.first {
-        $0.treatment == treatment && $0.arrivedAt <= now && $0.arrivedAt >= cutoff
-      }
+  /// The five orientation sections are content roles, in the same order used by the future reading
+  /// queue. Rows stay in the projection's arrival order within a role.
+  public var sections: [RoleSection] {
+    ContentRole.allCases.sorted { $0.sortOrder < $1.sortOrder }.compactMap { role in
+      let rows = content.rows.filter { $0.role == role }
+      return rows.isEmpty ? nil : RoleSection(role: role, rows: rows)
     }
   }
 
-  /// Personal mail is highlighted by relationship, not by an importance score. The newest row is
-  /// the representative because the projection already preserves arrival order.
-  public var personalHighlight: TodayRequest.Row? {
-    content.rows.first { $0.treatment == .personal }
+  public func rows(for role: ContentRole) -> [TodayRequest.Row] {
+    content.rows.filter { $0.role == role }
   }
 
-  /// Offers are compacted by their retained publisher/domain for the landing surface. The rows
-  /// remain intact behind each group; this is presentational grouping, not a new Find or entity.
-  public var offerGroups: [OfferGroup] {
-    var groups: [String: [TodayRequest.Row]] = [:]
-    var order: [String] = []
-    for row in content.rows where row.treatment == .offer {
-      let key = offerGroupKey(for: row.publisher)
-      if groups[key] == nil { order.append(key) }
-      groups[key, default: []].append(row)
-    }
-    return order.compactMap { key in
-      guard let rows = groups[key] else { return nil }
-      return OfferGroup(id: key, label: offerGroupLabel(for: rows[0].publisher), rows: rows)
-    }
+  /// Highlights are a navigational sampler only. Every row is selected from an existing section;
+  /// this property never creates a second promoted collection or admits anything into Today.
+  public var highlightRows: [TodayRequest.Row] {
+    sections.compactMap(\.rows.first)
   }
 
-  public func count(for treatment: EmailTreatment) -> Int {
-    tierCounts[treatment, default: 0]
+  /// Offers are compacted by publisher for orientation. The rows remain intact behind each group;
+  /// this is presentational grouping, not a new Find or entity.
+  public var offerGroups: [PublisherRollup] {
+    publisherRollups(for: .offers)
   }
 
-  /// Cross-type rank is fixed by treatment. Within each tier the projection's arrival order is
-  /// preserved exactly; Cockpit does not rank peers by relevance.
-  public var tiers: [Tier] {
-    EmailTreatment.todayHierarchy.compactMap { treatment in
-      let rows = content.rows.filter { $0.treatment == treatment }
-      return rows.isEmpty ? nil : Tier(treatment: treatment, rows: rows)
+  /// A digest is one orientation row with its extracted items shown beneath it. The extracted items
+  /// remain the existing `decodedGrabBagItems` data; only their surface presentation changes.
+  public var grabBagGroups: [PublisherRollup] {
+    publisherRollups(for: .grabBag)
+  }
+
+  public var roleCounts: [ContentRole: Int] {
+    Dictionary(grouping: content.rows, by: \.role).mapValues(\.count)
+  }
+
+  public var orientationSummary: String {
+    let summaries = ContentRole.allCases.sorted { $0.sortOrder < $1.sortOrder }.compactMap { role -> String? in
+      guard let count = roleCounts[role], count > 0 else { return nil }
+      return "\(count) \(role.displayName.lowercased())"
     }
+    return summaries.isEmpty ? "Nothing curated yet." : summaries.joined(separator: " · ")
   }
 
   public func clear(_ row: TodayRequest.Row) async {
@@ -147,14 +134,31 @@ public final class TodayModel {
     await setSenderOverride(treatment, for: row.sender)
   }
 
-  private func offerGroupKey(for publisher: String) -> String {
+}
+
+private extension TodayModel {
+  func publisherRollups(for role: ContentRole) -> [PublisherRollup] {
+    var groups: [String: [TodayRequest.Row]] = [:]
+    var order: [String] = []
+    for row in rows(for: role) {
+      let key = offerGroupKey(for: row.publisher)
+      if groups[key] == nil { order.append(key) }
+      groups[key, default: []].append(row)
+    }
+    return order.compactMap { key in
+      guard let rows = groups[key] else { return nil }
+      return PublisherRollup(id: key, label: offerGroupLabel(for: rows[0].publisher), rows: rows)
+    }
+  }
+
+  func offerGroupKey(for publisher: String) -> String {
     publisher
       .split(separator: "<", maxSplits: 1, omittingEmptySubsequences: true)[0]
       .trimmingCharacters(in: .whitespacesAndNewlines)
       .lowercased()
   }
 
-  private func offerGroupLabel(for publisher: String) -> String {
+  func offerGroupLabel(for publisher: String) -> String {
     let label = publisher
       .split(separator: "<", maxSplits: 1, omittingEmptySubsequences: true)[0]
       .trimmingCharacters(in: .whitespacesAndNewlines)

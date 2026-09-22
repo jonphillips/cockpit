@@ -12,13 +12,14 @@ struct TodayLandingView: View {
     ScrollView {
       LazyVStack(alignment: .leading, spacing: 0) {
         orientationHeader
-        promotionBand
-        TodayTierListView(model: model, readerNamespace: readerNamespace, openReader: openReader)
+        highlights
+        TodayRoleSectionListView(
+          model: model, readerNamespace: readerNamespace, openReader: openReader)
+        TailCompositionControl(
+          tailModel: tailModel, isConfirmingRecompose: $isConfirmingRecompose)
         tailSection("Essentials", rows: tailRows(in: .essentials))
         tailSection("From the Tail", rows: tailBodyRows)
         tailSection("Essential Backlog", rows: tailRows(in: .essentialBacklog))
-        TailCompositionControl(
-          tailModel: tailModel, isConfirmingRecompose: $isConfirmingRecompose)
       }
       .padding(.horizontal)
       .padding(.bottom)
@@ -81,32 +82,27 @@ struct TodayLandingView: View {
   private var orientationHeader: some View {
     VStack(alignment: .leading, spacing: 6) {
       Text("This morning").font(.largeTitle.weight(.semibold))
-      Text(orientationSummary).font(.subheadline).foregroundStyle(.secondary)
+      Text(model.orientationSummary).font(.subheadline).foregroundStyle(.secondary)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(.top, 12)
     .padding(.bottom, 8)
   }
 
-  private var orientationSummary: String {
-    let counts = EmailTreatment.todayHierarchy.compactMap { treatment -> String? in
-      let count = model.count(for: treatment)
-      return count == 0 ? nil : "\(count) \(treatment.displayName.lowercased())"
-    }
-    return counts.isEmpty ? "Nothing curated yet." : counts.joined(separator: " · ")
-  }
-
   @ViewBuilder
-  private var promotionBand: some View {
-    if !model.promotedRows.isEmpty {
+  private var highlights: some View {
+    if !model.highlightRows.isEmpty {
       VStack(alignment: .leading, spacing: 8) {
-        Text("Fresh this morning").font(.headline)
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+          Text("Highlights").font(.headline)
+          Text("A quick way in").font(.caption).foregroundStyle(.tertiary)
+        }
         ScrollView(.horizontal, showsIndicators: false) {
           HStack(alignment: .top, spacing: 10) {
-            ForEach(model.promotedRows) { row in
+            ForEach(model.highlightRows) { row in
               Button { openReader(row.id) } label: {
                 VStack(alignment: .leading, spacing: 5) {
-                  Text(row.treatment.displayName.uppercased())
+                  Text(row.role.displayName.uppercased())
                     .font(.caption2.weight(.bold)).foregroundStyle(.secondary)
                   Text(row.title).font(.headline).multilineTextAlignment(.leading).lineLimit(3)
                   Text(row.publisher).font(.caption).foregroundStyle(.secondary)
