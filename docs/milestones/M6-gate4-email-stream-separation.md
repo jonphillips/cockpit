@@ -119,6 +119,10 @@ scaffold, so the gate's architecture ratification must not wait on the placement
 > doc — feel can't be judged against a scaffold. **Resolve this agenda first, then a surface slice
 > (S-d0), then the device eval.** These are review decisions, not implementation choices; do not
 > pre-decide them in the surface slice.
+>
+> **RESOLVED 2026-09-22** — Q-A–Q-D were resolved with Jon against a shared iPad mockup. See
+> **Gate 4 surface decisions** below (D-A–D-G) and `docs/mockups/M6-gate4-daily-surface.html`. The
+> agenda text is kept for provenance; the decisions supersede it.
 
 **What the device look showed (the evidence).** Today (`CockpitApp/TodayLandingView.swift`) is still the
 M5 treatment-typed triage: sections are `EmailTreatment` buckets (Personal / Newsletter / offer /
@@ -159,6 +163,185 @@ These fold in the earlier open model questions (RSS scope #1, appears-in-both #2
 **model review is this agenda** (resolve Q-A–Q-D on the shipped mechanics); a **surface slice (S-d0)**
 builds the resolved surface; the **device eval (the real I5)** runs against S-d0, not against the current
 Settings-buried stub.
+
+## Gate 4 surface decisions (resolved 2026-09-22 with Jon)
+
+> Resolved against a shared iPad mockup, not prose. The mockup is the acceptance test for S-d0:
+> `docs/mockups/M6-gate4-daily-surface.html` (supersedes `today-orientation-surface.html`). Sections
+> are content role, publishers pick apart, and reading is a real list/detail split. These answer the
+> Q-A–Q-D agenda above.
+
+- **D-A — No Streams tab. The daily surface is the place (answers Q-A).** A separate Streams
+  destination was rejected outright — "they'll go there to die." Reachable-first is delivered *on the
+  one daily surface*, not via a peer tab. Q-A's "where do Streams live" is answered: here, sorted in
+  front of you, not somewhere you must choose to visit.
+
+- **D-B — Sections are content *role*, not transport and not sender (reframes I1; answers Q-C).** The
+  surface's organizing axis is a third axis the original doc did not name: **content role**. Sections
+  are: **For you** (personal/transactional) · **Daily news** (roundups/briefings) · **Opinion**
+  (author voices) · **Grab-bag** (digests, items fanned out) · **Offers** (retail roll-ups). This
+  splits the old M5 treatment buckets (Personal/Newsletter/offer/grab-bag/transactional) into
+  reading-role sections. I1 strengthens from "transport ≠ curation role" to **"transport ≠ curation
+  role ≠ surface placement"** — three separable things.
+
+- **D-C — Publishers pick apart; authors stay whole (answers Q-C; scopes the classifier fork).** A
+  *sender is not a Stream and a Stream is not a section.* An author feed (Yglesias) is 1:1 sender =
+  Stream = section. A publisher (Washington Post) **fans into multiple sections at once** — Morning
+  roundup → Daily news, an op-ed → Opinion, recipe promos → muted. Jon: WaPo-in-two-sections "100%
+  reads as clarity, keep it." **Mechanism: deterministic List-ID routing**, configured once in
+  Settings → Sub-feed routing (`GmailSeriesKey.locatorKeys` normalizer already keys on List-ID). This
+  is one-time, no-mistake, no ML. A receiver-side **classifier is deferred** — needed *only* for
+  publishers that jam every content role through a single List-ID, and never blocks shipping the
+  pick-apart. This narrows the open model-review fork from "routing vs. classifier" to "deterministic
+  routing now, classifier later only where List-ID can't split."
+
+- **D-D — Promotion band → pointer-only Highlights (answers Q-B; resolves the I5 contradiction).** The
+  M5 "Fresh this morning" promotion carousel is **dissolved**, per §24/I5. It is replaced by a
+  **Highlights** row that only *points down* to items already present in the sections below — a
+  navigational sampler, never an insertion into the Edition package. Invariant for the surface: **a
+  Highlights card must always resolve to an item already in a section; the moment it surfaces something
+  not otherwise present, it is promotion again and violates I5.**
+
+- **D-E — Interaction model: list/detail split, not full-screen + half-sheet.** Today's full-screen
+  Today with a half-sheet sliding *over* each piece is replaced by a two-state model:
+  1. **Orientation** — full-width "This morning": categories, Highlights, Offers, standing Edition
+     entry (answers Q-D: Edition gets a standing entry point, still compose-on-demand behind it).
+  2. **Reading** — a `NavigationSplitView`-style split: list on the left, **draggable divider**
+     (clamped, remembered, with a full-width read toggle), reader on the right. Consistent with the
+     existing `StreamHandlingView` (already a split view) and `ReaderView`; the half-sheet was the
+     outlier. Draggable-divider-with-remembered-width is modest custom work, not free from SwiftUI.
+
+- **D-F — Reading is ONE ordered queue across all sections, not per-section lists.** Categorization
+  runs twice: to **orient** (grouping shows the shape of the morning) and to **order** (one linear
+  priority queue for reading). On entering Reading, the left pane is the *entire* morning in decided
+  priority order (For you → Daily news → Opinion → Grab-bag → Offers), with sections as headers you
+  pass, not lists you re-enter. Once oriented, you march straight down — no clicking in and out of
+  sections. Emergent property: the order decays must-read → skimmable → bulk-trash, so the queue ends
+  where attention should; Offers roll-ups sit at the bottom as a natural stop cliff.
+
+- **D-G — Disposition is surfaced in the reading moment (makes I2/S-c visible).** The reader carries
+  Save-for-later / Add-to-library / Trash actions and a standing custody line ("when you leave, the
+  source email trashes automatically — this issue stays in its stream, custody intact"). Row swipe =
+  disposition. This is where the shipped S-c separation work (I2/I4) finally has a legible UI. The
+  device eval (real I5) runs against this surface (S-d0), not the Settings-buried stub.
+
+- **Grab-bag surfacing (answers open question #4).** An items-bearing digest (Feed Me) does **not**
+  collapse to one dead row: its extracted items fan out inside the Grab-bag section and each is
+  individually readable in the queue. `decodedGrabBagItems` durability is unchanged; the surfacing
+  question is answered "fan the items out."
+
+**Still open for the model review (S-d):** open question #1 (does reachable-first change *existing* RSS
+tail-promotion, or only add the Gmail path) is untouched by these surface decisions and remains the
+central §24 question. The always-read case (open question #3) is now expressed as the "always read"
+group/tag within Opinion and the Highlights sampler; confirm on device (S-d0 eval) whether that is a
+strong enough surface or whether it reopens I5 as an additive keep-side policy *after* the gate.
+
+## S-d0 executor slices (Codex-ready)
+
+> Decomposition of the surface slice. Order is **mechanics before feel**. Dependency shape:
+> **S-d0a → (S-d0b ∥ S-d0c) → S-d**, with **S-d0d** floating. Each block below is self-contained —
+> send it to the executor as-is. The mockup `docs/mockups/M6-gate4-daily-surface.html` is the visual
+> acceptance test for S-d0b/c. The per-piece **classifier stays deferred** (only single-List-ID
+> publishers need it; never blocks the gate).
+
+### S-d0a — Content-role routing engine (mechanics; gates everything)
+
+**Goal.** Assign every surfaced ContentPiece a *content role* (surface section) by **deterministic
+locator routing**, extending the existing membership routing. No UI. This is the load-bearing
+decouple: it takes I1 from "transport ≠ curation role" to the three-axis **"transport ≠ curation role
+≠ surface placement."**
+
+**Build.**
+- Add a `ContentRole` enum (five cases: `forYou`, `dailyNews`, `opinion`, `grabBag`, `offers`) in
+  `CockpitCore` (near `EmailTreatmentDomain.swift`). It is the *surface placement* axis — keep it
+  distinct from `EmailTreatment` (attention/treatment) and from `Stream` membership.
+- Extend `CurationRouting.swift`: add a locator → `ContentRole` resolver keyed on the **same**
+  `GmailSeriesKey.locatorKeys` normalizer `GmailStreamResolver` uses. Add a seeded routing table
+  (List-ID/locator → role, plus per-locator follow/mute). One publisher's distinct List-IDs map to
+  distinct roles; a mute maps to no section.
+- Provide the roles as a snapshot alongside `CurationRoutingSnapshot` (do not fork the locator
+  identity — reuse the resolver, per the "identity stays unified" requirement).
+
+**Prove (extend `Gate4DispositionSeparationTests.swift` or a sibling).**
+- WaPo Morning List-ID → `dailyNews`; WaPo Opinion List-ID → `opinion`; WaPo food List-ID → muted
+  (no section). **One publisher, ≥2 roles from distinct locators** — the pick-apart, at the model layer.
+- An author locator (Yglesias) → exactly one role (`opinion`).
+- Role is derived from locator, not transport (I1/I3): an RSS and a Gmail locator with the same
+  configured role resolve identically.
+
+**Do not.** Do not use `isSubstantivePrimary` as a role/keep/promotion input (I6/§18). Do not build a
+per-piece classifier — locator routing only; leave single-List-ID publishers unresolved (they fall to
+`forYou`/triage default) and note them for the deferred classifier.
+
+**Done when.** Every surfaced piece resolves to a role deterministically; WaPo fans to ≥2 roles in
+tests; grep shows no section derived from transport or treatment alone.
+
+### S-d0b — Orientation surface (full-width; consumes S-d0a)
+
+**Goal.** Replace the M5 treatment-bucket Today with the content-role orientation screen from the mockup.
+
+**Build.**
+- Rebuild `TodayLandingView.swift` (+ `TodayModel.swift`, `TodaySurfaceRows.swift`): sections are
+  `ContentRole` (For you / Daily news / Opinion / Grab-bag / Offers), not `EmailTreatment.todayHierarchy`.
+  Retire `orientationSummary`'s treatment counts for a role-based summary.
+- **Roll-up rows** for Offers and Grab-bag: collapse a publisher/digest to one row with a count;
+  Grab-bag digest items fan out (`decodedGrabBagItems` unchanged — surfacing change only).
+- **Standing Edition entry** card (answers Q-D): a persistent entry point; compose-on-demand stays
+  behind it (`TodayView.swift` sparkles control / `EditionModel`).
+- **Highlights** row: pointer-only sampler.
+
+**Prove.** Snapshot/unit test the I5 invariant: **every Highlights card resolves to an item already
+present in a section below** (assert card IDs ⊆ union of section item IDs). A followed-Gmail-Stream
+piece appears in its role section and **not** in a promotion band and **not** twice (kills the
+"appears in both" bug, open question #2).
+
+**Do not.** Do not reintroduce `model.promotedRows` as a promotion carousel (D-D); Highlights is
+navigation, not promotion.
+
+**Done when.** Today renders the five role sections full-width, WaPo shows in two sections, offers/
+grab-bag roll up, matches the mockup.
+
+### S-d0c — Reading split + ordered queue (parallel with S-d0b)
+
+**Goal.** The list/detail reading state: one ordered queue, draggable divider, reader with disposition.
+
+**Build.**
+- A split reading surface (`NavigationSplitView`), following the existing `StreamHandlingView.swift`
+  pattern and `ShellModel.swift`'s `streamHandling` route. Detail reuses `ReaderView.swift` +
+  `ReaderDispositionToolbar.swift`.
+- **One ordered queue across all sections** in priority order (For you → Daily news → Opinion →
+  Grab-bag → Offers), sections as headers, not re-enterable lists. Back it with a new request/model
+  that flattens the role sections into the decided order; entry point selects+scrolls to the tapped item.
+- **Draggable divider** (custom): clamped min/max, remembered width, plus a full-width read toggle.
+- Reader carries Save-for-later / Add-to-library / Trash and the trash-after-read custody line — this
+  is where I2/I4 become visible.
+
+**Prove.** The queue order matches role priority across section boundaries; disposition of the source
+(archive/trash) leaves the piece in its queue/stream and Edition state intact (reuses S-c/I2/I4
+assertions, now through the reading surface).
+
+**Do not.** Do not make the left pane per-section (D-F): it is the whole morning in order.
+
+**Done when.** Tapping any piece opens the split reader with the global ordered queue; divider drags
+and remembers; disposition surfaced; matches the mockup.
+
+### S-d0d — Settings → Sub-feed routing UI (floating; can trail)
+
+**Goal.** Make S-d0a's routing table user-editable.
+
+**Build.** A routing editor in `SettingsView.swift` (List-ID → role, follow/mute), wired through
+`FollowingModel.swift` / `StreamOperations.swift`. S-d0a ships seeded; this makes it editable.
+
+**Prove.** Editing a locator's role/mute re-routes its pieces on next surface load (deterministic).
+
+**Done when.** A user can move a sub-feed between sections or mute it from Settings.
+
+### S-d — Model review + device eval (the original S-d; now unblocked)
+
+Real Yglesias/Puck/WaPo/Feed Me through S-d0b/c on device; confirm reachable-first **feel** (I5) and
+the always-read case (open question #3); **decide open question #1** (does reachable-first dissolve the
+*existing* RSS tail-promotion, or only add the Gmail path — the central §24 call, untouched by the
+surface decisions). Ratify into ADR-0002 / DECISIONS §24.
 
 ## Continuity with shipped work
 

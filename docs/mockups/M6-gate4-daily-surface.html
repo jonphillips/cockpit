@@ -1,0 +1,455 @@
+<title>Cockpit This Morning</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&display=swap">
+<style>
+  :root{
+    --bg:#F4F2ED; --surface:#FFFFFF; --surface-2:#FBFAF7; --raised:#FFFFFF;
+    --ink:#191A1D; --muted:#6B6E76; --faint:#9AA6B2; --hair:#E6E3DC; --hair-2:#EFEDE7;
+    --accent:#3350C9; --accent-bg:#ECEFFB; --accent-ink:#26399B;
+    --amber:#A66A12; --amber-bg:#F7EDDC; --teal:#127A63; --teal-bg:#E1F1EC;
+    --wapo:#2E4A66; --wapo-bg:#E7EDF3; --offer:#B15A3C; --offer-bg:#F5E7E0;
+    --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+    --sans:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif;
+    --shadow:0 1px 2px rgba(24,26,32,.04),0 6px 20px rgba(24,26,32,.05);
+    --listw:344px;
+  }
+  :root:not([data-theme="light"]){ @media (prefers-color-scheme: dark){
+    --bg:#0F1116; --surface:#191C22; --surface-2:#15181E; --raised:#1E222A;
+    --ink:#ECEDEA; --muted:#9CA0AA; --faint:#6C7581; --hair:#2A2E38; --hair-2:#23262E;
+    --accent:#8AA0F5; --accent-bg:#20263C; --accent-ink:#BDC8FA;
+    --amber:#DDA857; --amber-bg:#332A19; --teal:#5FC7AB; --teal-bg:#173029;
+    --wapo:#9DB6CE; --wapo-bg:#1E2A38; --offer:#D98E72; --offer-bg:#33241C;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+  }}
+  :root[data-theme="dark"]{
+    --bg:#0F1116; --surface:#191C22; --surface-2:#15181E; --raised:#1E222A;
+    --ink:#ECEDEA; --muted:#9CA0AA; --faint:#6C7581; --hair:#2A2E38; --hair-2:#23262E;
+    --accent:#8AA0F5; --accent-bg:#20263C; --accent-ink:#BDC8FA;
+    --amber:#DDA857; --amber-bg:#332A19; --teal:#5FC7AB; --teal-bg:#173029;
+    --wapo:#9DB6CE; --wapo-bg:#1E2A38; --offer:#D98E72; --offer-bg:#33241C;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  .shell{display:grid;grid-template-columns:76px minmax(0,1fr);height:100%;min-height:680px}
+
+  /* nav rail */
+  .rail{background:var(--surface);border-right:.5px solid var(--hair);
+    display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 0}
+  .brand{width:40px;height:40px;border-radius:12px;background:var(--accent);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;
+    font-size:19px;margin-bottom:14px;letter-spacing:-.5px}
+  .navb{width:52px;height:52px;border-radius:14px;border:none;background:transparent;
+    color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:3px;font-size:10px;font-family:var(--sans);cursor:pointer}
+  .navb svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .navb.on{background:var(--accent-bg);color:var(--accent-ink)}
+  .navb.grow{margin-top:auto}
+  .stage{position:relative;overflow:hidden}
+
+  /* ORIENTATION */
+  .orient{height:100%;overflow-y:auto;padding:26px 30px 40px}
+  .head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:4px}
+  h1{font-size:30px;line-height:1.05;margin:0;letter-spacing:-.8px;font-weight:600}
+  .subhead{color:var(--muted);font-size:14px;margin:6px 0 0}
+  .themebtn{border:.5px solid var(--hair);background:var(--surface);color:var(--muted);
+    border-radius:999px;padding:7px 14px;font-size:12.5px;cursor:pointer;font-family:var(--sans)}
+
+  .strip-lbl{display:flex;align-items:baseline;gap:10px;margin:22px 0 10px}
+  .eyebrow{font-size:11px;letter-spacing:.9px;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .strip-note{font-size:11.5px;color:var(--faint)}
+  .strip{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x mandatory}
+  .strip::-webkit-scrollbar{height:6px}
+  .strip::-webkit-scrollbar-thumb{background:var(--hair);border-radius:99px}
+  .hcard{scroll-snap-align:start;flex:0 0 246px;background:var(--raised);border:.5px solid var(--hair);
+    border-radius:14px;padding:14px 15px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;min-height:120px;cursor:pointer;text-align:left;font-family:var(--sans)}
+  .hcard .cat{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase}
+  .hcard h4{font-family:var(--serif);font-weight:600;font-size:16.5px;line-height:1.22;margin:0;letter-spacing:-.2px;color:var(--ink)}
+  .hcard .src{font-size:12px;color:var(--muted);margin-top:auto}
+
+  .listhint{display:flex;align-items:center;gap:9px;margin-top:22px;padding:9px 13px;
+    border:.5px dashed var(--hair);border-radius:10px;font-size:12.5px;color:var(--muted)}
+  .listhint svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;flex:0 0 auto}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px;margin-top:16px;align-items:start}
+  .sec{background:var(--surface);border:.5px solid var(--hair);border-radius:16px;padding:16px 14px 8px;box-shadow:var(--shadow)}
+  .sec-h{display:flex;align-items:center;gap:9px;margin:0 4px 10px}
+  .sec-dot{width:9px;height:9px;border-radius:3px;flex:0 0 auto}
+  .sec-h h3{font-size:15.5px;margin:0;font-weight:600;letter-spacing:-.2px}
+  .sec-h .n{margin-left:auto;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums}
+
+  .item{display:flex;gap:11px;padding:10px 8px;border-top:.5px solid var(--hair-2);align-items:flex-start;border-radius:8px;cursor:pointer;width:100%;text-align:left;background:none;font-family:var(--sans)}
+  .item:first-of-type{border-top:none}
+  .item:hover{background:var(--surface-2)}
+  .av{flex:0 0 34px;width:34px;height:34px;border-radius:9px;display:flex;align-items:center;
+    justify-content:center;font-size:13px;font-weight:600;margin-top:1px}
+  .it-body{min-width:0;flex:1}
+  .it-title{font-size:14.5px;font-weight:500;line-height:1.3;letter-spacing:-.1px;color:var(--ink)}
+  .it-meta{font-size:12px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .chip{font-size:10.5px;font-weight:600;padding:1.5px 7px;border-radius:999px;letter-spacing:.2px;white-space:nowrap}
+  .chip.new{background:var(--accent-bg);color:var(--accent-ink)}
+  .chip.always{background:var(--amber-bg);color:var(--amber)}
+  .chip.wapo{background:var(--wapo-bg);color:var(--wapo)}
+  .chip.count{background:var(--hair-2);color:var(--muted)}
+  .chip.roll{background:var(--offer-bg);color:var(--offer)}
+  .tport{font-size:11px;color:var(--faint);display:inline-flex;align-items:center;gap:4px}
+  .tport svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.8}
+
+  .digest{margin:6px 0 10px;padding:10px 12px;background:var(--surface-2);border:.5px solid var(--hair-2);border-radius:12px}
+  .digest-h{font-size:12px;color:var(--muted);margin-bottom:7px}
+  .di{display:flex;gap:8px;align-items:center;padding:5px 0;font-size:13.5px;cursor:pointer;color:var(--ink)}
+  .di .b{width:5px;height:5px;border-radius:99px;background:var(--teal);flex:0 0 auto}
+  .di:hover{color:var(--teal)}
+
+  .edition{margin-top:18px;display:flex;align-items:center;gap:14px;background:var(--accent-bg);
+    border-radius:16px;padding:16px 18px;cursor:pointer}
+  .edition .spk{width:40px;height:40px;border-radius:12px;background:var(--accent);color:#fff;
+    display:flex;align-items:center;justify-content:center}
+  .edition .spk svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:1.7}
+  .edition h3{margin:0;font-size:15.5px;color:var(--accent-ink)}
+  .edition p{margin:2px 0 0;font-size:12.5px;color:var(--accent-ink);opacity:.8}
+  .edition .go{margin-left:auto;color:var(--accent-ink)}
+
+  .anno{margin:20px 0 0;padding:14px 18px;border:1px dashed var(--hair);
+    border-radius:14px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .anno .a{font-size:12.5px;color:var(--muted);line-height:1.5}
+  .anno .a b{color:var(--ink);font-weight:600}
+
+  /* READING (split) */
+  .reading{display:none;height:100%;grid-template-columns:var(--listw) 9px minmax(0,1fr)}
+  .reading.show{display:grid}
+  .reading.full{grid-template-columns:0 0 minmax(0,1fr)}
+  .listcol{border-right:.5px solid var(--hair);overflow-y:auto;background:var(--surface);min-width:0}
+  .reading.full .listcol{display:none}
+  .lc-head{position:sticky;top:0;background:var(--surface);padding:16px 16px 10px;border-bottom:.5px solid var(--hair-2);display:flex;align-items:center;gap:9px;z-index:2}
+  .lc-head .dot{width:9px;height:9px;border-radius:3px}
+  .lc-head h3{margin:0;font-size:15px;font-weight:600;flex:1}
+  .doneb{border:.5px solid var(--hair);background:var(--surface);color:var(--muted);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;font-family:var(--sans)}
+  .lrow{display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-bottom:.5px solid var(--hair-2);cursor:pointer}
+  .lrow:hover{background:var(--surface-2)}
+  .lrow.sel{background:var(--surface-2);box-shadow:inset 3px 0 0 var(--accent)}
+  .lrow .lt{font-size:14px;font-weight:500;line-height:1.3;color:var(--ink)}
+  .lrow .ls{font-size:12px;color:var(--muted);margin-top:2px}
+  .lrow.done .lt{color:var(--faint);text-decoration:line-through}
+  .swipehint{font-size:11px;color:var(--faint);padding:10px 16px;display:flex;align-items:center;gap:7px}
+  .swipehint svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8}
+  .lgroup{display:flex;align-items:center;gap:8px;padding:15px 16px 7px;font-size:11px;font-weight:600;
+    letter-spacing:.7px;text-transform:uppercase;color:var(--faint);border-top:.5px solid var(--hair)}
+  .lgroup .dot{width:8px;height:8px;border-radius:3px}
+  .lgroup.first{border-top:none}
+
+  .divider{background:transparent;cursor:col-resize;display:flex;align-items:center;justify-content:center;position:relative}
+  .reading.full .divider{display:none}
+  .divider::before{content:"";position:absolute;left:4px;top:0;bottom:0;width:.5px;background:var(--hair)}
+  .divider .grip{width:4px;height:36px;border-radius:99px;background:var(--hair);z-index:1}
+  .divider:hover .grip{background:var(--faint)}
+
+  .article{overflow-y:auto;background:var(--bg)}
+  .a-tool{position:sticky;top:0;background:var(--bg);display:flex;align-items:center;gap:8px;padding:14px 26px;border-bottom:.5px solid var(--hair-2);z-index:2}
+  .a-prov{font-size:12px;color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .a-prov b{color:var(--ink);font-weight:500}
+  .abtn{border:.5px solid var(--hair);background:var(--surface);color:var(--muted);width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}
+  .abtn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .abtn.danger:hover{color:#c0392b;border-color:#c0392b55}
+  .a-inner{max-width:660px;margin:0 auto;padding:30px 26px 80px}
+  .a-kick{font-size:11.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;margin-bottom:14px}
+  .a-title{font-family:var(--serif);font-weight:700;font-size:34px;line-height:1.1;letter-spacing:-.6px;margin:0}
+  .a-by{font-size:13.5px;color:var(--muted);margin:14px 0 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .a-by .kind{font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;padding:2px 8px;border-radius:6px;background:var(--amber-bg);color:var(--amber)}
+  .a-by .kind.pub{background:var(--wapo-bg);color:var(--wapo)}
+  .a-body{margin-top:26px}
+  .a-body p{font-family:var(--serif);font-size:18px;line-height:1.62;margin:0 0 18px;color:var(--ink)}
+  .a-body p:first-child::first-letter{font-size:52px;font-weight:700;float:left;line-height:.82;padding:4px 10px 0 0}
+  .a-foot{margin-top:26px;padding:13px 16px;background:var(--surface-2);border:.5px solid var(--hair-2);border-radius:12px;font-size:13px;color:var(--muted);display:flex;gap:9px;align-items:flex-start}
+  .a-foot svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;flex:0 0 auto;margin-top:1px}
+
+  /* SETTINGS screen */
+  .settings{display:none;height:100%;overflow-y:auto;padding:26px 30px 40px}
+  .settings.show{display:block}
+  .set-wrap{max-width:760px}
+  .set-card{background:var(--surface);border:.5px solid var(--hair);border-radius:16px;padding:8px 18px;box-shadow:var(--shadow);margin-top:16px}
+  .route{display:grid;grid-template-columns:1fr auto;gap:6px 14px;align-items:center;padding:14px 4px;border-top:.5px solid var(--hair-2)}
+  .route:first-of-type{border-top:none}
+  .route .lid{font-family:var(--serif);font-size:13px;color:var(--muted)}
+  .route .lid b{font-family:var(--sans);font-weight:500;color:var(--ink);display:block;font-size:14.5px;margin-bottom:1px}
+  .route .dest{font-size:12.5px;font-weight:500;padding:4px 11px;border-radius:8px;background:var(--surface-2);border:.5px solid var(--hair-2);white-space:nowrap}
+  .route .dest.mute{color:var(--faint)}
+
+  @media (max-width:900px){
+    .shell{grid-template-columns:1fr}
+    .rail{flex-direction:row;justify-content:flex-start;border-right:none;border-bottom:.5px solid var(--hair);padding:10px 14px;gap:10px;overflow-x:auto}
+    .brand{margin:0 8px 0 0}.navb{flex:0 0 auto}.navb.grow{margin:0}
+    .orient,.settings{padding:20px 16px 36px}
+    .anno{grid-template-columns:1fr}
+    .reading.show{grid-template-columns:1fr}
+    .listcol,.divider{display:none}
+    .a-inner{padding:22px 18px 60px}.a-title{font-size:27px}.a-body p{font-size:17px}
+  }
+</style>
+
+<div class="shell">
+  <nav class="rail">
+    <div class="brand">C</div>
+    <button class="navb on" id="nav-today"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>Today</button>
+    <button class="navb"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Later</button>
+    <button class="navb"><svg viewBox="0 0 24 24"><path d="M4 5h11v14H4zM15 5h5v14h-5"/></svg>Library</button>
+    <button class="navb grow" id="nav-settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>Settings</button>
+  </nav>
+
+  <div class="stage">
+    <!-- ORIENTATION -->
+    <main class="orient" id="orient">
+      <div class="head">
+        <div>
+          <h1>This morning</h1>
+          <p class="subhead">Tuesday, September 22 · 3 for you · 9 across your streams · 13 offers rolled up</p>
+        </div>
+        <button class="themebtn" id="theme">Dark</button>
+      </div>
+
+      <div class="strip-lbl">
+        <span class="eyebrow">Highlights</span>
+        <span class="strip-note">a taste from each section below — tap to open it in the reader</span>
+      </div>
+      <div class="strip">
+        <button class="hcard" data-item="slowboring"><span class="cat" style="color:var(--amber)">Opinion</span><h4>The case for permitting reform</h4><span class="src">Slow Boring · Matt Yglesias</span></button>
+        <button class="hcard" data-item="wapoMorning"><span class="cat" style="color:var(--wapo)">Daily news</span><h4>The 7 stories to start your Tuesday</h4><span class="src">Washington Post · Morning</span></button>
+        <button class="hcard" data-item="feedme1"><span class="cat" style="color:var(--teal)">Grab-bag</span><h4>The bag everyone in New York is carrying</h4><span class="src">Feed Me · Emily Sundberg</span></button>
+        <button class="hcard" data-item="mom"><span class="cat" style="color:var(--accent-ink)">For you</span><h4>Re: dinner Saturday?</h4><span class="src">Mom</span></button>
+      </div>
+
+      <div class="listhint">
+        <svg viewBox="0 0 24 24"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg>
+        Tap anything to read. The reader opens on the right and the list stays put — go straight down it like mail, swipe a row to file it.
+      </div>
+
+      <div class="grid" id="grid"></div>
+
+      <div class="edition">
+        <div class="spk"><svg viewBox="0 0 24 24"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6zM18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/></svg></div>
+        <div><h3>Compose today's Edition</h3><p>9 pieces gathered across your streams · nothing promoted without you</p></div>
+        <div class="go"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></div>
+      </div>
+
+      <div class="anno">
+        <div class="a"><b>Pick the publisher apart.</b> The Washington Post lands in <b>two sections at once</b> — Morning under Daily news, an op-ed under Opinion. Yglesias (one voice) stays whole. Routing is by List-ID: see Settings.</div>
+        <div class="a"><b>List / detail, not half-sheets.</b> This screen is full-width orientation. Tap a piece and you drop into the split reader — narrow list, draggable divider, wide article — and nothing pops <em>over</em> Today.</div>
+      </div>
+    </main>
+
+    <!-- READING (split) -->
+    <div class="reading" id="reading">
+      <div class="listcol" id="listcol"></div>
+      <div class="divider" id="divider"><div class="grip"></div></div>
+      <div class="article" id="article"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="settings" id="settings">
+      <h1>Sub-feed routing</h1>
+      <p class="subhead">Keyed on List-ID — deterministic, one-time, no guessing. Each of a publisher's feeds lands in the right section. Publishers that jam everything through one List-ID fall through to a classifier later.</p>
+      <div class="set-wrap"><div class="set-card" id="routes"></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const secMeta={
+    foryou:{label:"For you",dot:"var(--accent)",av:"var(--accent-bg)",avc:"var(--accent-ink)"},
+    news:{label:"Daily news",dot:"var(--wapo)",av:"var(--wapo-bg)",avc:"var(--wapo)"},
+    opinion:{label:"Opinion",dot:"var(--amber)",av:"var(--amber-bg)",avc:"var(--amber)"},
+    grabbag:{label:"Grab-bag",dot:"var(--teal)",av:"var(--teal-bg)",avc:"var(--teal)"},
+    offers:{label:"Offers",dot:"var(--offer)",av:"var(--offer-bg)",avc:"var(--offer)"}
+  };
+
+  const items={
+    mom:{sec:"foryou",title:"Re: dinner Saturday?",src:"Mom",kind:"personal",kindPub:false,by:"Mom",date:"9:02am",trash:false,
+      body:["So good to hear the new place is coming together. Saturday works perfectly for us — your dad wants to bring the good wine, which means he'll spend twenty minutes deciding on it.","Should we do 7 or is that too late with the little one? Either is fine. Let me know if we should bring anything besides dessert.","Love you. Can't wait to see the kitchen you keep texting me about."]},
+    priya:{sec:"foryou",title:"Q3 deck — one more look before Thursday?",src:"Priya Shah",kind:"work",kindPub:false,by:"Priya Shah",date:"8:41am",trash:false,
+      body:["Dropped the near-final version in the shared drive. I reworked the retention slide the way we discussed — the cohort chart is much cleaner now.","Only open question is whether we lead with revenue or with the engagement story. I lean engagement, but you have better instincts for this room.","No rush before tomorrow, but if you have ten minutes I'd love your read on the narrative arc."]},
+    drlin:{sec:"foryou",title:"Reminder: appointment Wed 9:15am",src:"Dr. Lin's office",kind:"transactional",kindPub:true,by:"Dr. Lin's office",date:"7:30am",trash:true,
+      body:["This is a reminder of your appointment on Wednesday at 9:15am. Please arrive fifteen minutes early to complete any updated paperwork.","Reply CONFIRM to hold your slot, or call the office to reschedule."]},
+    nyt:{sec:"news",title:"Your Tuesday briefing",src:"NYT · The Morning",kind:"daily news · publisher",kindPub:true,by:"The New York Times",date:"6:00am",trash:true,
+      body:["Good morning. Here's what you need to know to start your day, in about the time it takes to finish your coffee.","Markets steadied overnight after a volatile week, and negotiators signaled cautious optimism heading into the next round of talks. We walk through what actually changed and what's just noise.","Plus: a quiet revolution in how cities are rethinking their downtowns, and why the science of sleep keeps surprising the people who study it."]},
+    techmeme:{sec:"news",title:"Today's tech headlines",src:"Techmeme",kind:"daily news · digest",kindPub:true,by:"Techmeme",date:"6:15am",trash:true,
+      body:["The day's most-discussed technology stories, ranked by what people are actually linking to.","A major platform shipped its long-rumored on-device model, and the early benchmarks are turning heads for how little power they draw.","Also making the rounds: a sharp essay on why the current wave of agents feels different from the last one, and a funding round that raised more eyebrows than dollars."]},
+    wapoMorning:{sec:"news",title:"The 7 stories to start your day",src:"Washington Post · Morning",kind:"daily news · publisher",kindPub:true,by:"The Washington Post",date:"5:45am",trash:true,roll:"Morning roundup",prov:"Washington Post · Morning feed — 1 of 3 WaPo feeds you follow",
+      body:["The seven things worth your attention this morning, each in a paragraph, each with a link if you want to go deeper.","A budget deal inched closer overnight, and we explain the one provision that could still blow it up. Elsewhere, a court ruling with quieter but longer-lasting consequences than the headline suggests.","Rounding out the list: a climate milestone, a sports upset, and a profile that will stay with you longer than you expect."]},
+    slowboring:{sec:"opinion",title:"The case for permitting reform",src:"Matt Yglesias",kind:"always read · author",kindPub:false,by:"Matt Yglesias",date:"Sep 22",trash:true,always:true,prov:"Opinion · Slow Boring · Matt Yglesias · email",
+      body:["The single most important thing the country could do to lower costs and cut emissions at the same time is also the least glamorous: make it legal to build things again.","We have spent fifty years constructing an elaborate machine for saying no — to housing, to transmission lines, to the clean-energy projects everyone claims to want. The machine does not distinguish between a coal plant and a solar farm. It just says no, slowly and expensively, to all of them.","The good news is that this is a policy problem, not a physics problem. We know what to do. Shorten the review timelines. Narrow the grounds for litigation. Give agencies deadlines with teeth.","The politics are genuinely hard because the coalition for the status quo is bipartisan and well-organized. But the coalition for abundance is larger than it looks, and it is growing every time someone waits three years for a permit that should take three months."]},
+    puck:{sec:"opinion",title:"What I'm hearing in D.C. this week",src:"Puck",kind:"opinion · author",kindPub:false,by:"Puck",date:"Sep 22",trash:false,prov:"Opinion · Puck · email",
+      body:["The dinner-party consensus shifted this week, and if you weren't in the room you'd never know it from the official statements.","Three sources with direct knowledge tell me the mood has turned, though each of them would frame the reason differently. That gap is itself the story.","Watch the next two weeks. The people who are quiet right now are the ones to pay attention to."]},
+    chh:{sec:"opinion",title:"On the myth of the effortless parent",src:"Cartoons Hate Her",kind:"opinion · author",kindPub:false,by:"Cartoons Hate Her",date:"Sep 22",trash:false,prov:"Opinion · Cartoons Hate Her · email",
+      body:["Nobody has it together. The parents who look like they do are simply better at cropping the photo.","This is not a counsel of despair — it's a relief. Once you stop performing effortlessness, you get to spend that energy on your actual kid, who does not care about the aesthetic.","Anyway, here is a deeply undignified story about my morning that will make you feel better about yours."]},
+    wapoOpinion:{sec:"opinion",title:"The Fed's real dilemma isn't inflation",src:"Washington Post · Opinion",kind:"opinion · publisher",kindPub:true,by:"The Washington Post",date:"Sep 22",trash:true,roll:"Opinion alerts",prov:"Opinion · Washington Post · Opinion feed — 1 of 3 WaPo feeds you follow",
+      body:["The debate everyone is having about the Fed is the wrong one. The question is not whether to cut, but what the central bank is actually able to control anymore.","For a generation, monetary policy worked because expectations were anchored. That anchor is dragging now, and no amount of forward guidance pulls it back the way it used to.","Which means the next chair inherits a job that looks the same on paper and is fundamentally different in practice. We should be honest with ourselves about that before the confirmation hearings turn it into theater."]},
+    feedme1:{sec:"grabbag",title:"The bag everyone in New York is carrying",src:"Feed Me · Emily Sundberg",kind:"grab-bag · digest item",kindPub:false,by:"Emily Sundberg",date:"in this issue",trash:false,prov:"Grab-bag · Feed Me · item 1 of 3",
+      body:["You've seen it on every downtown shoulder for a month and you've been too proud to ask. Fine. I'll tell you.","It costs more than it should and less than the ones it's quietly replacing, which is exactly the price point that makes a thing inevitable.","Here's who's carrying it, who's about to, and the knockoff that's honestly good enough."]},
+    feedme2:{sec:"grabbag",title:"A restaurant list for your LA trip",src:"Feed Me · Emily Sundberg",kind:"grab-bag · digest item",kindPub:false,by:"Emily Sundberg",date:"in this issue",trash:false,prov:"Grab-bag · Feed Me · item 2 of 3",
+      body:["Not the list every other newsletter sent you. The one I'd actually text a friend who was going next week.","Book the first one now — genuinely, before you finish reading — and wing the rest.","Two of these are in strip malls. Trust me."]},
+    feedme3:{sec:"grabbag",title:"Overheard: what people said this week",src:"Feed Me · Emily Sundberg",kind:"grab-bag · digest item",kindPub:false,by:"Emily Sundberg",date:"in this issue",trash:false,prov:"Grab-bag · Feed Me · item 3 of 3",
+      body:["The weekly collection of things said too loudly in public by people who assumed no one was listening.","Someone was always listening. It was me.","My favorite this week involved a breakup, a dog, and a very expensive coffee."]},
+    ph:{sec:"grabbag",title:"Today's launches",src:"Product Hunt daily",kind:"grab-bag · promo",kindPub:true,by:"Product Hunt",date:"Sep 22",trash:true,
+      body:["The day's launches, ranked. Mostly wrappers, occasionally a gem.","Today's top spot is a genuinely clever take on an old idea, and the comments are worth reading for once."]},
+    nordstrom:{sec:"offers",title:"This week's sale — up to 40% off",src:"Nordstrom",kind:"offers · rolled up",kindPub:true,by:"Nordstrom",date:"Sep 22",trash:true,roll:"4 offers rolled up",prov:"Offers · Nordstrom · 4 promos this week",
+      body:["Up to 40% off select fall styles, plus early access for cardmembers starting Friday.","Four separate emails this week, collapsed into this one row. Glance, or trash the lot — nothing here needs a decision."]},
+    rei:{sec:"offers",title:"Your member dividend is here",src:"REI Co-op",kind:"offers · rolled up",kindPub:true,by:"REI Co-op",date:"Sep 22",trash:true,roll:"3 offers rolled up",prov:"Offers · REI Co-op · reward + 2 promos",
+      body:["Your annual member dividend is ready to spend, and the Anniversary Sale starts Friday.","Rolled up with two gear promos so it's one row, not three."]},
+    doordash:{sec:"offers",title:"Weekend deals near you",src:"DoorDash",kind:"offers · rolled up",kindPub:true,by:"DoorDash",date:"Sep 22",trash:true,roll:"6 offers rolled up",prov:"Offers · DoorDash · 6 deals this weekend",
+      body:["$0 delivery this weekend and a free month of DashPass, plus deals from spots near you.","High volume, low weight. Six emails, one row, zero guilt about ignoring it."]}
+  };
+
+  const sections={
+    foryou:["mom","priya","drlin"],
+    news:["nyt","techmeme","wapoMorning"],
+    opinion:["slowboring","puck","chh","wapoOpinion"],
+    grabbag:["feedme1","feedme2","feedme3","ph"],
+    offers:["nordstrom","rei","doordash"]
+  };
+
+  const routes=[
+    {feed:"Morning roundup",lid:"list.washingtonpost.com/morning",dest:"Daily news",mute:false},
+    {feed:"Evening roundup",lid:"list.washingtonpost.com/evening",dest:"Daily news",mute:false},
+    {feed:"Opinion alerts",lid:"list.washingtonpost.com/opinions",dest:"Opinion",mute:false},
+    {feed:"Cooking & recipes",lid:"list.washingtonpost.com/food",dest:"Muted",mute:true},
+    {feed:"Slow Boring",lid:"substack.com/slowboring",dest:"Opinion",mute:false},
+    {feed:"The Morning (NYT)",lid:"nl.nytimes.com/morning",dest:"Daily news",mute:false},
+    {feed:"Nordstrom promos",lid:"e.nordstrom.com",dest:"Offers",mute:false},
+    {feed:"Feed Me",lid:"substack.com/emilysundberg",dest:"Grab-bag",mute:false}
+  ];
+
+  const mailSvg='<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>';
+
+  // build orientation grid
+  function chipFor(k){
+    const it=items[k];let c='';
+    if(it.always)c+='<span class="chip always">always read</span>';
+    if(k==='slowboring')c+='<span class="chip new">2 new</span>';
+    if(k==='puck')c+='<span class="chip new">1 new</span>';
+    if(it.roll&&it.sec==='offers')c+=`<span class="chip roll">${it.roll}</span>`;
+    return c;
+  }
+  function buildGrid(){
+    let html='';
+    for(const sk of ["foryou","news","opinion","grabbag","offers"]){
+      const m=secMeta[sk];
+      html+=`<section class="sec"><div class="sec-h"><span class="sec-dot" style="background:${m.dot}"></span><h3>${m.label}</h3><span class="n">${sections[sk].length}</span></div>`;
+      sections[sk].forEach((k,i)=>{
+        if(sk==='grabbag'&&k==='feedme1'){
+          const f=items[k];
+          html+=`<button class="item" data-item="feedme1" style="border-top:none;padding-bottom:2px"><div class="av" style="background:${m.av};color:${m.avc}">F</div><div class="it-body"><div class="it-title">Feed Me</div><div class="it-meta">Emily Sundberg<span class="chip count">3 items</span></div></div></button>`;
+          html+=`<div class="digest"><div class="digest-h">Inside this issue</div>`
+            +`<div class="di" data-item="feedme1"><span class="b"></span>The bag everyone in New York is carrying</div>`
+            +`<div class="di" data-item="feedme2"><span class="b"></span>A restaurant list for your LA trip</div>`
+            +`<div class="di" data-item="feedme3"><span class="b"></span>Overheard: what people said this week</div></div>`;
+          return;
+        }
+        if(sk==='grabbag'&&(k==='feedme2'||k==='feedme3'))return;
+        const it=items[k];
+        const avl=it.src[0];
+        const meta = it.roll&&it.sec!=='offers'
+          ? `<span class="chip wapo">${it.src}</span>`
+          : `${it.by}${chipFor(k)}`;
+        html+=`<button class="item" data-item="${k}"><div class="av" style="background:${m.av};color:${m.avc}">${avl}</div>`
+          +`<div class="it-body"><div class="it-title">${it.title}</div><div class="it-meta">${meta}</div></div></button>`;
+      });
+      html+='</section>';
+    }
+    document.getElementById('grid').innerHTML=html;
+  }
+
+  // reading mode
+  let current=null;
+  function openReader(key){
+    const it=items[key];if(!it)return;current=key;
+    const m=secMeta[it.sec];
+    // left list — ONE ordered queue across all sections, in decided priority order
+    let lc=`<div class="lc-head"><span class="dot" style="background:var(--accent)"></span><h3>This morning · in order</h3><button class="doneb" id="doneb">Done</button></div>`;
+    lc+=`<div class="swipehint"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>March straight down — swipe a row to save, file, or trash</div>`;
+    let first=true;
+    for(const sk of ["foryou","news","opinion","grabbag","offers"]){
+      const gm=secMeta[sk];
+      lc+=`<div class="lgroup ${first?'first':''}"><span class="dot" style="background:${gm.dot}"></span>${gm.label}</div>`;
+      first=false;
+      sections[sk].forEach(k=>{
+        const li=items[k];
+        lc+=`<div class="lrow ${k===key?'sel':''}" data-open="${k}"><div style="flex:1"><div class="lt">${li.title}</div><div class="ls">${li.src} · ${li.date}</div></div></div>`;
+      });
+    }
+    document.getElementById('listcol').innerHTML=lc;
+
+    // article
+    const kc = it.kindPub ? 'kind pub':'kind';
+    const footTxt = it.trash
+      ? "When you leave, the source email trashes automatically — this issue stays in its stream, custody intact."
+      : "Read. The source stays in your inbox; the piece is reachable in its stream either way.";
+    let body=it.body.map(p=>`<p>${p}</p>`).join('');
+    document.getElementById('article').innerHTML=
+      `<div class="a-tool"><div class="a-prov"><b>${m.label}</b> · ${it.prov||it.src}</div>`
+      +`<button class="abtn" title="Save for later"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>`
+      +`<button class="abtn" title="Add to library"><svg viewBox="0 0 24 24"><path d="M4 5h11v14H4zM15 5h5v14h-5"/></svg></button>`
+      +`<button class="abtn danger" title="Trash"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button>`
+      +`<button class="abtn" id="fullb" title="Read full width"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></div>`
+      +`<div class="a-inner"><div class="a-kick" style="color:${m.dot}">${m.label}</div>`
+      +`<h1 class="a-title">${it.title}</h1>`
+      +`<div class="a-by"><span class="${kc}">${it.kind}</span><span>${it.by} · ${it.date}</span><span class="tport">${mailSvg}email</span></div>`
+      +`<div class="a-body">${body}</div>`
+      +`<div class="a-foot"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg><span>${footTxt}</span></div></div>`;
+    document.getElementById('article').scrollTop=0;
+
+    document.getElementById('doneb').addEventListener('click',showOrient);
+    document.getElementById('fullb').addEventListener('click',()=>document.getElementById('reading').classList.toggle('full'));
+    document.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click',()=>openReader(el.getAttribute('data-open'))));
+
+    document.getElementById('orient').style.display='none';
+    document.getElementById('settings').classList.remove('show');
+    document.getElementById('reading').classList.add('show');
+    try{document.querySelector('.lrow.sel').scrollIntoView({block:'center'});}catch(_){}
+    setNav('today');
+  }
+  function showOrient(){
+    document.getElementById('reading').classList.remove('show','full');
+    document.getElementById('settings').classList.remove('show');
+    document.getElementById('orient').style.display='block';
+    setNav('today');
+  }
+  function showSettings(){
+    let html='';
+    routes.forEach(r=>{html+=`<div class="route"><div class="lid"><b>${r.feed}</b>${r.lid}</div><span class="dest ${r.mute?'mute':''}">${r.dest}</span></div>`;});
+    document.getElementById('routes').innerHTML=html;
+    document.getElementById('reading').classList.remove('show','full');
+    document.getElementById('orient').style.display='none';
+    document.getElementById('settings').classList.add('show');
+    setNav('settings');
+  }
+  function setNav(which){
+    document.getElementById('nav-today').classList.toggle('on',which==='today');
+    document.getElementById('nav-settings').classList.toggle('on',which==='settings');
+  }
+
+  buildGrid();
+  document.addEventListener('click',e=>{
+    const t=e.target.closest('[data-item]');
+    if(t){openReader(t.getAttribute('data-item'));}
+  });
+  document.getElementById('nav-settings').addEventListener('click',showSettings);
+  document.getElementById('nav-today').addEventListener('click',showOrient);
+
+  // draggable divider
+  const reading=document.getElementById('reading');const divider=document.getElementById('divider');
+  let dragging=false;
+  function setW(px){const w=Math.max(268,Math.min(560,px));document.documentElement.style.setProperty('--listw',w+'px');}
+  divider.addEventListener('pointerdown',e=>{dragging=true;divider.setPointerCapture(e.pointerId);e.preventDefault();});
+  divider.addEventListener('pointermove',e=>{if(!dragging)return;const rect=reading.getBoundingClientRect();setW(e.clientX-rect.left);});
+  divider.addEventListener('pointerup',e=>{dragging=false;try{divider.releasePointerCapture(e.pointerId);}catch(_){}} );
+  divider.addEventListener('dblclick',()=>setW(344));
+
+  // theme
+  const tb=document.getElementById('theme');
+  function apply(t){document.documentElement.setAttribute('data-theme',t);tb.textContent=t==='dark'?'Light':'Dark';}
+  let cur='light';
+  try{cur=localStorage.getItem('ck-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch(e){}
+  apply(cur);
+  tb.addEventListener('click',()=>{cur=cur==='dark'?'light':'dark';apply(cur);try{localStorage.setItem('ck-theme',cur);}catch(e){}});
+</script>
