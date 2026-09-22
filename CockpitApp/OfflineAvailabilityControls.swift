@@ -7,44 +7,32 @@ enum OfflineAvailabilitySheet: Identifiable {
   var id: String { "offline-until" }
 }
 
-struct OfflineAvailabilityControls: View {
+struct OfflineAvailabilityStatus: View {
   let presentation: OfflineAvailabilityPresentation
-  let chooseOfflineUntil: () -> Void
-  let keepOffline: () -> Void
-  let releaseOffline: () -> Void
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      status
-      HStack(spacing: 12) {
-        Button("Offline until", systemImage: "calendar") { chooseOfflineUntil() }
-        Button("Keep Offline", systemImage: "pin") { keepOffline() }
-        if presentation.isActivePromise {
-          Button("Stop Keeping Offline", systemImage: "pin.slash") { releaseOffline() }
-        }
-      }
-      .buttonStyle(.bordered)
-      .font(.subheadline)
-    }
-    .accessibilityElement(children: .contain)
-    .accessibilityLabel("Offline availability")
-  }
-
-  @ViewBuilder
-  private var status: some View {
-    switch presentation {
-    case let .offlineUntil(expiry):
-      Label("Available offline until \(expiry.formatted(date: .abbreviated, time: .omitted))", systemImage: "checkmark.circle.fill")
+    Group {
+      switch presentation {
+      case let .offlineUntil(expiry):
+        Label(
+          "Available offline until \(expiry.formatted(date: .abbreviated, time: .omitted))",
+          systemImage: "checkmark.circle.fill"
+        )
         .foregroundStyle(.green)
-    case .keptOffline:
-      Label("Kept offline on this device", systemImage: "pin.fill")
-        .foregroundStyle(.green)
-    case let .expired(expiry):
-      Label("Offline availability expired \(expiry.formatted(date: .abbreviated, time: .omitted))", systemImage: "clock.badge.exclamationmark")
+      case .keptOffline:
+        Label("Kept offline on this device", systemImage: "pin.fill")
+          .foregroundStyle(.green)
+      case let .expired(expiry):
+        Label(
+          "Offline availability expired \(expiry.formatted(date: .abbreviated, time: .omitted))",
+          systemImage: "clock.badge.exclamationmark"
+        )
         .foregroundStyle(.secondary)
-    case .ordinaryCache:
-      EmptyView()
+      case .ordinaryCache:
+        EmptyView()
+      }
     }
+    .font(.caption)
   }
 }
 
