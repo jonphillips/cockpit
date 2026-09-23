@@ -274,14 +274,24 @@ wider than the pane shrinks to fit instead of being clipped. Fluid emails are un
 - `CockpitCore`: `EmailDesignWidth.detect(html:) -> Double?`, a pure function using SwiftSoup that
   returns the email's fixed design width in CSS px, or `nil` for fluid layouts. It looks at the
   outermost layout containers under `<body>` (first few nesting levels of `table`/`td`/`div`/
-  `center`), reading `width="N"` attributes and inline `width: Npx` / `max-width: Npx`. It takes the
-  widest plausible value in the 320–1200 range. Percentages, `auto`, and values outside the range
+  `center`), reading `width="N"` attributes and inline `width` / `max-width` / `min-width` in px
+  (ignoring `!important`). It takes the widest plausible value in the 320–1200 range. Percentages, `auto`, and values outside the range
   don't count. A body whose containers are all fluid returns `nil`. No `<style>` sheet parsing in
   this slice.
 - `CockpitCore`: `EmailFitZoom.zoom(designWidth: Double?, availableWidth: Double) -> Double`, a pure
-  function. `nil` design width → `1.0`. Otherwise `availableWidth / designWidth` clamped to
-  `0.5…1.3`. Put the cap and floor in named constants with a one-line why (1.3 keeps body copy
-  around 20pt, while filling a landscape iPad pane would be about 1.6× / 26pt).
+  function. `nil` design width → `1.0`. Otherwise
+  `availableWidth / (designWidth + 2 × horizontalGutter)` clamped to `0.5…1.3`. The 16 CSS px
+  gutter covers the default body margin and wrapper padding; without it a fixed-width table at an
+  exact fit is cut off on the right. Put the cap, floor, and gutter in named constants with a
+  one-line why (1.3 keeps body copy around 20pt, while filling a landscape iPad pane would be about
+  1.6× / 26pt).
+- `CockpitCore`: `EmailFitWidth`, the width the email is fitted to: the detected width, widened by
+  overflow measured after layout. Static detection can't see stylesheet rules, deep nesting, or
+  fixed images, and a page laid out wider than the view centers on that wider page and runs off the
+  right edge (NYT Travel Dispatch on iPad, 2026-09-23). `designWidth` is the wider of detected and
+  measured. The measured width only widens within one email, so corrections settle. It ignores the
+  stale layout reported right after a zoom or view-width change, which would otherwise read as
+  overflow and stick. (Amended 2026-09-23 from Jon's device check of #74.)
 - `TodayOriginalHTML.sanitizedForWebView`: normalise the viewport so layout width equals the view
   width. Remove any existing `<meta name="viewport">` and insert
   `width=device-width, initial-scale=1`.
@@ -289,6 +299,9 @@ wider than the pane shrinks to fit instead of being clipped. Fluid emails are un
   - set `defaultWebpagePreferences.preferredContentMode = .mobile`. iPad defaults to desktop mode,
     which lays out at 980px and mostly ignores the viewport tag.
   - `load(rawHTML:)` stores the detected design width for that email.
+  - once the new email's navigation commits, compare `scrollView.contentSize.width` with the view
+    on every content-size change. Overflow is recorded in `EmailFitWidth` and the zoom recomputed.
+    Before each zoom or width change, mark the current layout as stale.
   - add `setAvailableWidth(_:)`. Recompute and apply `webView.pageZoom` only when the value changes,
     and never reload the HTML for a width change.
   - reset zoom state when a different email loads.
@@ -300,8 +313,12 @@ wider than the pane shrinks to fit instead of being clipped. Fluid emails are un
   `max-width: 550px` wrapper → 550. `<table width="600">` outer with nested narrower tables → 600.
   Outer `width="100%"` with a `600` inner → 600. All fluid → `nil`. A 1px spacer or a 2000px
   value → ignored. `width="600px"` string form → 600.
-- Zoom: 550 in 950 → 1.3 (capped). 700 in 800 → about 1.14. 800 in 390 → about 0.49, clamped to 0.5.
-  `nil` → 1.0.
+- Zoom: 550 in 950 → 1.3 (capped). 700 in 800 → about 1.09. 600 in 390 → about 0.62, and the email
+  plus gutters fits. 800 in 390 → clamped to 0.5. `nil` → 1.0.
+- Fit width: a page that fits records nothing. A 600px detection whose page renders about 940px wide
+  refits so the whole page fits. A fluid email that overflows gets a fit width. A later, narrower
+  page doesn't shrink it. At the 0.5 floor the same overflow stops. The old layout reported after a
+  zoom change or a narrower pane is ignored.
 - Sanitizer: an existing viewport meta is replaced, not duplicated. One is added when absent.
 
 **Device-only risks (name them).** `pageZoom` and `.mobile` content mode together on iPad. Whether
@@ -309,13 +326,14 @@ wider than the pane shrinks to fit instead of being clipped. Fluid emails are un
 1× images get slightly soft at 1.3×. Jon checks one Substack issue, one table-based retail email, and
 one fluid email on iPad and iPhone.
 
-**Do not.** Don't enable page JavaScript or add app-injected measurement JS. If static detection proves
-insufficient for real emails, say so in the report rather than adding it. No user-facing controls yet
+**Do not.** Don't enable page JavaScript or add app-injected measurement JS. Reading the web view's
+rendered content size is not JavaScript and is the backstop for what static detection misses. No user-facing controls yet
 (S-r9).
 
 **Done when.** On a landscape iPad, a 550px newsletter renders about 715pt wide with larger text. A wide
-email fits the pane on iPhone. Fluid emails look as before, and resizing the pane re-fits without
-reloading.
+email fits the pane on iPhone. An email that lays out wider than its detected column (NYT Travel
+Dispatch) fits whole instead of running off the right edge. Fluid emails look as before, and resizing
+the pane re-fits without reloading.
 
 ---
 
@@ -327,7 +345,9 @@ same leading edge.
 **Build.**
 - `CockpitCore`: `EmailColumn.width(designWidth: Double?, zoom: Double, availableWidth: Double) ->
   Double`, a pure function. Returns `min(designWidth × zoom, availableWidth)`, or `availableWidth`
-  when the design width is `nil`.
+  when the design width is `nil`. Pass `EmailFitWidth.detected`, not `designWidth`: once a wide page
+  is refitted, the visible column is the detected one centered in the pane, and the header should
+  line up with it rather than the invisible wide part.
 - `TodayOriginalWebViewStore` publishes the current column width, computed from the S-r7 inputs.
 - `ReaderView`: constrain the header block, and the other Reader content above and below the body
   (summary, pending-Find card), to that width, centered in the pane:
@@ -360,9 +380,12 @@ from that publisher opens at the same adjustment.
 - Store an **adjustment step**, not an absolute zoom: an integer in `-3…+5`, each step ×1.1 on top
   of the S-r7 auto-fit. The same preference then works on iPhone, iPad, and split view. A manual step
   may go past the 1.3 auto cap, up to a ceiling:
-  - **Fluid email** (no design width): ceiling `2.0`. It re-lays itself out at any zoom.
+  - **Fluid email** (`EmailFitWidth.designWidth` is `nil`): ceiling `2.0`. It re-lays itself out at
+    any zoom.
   - **Fixed-width email:** ceiling is the uncapped fit-to-pane zoom,
-    `availableWidth / (designWidth + 2 × EmailFitZoom.horizontalGutter)`, never above `2.0`. Reuse
+    `availableWidth / (designWidth + 2 × EmailFitZoom.horizontalGutter)`, never above `2.0`, where
+    `designWidth` is `EmailFitWidth.designWidth` (the wider of detected and measured), so a manual
+    step can't push a measured wide page back off the edge. Reuse
     S-r7's constant rather than a second gutter value. Scrolling is off in the web view, so anything
     wider than the pane is cut off and can't be reached. (Amended 2026-09-23 from the #74 review.)
   - Final zoom = `clamp(autoFit × 1.1^step, 0.5, max(0.5, ceiling))`. The 0.5 floor wins when an
