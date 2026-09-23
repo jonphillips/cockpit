@@ -9,14 +9,15 @@ import SQLiteData
 @MainActor
 @Observable
 public final class ContentPieceReaderModel {
-  @ObservationIgnored @Dependency(\.defaultDatabase) private var database
+  @ObservationIgnored @Dependency(\.defaultDatabase) var database
   @ObservationIgnored @Dependency(\.date.now) var now
   @ObservationIgnored @Dependency(\.modelClient) private var modelClient
   @ObservationIgnored @Dependency(\.apiKeyStore) private var apiKeyStore
   @ObservationIgnored @Dependency(\.frontierPreferenceStore) private var preferenceStore
-  @ObservationIgnored @Dependency(\.gmailDispositionClient) private var dispositionClient
+  @ObservationIgnored @Dependency(\.gmailDispositionClient) var dispositionClient
   @ObservationIgnored @Dependency(\.uuid) private var uuid
   @ObservationIgnored @Fetch public var content = ContentPieceReaderRequest.Value()
+  @ObservationIgnored @Fetch public var pendingFindContent = PendingFindForContentPieceRequest.Value()
   @ObservationIgnored @Fetch public var readerTeaching = ReaderTeachingClaimRequest.Value()
   @ObservationIgnored @Fetch public var matchedPersonalKnowledge = MatchedPersonalKnowledgeClaimRequest.Value()
   public private(set) var routingResolution: CurationRoutingResolution?
@@ -31,6 +32,8 @@ public final class ContentPieceReaderModel {
     matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID? = nil
   ) {
     _content = Fetch(wrappedValue: .init(), ContentPieceReaderRequest(contentPieceID: contentPieceID))
+    _pendingFindContent = Fetch(
+      wrappedValue: .init(), PendingFindForContentPieceRequest(contentPieceID: contentPieceID))
     _readerTeaching = Fetch(
       wrappedValue: .init(), ReaderTeachingClaimRequest(contentPieceID: contentPieceID)
     )
@@ -43,13 +46,6 @@ public final class ContentPieceReaderModel {
   public var row: ContentPieceReaderRequest.Row? { content.row }
   public var readerTaughtClaim: PersonalKnowledgeRequest.Row? { readerTeaching.claim }
   public var matchedClaim: PersonalKnowledgeRequest.Row? { matchedPersonalKnowledge.claim }
-
-  public var bodyPresentation: ReaderBodyPresentation { readerBodyPresentation(for: row) }
-
-  /// In V1 an email ContentPiece is a Gmail message, so the Reader offers a source disposition only
-  /// for these. Other transports have no provider disposition yet.
-  public var isGmailSource: Bool { row?.kind == .email }
-
   public func saveForLater() async {
     guard let id = row?.id else { return }
     let date = now

@@ -32,4 +32,19 @@ public struct GmailDispositionPolicyService: Sendable {
     }
     return applied
   }
+
+  /// Applies an enabled policy to one specific piece after an explicit Reader action. It reuses
+  /// policy matching (including the Find barrier and once-per-message guard) and then the existing
+  /// disposition service (including its commit barrier and Undo log).
+  @discardableResult
+  public func applyEnabledPolicies(
+    forContentPieceID id: ContentPiece.ID, in database: any DatabaseWriter
+  ) async throws -> [GmailDispositionLogEntry] {
+    let matches = try await database.read { db in
+      try GmailDispositionPolicyOperations.matchingPieceIDs(in: db).contains(id)
+    }
+    guard matches, let entry = try await disposition.apply(.trash, toContentPieceID: id, in: database)
+    else { return [] }
+    return [entry]
+  }
 }

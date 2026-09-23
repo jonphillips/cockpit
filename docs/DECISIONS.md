@@ -704,6 +704,11 @@ role (`Offers` → offer schema; `Grab-bag` → digest schema) as well as existi
 This grants no Gmail disposition authority: policy candidates remain treatment-gated, and finance mail
 continues to override locator routing, including mute.
 
+**Confirmed-Find barrier amendment (2026-09-23).** For the explicit `offerWithFind` disposition policy,
+the auto-Trash barrier is a Find Jon confirmed, never a model proposal. A handed-off Find also counts as
+confirmed; pending and dismissed proposals do not satisfy the barrier. Confirmation may immediately
+apply the already-enabled policy through its existing barrier and Undo log.
+
 **The AI boundary this sharpens (extends §22).** For curated input the model classifies, summarizes,
 extracts, and highlights — it **never admits/declines or suppresses**. Organization changes order,
 grouping, and summary; it never changes *membership* of curated mail. This is strictly more faithful to
