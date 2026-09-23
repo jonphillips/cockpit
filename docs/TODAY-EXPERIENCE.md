@@ -127,8 +127,7 @@ opens anything.
    (five wine offers) collapse into one compact aggregate with drill-in, never one large capsule each
    (Jon, 2026-09-18). Deeper grouping — rolling grouped offers into a single grouped Find — is a later
    Finds concern (Phase 6), not the surface.
-5. **Grab-bag** — extracted (the flagged digest decomposed into its worthwhile items, inside the
-   piece).
+5. **Grab-bag** — listed as whole issues for scanning and reading. No automatic item extraction.
 6. **Transactional** — the low rung (M5 S3's fifth treatment): reference, not attention; present and
    countable, never suppressed, never elevated. **Ephemeral sub-case:** login/verification codes are
    actioned-immediately and stale by the morning — S3 classifies them distinctly and S8's explicit

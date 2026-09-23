@@ -205,7 +205,7 @@ extension ContentPieceReaderModel {
       await loadRoutingResolution()
       try await $content.load()
       errorMessage = nil
-      guard role == .grabBag || role == .offers else { return }
+      guard role == .offers else { return }
       let processor = EmailTreatmentProcessor(modelClient: modelClient)
       let database = database
       Task { [weak self] in
