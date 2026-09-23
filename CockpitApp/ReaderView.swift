@@ -19,56 +19,7 @@ struct ReaderView: View {
   var body: some View {
     @Bindable var model = model
     ScrollView {
-      if let row = model.row {
-        VStack(alignment: .leading, spacing: 16) {
-          ReaderHeader(row: row, offlinePresentation: model.offlinePresentation)
-
-          if let rationale = editionContext?.rationale, !rationale.isEmpty {
-            ReaderRationaleView(rationale: rationale, matchedClaim: model.matchedClaim) {
-              correctingClaim = $0
-            }
-          }
-
-          ReaderSummaryView(
-            summary: row.summary,
-            isCompactPreview: row.isSubstantivePrimary == false
-          )
-
-          if let find = model.pendingFind {
-            PendingFindProposalCard(
-              find: find,
-              save: {
-                Task {
-                  guard await model.confirmPendingFind() else { return }
-                  if let queueContext { await queueContext.trash() }
-                  else { await model.trashSource() }
-                }
-              },
-              dismiss: { Task { await model.dismissPendingFind() } }
-            )
-          }
-
-          ReaderClassificationStatus(
-            isSubstantivePrimary: row.isSubstantivePrimary,
-            bodyCompleteness: row.bodyCompleteness,
-            correct: { value in
-              Task { await model.correctIsSubstantivePrimary(to: value) }
-            }
-          )
-
-          ReaderBodyView(
-            presentation: model.bodyPresentation,
-            canonicalURL: row.canonicalURL,
-            openURL: openURL,
-            originalWebViewStore: originalWebViewStore
-          )
-
-          if isReachableStreamPiece { ReaderCustodyLine() }
-        }
-        .padding()
-      } else {
-        ContentUnavailableView("Not Found", systemImage: "questionmark.circle")
-      }
+      readerDocument
     }
     .toolbar {
       ReaderDispositionToolbar(
@@ -154,6 +105,73 @@ extension ReaderView {
 }
 
 private extension ReaderView {
+  @ViewBuilder
+  var readerDocument: some View {
+    if let row = model.row {
+      VStack(alignment: .leading, spacing: 16) {
+        ReaderHeader(row: row, offlinePresentation: model.offlinePresentation)
+          .readerEmailColumn(width: emailColumnWidth)
+
+        if let rationale = editionContext?.rationale, !rationale.isEmpty {
+          ReaderRationaleView(rationale: rationale, matchedClaim: model.matchedClaim) {
+            correctingClaim = $0
+          }
+          .readerEmailColumn(width: emailColumnWidth)
+        }
+
+        ReaderSummaryView(
+          summary: row.summary,
+          isCompactPreview: row.isSubstantivePrimary == false
+        )
+        .readerEmailColumn(width: emailColumnWidth)
+
+        if let find = model.pendingFind {
+          PendingFindProposalCard(
+            find: find,
+            save: {
+              Task {
+                guard await model.confirmPendingFind() else { return }
+                if let queueContext { await queueContext.trash() }
+                else { await model.trashSource() }
+              }
+            },
+            dismiss: { Task { await model.dismissPendingFind() } }
+          )
+          .readerEmailColumn(width: emailColumnWidth)
+        }
+
+        ReaderClassificationStatus(
+          isSubstantivePrimary: row.isSubstantivePrimary,
+          bodyCompleteness: row.bodyCompleteness,
+          correct: { value in
+            Task { await model.correctIsSubstantivePrimary(to: value) }
+          }
+        )
+        .readerEmailColumn(width: emailColumnWidth)
+
+        ReaderBodyView(
+          presentation: model.bodyPresentation,
+          canonicalURL: row.canonicalURL,
+          openURL: openURL,
+          originalWebViewStore: originalWebViewStore
+        )
+
+        if isReachableStreamPiece { ReaderCustodyLine().readerEmailColumn(width: emailColumnWidth) }
+      }
+      .padding()
+    } else {
+      ContentUnavailableView("Not Found", systemImage: "questionmark.circle")
+    }
+  }
+
+  var emailColumnWidth: CGFloat? {
+    guard case .html = model.bodyPresentation, originalWebViewStore.viewportWidth > 0 else { return nil }
+    return CGFloat(EmailColumn.width(
+      designWidth: originalWebViewStore.designWidth,
+      viewportWidth: Double(originalWebViewStore.viewportWidth)
+    ))
+  }
+
   func readerAppeared() async {
     try? await model.$content.load()
     try? await model.$readerTeaching.load()

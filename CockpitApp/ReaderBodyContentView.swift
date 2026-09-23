@@ -1,6 +1,18 @@
 import CockpitCore
 import SwiftUI
 
+extension View {
+  @ViewBuilder
+  func readerEmailColumn(width: CGFloat?) -> some View {
+    if let width {
+      frame(maxWidth: width, alignment: .leading)
+        .frame(maxWidth: .infinity)
+    } else {
+      self
+    }
+  }
+}
+
 struct ReaderSummaryView: View {
   let summary: String?
   let isCompactPreview: Bool
@@ -33,8 +45,12 @@ struct ReaderBodyView: View {
     switch presentation {
     case let .html(rawHTML):
       TodayOriginalWebView(webView: originalWebViewStore.webView)
+        .frame(maxWidth: .infinity)
         .frame(height: originalWebViewStore.contentHeight)
         .clipShape(.rect(cornerRadius: 12))
+        .onGeometryChange(for: CGFloat.self) { proxy in proxy.size.width } action: {
+          originalWebViewStore.reportViewportWidth($0)
+        }
         .onAppear { originalWebViewStore.load(rawHTML: rawHTML) }
         .onChange(of: rawHTML) { _, newValue in
           originalWebViewStore.load(rawHTML: newValue)

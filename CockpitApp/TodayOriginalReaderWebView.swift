@@ -12,11 +12,19 @@ enum TodayOriginalReaderConfiguration {
 }
 
 enum TodayOriginalHTML {
-  static func sanitizedForWebView(_ rawHTML: String) -> String {
-    guard let document = try? SwiftSoup.parse(rawHTML) else { return rawHTML }
+  struct SanitizedHTML {
+    let html: String
+    let designWidth: Double?
+  }
+
+  static func sanitizedForWebView(_ rawHTML: String) -> SanitizedHTML {
+    guard let document = try? SwiftSoup.parse(rawHTML) else {
+      return SanitizedHTML(html: rawHTML, designWidth: nil)
+    }
     _ = try? document.select("script").remove()
     normalizeViewport(in: document)
-    appendFitZoom(to: document)
+    let designWidth = EmailDesignWidth.detect(in: document)
+    appendFitZoom(to: document, designWidth: designWidth)
 
     for image in (try? document.select("img").array()) ?? [] {
       if isTrackingPixel(image) { try? image.remove() }
@@ -25,7 +33,7 @@ enum TodayOriginalHTML {
     if !TodayOriginalReaderConfiguration.loadRemoteContent {
       removeRemoteContent(from: document)
     }
-    return (try? document.html()) ?? rawHTML
+    return SanitizedHTML(html: (try? document.html()) ?? rawHTML, designWidth: designWidth)
   }
 
   private static func normalizeViewport(in document: SwiftSoup.Document) {
@@ -46,8 +54,8 @@ enum TodayOriginalHTML {
   }
 
   /// Appended last in `<head>` so it follows the email's own head styles.
-  private static func appendFitZoom(to document: SwiftSoup.Document) {
-    guard let css = EmailFitZoom.stylesheet(designWidth: EmailDesignWidth.detect(in: document)),
+  private static func appendFitZoom(to document: SwiftSoup.Document, designWidth: Double?) {
+    guard let css = EmailFitZoom.stylesheet(designWidth: designWidth),
       let head = document.head(),
       let style = try? document.createElement("style")
     else { return }
@@ -114,6 +122,8 @@ final class TodayOriginalWebViewStore {
   @ObservationIgnored let webView: WKWebView
 
   private(set) var contentHeight: CGFloat = 44
+  private(set) var designWidth: Double?
+  private(set) var viewportWidth: CGFloat = 0
 
   init() {
     let configuration = WKWebViewConfiguration()
@@ -142,14 +152,20 @@ final class TodayOriginalWebViewStore {
   }
 
   func load(rawHTML: String) {
-    let sanitizedHTML = TodayOriginalHTML.sanitizedForWebView(rawHTML)
-    guard loadedHTML != sanitizedHTML else { return }
+    let sanitized = TodayOriginalHTML.sanitizedForWebView(rawHTML)
+    designWidth = sanitized.designWidth
+    guard loadedHTML != sanitized.html else { return }
     webView.stopLoading()
     webView.scrollView.setContentOffset(.zero, animated: false)
     contentHeight = 44
     navigationCoordinator.allowNextInitialLoad = true
-    loadedHTML = sanitizedHTML
-    webView.loadHTMLString(sanitizedHTML, baseURL: nil)
+    loadedHTML = sanitized.html
+    webView.loadHTMLString(sanitized.html, baseURL: nil)
+  }
+
+  func reportViewportWidth(_ width: CGFloat) {
+    guard width > 0, viewportWidth != width else { return }
+    viewportWidth = width
   }
 }
 

@@ -92,3 +92,32 @@ struct EmailFitBandTests {
     }
   }
 }
+
+struct EmailColumnTests {
+  @Test("Fixed email column follows the zoom band and never exceeds its viewport")
+  func fixedEmailColumn() {
+    #expect(EmailColumn.width(designWidth: 550, viewportWidth: 952) == 715)
+    #expect(EmailColumn.width(designWidth: 600, viewportWidth: 390) == 360)
+    #expect(EmailColumn.width(designWidth: 600, viewportWidth: 632) == 600)
+  }
+
+  @Test("Email column changes at the same viewport thresholds as the stylesheet")
+  func columnTracksZoomBands() throws {
+    let designWidth = 550.0
+    let bands = try #require(EmailFitZoom.bands(designWidth: designWidth))
+    for (previousBand, band) in zip(bands, bands.dropFirst()) {
+      let before = Double(band.minimumViewportWidth - 1)
+      let at = Double(band.minimumViewportWidth)
+      #expect(EmailColumn.width(designWidth: designWidth, viewportWidth: before)
+        == min(before, designWidth * previousBand.zoom))
+      #expect(EmailColumn.width(designWidth: designWidth, viewportWidth: at)
+        == min(at, designWidth * band.zoom))
+    }
+  }
+
+  @Test("Fluid email uses the viewport width")
+  func fluidEmailColumn() {
+    #expect(EmailColumn.width(designWidth: nil, viewportWidth: 390) == 390)
+    #expect(EmailColumn.width(designWidth: nil, viewportWidth: 0) == 0)
+  }
+}

@@ -138,3 +138,17 @@ public enum EmailFitZoom {
     }.joined(separator: "\n")
   }
 }
+
+/// The visual width of the fixed email column after its root CSS zoom is applied.
+public enum EmailColumn {
+  /// Uses the same zoom band as the injected stylesheet, so surrounding Reader content follows
+  /// the email's actual width at each viewport size. Fluid email occupies the whole viewport.
+  public static func width(designWidth: Double?, viewportWidth: Double) -> Double {
+    let viewportWidth = max(0, viewportWidth)
+    guard let designWidth, designWidth > 0 else { return viewportWidth }
+    return min(viewportWidth, designWidth * EmailFitZoom.bandedZoom(
+      designWidth: designWidth,
+      viewportWidth: viewportWidth
+    ))
+  }
+}
