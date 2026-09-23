@@ -362,9 +362,9 @@ from that publisher opens at the same adjustment.
   may go past the 1.3 auto cap, up to a ceiling:
   - **Fluid email** (no design width): ceiling `2.0`. It re-lays itself out at any zoom.
   - **Fixed-width email:** ceiling is the uncapped fit-to-pane zoom,
-    `availableWidth / (designWidth + 2 × gutter)`, using S-r7's gutter, and never above `2.0`.
-    Scrolling is off in the web view, so anything wider than the pane is cut off and can't be
-    reached. (Amended 2026-09-23 from the #74 review.)
+    `availableWidth / (designWidth + 2 × EmailFitZoom.horizontalGutter)`, never above `2.0`. Reuse
+    S-r7's constant rather than a second gutter value. Scrolling is off in the web view, so anything
+    wider than the pane is cut off and can't be reached. (Amended 2026-09-23 from the #74 review.)
   - Final zoom = `clamp(autoFit × 1.1^step, 0.5, max(0.5, ceiling))`. The 0.5 floor wins when an
     email is too wide to fit even at 0.5, matching S-r7.
 - The ceiling is applied when the zoom is computed, not when the step is stored. A saved step is kept
