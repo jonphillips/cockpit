@@ -13,6 +13,7 @@ struct CockpitApp: App {
     prepareDependencies {
       try! $0.bootstrapDatabase()
       $0.gmailDispositionClient = GmailDispositionWiring.liveClient
+      $0.gmailReplyClient = GmailReplyWiring.liveClient
     }
     Task { await CockpitCloudSync.startIfEnabled() }
   }

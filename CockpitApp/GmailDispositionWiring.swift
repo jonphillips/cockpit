@@ -19,6 +19,8 @@ enum GmailDispositionWiring {
     .live(accessToken: try await accessToken())
   }
 
+  fileprivate static func accessTokenForReply() async throws -> String { try await accessToken() }
+
   @MainActor
   private static func accessToken() async throws -> String {
     try await withCheckedThrowingContinuation { continuation in
@@ -36,6 +38,25 @@ enum GmailDispositionWiring {
         }
       }
     }
+  }
+}
+
+/// Supplies the reply client using the same refreshed Gmail token as source disposition. Unlike
+/// the idempotent disposition API, this client never retries send.
+enum GmailReplyWiring {
+  static var liveClient: GmailReplyClient {
+    GmailReplyClient(
+      replyHeaders: { messageID in
+        let client = GmailReplyClient.live(
+          accessToken: try await GmailDispositionWiring.accessTokenForReply())
+        return try await client.replyHeaders(messageID)
+      },
+      send: { raw, threadID in
+        let client = GmailReplyClient.live(
+          accessToken: try await GmailDispositionWiring.accessTokenForReply())
+        try await client.send(raw, threadID)
+      }
+    )
   }
 }
 
