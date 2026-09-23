@@ -35,7 +35,7 @@ packages:
     from: 1.0.0
   SwiftSoup:
     url: https://github.com/scinfu/SwiftSoup
-    from: 2.7.0
+    from: 2.13.9
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS
     from: 9.0.0

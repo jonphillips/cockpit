@@ -5,6 +5,8 @@ struct EmailFitTests {
   @Test("Detects a Substack style max width wrapper")
   func detectsMaxWidthWrapper() {
     #expect(EmailDesignWidth.detect(html: "<body><div style='max-width: 550px; margin:auto'>x</div></body>") == 550)
+    #expect(EmailDesignWidth.detect(html: "<body><div style='max-width: 600px !important'>x</div></body>") == 600)
+    #expect(EmailDesignWidth.detect(html: "<body><table style='min-width: 600px'></table></body>") == 600)
   }
 
   @Test("Chooses the widest fixed width among shallow layout containers")
@@ -31,7 +33,10 @@ struct EmailFitTests {
   @Test("Fits at a comfortable cap and shrinks wide email to the pane")
   func zoomBounds() {
     #expect(EmailFitZoom.zoom(designWidth: 550, availableWidth: 950) == 1.3)
-    #expect(abs(EmailFitZoom.zoom(designWidth: 700, availableWidth: 800) - 1.14) < 0.01)
+    #expect(abs(EmailFitZoom.zoom(designWidth: 700, availableWidth: 800) - 1.09) < 0.01)
+    let narrowPaneZoom = EmailFitZoom.zoom(designWidth: 600, availableWidth: 390)
+    #expect(abs(narrowPaneZoom - 0.617) < 0.001)
+    #expect((600 + 2 * EmailFitZoom.horizontalGutter) * narrowPaneZoom <= 390)
     #expect(EmailFitZoom.zoom(designWidth: 800, availableWidth: 390) == 0.5)
     #expect(EmailFitZoom.zoom(designWidth: nil, availableWidth: 950) == 1.0)
   }

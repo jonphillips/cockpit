@@ -47,7 +47,7 @@ public enum EmailDesignWidth {
       let parts = declaration.split(separator: ":", maxSplits: 1)
       guard parts.count == 2 else { continue }
       let property = parts[0].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-      guard property == "width" || property == "max-width",
+      guard property == "width" || property == "max-width" || property == "min-width",
         let width = parseCSSPixelWidth(String(parts[1]))
       else { continue }
       widths.append(width)
@@ -63,6 +63,8 @@ public enum EmailDesignWidth {
 
   private static func parseCSSPixelWidth(_ value: String) -> Double? {
     let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+      .replacingOccurrences(of: #"\s*!important\s*$"#, with: "", options: .regularExpression)
+      .trimmingCharacters(in: .whitespacesAndNewlines)
     guard trimmed.hasSuffix("px") else { return nil }
     return Double(trimmed.dropLast(2).trimmingCharacters(in: .whitespacesAndNewlines))
   }
@@ -77,9 +79,11 @@ public enum EmailFitZoom {
   // 1.3 keeps body copy around 20pt; filling a landscape iPad pane would reach ~1.6× / 26pt.
   public static let maximumZoom = 1.3
   public static let minimumZoom = 0.5
+  public static let horizontalGutter = 16.0
 
   public static func zoom(designWidth: Double?, availableWidth: Double) -> Double {
     guard let designWidth, designWidth > 0, availableWidth > 0 else { return 1.0 }
-    return min(maximumZoom, max(minimumZoom, availableWidth / designWidth))
+    let fittedWidth = designWidth + 2 * horizontalGutter
+    return min(maximumZoom, max(minimumZoom, availableWidth / fittedWidth))
   }
 }
