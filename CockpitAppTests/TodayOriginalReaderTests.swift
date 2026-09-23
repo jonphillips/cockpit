@@ -14,7 +14,7 @@ struct TodayOriginalReaderTests {
       </body></html>
       """
 
-    let sanitized = TodayOriginalHTML.sanitizedForWebView(rawHTML)
+    let sanitized = TodayOriginalHTML.sanitizedForWebView(rawHTML).html
 
     #expect(sanitized.contains("hero.jpg"))
     #expect(sanitized.contains("Newsletter body"))
@@ -28,7 +28,7 @@ struct TodayOriginalReaderTests {
     let sanitized = TodayOriginalHTML.sanitizedForWebView("""
       <html><head><meta name="viewport" content="width=980"><meta name="viewport" content="initial-scale=2"></head>
       <body><p>Newsletter body</p></body></html>
-      """)
+      """).html
 
     #expect(sanitized.lowercased().components(separatedBy: "name=\"viewport\"").count - 1 == 1)
     #expect(sanitized.contains("width=device-width, initial-scale=1"))
@@ -38,7 +38,7 @@ struct TodayOriginalReaderTests {
 
   @Test("Viewport sanitization adds a tag when the document has none")
   func addsViewport() {
-    let sanitized = TodayOriginalHTML.sanitizedForWebView("<html><body><p>Newsletter body</p></body></html>")
+    let sanitized = TodayOriginalHTML.sanitizedForWebView("<html><body><p>Newsletter body</p></body></html>").html
 
     #expect(sanitized.lowercased().components(separatedBy: "name=\"viewport\"").count - 1 == 1)
     #expect(sanitized.contains("width=device-width, initial-scale=1"))
@@ -46,22 +46,24 @@ struct TodayOriginalReaderTests {
 
   @Test("A fixed-width email gets the fit-zoom stylesheet last in the head")
   func appendsFitZoomForFixedWidth() throws {
-    let sanitized = TodayOriginalHTML.sanitizedForWebView("""
+    let result = TodayOriginalHTML.sanitizedForWebView("""
       <html><head><style>p { color: black; }</style></head>
       <body><table width="600"><tr><td><p>Newsletter body</p></td></tr></table></body></html>
       """)
-    let document = try SwiftSoup.parse(sanitized)
+    let document = try SwiftSoup.parse(result.html)
     let lastInHead = try #require(document.head()?.children().last())
 
+    #expect(result.designWidth == 600)
     #expect(lastInHead.id() == TodayOriginalHTML.fitZoomStyleID)
     #expect(try lastInHead.html().contains("html { zoom: 0.50; }"))
   }
 
   @Test("A fluid email gets no fit-zoom stylesheet")
   func skipsFitZoomForFluidEmail() {
-    let sanitized = TodayOriginalHTML.sanitizedForWebView(
+    let result = TodayOriginalHTML.sanitizedForWebView(
       "<html><body><table width='100%'><tr><td><p>Newsletter body</p></td></tr></table></body></html>")
 
-    #expect(!sanitized.contains(TodayOriginalHTML.fitZoomStyleID))
+    #expect(result.designWidth == nil)
+    #expect(!result.html.contains(TodayOriginalHTML.fitZoomStyleID))
   }
 }
