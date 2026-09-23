@@ -18,11 +18,12 @@ struct EmailTreatmentProcessorTests {
   @Test("An offer gets a one-line treatment summary and a durable Pending Find")
   func offerProducesSummaryAndFind() async throws {
     let pieceID = UUID(8_001)
-    try await seed(pieceID, treatment: .offer, text: "A wine allocation of 2023 Example Estate Pinot Noir.")
+    try await seed(pieceID, treatment: .offer, text: "A wine allocation of 2023 Example Estate Pinot Noir. https://example.com/pinot")
     let requestCount = Mutex(0)
     let processor = EmailTreatmentProcessor(modelClient: StubModelClient { request in
       requestCount.withLock { $0 += 1 }
       #expect(request.messages.last?.text.contains(pieceID.uuidString) == true)
+      #expect(request.tier == .onDevice)
       return ModelResponse(text: #"""
       {"summary":"Example Estate offers its 2023 Pinot Noir allocation.","find":{"kind":"wine","name":"2023 Example Estate Pinot Noir","descriptor":"A limited allocation wine offer.","rationale":"The offer identifies a specific bottle to consider later.","sourceURL":"https://example.com/pinot","hints":{"vintage":"2023"}}}
       """#)
@@ -41,14 +42,18 @@ struct EmailTreatmentProcessorTests {
     #expect(persisted.0?.offerSummary == "Example Estate offers its 2023 Pinot Noir allocation.")
     #expect(persisted.1?.kind == "wine")
     #expect(persisted.1?.name == "2023 Example Estate Pinot Noir")
+    #expect(persisted.1?.sourceURL == "https://example.com/pinot")
+
+    _ = try await processor.process(emailContentPieceIDs: [pieceID], in: database)
+    #expect(requestCount.withLock { $0 } == 1)
 
     let model = TodayModel()
     try await model.$content.load()
     #expect(model.content.rows.first(where: { $0.id == pieceID })?.treatmentSummary == persisted.0?.offerSummary)
   }
 
-  @Test("A Feed Me grab-bag links to its manual Stream and extracts only within that issue")
-  func grabBagLinksAndExtractsWithinIssue() async throws {
+  @Test("A Feed Me grab-bag links to its manual Stream and stays whole")
+  func grabBagLinksAndStaysWhole() async throws {
     let stream = Stream(
       id: UUID(8_101), name: "Feed Me", publisher: "Feed Me", transport: .gmail,
       locator: "digest@example.com", isGrabBag: true)
@@ -88,9 +93,8 @@ struct EmailTreatmentProcessorTests {
 
     let details = try await processor.process(emailContentPieceIDs: [piece.id], in: database)
 
-    #expect(requestedPieceIDs.withLock { $0.count } == 1)
-    #expect(requestedPieceIDs.withLock { $0.first?.contains(piece.id.uuidString) } == true)
-    #expect(details.first?.decodedGrabBagItems.map(\.title) == ["Swift concurrency notes", "A useful wine essay"])
+    #expect(requestedPieceIDs.withLock { $0.isEmpty })
+    #expect(details.isEmpty)
     let streamRows = try await database.read { db in
       try StreamHandlingRequest(streamID: stream.id).fetch(db).rows
     }
@@ -123,8 +127,8 @@ struct EmailTreatmentProcessorTests {
     #expect(Set(today.rows.map(\.id)) == [first, second])
   }
 
-  @Test("Moving a newsletter to Grab-bag enables and persists its digest extraction")
-  func locatorRoleEnablesExtraction() async throws {
+  @Test("Moving a newsletter to Grab-bag does not invoke a model")
+  func locatorRoleDoesNotExtractGrabBag() async throws {
     let pieceID = UUID(8_301)
     try await database.write { db in
       try ContentPiece.insert {
@@ -158,7 +162,7 @@ struct EmailTreatmentProcessorTests {
     let details = try await processor.processUnextractedPieces(
       for: "digest@example.com", in: database)
 
-    #expect(details.first?.decodedGrabBagItems.map(\.title) == ["Useful link"])
+    #expect(details.isEmpty)
     let saved = try await database.read { db in
       (
         try CurationRouting.snapshot(in: db).role(for: pieceID),
@@ -166,7 +170,7 @@ struct EmailTreatmentProcessorTests {
       )
     }
     #expect(saved.0 == .grabBag)
-    #expect(saved.1 == ["Useful link"])
+    #expect(saved.1 == nil)
   }
 
   private func seed(_ id: UUID, treatment: EmailTreatment, text: String) async throws {

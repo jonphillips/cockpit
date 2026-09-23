@@ -29,7 +29,6 @@ public final class TodayModel {
 
     public var count: Int { rows.count }
     public var representative: TodayRequest.Row { rows[0] }
-    public var itemCount: Int { rows.reduce(0) { $0 + $1.grabBagItems.count } }
 
     public init(id: String, label: String, rows: [TodayRequest.Row]) {
       self.id = id
@@ -76,12 +75,6 @@ public final class TodayModel {
     publisherRollups(for: .offers)
   }
 
-  /// A digest is one orientation row with its extracted items shown beneath it. The extracted items
-  /// remain the existing `decodedGrabBagItems` data; only their surface presentation changes.
-  public var grabBagGroups: [PublisherRollup] {
-    publisherRollups(for: .grabBag)
-  }
-
   public var roleCounts: [ContentRole: Int] {
     Dictionary(grouping: content.rows, by: \.role).mapValues(\.count)
   }
@@ -110,7 +103,7 @@ public final class TodayModel {
   }
 
   /// Routes the piece's canonical locator, reloads Today immediately, then schedules any missing
-  /// offer/grab-bag extraction independently so model failures cannot block the move.
+  /// offer extraction independently so model failures cannot block the move.
   public func moveToSection(_ contentPieceID: ContentPiece.ID, to role: ContentRole) async {
     guard role != .transactional else { return }
     do {
@@ -129,7 +122,7 @@ public final class TodayModel {
       }
       try await $content.load()
       errorMessage = nil
-      guard role == .grabBag || role == .offers else { return }
+      guard role == .offers else { return }
       let processor = EmailTreatmentProcessor(modelClient: modelClient)
       let database = database
       Task { [weak self] in

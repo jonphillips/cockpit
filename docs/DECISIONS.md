@@ -758,6 +758,17 @@ curated inbox.
 - **The model never hides a curated item.** Any treatment that would suppress or decline curated mail
   is out of bounds; that authority never leaves Jon.
 
+**Dogfood amendment (2026-09-23, Jon) — read grab-bags whole; keep routine fetch off frontier.**
+Breaking a digest such as Techmeme into small model-selected items made it harder to scan. Grab-bag
+remains a deterministic section label, but its messages now appear as whole issues and receive no
+automatic extraction call. Existing extracted details may remain stored for provenance but do not
+drive the Today presentation. Offers retain a one-sentence summary and one Pending Find proposal,
+using the on-device model only. A successful offer result is reused on later syncs; model failure
+leaves the whole message readable. No automatic Gmail fetch invokes a frontier model or composes an
+Edition. This revises the grab-bag extraction and frontier assumptions above, in the live Today and
+V1 contracts, without changing the separate explicit Edition composition action. Existing enabled
+Gmail disposition policies still apply after ingest through their committed-result barriers.
+
 **Status.** The *decision* is resolved. Its downstream authoring is not, and must follow deliberately
 (Documentation rule): the V1 sequence (`docs/V1-SCOPE-AND-SEQUENCING.md`) and milestones re-center on
 typed triage; `docs/JUDGMENT-CONTRACT.md` §1 demotes the editorial finite-package pass to the uncurated

@@ -2,9 +2,8 @@ import Foundation
 import LLMClientKit
 import SQLiteData
 
-/// Runs the two content treatments that operate on a curated message's own body. Each request is
-/// intentionally one email wide: it may summarize or sift that issue, but cannot rank one Gmail
-/// message against another or remove anything from Today.
+/// Summarizes an offer and proposes one Find from its own body. Grab-bag issues remain whole and
+/// readable without model processing.
 public struct EmailTreatmentProcessor: Sendable {
   private let modelClient: any ModelClient
 
@@ -24,6 +23,7 @@ public struct EmailTreatmentProcessor: Sendable {
     }
     var outputs: [EmailTreatmentOutput] = []
     for candidate in candidates {
+      try Task.checkCancellation()
       if let output = try? await extract(candidate) {
         outputs.append(output)
       }
@@ -47,6 +47,7 @@ public struct EmailTreatmentProcessor: Sendable {
       let treatment = extractionTreatment(
         role: try CurationRouting.resolution(for: id, in: db).role,
         treatment: piece.emailTreatment),
+      try EmailTreatmentDetails.find(id).fetchOne(db)?.offerSummary == nil,
       let artifact = try (Artifact
         .where { $0.contentPieceID.eq(id) && $0.transport.eq(StreamTransport.gmail) }
         .order { $0.acquiredAt.desc() }
@@ -66,35 +67,26 @@ public struct EmailTreatmentProcessor: Sendable {
     role: ContentRole?, treatment: EmailTreatment?
   ) -> EmailTreatment? {
     switch role {
-    case .grabBag: .grabBag
+    case .grabBag: nil
     case .offers: .offer
-    default: treatment == .offer || treatment == .grabBag ? treatment : nil
+    default: treatment == .offer ? .offer : nil
     }
   }
 
   private func extract(_ candidate: EmailTreatmentCandidate) async throws -> EmailTreatmentOutput {
     let response = try await modelClient.completeStreaming(
       ModelRequest(
-        tier: .frontier(.anthropic), system: EmailTreatmentPrompt.system,
-        prompt: try EmailTreatmentPrompt.make(candidate: candidate), maxTokens: 2_000,
+        tier: .onDevice, system: EmailTreatmentPrompt.system,
+        prompt: try EmailTreatmentPrompt.make(candidate: candidate), maxTokens: 500,
         responseFormat: .jsonSchema(
           name: "cockpit_email_treatment", schema: EmailTreatmentPrompt.schema(for: candidate.treatment))))
     return try EmailTreatmentResponseDecoder.decode(
-      response.text, contentPieceID: candidate.id, treatment: candidate.treatment)
+      response.text, candidate: candidate)
   }
 
   private func persist(_ output: EmailTreatmentOutput, in db: Database) throws -> EmailTreatmentDetails {
-    let details: EmailTreatmentDetails
-    switch output {
-    case let .offer(contentPieceID, summary, _):
-      details = .init(contentPieceID: contentPieceID, offerSummary: summary, grabBagItems: nil)
-    case let .grabBag(contentPieceID, items):
-      let encoder = JSONEncoder()
-      encoder.outputFormatting = [.sortedKeys]
-      details = .init(
-        contentPieceID: contentPieceID, offerSummary: nil,
-        grabBagItems: String(decoding: try encoder.encode(items), as: UTF8.self))
-    }
+    let details = EmailTreatmentDetails(
+      contentPieceID: output.contentPieceID, offerSummary: output.summary)
     try EmailTreatmentDetails.upsert { EmailTreatmentDetails.Draft(details) }.execute(db)
     return details
   }
@@ -110,11 +102,16 @@ private struct EmailTreatmentCandidate: Codable, Sendable {
 
 private enum EmailTreatmentOutput: Sendable {
   case offer(contentPieceID: ContentPiece.ID, summary: String, find: JudgmentFind)
-  case grabBag(contentPieceID: ContentPiece.ID, items: [GrabBagItem])
 
   var contentPieceID: ContentPiece.ID {
     switch self {
-    case let .offer(contentPieceID, _, _), let .grabBag(contentPieceID, _): contentPieceID
+    case let .offer(contentPieceID, _, _): contentPieceID
+    }
+  }
+
+  var summary: String {
+    switch self {
+    case let .offer(_, summary, _): summary
     }
   }
 
@@ -141,22 +138,14 @@ private enum EmailTreatmentPrompt {
       Summarize this domain offer in one factual sentence, then extract exactly one useful Pending
       Find candidate. The Find is descriptive/provenance context for a future specialist app, not
       a purchase recommendation or canonical product record. Use only evidence in this message.
+      Return a JSON object with summary and find. Find has kind, name, descriptor, rationale, and
+      optional sourceURL. Omit sourceURL when the message does not contain the exact URL.
 
       Message:
       \(json)
       """
-    case .grabBag:
-      return """
-      Decompose this manually marked grab-bag issue into the worthwhile contained items. Preserve
-      their source order. Each item gets a concise factual title, summary, and source URL when the
-      issue supplies one. Do not score, rank, compare, or include boilerplate; an empty list is
-      valid when no contained item is worthwhile.
-
-      Message:
-      \(json)
-      """
-    case .personal, .newsletter, .transactional:
-      preconditionFailure("Only S8 treatments have model prompts.")
+    case .personal, .newsletter, .grabBag, .transactional:
+      preconditionFailure("Only offers have model prompts.")
     }
   }
 
@@ -165,14 +154,10 @@ private enum EmailTreatmentPrompt {
     switch treatment {
     case .offer:
       json = #"""
-      {"type":"object","additionalProperties":false,"properties":{"summary":{"type":"string"},"find":{"type":"object","additionalProperties":false,"properties":{"kind":{"type":"string"},"name":{"type":"string"},"descriptor":{"type":"string"},"rationale":{"type":"string"},"sourceURL":{"type":["string","null"]},"hints":{"type":"object"}},"required":["kind","name","descriptor","rationale","sourceURL","hints"]}},"required":["summary","find"]}
+      {"type":"object","additionalProperties":false,"properties":{"summary":{"type":"string"},"find":{"type":"object","additionalProperties":false,"properties":{"kind":{"type":"string"},"name":{"type":"string"},"descriptor":{"type":"string"},"rationale":{"type":"string"},"sourceURL":{"type":"string"}},"required":["kind","name","descriptor","rationale"]}},"required":["summary","find"]}
       """#
-    case .grabBag:
-      json = #"""
-      {"type":"object","additionalProperties":false,"properties":{"items":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"title":{"type":"string"},"summary":{"type":"string"},"sourceURL":{"type":["string","null"]}},"required":["title","summary","sourceURL"]}}},"required":["items"]}
-      """#
-    case .personal, .newsletter, .transactional:
-      preconditionFailure("Only S8 treatments have schemas.")
+    case .personal, .newsletter, .grabBag, .transactional:
+      preconditionFailure("Only offers have schemas.")
     }
     return try! JSONDecoder().decode(JSONValue.self, from: Data(json.utf8))
   }
@@ -181,47 +166,36 @@ private enum EmailTreatmentPrompt {
 private enum EmailTreatmentResponseDecoder {
   private struct OfferResponse: Decodable {
     let summary: String
-    let find: JudgmentFind
+    let find: OfferFind
   }
 
-  private struct GrabBagResponse: Decodable {
-    let items: [RawGrabBagItem]
-  }
-
-  private struct RawGrabBagItem: Decodable {
-    let title: String
-    let summary: String
+  private struct OfferFind: Decodable {
+    let kind: String
+    let name: String
+    let descriptor: String
+    let rationale: String
     let sourceURL: String?
   }
 
   static func decode(
-    _ text: String, contentPieceID: ContentPiece.ID, treatment: EmailTreatment
+    _ text: String, candidate: EmailTreatmentCandidate
   ) throws -> EmailTreatmentOutput {
     let data = Data(text.utf8)
-    switch treatment {
+    switch candidate.treatment {
     case .offer:
       let response = try JSONDecoder().decode(OfferResponse.self, from: data)
       guard let summary = oneLine(response.summary), valid(response.find) else {
         throw EmailTreatmentDecodingError.invalidOffer
       }
-      return .offer(contentPieceID: contentPieceID, summary: summary, find: response.find)
-    case .grabBag:
-      let response = try JSONDecoder().decode(GrabBagResponse.self, from: data)
-      let items = response.items.compactMap { item -> GrabBagItem? in
-        guard let title = item.title.trimmedNonEmpty, let summary = item.summary.trimmedNonEmpty else {
-          return nil
-        }
-        let sourceURL = item.sourceURL?.trimmedNonEmpty
-        let id = ContentIdentity.uuidV5(
-          namespace: ContentIdentity.cockpitNamespace,
-          name: ["grab-bag-item", contentPieceID.uuidString, title, sourceURL ?? ""]
-            .map(ContentIdentity.normalizeText)
-            .joined(separator: "\u{001F}"))
-        return GrabBagItem(id: id, title: title, summary: summary, sourceURL: sourceURL)
+      let sourceURL = response.find.sourceURL?.trimmedNonEmpty.flatMap { url in
+        candidate.text.contains(url) ? url : nil
       }
-      guard items.count == response.items.count else { throw EmailTreatmentDecodingError.invalidGrabBag }
-      return .grabBag(contentPieceID: contentPieceID, items: items)
-    case .personal, .newsletter, .transactional:
+      let find = JudgmentFind(
+        kind: response.find.kind, name: response.find.name,
+        descriptor: response.find.descriptor, rationale: response.find.rationale,
+        sourceURL: sourceURL, hints: [:])
+      return .offer(contentPieceID: candidate.id, summary: summary, find: find)
+    case .personal, .newsletter, .grabBag, .transactional:
       throw EmailTreatmentDecodingError.unsupportedTreatment
     }
   }
@@ -235,7 +209,7 @@ private enum EmailTreatmentResponseDecoder {
     return normalized
   }
 
-  private static func valid(_ find: JudgmentFind) -> Bool {
+  private static func valid(_ find: OfferFind) -> Bool {
     find.kind.trimmedNonEmpty != nil
       && find.name.trimmedNonEmpty != nil
       && find.descriptor.trimmedNonEmpty != nil
@@ -245,6 +219,5 @@ private enum EmailTreatmentResponseDecoder {
 
 private enum EmailTreatmentDecodingError: Error {
   case invalidOffer
-  case invalidGrabBag
   case unsupportedTreatment
 }

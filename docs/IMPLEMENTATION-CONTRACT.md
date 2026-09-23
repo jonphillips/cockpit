@@ -138,9 +138,11 @@ constraints on synchronized tables, and `Edition`/`EditionEntry` sync (ADR-0001 
 
 Today has two distinct treatments. Curated Gmail input is deterministically organized by its
 personal/newsletter/offer/grab-bag/transactional treatment and remains fully visible; it never enters
-Edition. Treatment is decided **per message** from deterministic type/content + sender-shape signals; the
-per-sender override (`docs/DECISIONS.md` §24) is a tiebreaker for the ambiguous residue, not an
-all-or-nothing sender bucket. An automated-shaped, non-publication, otherwise-unclassified message
+Edition. Treatment is decided **per message** from deterministic type/content + sender-shape signals;
+the per-sender override (`docs/DECISIONS.md` §24) is a tiebreaker for the ambiguous residue, not an
+all-or-nothing sender bucket. The grab-bag role lists whole issues without model extraction, while
+offers may receive an on-device one-sentence summary and Pending Find proposal. Gmail sync itself
+does not invoke frontier judgment. An automated-shaped, non-publication, otherwise-unclassified message
 defaults to the **low transactional/reference rung, never Personal** — the `isClearlyHumanOneToOne` guard
 still routes genuine human one-to-one mail to Personal first (`docs/DECISIONS.md` §24 M5 S3b amendment).
 Transactional is the low, reference-oriented rung and carries sub-kinds — `reference` (generic),

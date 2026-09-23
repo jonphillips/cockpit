@@ -75,6 +75,9 @@ one issue may yield:
 - publication link → another ContentPiece
 ```
 
+This illustrates potential downstream discoveries. V1 lists email grab-bag issues whole and does
+not automatically extract these items (DECISIONS §24, 2026-09-23 amendment).
+
 ---
 
 ## 4. Stream intent and configuration

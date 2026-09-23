@@ -1,15 +1,13 @@
 import Foundation
 import SQLiteData
 
-/// Device-local material produced for the two Gmail treatments that inspect a message's held
-/// substance. It is intentionally not synced: another device may not hold the originating body,
-/// and can derive its own detail when it ingests that message.
+/// Device-local offer detail. Legacy grab-bag extracts remain readable from existing rows, but
+/// new issues are kept whole. Details are not synced: another device may not hold the source body.
 @Table("emailTreatmentDetails")
 public struct EmailTreatmentDetails: Codable, Equatable, Identifiable, Sendable {
   @Column(primaryKey: true) public let contentPieceID: ContentPiece.ID
   public var offerSummary: String?
-  /// JSON-encoded `GrabBagItem`s in source order. Items are descriptions inside one issue, not
-  /// independently addressable Cockpit records.
+  /// Legacy JSON-encoded `GrabBagItem`s, retained so old rows need no destructive migration.
   public var grabBagItems: String?
 
   public var id: ContentPiece.ID { contentPieceID }

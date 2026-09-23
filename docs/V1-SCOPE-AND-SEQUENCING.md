@@ -89,7 +89,8 @@ V1 includes:
 
 - current Gmail Inbox intelligence, organized without suppressing curated messages;
 - deterministic personal / newsletter / offer / grab-bag / transactional treatment;
-- per-treatment highlighting, listing, summaries, and within-grab-bag extraction;
+- per-treatment highlighting, listing, on-device offer summaries/Find proposals, and whole-issue
+  grab-bag reading;
 - Gmail provider dispositions `Leave`, `Archive`, and `Trash`;
 - explicit Stream-level source disposition where relevant;
 - a very small number of explicit non-Stream policies where useful;

@@ -8,7 +8,8 @@ extension EmailTreatmentProcessor {
   ) async throws -> [EmailTreatmentDetails] {
     let canonicalLocator = CurationRouting.canonicalLocator(locator)
     let ids = try await database.read { db in
-      let extractedIDs = Set(try EmailTreatmentDetails.all.fetchAll(db).map(\.contentPieceID))
+      let extractedIDs = Set(try EmailTreatmentDetails.all.fetchAll(db)
+        .filter { $0.offerSummary != nil }.map(\.contentPieceID))
       let pieceIDs = Set(try Artifact.where { $0.transport.eq(StreamTransport.gmail) }
         .fetchAll(db).compactMap(\.contentPieceID))
       var pendingIDs: [ContentPiece.ID] = []

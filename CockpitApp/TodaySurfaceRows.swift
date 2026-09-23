@@ -2,7 +2,7 @@ import CockpitCore
 import SwiftUI
 
 // This file keeps the small Today row family together; the orientation section view intentionally
-// owns the complete roll-up interaction for Offers and Grab-bag.
+// owns the complete roll-up interaction for Offers.
 // swiftlint:disable file_length type_body_length
 
 struct TailCompositionControl: View {
@@ -100,17 +100,6 @@ struct TodayRowView: View {
           .font(.subheadline).foregroundStyle(.secondary)
           .lineLimit(row.treatment == .personal ? 3 : 2)
       }
-      if !row.grabBagItems.isEmpty {
-        VStack(alignment: .leading, spacing: 6) {
-          ForEach(row.grabBagItems) { item in
-            VStack(alignment: .leading, spacing: 2) {
-              Text(item.title).font(.subheadline.weight(.semibold))
-              Text(item.summary).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-            }
-          }
-        }
-        .padding(.top, 4)
-      }
       Text(row.arrivedAt, format: .dateTime.month().day().hour().minute())
         .font(.caption).foregroundStyle(.tertiary)
     }
@@ -154,8 +143,8 @@ struct TodayRoleSectionListView: View {
           publisherRollup(group, role: section.role)
         }
       case .grabBag:
-        ForEach(model.grabBagGroups) { group in
-          grabBagRollup(group)
+        ForEach(section.rows) { row in
+          emailRow(row)
         }
       case .forYou, .transactional, .dailyNews, .opinion, .food, .wine:
         ForEach(section.rows) { row in
@@ -206,51 +195,6 @@ struct TodayRoleSectionListView: View {
       .buttonStyle(.plain)
 
       rollupMenu(group)
-    }
-  }
-
-  private func grabBagRollup(_ group: TodayModel.PublisherRollup) -> some View {
-    VStack(alignment: .leading, spacing: 6) {
-      HStack(alignment: .top, spacing: 8) {
-        Button { openReader(group.representative.id) } label: {
-          HStack {
-            VStack(alignment: .leading, spacing: 3) {
-              Text(group.label).font(.headline)
-              Text(group.itemCount > 0
-                ? "\(group.itemCount) items in this issue"
-                : group.representative.title)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-              receivedDate(group.representative.arrivedAt)
-            }
-            Spacer()
-            Image(systemName: "chevron.right").foregroundStyle(.secondary)
-          }
-          .padding(12)
-          .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
-          .matchedTransitionSource(id: group.representative.id, in: readerNamespace)
-        }
-        .buttonStyle(.plain)
-
-        rollupMenu(group)
-      }
-
-      ForEach(group.rows) { row in
-        ForEach(row.grabBagItems) { item in
-          Button { openReader(row.id) } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-              Circle().fill(.teal).frame(width: 5, height: 5)
-              Text(item.title).font(.subheadline)
-              Spacer()
-              Image(systemName: "arrow.up.right")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 12)
-          }
-          .buttonStyle(.plain)
-        }
-      }
     }
   }
 

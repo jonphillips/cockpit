@@ -72,7 +72,7 @@ struct TodayOrientationTests {
     #expect(model.rows(for: .transactional).map(\.id) == [transactional])
     #expect(model.rows(for: .wine).map(\.id) == [wine])
     #expect(model.offerGroups.map(\.label) == ["Nordstrom"])
-    #expect(model.grabBagGroups.map(\.itemCount) == [2])
+    #expect(model.rows(for: .grabBag).map(\.id) == [digest])
 
     let sectionIDs = Set(model.sections.flatMap(\.rows).map(\.id))
     #expect(Set(model.highlightRows.map(\.id)).isSubset(of: sectionIDs))
