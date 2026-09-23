@@ -81,8 +81,24 @@ final class GmailInboxIngestModel {
   @ObservationIgnored @Dependency(\.defaultDatabase) private var database
   @ObservationIgnored @Dependency(\.gmailDispositionClient) private var dispositionClient
   private(set) var status = Status.ready
+  private var lastAttemptAt: Date?
+
+  /// Returns whether an automatic sync was attempted. Missing authorization is expected when Gmail
+  /// has not been connected and is intentionally left off the Today error banner.
+  func autoSyncIfNeeded() async -> Bool {
+    let now = Date()
+    let lastSyncedAt = try? await GmailAutoSyncPolicy.lastSyncedAt(in: database)
+    guard GmailAutoSyncPolicy.shouldSync(
+      lastSyncedAt: lastSyncedAt, lastAttemptAt: lastAttemptAt, now: now,
+      isSyncing: status == .ingesting)
+    else { return false }
+    await ingestCurrentInbox()
+    return true
+  }
 
   func ingestCurrentInbox() async {
+    guard status != .ingesting else { return }
+    lastAttemptAt = Date()
     status = .ingesting
     do {
       let accessToken = try await authorizedAccessToken()
@@ -92,7 +108,7 @@ final class GmailInboxIngestModel {
       status = .ingested(report)
       // Established policies run over the freshly classified messages, through the same barrier and
       // Undo log as a manual disposition. A failure here must not fail the read that already landed.
-      try? await GmailDispositionPolicyService(client: dispositionClient)
+      _ = try? await GmailDispositionPolicyService(client: dispositionClient)
         .applyEnabledPolicies(in: database)
     } catch is CancellationError {
       status = .ready
