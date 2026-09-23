@@ -15,6 +15,7 @@ enum TodayOriginalHTML {
   static func sanitizedForWebView(_ rawHTML: String) -> String {
     guard let document = try? SwiftSoup.parse(rawHTML) else { return rawHTML }
     _ = try? document.select("script").remove()
+    normalizeViewport(in: document)
 
     for image in (try? document.select("img").array()) ?? [] {
       if isTrackingPixel(image) { try? image.remove() }
@@ -24,6 +25,23 @@ enum TodayOriginalHTML {
       removeRemoteContent(from: document)
     }
     return (try? document.html()) ?? rawHTML
+  }
+
+  private static func normalizeViewport(in document: SwiftSoup.Document) {
+    let viewportTags = (try? document.select("meta[name]").array()) ?? []
+    for meta in viewportTags where ((try? meta.attr("name")) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+      .caseInsensitiveCompare("viewport") == .orderedSame {
+      _ = try? meta.remove()
+    }
+
+    guard let viewport = try? document.createElement("meta") else { return }
+    _ = try? viewport.attr("name", "viewport")
+    _ = try? viewport.attr("content", "width=device-width, initial-scale=1")
+    if let head = document.head() {
+      _ = try? head.appendChild(viewport)
+    } else {
+      _ = try? document.prependChild(viewport)
+    }
   }
 
   private static func isTrackingPixel(_ image: Element) -> Bool {
@@ -82,12 +100,16 @@ final class TodayOriginalWebViewStore {
   @ObservationIgnored let webView: WKWebView
 
   private(set) var contentHeight: CGFloat = 44
+  @ObservationIgnored private var emailDesignWidth: Double?
+  @ObservationIgnored private var availableWidth: CGFloat?
+  @ObservationIgnored private var lastAppliedZoom: Double?
 
   init() {
     let configuration = WKWebViewConfiguration()
     configuration.processPool = Self.processPool
     configuration.websiteDataStore = .nonPersistent()
     configuration.defaultWebpagePreferences.allowsContentJavaScript = false
+    configuration.defaultWebpagePreferences.preferredContentMode = .mobile
 
     let webView = WKWebView(frame: .zero, configuration: configuration)
     let navigationCoordinator = TodayOriginalWebViewCoordinator()
@@ -111,12 +133,30 @@ final class TodayOriginalWebViewStore {
   func load(rawHTML: String) {
     let sanitizedHTML = TodayOriginalHTML.sanitizedForWebView(rawHTML)
     guard loadedHTML != sanitizedHTML else { return }
+    emailDesignWidth = EmailDesignWidth.detect(html: rawHTML)
+    lastAppliedZoom = nil
+    webView.pageZoom = 1.0
+    applyFitZoomIfNeeded()
     webView.stopLoading()
     webView.scrollView.setContentOffset(.zero, animated: false)
     contentHeight = 44
     navigationCoordinator.allowNextInitialLoad = true
     loadedHTML = sanitizedHTML
     webView.loadHTMLString(sanitizedHTML, baseURL: nil)
+  }
+
+  func setAvailableWidth(_ width: CGFloat) {
+    guard width.isFinite, width > 0, availableWidth != width else { return }
+    availableWidth = width
+    applyFitZoomIfNeeded()
+  }
+
+  private func applyFitZoomIfNeeded() {
+    guard let availableWidth else { return }
+    let zoom = EmailFitZoom.zoom(designWidth: emailDesignWidth, availableWidth: Double(availableWidth))
+    guard lastAppliedZoom != zoom else { return }
+    lastAppliedZoom = zoom
+    webView.pageZoom = zoom
   }
 }
 

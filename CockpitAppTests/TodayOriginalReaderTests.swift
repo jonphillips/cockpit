@@ -21,4 +21,25 @@ struct TodayOriginalReaderTests {
     #expect(!sanitized.contains("tracker.example"))
     #expect(!sanitized.contains("window.location"))
   }
+
+  @Test("Viewport sanitization replaces existing tags with one device-width tag")
+  func replacesViewport() {
+    let sanitized = TodayOriginalHTML.sanitizedForWebView("""
+      <html><head><meta name="viewport" content="width=980"><meta name="viewport" content="initial-scale=2"></head>
+      <body><p>Newsletter body</p></body></html>
+      """)
+
+    #expect(sanitized.lowercased().components(separatedBy: "name=\"viewport\"").count - 1 == 1)
+    #expect(sanitized.contains("width=device-width, initial-scale=1"))
+    #expect(!sanitized.contains("width=980"))
+    #expect(!sanitized.contains("initial-scale=2"))
+  }
+
+  @Test("Viewport sanitization adds a tag when the document has none")
+  func addsViewport() {
+    let sanitized = TodayOriginalHTML.sanitizedForWebView("<html><body><p>Newsletter body</p></body></html>")
+
+    #expect(sanitized.lowercased().components(separatedBy: "name=\"viewport\"").count - 1 == 1)
+    #expect(sanitized.contains("width=device-width, initial-scale=1"))
+  }
 }
