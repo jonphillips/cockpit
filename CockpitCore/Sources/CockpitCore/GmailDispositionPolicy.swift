@@ -15,7 +15,7 @@ public enum GmailDispositionPolicyKind: String, CaseIterable, Codable, QueryBind
 
   public var displayName: String {
     switch self {
-    case .offerWithFind: "Trash retail offers after saving a Find"
+    case .offerWithFind: "Trash retail offers after confirming a Find"
     case .loginCode: "Trash login & verification codes"
     }
   }
@@ -92,10 +92,14 @@ public enum GmailDispositionPolicyOperations {
         .map(\.id)
     case .offerWithFind:
       let offers = try ContentPiece.where { $0.emailTreatment.eq(EmailTreatment.offer) }.fetchAll(db)
-      // The barrier for this policy: only an offer whose Find is already committed may be Trashed.
+      // A model proposal has no user authority: Jon must confirm the Find before it can satisfy the
+      // policy barrier. A handoff also implies that the Find was confirmed.
       return try offers
         .filter { offer in
-          try PendingFind.where { $0.contentPieceID.eq(offer.id) }.fetchCount(db) > 0
+          try PendingFind.where {
+            $0.contentPieceID.eq(offer.id)
+              && ($0.state.eq(PendingFindState.confirmed) || $0.state.eq(PendingFindState.handedOff))
+          }.fetchCount(db) > 0
         }
         .map(\.id)
     }

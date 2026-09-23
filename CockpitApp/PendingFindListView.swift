@@ -10,7 +10,10 @@ struct PendingFindListView: View {
         HStack {
           Text(row.name).font(.headline)
           Spacer()
-          Text(row.kind.capitalized).font(.caption).foregroundStyle(.secondary)
+          VStack(alignment: .trailing, spacing: 2) {
+            Text(row.kind.capitalized).font(.caption).foregroundStyle(.secondary)
+            Text(row.state.rawValue.capitalized).font(.caption2).foregroundStyle(.secondary)
+          }
         }
         if !row.descriptor.isEmpty {
           Text(row.descriptor).font(.subheadline)
@@ -20,6 +23,17 @@ struct PendingFindListView: View {
         }
       }
       .accessibilityElement(children: .combine)
+      .swipeActions(edge: .trailing) {
+        if row.state == .pending {
+          Button("Dismiss", systemImage: "xmark", role: .destructive) {
+            Task { await model.dismiss(row.id) }
+          }
+          Button("Save", systemImage: "bookmark.fill") {
+            Task { await model.confirm(row.id) }
+          }
+          .tint(.accentColor)
+        }
+      }
     }
     .overlay {
       if model.rows.isEmpty {

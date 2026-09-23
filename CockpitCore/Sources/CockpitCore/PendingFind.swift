@@ -4,6 +4,7 @@ import SQLiteData
 
 public enum PendingFindState: String, Codable, QueryBindable, Sendable {
   case pending
+  case confirmed
   case handedOff
   case dismissed
 }
@@ -55,14 +56,35 @@ public enum PendingFindOperations {
           "pending-find", contentPieceID.uuidString, find.kind, find.name,
           find.sourceURL ?? ""
         ].map(ContentIdentity.normalizeText).joined(separator: "\u{001F}"))
-      try PendingFind.upsert {
-        PendingFind.Draft(
-          PendingFind(
-            id: id, contentPieceID: contentPieceID, kind: find.kind, name: find.name,
-            descriptor: find.descriptor, rationale: find.rationale, sourceURL: find.sourceURL,
-            hints: hints))
-      }.execute(db)
+      if try PendingFind.find(id).fetchOne(db) != nil {
+        try PendingFind.find(id).update {
+          $0.kind = #bind(find.kind)
+          $0.name = #bind(find.name)
+          $0.descriptor = #bind(find.descriptor)
+          $0.rationale = #bind(find.rationale)
+          $0.sourceURL = #bind(find.sourceURL)
+          $0.hints = #bind(hints)
+        }.execute(db)
+      } else {
+        try PendingFind.insert {
+          PendingFind.Draft(
+            PendingFind(
+              id: id, contentPieceID: contentPieceID, kind: find.kind, name: find.name,
+              descriptor: find.descriptor, rationale: find.rationale, sourceURL: find.sourceURL,
+              hints: hints))
+        }.execute(db)
+      }
     }
+  }
+
+  /// Records Jon's explicit decision to keep a proposed Find.
+  public static func confirm(_ id: PendingFind.ID, in db: Database) throws {
+    try PendingFind.find(id).update { $0.state = #bind(PendingFindState.confirmed) }.execute(db)
+  }
+
+  /// Records Jon's explicit decision to reject a proposed Find.
+  public static func dismiss(_ id: PendingFind.ID, in db: Database) throws {
+    try PendingFind.find(id).update { $0.state = #bind(PendingFindState.dismissed) }.execute(db)
   }
 
   private static func encodeHints(_ hints: [String: JSONValue]) throws -> String? {

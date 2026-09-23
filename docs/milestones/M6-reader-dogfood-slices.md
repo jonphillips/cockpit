@@ -1,4 +1,4 @@
-# M6 — Reader dogfood slices (S-r1 … S-r5)
+# M6 — Reader dogfood slices (S-r1 … S-r6)
 
 > **Build order, architect-recorded 2026-09-22 from Jon's device dogfooding of the S-d0 surface.**
 > These make the Today reading split usable day to day ahead of the S-d device eval. They do not
@@ -13,6 +13,7 @@ touch `ReaderView.swift`).
 - [x] S-r3 — Reader facts: sender names, received dates, links open in Safari
 - [x] S-r4 — Sync on open/foreground (throttled)
 - [x] S-r5 — Plain-text reply in thread (DECISIONS §26)
+- [x] S-r6 — Confirmed-Find barrier for offer disposition (DECISIONS §24 amendment, 2026-09-23)
 
 ## Standing rules for every slice
 
@@ -221,3 +222,28 @@ any Cockpit table for sent mail. Not offered on newsletter roles.
 
 **Done when.** Jon can reply to a For you email from the Reader and the reply appears in the same
 thread in Gmail.
+
+---
+
+### S-r6 — Confirmed-Find barrier for offer disposition
+
+**Goal.** A model-proposed Find cannot authorize Trash. Only a Find Jon kept can satisfy the explicit
+`offerWithFind` policy.
+
+**Build.** Add `PendingFindState.confirmed`; handed-off Finds imply confirmation. Re-proposing a Find
+updates descriptive fields without downgrading its state. Add DB-only confirm/dismiss operations. The
+offer policy barrier accepts confirmed or handed-off Finds only. Reader offers with pending proposals
+show a compact card with Save Find / Not This; confirmation immediately rechecks that offer through the
+existing policy, disposition barrier, once-per-message guard, and Undo log. The Finds list shows state
+and offers swipe Save / Dismiss actions through its model.
+
+**Prove.** Pending and dismissed Finds do not match; confirmed and handed-off Finds do. Re-persisting
+does not downgrade confirmed or dismissed state. Confirmation trashes exactly the offer and writes its
+Undo entry only when the policy is enabled. Full ingest with a model-proposed Find disposes nothing.
+
+**Device-only risks (name them).** An older device build may fail to decode the synced `confirmed` raw
+value in PendingFind, and its upsert may reset that state to `pending` when it re-proposes the Find.
+Jon still needs to check the Reader proposal card on device.
+
+**Done when.** Offer Trash requires a Find Jon confirmed, and the UI exposes explicit Save / Not This
+decisions without views accessing the database.

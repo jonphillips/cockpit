@@ -34,6 +34,20 @@ struct ReaderView: View {
             isCompactPreview: row.isSubstantivePrimary == false
           )
 
+          if let find = model.pendingFind {
+            PendingFindProposalCard(
+              find: find,
+              save: {
+                Task {
+                  guard await model.confirmPendingFind() else { return }
+                  if let queueContext { await queueContext.trash() }
+                  else { await model.trashSource() }
+                }
+              },
+              dismiss: { Task { await model.dismissPendingFind() } }
+            )
+          }
+
           ReaderClassificationStatus(
             isSubstantivePrimary: row.isSubstantivePrimary,
             bodyCompleteness: row.bodyCompleteness,
@@ -144,6 +158,7 @@ private extension ReaderView {
     try? await model.$content.load()
     try? await model.$readerTeaching.load()
     try? await model.$matchedPersonalKnowledge.load()
+    try? await model.$pendingFindContent.load()
     await model.loadRoutingResolution()
     if let editionContext {
       await editionContext.model.markSeen(editionContext.entryID)

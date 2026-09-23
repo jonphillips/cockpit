@@ -3,6 +3,7 @@ import CustomDump
 import Dependencies
 import DependenciesTestSupport
 import Foundation
+import LLMClientKit
 import SQLiteData
 import Testing
 
@@ -47,6 +48,155 @@ struct GmailDispositionPolicyTests {
 
     expectNoDifference(log.calls, [])
     expectNoDifference(applied.isEmpty, true)
+  }
+
+  @Test("Only confirmed or handed-off Finds satisfy the offer policy barrier")
+  func offerBarrierRequiresConfirmation() async throws {
+    let pending = try await seedOffer(id: "find-pending", state: .pending)
+    let confirmed = try await seedOffer(id: "find-confirmed", state: .confirmed)
+    let handedOff = try await seedOffer(id: "find-handed-off", state: .handedOff)
+    let dismissed = try await seedOffer(id: "find-dismissed", state: .dismissed)
+
+    let candidates = try await database.read { db in
+      try GmailDispositionPolicyOperations.candidatePieceIDs(for: .offerWithFind, in: db)
+    }
+    #expect(!candidates.contains(pending))
+    #expect(candidates.contains(confirmed))
+    #expect(candidates.contains(handedOff))
+    #expect(!candidates.contains(dismissed))
+  }
+
+  @Test("Re-persisting a proposal preserves confirmed and dismissed state")
+  func persistDoesNotDowngradeState() async throws {
+    let confirmedPiece = try await seedGmailMessage(id: "repersist-confirmed")
+    let dismissedPiece = try await seedGmailMessage(id: "repersist-dismissed")
+    let confirmedFind = JudgmentFind(
+      kind: "wine", name: "Confirmed bottle", descriptor: "Updated descriptor",
+      rationale: "Updated rationale", sourceURL: nil, hints: [:])
+    let dismissedFind = JudgmentFind(
+      kind: "wine", name: "Dismissed bottle", descriptor: "Updated descriptor",
+      rationale: "Updated rationale", sourceURL: nil, hints: [:])
+    try await database.write { db in
+      try PendingFindOperations.persist([confirmedFind], for: confirmedPiece, in: db)
+      try PendingFindOperations.persist([dismissedFind], for: dismissedPiece, in: db)
+    }
+    let ids = try await database.read { db in
+      (
+        try PendingFind.where { $0.contentPieceID.eq(confirmedPiece) }.fetchOne(db)?.id,
+        try PendingFind.where { $0.contentPieceID.eq(dismissedPiece) }.fetchOne(db)?.id
+      )
+    }
+    let confirmedID = try #require(ids.0)
+    let dismissedID = try #require(ids.1)
+    try await database.write { db in
+      try PendingFindOperations.confirm(confirmedID, in: db)
+      try PendingFindOperations.dismiss(dismissedID, in: db)
+      try PendingFindOperations.persist([confirmedFind, dismissedFind], for: confirmedPiece, in: db)
+      try PendingFindOperations.persist([dismissedFind], for: dismissedPiece, in: db)
+    }
+    let states = try await database.read { db in
+      (
+        try PendingFind.find(confirmedID).fetchOne(db)?.state,
+        try PendingFind.find(dismissedID).fetchOne(db)?.state
+      )
+    }
+    #expect(states.0 == .confirmed)
+    #expect(states.1 == .dismissed)
+  }
+
+  @MainActor
+  @Test("Reader confirmation reports policy match for queue Trash and Undo")
+  func confirmingFindAppliesEnabledPolicy() async throws {
+    let pieceID = try await seedOffer(id: "confirm-applies", state: .pending)
+    _ = try await seedGmailMessage(id: "confirm-applies-adjacent")
+    let findID = try await database.read { db in
+      try PendingFind.where { $0.contentPieceID.eq(pieceID) }.fetchOne(db)?.id
+    }
+    try await database.write { db in
+      try GmailDispositionPolicyOperations.establish(.offerWithFind, at: .distantPast, in: db)
+    }
+    let log = CallLog()
+    try await withDependencies {
+      $0.gmailDispositionClient = log.client
+      $0.date.now = .distantPast
+    } operation: {
+      let model = ContentPieceReaderModel(contentPieceID: pieceID)
+      try await model.$content.load()
+      try await model.$pendingFindContent.load()
+      #expect(model.pendingFind?.id == findID)
+      let shouldTrash = await model.confirmPendingFind()
+      #expect(shouldTrash)
+      #expect(model.pendingFind == nil)
+      #expect(model.errorMessage == nil)
+
+      // Confirmation establishes eligibility only. The queue owns the provider action, Undo, and
+      // selection advance, matching Archive/Trash from the toolbar.
+      #expect(log.calls.isEmpty)
+      let queue = TodayReadingQueueModel()
+      try await queue.$content.load()
+      let row = try #require(queue.rows.first { $0.id == pieceID })
+      let expectedNext = try #require(ReadingQueueSelection.neighbour(of: pieceID, in: queue.rows))
+      queue.selectedContentPieceID = pieceID
+      await queue.trash(row)
+      #expect(queue.selectedContentPieceID == expectedNext)
+      #expect(queue.lastDisposition?.contentPieceID == pieceID)
+      #expect(!queue.rows.contains { $0.id == pieceID })
+    }
+    let entries = try await database.read { db in try GmailDispositionLogEntry.fetchAll(db) }
+    expectNoDifference(log.calls, ["trash:confirm-applies"])
+    #expect(entries.count == 1)
+    #expect(entries.first?.operation == .trash)
+  }
+
+  @Test("Confirming a Find with the offer policy disabled does not dispose it")
+  func confirmingWithDisabledPolicyDoesNothing() async throws {
+    let pieceID = try await seedOffer(id: "confirm-disabled", state: .pending)
+    let findID = try await database.read { db in
+      try PendingFind.where { $0.contentPieceID.eq(pieceID) }.fetchOne(db)?.id
+    }
+    try await database.write { db in
+      try GmailDispositionPolicyOperations.establish(.offerWithFind, at: .distantPast, in: db)
+      try GmailDispositionPolicyOperations.setEnabled(.offerWithFind, false, in: db)
+      try PendingFindOperations.confirm(try #require(findID), in: db)
+    }
+    let log = CallLog()
+    let applied = try await GmailDispositionPolicyService(client: log.client, now: { .distantPast })
+      .applyEnabledPolicies(forContentPieceID: pieceID, in: database)
+    expectNoDifference(log.calls, [])
+    #expect(applied.isEmpty)
+  }
+
+  @Test("A full ingest's model-proposed Find does not satisfy the policy barrier")
+  func ingestProposalDoesNotDisposeOffer() async throws {
+    try await database.write { db in
+      try GmailDispositionPolicyOperations.establish(.offerWithFind, at: .distantPast, in: db)
+    }
+    let message = GmailInboxMessage(
+      id: "ingest-proposal", threadID: "thread-ingest-proposal",
+      headers: [
+        GmailInboxHeader(name: "From", value: "Wine Shop <offers@example.com>"),
+        GmailInboxHeader(name: "Subject", value: "Fall wine allocation offer"),
+        GmailInboxHeader(name: "List-ID", value: "Offers <offers.example.com>"),
+      ], bodyHTML: "<p>2023 Example Estate Pinot Noir allocation. Shop now.</p>")
+    let processor = EmailTreatmentProcessor(modelClient: StubModelClient { _ in
+      ModelResponse(text: #"{"summary":"A Pinot Noir allocation.","find":{"kind":"wine","name":"2023 Example Estate Pinot Noir","descriptor":"A bottle allocation.","rationale":"A specific wine offer.","sourceURL":"https://example.com/pinot","hints":{}}}"#)
+    })
+    let report = try await GmailInboxIngestor(
+      client: GmailInboxClient(currentInbox: {
+        GmailInboxSnapshot(accountID: "jon@example.com", messages: [message])
+      }),
+      now: { .distantPast }, treatmentProcessor: processor
+    ).ingest(into: database)
+    let pieceID = try #require(report.contentPieces.first?.id)
+    let find = try await database.read { db in
+      try PendingFind.where { $0.contentPieceID.eq(pieceID) }.fetchOne(db)
+    }
+    #expect(find?.state == .pending)
+    let log = CallLog()
+    let applied = try await GmailDispositionPolicyService(client: log.client, now: { .distantPast })
+      .applyEnabledPolicies(in: database)
+    expectNoDifference(log.calls, [])
+    #expect(applied.isEmpty)
   }
 
   @Test("An established login-code policy Trashes an ephemeral transactional message (D1)")
@@ -139,7 +289,9 @@ struct GmailDispositionPolicyTests {
   // MARK: - Helpers
 
   @discardableResult
-  private func seedOffer(id: String, withFind: Bool) async throws -> ContentPiece.ID {
+  private func seedOffer(
+    id: String, withFind: Bool = true, state: PendingFindState = .confirmed
+  ) async throws -> ContentPiece.ID {
     let pieceID = try await seedGmailMessage(id: id)
     try await database.write { db in
       try ContentPiece.find(pieceID)
@@ -148,9 +300,10 @@ struct GmailDispositionPolicyTests {
         try PendingFind.insert {
           PendingFind.Draft(
             PendingFind(
-              id: UUID(7_000), contentPieceID: pieceID, kind: "wine",
+              id: ContentIdentity.uuidV5(namespace: ContentIdentity.cockpitNamespace, name: id),
+              contentPieceID: pieceID, kind: "wine",
               name: "2023 Example Estate Pinot Noir", descriptor: "A limited allocation offer.",
-              rationale: "The offer identifies a specific bottle to consider later."
+              rationale: "The offer identifies a specific bottle to consider later.", state: state
             )
           )
         }.execute(db)

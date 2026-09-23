@@ -9,14 +9,15 @@ import SQLiteData
 @MainActor
 @Observable
 public final class ContentPieceReaderModel {
-  @ObservationIgnored @Dependency(\.defaultDatabase) private var database
+  @ObservationIgnored @Dependency(\.defaultDatabase) var database
   @ObservationIgnored @Dependency(\.date.now) var now
   @ObservationIgnored @Dependency(\.modelClient) private var modelClient
   @ObservationIgnored @Dependency(\.apiKeyStore) private var apiKeyStore
   @ObservationIgnored @Dependency(\.frontierPreferenceStore) private var preferenceStore
-  @ObservationIgnored @Dependency(\.gmailDispositionClient) private var dispositionClient
+  @ObservationIgnored @Dependency(\.gmailDispositionClient) var dispositionClient
   @ObservationIgnored @Dependency(\.uuid) private var uuid
   @ObservationIgnored @Fetch public var content = ContentPieceReaderRequest.Value()
+  @ObservationIgnored @Fetch public var pendingFindContent = PendingFindForContentPieceRequest.Value()
   @ObservationIgnored @Fetch public var readerTeaching = ReaderTeachingClaimRequest.Value()
   @ObservationIgnored @Fetch public var matchedPersonalKnowledge = MatchedPersonalKnowledgeClaimRequest.Value()
   public private(set) var routingResolution: CurationRoutingResolution?
@@ -31,6 +32,8 @@ public final class ContentPieceReaderModel {
     matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID? = nil
   ) {
     _content = Fetch(wrappedValue: .init(), ContentPieceReaderRequest(contentPieceID: contentPieceID))
+    _pendingFindContent = Fetch(
+      wrappedValue: .init(), PendingFindForContentPieceRequest(contentPieceID: contentPieceID))
     _readerTeaching = Fetch(
       wrappedValue: .init(), ReaderTeachingClaimRequest(contentPieceID: contentPieceID)
     )

@@ -56,3 +56,29 @@ struct ReaderTeachingField: View {
     Task { await model.submitTeachingReason() }
   }
 }
+
+struct PendingFindProposalCard: View {
+  let find: PendingFind
+  let save: () -> Void
+  let dismiss: () -> Void
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack {
+        Text(find.kind.capitalized).font(.caption).foregroundStyle(.secondary)
+        Spacer()
+        Text("Proposed Find").font(.caption2).foregroundStyle(.secondary)
+      }
+      Text(find.name).font(.headline)
+      if !find.descriptor.isEmpty { Text(find.descriptor).font(.subheadline) }
+      HStack {
+        Button("Not This", action: dismiss).buttonStyle(.bordered)
+        Button("Save Find", action: save).buttonStyle(.borderedProminent)
+      }
+    }
+    .padding(12)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+    .accessibilityElement(children: .contain)
+  }
+}
