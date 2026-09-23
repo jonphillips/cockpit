@@ -33,7 +33,7 @@ struct ReaderBodyView: View {
     switch presentation {
     case let .html(rawHTML):
       TodayOriginalWebView(webView: originalWebViewStore.webView)
-        .frame(minHeight: 480)
+        .frame(height: originalWebViewStore.contentHeight)
         .clipShape(.rect(cornerRadius: 12))
         .onAppear { originalWebViewStore.load(rawHTML: rawHTML) }
         .onChange(of: rawHTML) { _, newValue in

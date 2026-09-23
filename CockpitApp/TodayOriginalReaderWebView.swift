@@ -1,4 +1,5 @@
 import CockpitCore
+import Observation
 import SwiftSoup
 import SwiftUI
 import UIKit
@@ -71,13 +72,16 @@ enum TodayOriginalHTML {
   }
 }
 
+@Observable
 @MainActor
 final class TodayOriginalWebViewStore {
   private static let processPool = WKProcessPool()
-  private let navigationCoordinator: TodayOriginalWebViewCoordinator
-  private var loadedHTML: String?
+  @ObservationIgnored private var contentSizeObservation: NSKeyValueObservation?
+  @ObservationIgnored private var loadedHTML: String?
+  @ObservationIgnored private let navigationCoordinator: TodayOriginalWebViewCoordinator
+  @ObservationIgnored let webView: WKWebView
 
-  let webView: WKWebView
+  private(set) var contentHeight: CGFloat = 44
 
   init() {
     let configuration = WKWebViewConfiguration()
@@ -90,15 +94,26 @@ final class TodayOriginalWebViewStore {
     webView.navigationDelegate = navigationCoordinator
     webView.uiDelegate = navigationCoordinator
     webView.allowsBackForwardNavigationGestures = false
+    webView.scrollView.isScrollEnabled = false
+    webView.scrollView.bounces = false
 
     self.webView = webView
     self.navigationCoordinator = navigationCoordinator
+    contentSizeObservation = webView.scrollView.observe(\.contentSize, options: [.initial, .new]) {
+      [weak self] _, _ in
+      Task { @MainActor [weak self] in
+        guard let self else { return }
+        self.contentHeight = max(44, self.webView.scrollView.contentSize.height)
+      }
+    }
   }
 
   func load(rawHTML: String) {
     let sanitizedHTML = TodayOriginalHTML.sanitizedForWebView(rawHTML)
     guard loadedHTML != sanitizedHTML else { return }
     webView.stopLoading()
+    webView.scrollView.setContentOffset(.zero, animated: false)
+    contentHeight = 44
     navigationCoordinator.allowNextInitialLoad = true
     loadedHTML = sanitizedHTML
     webView.loadHTMLString(sanitizedHTML, baseURL: nil)
