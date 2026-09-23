@@ -12,14 +12,14 @@ struct TodayView: View {
   @State private var isReading = false
 
   var body: some View {
-    NavigationStack {
-      Group {
-        if isReading {
-          TodayReadingView(
-            model: readingQueueModel,
-            tailModel: tailModel,
-            done: { isReading = false })
-        } else {
+    Group {
+      if isReading {
+        TodayReadingView(
+          model: readingQueueModel,
+          tailModel: tailModel,
+          done: { isReading = false })
+      } else {
+        NavigationStack {
           TodayLandingView(
             model: model,
             tailModel: tailModel,
@@ -28,38 +28,38 @@ struct TodayView: View {
             readableContentPieceIDs: readingQueueContentPieceIDs,
             didChangeEdition: { Task { await readingQueueModel.reload() } },
             openReader: beginReader(for:))
+            .overlay {
+              if model.sections.isEmpty && tailRows.isEmpty && !tailModel.isComposing {
+                ContentUnavailableView(
+                  "Nothing to Review", systemImage: "sun.max",
+                  description: Text("Loose Gmail messages and screened tail stories will appear here."))
+              }
+            }
+            .navigationTitle("Today")
+            .toolbar {
+              ToolbarItem(placement: .topBarLeading) {
+                if inboxIngest.status == .ingesting {
+                  ProgressView()
+                    .accessibilityLabel("Refreshing Today")
+                } else {
+                  Button("Refresh", systemImage: "arrow.clockwise") {
+                    Task { await refreshToday() }
+                  }
+                }
+              }
+              RecentTrashToolbar(model: model, isShowing: $isShowingRecentTrashes)
+            }
         }
       }
-        .overlay {
-          if !isReading && model.sections.isEmpty && tailRows.isEmpty && !tailModel.isComposing {
-            ContentUnavailableView(
-              "Nothing to Review", systemImage: "sun.max",
-              description: Text("Loose Gmail messages and screened tail stories will appear here."))
-          }
-        }
-        .navigationTitle("Today")
-        .sheet(isPresented: $isShowingRecentTrashes) {
-          RecentTrashSheet(model: model)
-        }
+    }
+    .sheet(isPresented: $isShowingRecentTrashes) {
+      RecentTrashSheet(model: model)
     }
     .task {
       // S-d0b keeps Edition composition behind the standing entry card; opening Today does not
       // spend the editorial budget or silently start a multi-minute judgment pass.
       try? await model.$content.load()
       await readingQueueModel.reload()
-    }
-    .toolbar {
-      ToolbarItem(placement: .topBarLeading) {
-        if inboxIngest.status == .ingesting {
-          ProgressView()
-            .accessibilityLabel("Refreshing Today")
-        } else {
-          Button("Refresh", systemImage: "arrow.clockwise") {
-            Task { await refreshToday() }
-          }
-        }
-      }
-      RecentTrashToolbar(model: model, isShowing: $isShowingRecentTrashes)
     }
     .confirmationDialog(
       "Recompose the tail?", isPresented: $isConfirmingTailRecompose, titleVisibility: .visible

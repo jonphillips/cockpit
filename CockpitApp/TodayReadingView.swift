@@ -35,16 +35,6 @@ struct TodayReadingView: View {
       ToolbarItem(placement: .topBarLeading) {
         Button("Done", systemImage: "checkmark") { finishReading() }
       }
-      ToolbarItem(placement: .topBarTrailing) {
-        Button(
-          columnVisibility == .detailOnly ? "Show Queue" : "Read Full Width",
-          systemImage: columnVisibility == .detailOnly
-            ? "sidebar.left"
-            : "arrow.up.left.and.arrow.down.right"
-        ) {
-          columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
-        }
-      }
     }
     .task { await model.reload() }
     .onChange(of: model.selectedContentPieceID) { oldID, newID in
@@ -57,15 +47,6 @@ struct TodayReadingView: View {
           Text(errorMessage)
           Spacer()
           Button("Dismiss") { model.errorMessage = nil }
-        }
-        .padding()
-        .background(.regularMaterial)
-      } else if let disposition = model.lastDisposition {
-        HStack {
-          Text("\(disposition.disposition == .archive ? "Archived" : "Trashed") “\(disposition.title)”")
-          Spacer()
-          Button("Undo") { Task { await model.undoLastDisposition() } }
-          Button("Dismiss") { model.lastDisposition = nil }
         }
         .padding()
         .background(.regularMaterial)
@@ -106,7 +87,6 @@ private struct TodayReadingQueueSidebar: View {
 
   var body: some View {
     List(selection: $model.selectedContentPieceID) {
-      queueHeader
       ForEach(model.sections) { section in
         Section(section.role.displayName) {
           ForEach(section.rows) { row in
@@ -136,21 +116,20 @@ private struct TodayReadingQueueSidebar: View {
           description: Text("The morning reading queue is clear."))
       }
     }
-    .navigationTitle("This morning · in order")
+    .toolbar {
+      if let disposition = model.lastDisposition {
+        ToolbarItem(placement: .topBarTrailing) {
+          Button("Undo", systemImage: "arrow.uturn.backward") {
+            Task { await model.undoLastDisposition() }
+          }
+          .accessibilityLabel(
+            "Undo \(disposition.disposition == .archive ? "archive" : "trash") of \(disposition.title)"
+          )
+        }
+      }
+    }
   }
 
-  private var queueHeader: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      Label("March straight down", systemImage: "arrow.down")
-        .font(.subheadline.weight(.semibold))
-      Text("Save, file, or trash from any row. Sections are part of one queue.")
-        .font(.caption)
-        .foregroundStyle(.secondary)
-    }
-    .padding(.vertical, 4)
-    .listRowSeparator(.hidden)
-    .accessibilityElement(children: .combine)
-  }
 }
 
 private struct TodayReadingQueueDetail: View {

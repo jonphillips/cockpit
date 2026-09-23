@@ -50,21 +50,12 @@ struct ReaderView: View {
           )
 
           if isReachableStreamPiece { ReaderCustodyLine() }
-
-          Divider()
-
-          ReaderTeachingField(
-            model: model,
-            isFocused: $isTeachingReasonFocused
-          )
         }
         .padding()
       } else {
         ContentUnavailableView("Not Found", systemImage: "questionmark.circle")
       }
     }
-    .navigationTitle("Reader")
-    .navigationBarTitleDisplayMode(.inline)
     .toolbar {
       ReaderDispositionToolbar(
         model: model,
@@ -96,6 +87,17 @@ struct ReaderView: View {
     }
     .sheet(item: $replySheet) { sheet in
       ReaderReplyView(model: sheet.model, sendAndArchive: sendReplyAndArchive)
+    }
+    .safeAreaInset(edge: .bottom, spacing: 0) {
+      if model.row != nil {
+        VStack(spacing: 0) {
+          Divider()
+          ReaderTeachingField(model: model, isFocused: $isTeachingReasonFocused)
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+        }
+        .background(.regularMaterial)
+      }
     }
     .safeAreaInset(edge: .bottom) {
       if let error = model.errorMessage ?? editionContext?.model.errorMessage {

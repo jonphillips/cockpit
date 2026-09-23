@@ -36,14 +36,15 @@ struct ReaderDispositionToolbar: ToolbarContent {
         }
       }
 
-      Button("Save for Later", systemImage: "clock") {
-        Task { await saveForLater() }
-      }
-      Button("Add to Library", systemImage: "books.vertical") {
-        Task { await addToLibrary() }
-      }
-
       Menu {
+        Button("Save for Later", systemImage: "clock") {
+          Task { await saveForLater() }
+        }
+        Button("Add to Library", systemImage: "books.vertical") {
+          Task { await addToLibrary() }
+        }
+        Divider()
+
         if model.isGmailSource {
           MoveToSectionMenu(
             currentRole: model.currentRoutingRule?.role ?? model.resolvedContentRole ?? .forYou,
