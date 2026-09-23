@@ -77,33 +77,10 @@ struct ReaderView: View {
 
           Divider()
 
-          HStack(spacing: 8) {
-            TextField("Tell Cockpit why this matters", text: $model.teachingReason)
-              .textFieldStyle(.roundedBorder)
-              .focused($isTeachingReasonFocused)
-              .submitLabel(.send)
-              .disabled(model.isReviewingTeaching)
-              .onSubmit { submitTeachingReason() }
-
-            if model.isReviewingTeaching {
-              ProgressView()
-                .controlSize(.small)
-                .accessibilityLabel("Reviewing teaching")
-            }
-
-            Button {
-              submitTeachingReason()
-            } label: {
-              Image(systemName: "arrow.up.circle.fill")
-                .font(.title2)
-            }
-            .buttonStyle(.plain)
-            .disabled(
-              model.isReviewingTeaching
-                || model.teachingReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            )
-            .accessibilityLabel("Submit why this matters")
-          }
+          ReaderTeachingField(
+            model: model,
+            isFocused: $isTeachingReasonFocused
+          )
         }
         .padding()
       } else {
@@ -196,11 +173,6 @@ private extension ReaderView {
       await model.addToLibrary()
     }
   }
-
-  func submitTeachingReason() {
-    guard !model.isReviewingTeaching else { return }
-    Task { await model.submitTeachingReason() }
-  }
 }
 
 struct EditionReaderContext {
@@ -216,6 +188,46 @@ struct EditionReaderContext {
 struct ReaderQueueContext {
   let archive: @MainActor () async -> Void
   let trash: @MainActor () async -> Void
+}
+
+private struct ReaderTeachingField: View {
+  @Bindable var model: ContentPieceReaderModel
+  let isFocused: FocusState<Bool>.Binding
+
+  var body: some View {
+    HStack(spacing: 8) {
+      TextField("Tell Cockpit why this matters", text: $model.teachingReason)
+        .textFieldStyle(.roundedBorder)
+        .focused(isFocused)
+        .submitLabel(.send)
+        .disabled(model.isReviewingTeaching)
+        .onSubmit { submit() }
+
+      if model.isReviewingTeaching {
+        ProgressView()
+          .controlSize(.small)
+          .accessibilityLabel("Reviewing teaching")
+      }
+
+      Button {
+        submit()
+      } label: {
+        Image(systemName: "arrow.up.circle.fill")
+          .font(.title2)
+      }
+      .buttonStyle(.plain)
+      .disabled(
+        model.isReviewingTeaching
+          || model.teachingReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      )
+      .accessibilityLabel("Submit why this matters")
+    }
+  }
+
+  private func submit() {
+    guard !model.isReviewingTeaching else { return }
+    Task { await model.submitTeachingReason() }
+  }
 }
 
 private struct ReaderRationaleView: View {
