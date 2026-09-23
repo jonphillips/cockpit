@@ -4,8 +4,8 @@ import SwiftUI
 struct TodayView: View {
   @Bindable var model: TodayModel
   @Bindable var tailModel: EditionModel
+  @Bindable var inboxIngest: GmailInboxIngestModel
   @State private var readingQueueModel = TodayReadingQueueModel()
-  @State private var inboxIngest = GmailInboxIngestModel()
   @Namespace private var readerTransition
   @State private var isConfirmingTailRecompose = false
   @State private var isShowingRecentTrashes = false
@@ -60,6 +60,13 @@ struct TodayView: View {
       // spend the editorial budget or silently start a multi-minute judgment pass.
       try? await model.$content.load()
       await readingQueueModel.reload()
+    }
+    .onChange(of: inboxIngest.status) { _, status in
+      guard case .ingested = status else { return }
+      Task {
+        try? await model.$content.load()
+        await readingQueueModel.reload()
+      }
     }
     .confirmationDialog(
       "Recompose the tail?", isPresented: $isConfirmingTailRecompose, titleVisibility: .visible

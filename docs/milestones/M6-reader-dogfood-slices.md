@@ -11,7 +11,7 @@ touch `ReaderView.swift`).
 - [x] S-r1 — Queue flow: disposed issues leave the queue, advance to next, Undo
 - [ ] S-r2 — Reader chrome: actions in the toolbar, inline Tell Cockpit, Delete archives
 - [x] S-r3 — Reader facts: sender names, received dates, links open in Safari
-- [ ] S-r4 — Sync on open/foreground (throttled)
+- [x] S-r4 — Sync on open/foreground (throttled)
 - [x] S-r5 — Plain-text reply in thread (DECISIONS §26)
 
 ## Standing rules for every slice
@@ -162,9 +162,10 @@ Today, it only runs when Refresh is tapped. (S-r1 makes departed *followed* issu
   not syncing and the later of the persisted `GmailSyncState.updatedAt` and an in-memory last-attempt
   time is older than 5 minutes (or absent). The attempt time keeps a failing sync from retrying on every
   foreground.
-- `TodayView`: run the existing `refreshToday()` on first appearance and on `scenePhase` → `.active`
-  when the policy allows. Automatic runs do not surface a missing-authorization error (manual Refresh
-  still does).
+- The app shell runs the existing Gmail ingest on launch and on `scenePhase` → `.active` when the
+  policy allows, including when another tab is selected. `TodayView` reloads its local projection
+  after a successful ingest. Automatic runs do not surface a missing-authorization error (manual
+  Refresh still does). This follows Jon's 2026-09-23 app-wide foreground refinement.
 
 **Pre-check (Jon, before assigning).** Archive a non-followed For you email in Mail.app, tap Refresh in
 Cockpit, confirm it leaves Today. `history.list` is filtered with `labelId=INBOX`; if an archive is *not*
