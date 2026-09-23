@@ -13,8 +13,7 @@ struct ReaderView: View {
   @Environment(\.openURL) private var openURL
   @State private var correctingClaim: PersonalKnowledgeRequest.Row?
   @State private var offlineSheet: OfflineAvailabilitySheet?
-  @State private var replyModel: ReaderReplyModel?
-  @State private var isReplyPresented = false
+  @State private var replySheet: ReaderReplySheet?
   @FocusState private var isTeachingReasonFocused: Bool
 
   var body: some View {
@@ -95,8 +94,9 @@ struct ReaderView: View {
         OfflineUntilSheet(model: model)
       }
     }
-    .readerReplySheet(
-      isPresented: $isReplyPresented, model: replyModel, sendAndArchive: sendReplyAndArchive)
+    .sheet(item: $replySheet) { sheet in
+      ReaderReplyView(model: sheet.model, sendAndArchive: sendReplyAndArchive)
+    }
     .safeAreaInset(edge: .bottom) {
       if let error = model.errorMessage ?? editionContext?.model.errorMessage {
         HStack {
@@ -178,14 +178,18 @@ private extension ReaderView {
 
   func openReply() {
     guard model.isReplyAvailable, let id = model.row?.id else { return }
-    replyModel = ReaderReplyModel(contentPieceID: id)
-    isReplyPresented = true
+    replySheet = ReaderReplySheet(model: ReaderReplyModel(contentPieceID: id))
   }
 
   func sendReplyAndArchive() async {
     if let queueContext { await queueContext.archive() }
     else { await model.archiveSource() }
   }
+}
+
+private struct ReaderReplySheet: Identifiable {
+  let id = UUID()
+  let model: ReaderReplyModel
 }
 
 struct EditionReaderContext {

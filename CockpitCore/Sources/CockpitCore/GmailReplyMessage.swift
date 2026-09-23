@@ -33,7 +33,11 @@ public enum GmailReplyMessage {
       .compactMap { $0 }
       .filter { !$0.isEmpty }
       .joined(separator: " ")
-    let encodedBody = Data(body.utf8).base64EncodedString(options: [.lineLength76Characters, .endLineWithLineFeed])
+    let normalizedBody = body
+      .replacingOccurrences(of: "\r\n", with: "\n")
+      .replacingOccurrences(of: "\r", with: "\n")
+      .replacingOccurrences(of: "\n", with: "\r\n")
+    let encodedBody = Data(normalizedBody.utf8).base64EncodedString(options: [.lineLength76Characters, .endLineWithLineFeed])
       .replacingOccurrences(of: "\n", with: "\r\n")
     return [
       "From: \(safeHeader(fromAddress))",
@@ -51,7 +55,27 @@ public enum GmailReplyMessage {
 
   private static func encodedHeader(_ value: String) -> String {
     guard value.unicodeScalars.contains(where: { $0.value > 127 }) else { return safeHeader(value) }
-    return "=?UTF-8?B?\(Data(value.utf8).base64EncodedString())?="
+    let chunks = utf8Chunks(value, maximumBytes: 45)
+    return chunks.map { "=?UTF-8?B?\(Data($0.utf8).base64EncodedString())?=" }
+      .joined(separator: "\r\n ")
+  }
+
+  private static func utf8Chunks(_ value: String, maximumBytes: Int) -> [String] {
+    var chunks: [String] = []
+    var current = ""
+    var currentBytes = 0
+    for character in value {
+      let characterBytes = String(character).utf8.count
+      if currentBytes + characterBytes > maximumBytes, !current.isEmpty {
+        chunks.append(current)
+        current = ""
+        currentBytes = 0
+      }
+      current.append(character)
+      currentBytes += characterBytes
+    }
+    if !current.isEmpty { chunks.append(current) }
+    return chunks
   }
 
   private static func safeHeader(_ value: String) -> String {

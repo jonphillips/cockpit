@@ -32,7 +32,7 @@ struct GmailReplyTests {
     #expect(!raw.replacingOccurrences(of: "\r\n", with: "").contains("\n"))
     let encodedBody = try #require(raw.components(separatedBy: "\r\n\r\n").last)
       .replacingOccurrences(of: "\r\n", with: "")
-    #expect(try #require(Data(base64Encoded: encodedBody)) == Data("Thanks\nsee you".utf8))
+    #expect(try #require(Data(base64Encoded: encodedBody)) == Data("Thanks\r\nsee you".utf8))
   }
 
   @Test("Reply subject does not duplicate Re and References works without prior chain")
@@ -45,6 +45,25 @@ struct GmailReplyTests {
     #expect(raw.contains("To: a@example.com\r\n"))
     #expect(raw.contains("References: <id>\r\n"))
     #expect(raw.components(separatedBy: "Subject:").count == 2)
+  }
+
+  @Test("Missing subject becomes an empty reply subject and encoded words stay within RFC limit")
+  func missingAndLongSubject() throws {
+    let missingSubject = GmailReplyHeaders(
+      from: "person@example.com", replyTo: nil, subject: "", messageID: "<id>", references: nil
+    )
+    #expect(missingSubject.replySubject == "Re: ")
+
+    let longSubject = GmailReplyHeaders(
+      from: "person@example.com", replyTo: nil, subject: String(repeating: "é", count: 100),
+      messageID: "<id>", references: nil
+    )
+    let raw = GmailReplyMessage.make(original: longSubject, fromAddress: "jon@example.com", body: "")
+    let encodedWords = raw.components(separatedBy: "\r\n")
+      .flatMap { $0.components(separatedBy: " ") }
+      .filter { $0.hasPrefix("=?UTF-8?B?") }
+    #expect(!encodedWords.isEmpty)
+    #expect(encodedWords.allSatisfy { $0.utf8.count <= 75 })
   }
 
   @Test("Reader reply sends once and optionally archives only after success")
@@ -69,10 +88,51 @@ struct GmailReplyTests {
     await model.send(thenArchive: true) { archived.withLock { $0 += 1 } }
 
     #expect(model.didSend)
+    #expect(!model.canSend)
     #expect(model.errorMessage == nil)
     #expect(sent.withLock { $0.count } == 1)
     #expect(sent.withLock { $0.first?.1.hasPrefix("thread-") } == true)
     #expect(archived.withLock { $0 } == 1)
+  }
+
+  @Test("Send without archive leaves the queue disposition untouched")
+  func sendsWithoutArchiving() async throws {
+    let pieceID = UUID(28_004)
+    try await seedGmailPiece(pieceID)
+    let archived = Mutex(0)
+    let replyHeaders = Self.headers
+    let client = GmailReplyClient(
+      replyHeaders: { _ in replyHeaders },
+      send: { _, _ in }
+    )
+    let model = withDependencies { $0.gmailReplyClient = client } operation: {
+      ReaderReplyModel(contentPieceID: pieceID)
+    }
+    await model.load()
+    model.body = "Hello"
+    await model.send(thenArchive: false) { archived.withLock { $0 += 1 } }
+
+    #expect(model.didSend)
+    #expect(archived.withLock { $0 } == 0)
+  }
+
+  @Test("Recipient uses the display name while keeping the actual address visible")
+  func recipientDisplayAndAddress() async throws {
+    let pieceID = UUID(28_005)
+    try await seedGmailPiece(pieceID)
+    let headers = GmailReplyHeaders(
+      from: "Original Sender <from@example.com>", replyTo: "Matthew Yglesias <reply@example.com>",
+      subject: "Question", messageID: "<id>", references: nil
+    )
+    let client = GmailReplyClient(replyHeaders: { _ in headers }, send: { _, _ in })
+    let model = withDependencies { $0.gmailReplyClient = client } operation: {
+      ReaderReplyModel(contentPieceID: pieceID)
+    }
+    await model.load()
+
+    #expect(model.recipientDisplay == "Matthew Yglesias")
+    #expect(model.recipientAddress == "reply@example.com")
+    #expect(model.recipientSummary == "Matthew Yglesias <reply@example.com>")
   }
 
   @Test("Failed send keeps the body, surfaces error, and does not archive or retry")

@@ -16,11 +16,11 @@ struct GmailReplyAPI {
     let data = try await read(request)
     let message = try JSONDecoder().decode(GmailReplyMetadata.self, from: data)
     let values = Dictionary(message.payload.headers.map { ($0.name.lowercased(), $0.value) }, uniquingKeysWith: { first, _ in first })
-    guard let from = values["from"], let subject = values["subject"], let messageID = values["message-id"] else {
+    guard let from = values["from"], let messageID = values["message-id"] else {
       throw GmailReplyAPIError.missingHeaders
     }
     return GmailReplyHeaders(
-      from: from, replyTo: values["reply-to"], subject: subject, messageID: messageID,
+      from: from, replyTo: values["reply-to"], subject: values["subject"] ?? "", messageID: messageID,
       references: values["references"]
     )
   }
@@ -37,25 +37,34 @@ struct GmailReplyAPI {
       .replacingOccurrences(of: "/", with: "_")
       .replacingOccurrences(of: "=", with: "")
     request.httpBody = try JSONSerialization.data(withJSONObject: ["raw": encodedRaw, "threadId": threadID])
-    _ = try await read(request)
+    let (data, response) = try await URLSession.shared.data(for: request)
+    try validate(response: response, data: data)
   }
 
   private func read(_ request: URLRequest) async throws -> Data {
     for attempt in 0...Self.maxRetries {
       let (data, response) = try await URLSession.shared.data(for: request)
-      guard let http = response as? HTTPURLResponse else { throw GmailReplyAPIError.noResponse }
-      if 200..<300 ~= http.statusCode { return data }
-      let failure = GmailReplyAPIError(status: http.statusCode, body: data)
-      guard request.httpMethod != "POST", failure.isRetryable, attempt < Self.maxRetries else { throw failure }
-      try await Task.sleep(for: Self.retryDelay(response: http, attempt: attempt))
+      do {
+        try validate(response: response, data: data)
+        return data
+      } catch let failure as GmailReplyAPIError {
+        guard failure.isRetryable, attempt < Self.maxRetries else { throw failure }
+        let http = response as? HTTPURLResponse
+        try await Task.sleep(for: Self.retryDelay(response: http, attempt: attempt))
+      }
     }
     throw GmailReplyAPIError.noResponse
   }
 
+  private func validate(response: URLResponse, data: Data) throws {
+    guard let http = response as? HTTPURLResponse else { throw GmailReplyAPIError.noResponse }
+    guard 200..<300 ~= http.statusCode else { throw GmailReplyAPIError(status: http.statusCode, body: data) }
+  }
+
   private static let maxRetries = 4
 
-  private static func retryDelay(response: HTTPURLResponse, attempt: Int) -> Duration {
-    if let value = response.value(forHTTPHeaderField: "Retry-After"), let seconds = Int(value) {
+  private static func retryDelay(response: HTTPURLResponse?, attempt: Int) -> Duration {
+    if let value = response?.value(forHTTPHeaderField: "Retry-After"), let seconds = Int(value) {
       return .seconds(seconds)
     }
     return .seconds(Double(1 << attempt))

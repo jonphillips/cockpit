@@ -73,10 +73,19 @@ public final class ReaderReplyModel {
 
   public init(contentPieceID: ContentPiece.ID) { self.contentPieceID = contentPieceID }
 
-  public var recipientDisplay: String { headers?.recipient ?? "" }
+  public var recipientDisplay: String { SenderDisplayName.make(from: headers?.recipient) }
+  public var recipientAddress: String { GmailHeaderParser.senderKey(from: headers?.recipient) ?? "" }
+  public var recipientSummary: String {
+    let display = recipientDisplay
+    let address = recipientAddress
+    guard !address.isEmpty else { return display }
+    guard !display.isEmpty, display.caseInsensitiveCompare(address) != .orderedSame else { return address }
+    return "\(display) <\(address)>"
+  }
   public var subject: String { headers?.replySubject ?? "" }
   public var canSend: Bool {
-    !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isLoading && !isSending && headers != nil
+    !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      && !isLoading && !isSending && !didSend && headers != nil
   }
 
   public func load() async {

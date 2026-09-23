@@ -10,7 +10,7 @@ struct ReaderReplyView: View {
     NavigationStack {
       Form {
         Section {
-          LabeledContent("To", value: model.recipientDisplay)
+          LabeledContent("To", value: model.recipientSummary)
           LabeledContent("Subject", value: model.subject)
         }
 
@@ -50,19 +50,6 @@ struct ReaderReplyView: View {
       }
       .task { await model.load() }
     }
-  }
-}
-
-extension View {
-  func readerReplySheet(
-    isPresented: Binding<Bool>,
-    model: ReaderReplyModel?,
-    sendAndArchive: @escaping @MainActor () async -> Void
-  ) -> some View {
-    sheet(isPresented: isPresented) {
-      if let model {
-        ReaderReplyView(model: model, sendAndArchive: sendAndArchive)
-      }
-    }
+    .interactiveDismissDisabled(!model.body.isEmpty)
   }
 }
