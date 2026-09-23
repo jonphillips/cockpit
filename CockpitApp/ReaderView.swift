@@ -41,11 +41,7 @@ struct ReaderView: View {
     ScrollView {
       if let row = model.row {
         VStack(alignment: .leading, spacing: 16) {
-          VStack(alignment: .leading, spacing: 4) {
-            Text(row.title).font(.title2).bold()
-            Text(row.publisher).foregroundStyle(.secondary)
-            OfflineAvailabilityStatus(presentation: model.offlinePresentation)
-          }
+          ReaderHeader(row: row, offlinePresentation: model.offlinePresentation)
 
           if let rationale = editionContext?.rationale, !rationale.isEmpty {
             ReaderRationaleView(rationale: rationale, matchedClaim: model.matchedClaim) {
@@ -188,6 +184,19 @@ struct EditionReaderContext {
 struct ReaderQueueContext {
   let archive: @MainActor () async -> Void
   let trash: @MainActor () async -> Void
+}
+
+private struct ReaderHeader: View {
+  let row: ContentPieceReaderRequest.Row
+  let offlinePresentation: OfflineAvailabilityPresentation
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(row.title).font(.title2).bold()
+      Text(row.publisher).foregroundStyle(.secondary)
+      OfflineAvailabilityStatus(presentation: offlinePresentation)
+    }
+  }
 }
 
 private struct ReaderTeachingField: View {
