@@ -7,6 +7,7 @@ struct ReaderDispositionToolbar: ToolbarContent {
   let model: ContentPieceReaderModel
   let editionContext: EditionReaderContext?
   var queueContext: ReaderQueueContext? = nil
+  var openReply: () -> Void = {}
   let isTeachingReasonFocused: Bool
   let dismissEdition: () async -> Void
   let saveForLater: () async -> Void
@@ -18,6 +19,10 @@ struct ReaderDispositionToolbar: ToolbarContent {
 
   var body: some ToolbarContent {
     ToolbarItemGroup(placement: .topBarTrailing) {
+      if model.isReplyAvailable {
+        Button("Reply", systemImage: "arrowshape.turn.up.left", action: openReply)
+      }
+
       if editionContext != nil {
         Button("Dismiss", systemImage: "xmark.circle") {
           Task { await dismissEdition() }

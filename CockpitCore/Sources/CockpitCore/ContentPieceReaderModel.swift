@@ -146,6 +146,9 @@ public final class ContentPieceReaderModel {
 extension ContentPieceReaderModel {
   public var currentSender: String? { row?.sender }
   public var currentTreatment: EmailTreatment? { row?.emailTreatment }
+  public var isReplyAvailable: Bool {
+    isGmailSource && (resolvedContentRole == .forYou || resolvedContentRole == .transactional)
+  }
   public var resolvedRoutingLocator: String? { routingResolution?.locator }
   public var currentRoutingRule: ContentRoleRoutingRule? { routingResolution?.rule }
   public var resolvedContentRole: ContentRole? { routingResolution?.role }

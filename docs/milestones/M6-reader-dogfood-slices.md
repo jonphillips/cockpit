@@ -12,7 +12,7 @@ touch `ReaderView.swift`).
 - [ ] S-r2 — Reader chrome: actions in the toolbar, inline Tell Cockpit, Delete archives
 - [x] S-r3 — Reader facts: sender names, received dates, links open in Safari
 - [ ] S-r4 — Sync on open/foreground (throttled)
-- [ ] S-r5 — Plain-text reply in thread (DECISIONS §26)
+- [x] S-r5 — Plain-text reply in thread (DECISIONS §26)
 
 ## Standing rules for every slice
 

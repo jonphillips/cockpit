@@ -13,28 +13,8 @@ struct ReaderView: View {
   @Environment(\.openURL) private var openURL
   @State private var correctingClaim: PersonalKnowledgeRequest.Row?
   @State private var offlineSheet: OfflineAvailabilitySheet?
+  @State private var replySheet: ReaderReplySheet?
   @FocusState private var isTeachingReasonFocused: Bool
-
-  init(
-    contentPieceID: ContentPiece.ID,
-    editionContext: EditionReaderContext? = nil,
-    queueContext: ReaderQueueContext? = nil,
-    isReachableStreamPiece: Bool = false,
-    originalWebViewStore: TodayOriginalWebViewStore? = nil
-  ) {
-    self.contentPieceID = contentPieceID
-    self.editionContext = editionContext
-    self.queueContext = queueContext
-    self.isReachableStreamPiece = isReachableStreamPiece
-    _originalWebViewStore = State(
-      initialValue: originalWebViewStore ?? TodayOriginalWebViewStore())
-    _model = LazyState {
-      ContentPieceReaderModel(
-        contentPieceID: contentPieceID,
-        matchedPersonalKnowledgeClaimID: editionContext?.matchedPersonalKnowledgeClaimID
-      )
-    }
-  }
 
   var body: some View {
     @Bindable var model = model
@@ -90,6 +70,7 @@ struct ReaderView: View {
         model: model,
         editionContext: editionContext,
         queueContext: queueContext,
+        openReply: openReply,
         isTeachingReasonFocused: isTeachingReasonFocused,
         dismissEdition: dismissEditionButtonTapped,
         saveForLater: saveForLaterButtonTapped,
@@ -113,6 +94,9 @@ struct ReaderView: View {
         OfflineUntilSheet(model: model)
       }
     }
+    .sheet(item: $replySheet) { sheet in
+      ReaderReplyView(model: sheet.model, sendAndArchive: sendReplyAndArchive)
+    }
     .safeAreaInset(edge: .bottom) {
       if let error = model.errorMessage ?? editionContext?.model.errorMessage {
         HStack {
@@ -129,6 +113,28 @@ struct ReaderView: View {
     }
   }
 
+}
+
+extension ReaderView {
+  init(
+    contentPieceID: ContentPiece.ID,
+    editionContext: EditionReaderContext? = nil,
+    queueContext: ReaderQueueContext? = nil,
+    isReachableStreamPiece: Bool = false,
+    originalWebViewStore: TodayOriginalWebViewStore? = nil
+  ) {
+    self.contentPieceID = contentPieceID
+    self.editionContext = editionContext
+    self.queueContext = queueContext
+    self.isReachableStreamPiece = isReachableStreamPiece
+    _originalWebViewStore = State(initialValue: originalWebViewStore ?? TodayOriginalWebViewStore())
+    _model = LazyState {
+      ContentPieceReaderModel(
+        contentPieceID: contentPieceID,
+        matchedPersonalKnowledgeClaimID: editionContext?.matchedPersonalKnowledgeClaimID
+      )
+    }
+  }
 }
 
 private extension ReaderView {
@@ -169,6 +175,21 @@ private extension ReaderView {
       await model.addToLibrary()
     }
   }
+
+  func openReply() {
+    guard model.isReplyAvailable, let id = model.row?.id else { return }
+    replySheet = ReaderReplySheet(model: ReaderReplyModel(contentPieceID: id))
+  }
+
+  func sendReplyAndArchive() async {
+    if let queueContext { await queueContext.archive() }
+    else { await model.archiveSource() }
+  }
+}
+
+private struct ReaderReplySheet: Identifiable {
+  let id = UUID()
+  let model: ReaderReplyModel
 }
 
 struct EditionReaderContext {
@@ -184,62 +205,6 @@ struct EditionReaderContext {
 struct ReaderQueueContext {
   let archive: @MainActor () async -> Void
   let trash: @MainActor () async -> Void
-}
-
-private struct ReaderHeader: View {
-  let row: ContentPieceReaderRequest.Row
-  let offlinePresentation: OfflineAvailabilityPresentation
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      Text(row.title).font(.title2).bold()
-      Text(row.sender).foregroundStyle(.secondary)
-      Text(ReceivedAgeLabel.text(received: row.receivedAt, now: .now))
-        .font(.caption)
-        .foregroundStyle(.secondary)
-      OfflineAvailabilityStatus(presentation: offlinePresentation)
-    }
-  }
-}
-
-private struct ReaderTeachingField: View {
-  @Bindable var model: ContentPieceReaderModel
-  let isFocused: FocusState<Bool>.Binding
-
-  var body: some View {
-    HStack(spacing: 8) {
-      TextField("Tell Cockpit why this matters", text: $model.teachingReason)
-        .textFieldStyle(.roundedBorder)
-        .focused(isFocused)
-        .submitLabel(.send)
-        .disabled(model.isReviewingTeaching)
-        .onSubmit { submit() }
-
-      if model.isReviewingTeaching {
-        ProgressView()
-          .controlSize(.small)
-          .accessibilityLabel("Reviewing teaching")
-      }
-
-      Button {
-        submit()
-      } label: {
-        Image(systemName: "arrow.up.circle.fill")
-          .font(.title2)
-      }
-      .buttonStyle(.plain)
-      .disabled(
-        model.isReviewingTeaching
-          || model.teachingReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-      )
-      .accessibilityLabel("Submit why this matters")
-    }
-  }
-
-  private func submit() {
-    guard !model.isReviewingTeaching else { return }
-    Task { await model.submitTeachingReason() }
-  }
 }
 
 private struct ReaderRationaleView: View {
