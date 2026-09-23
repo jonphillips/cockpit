@@ -358,8 +358,19 @@ from that publisher opens at the same adjustment.
 
 **Build.**
 - Store an **adjustment step**, not an absolute zoom: an integer in `-3…+5`, each step ×1.1 on top
-  of the S-r7 auto-fit. The same preference then works on iPhone, iPad, and split view. Final zoom =
-  `clamp(autoFit × 1.1^step, 0.5, 2.0)`. A manual step may go past the 1.3 auto cap.
+  of the S-r7 auto-fit. The same preference then works on iPhone, iPad, and split view. A manual step
+  may go past the 1.3 auto cap, up to a ceiling:
+  - **Fluid email** (no design width): ceiling `2.0`. It re-lays itself out at any zoom.
+  - **Fixed-width email:** ceiling is the uncapped fit-to-pane zoom,
+    `availableWidth / (designWidth + 2 × gutter)`, using S-r7's gutter, and never above `2.0`.
+    Scrolling is off in the web view, so anything wider than the pane is cut off and can't be
+    reached. (Amended 2026-09-23 from the #74 review.)
+  - Final zoom = `clamp(autoFit × 1.1^step, 0.5, max(0.5, ceiling))`. The 0.5 floor wins when an
+    email is too wide to fit even at 0.5, matching S-r7.
+- The ceiling is applied when the zoom is computed, not when the step is stored. A saved step is kept
+  as-is, so a step that's clamped in a narrow pane applies in full when the pane is wider.
+- `larger()` does nothing when the next step wouldn't raise the final zoom, so no hidden steps pile
+  up. The menu's larger control is disabled at the ceiling.
 - Key: `GmailSeriesKey.seriesKey(forContentPieceID:in:)` (List-ID, else sender), so two
   publications from one sender stay distinct. Pieces without a series key get a session-only
   adjustment that isn't saved.
@@ -377,7 +388,9 @@ from that publisher opens at the same adjustment.
     report. The keyboard shortcuts and menu are the required path.
 - S-r8's column follows the final zoom.
 
-**Prove.** Step math and clamping. Adjusting persists under the series key and a new piece with the
+**Prove.** Step math and clamping. A fixed-width email never zooms wider than the pane, however high
+the step. A fluid email reaches 2.0. A saved step clamped in a narrow pane applies in full in a wide
+one. `larger()` at the ceiling leaves the step unchanged. Adjusting persists under the series key and a new piece with the
 same key opens at that step. Two List-IDs from one sender don't share. Reset removes the key. A
 piece without a series key doesn't persist. The injected defaults are isolated per test.
 
@@ -388,4 +401,5 @@ inline Tell Cockpit field (they must not steal ⌘+ from text editing if the sys
 when Jon explicitly adjusts it.
 
 **Done when.** Jon bumps Feed Me up one step on iPad and the next Feed Me issue opens at that size.
-"Fit" returns it to auto, and a different newsletter from the same sender is unaffected.
+"Fit" returns it to auto, and a different newsletter from the same sender is unaffected. On iPhone,
+pressing larger on a fixed-width email stops once the email fills the pane, and nothing is cut off.
