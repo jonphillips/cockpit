@@ -69,26 +69,16 @@ public final class ContentPieceReaderModel {
     }
   }
 
-  /// Opening this flow is an explicit teaching act. Nothing about opening or reading the piece is
-  /// captured as Personal Knowledge; a claim can only follow an explicit reason and confirmation.
-  public func beginTeaching() {
-    teachingStage = .reason
-    errorMessage = nil
-  }
-
-  public func cancelTeaching() {
-    teachingStage = nil
-    teachingReason = ""
-  }
-
-  public func reviewTeachingButtonTapped() async {
+  /// The Reader collects teaching inline. Submitting asks the model for a narrow proposal, but the
+  /// proposal remains non-canonical until `saveTeachingButtonTapped` receives explicit confirmation.
+  public func submitTeachingReason() async {
     guard let row else { return }
     let reason = teachingReason.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !reason.isEmpty else {
-      errorMessage = PersonalKnowledgeOperations.Failure.emptyClaim.localizedDescription
-      return
-    }
+    guard !reason.isEmpty else { return }
 
+    teachingReason = reason
+    teachingStage = nil
+    errorMessage = nil
     isReviewingTeaching = true
     defer { isReviewingTeaching = false }
     do {
@@ -112,6 +102,11 @@ public final class ContentPieceReaderModel {
     } catch {
       errorMessage = error.localizedDescription
     }
+  }
+
+  public func cancelTeaching() {
+    teachingStage = nil
+    teachingReason = ""
   }
 
   public func saveTeachingButtonTapped() async {
@@ -263,12 +258,10 @@ extension ContentPieceReaderModel {
 }
 
 public enum ReaderTeachingStage: Identifiable, Equatable, Sendable {
-  case reason
   case proposal(PersonalKnowledgeProposal)
 
   public var id: String {
     switch self {
-    case .reason: "reader-teaching-reason"
     case let .proposal(proposal): "reader-teaching-proposal-\(proposal.id.uuidString)"
     }
   }

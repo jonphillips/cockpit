@@ -1,23 +1,45 @@
 import CockpitCore
 import SwiftUI
 
-/// The Reader's Gmail source-disposition menu, offered only for email pieces. It carries the same
-/// actions as the Today row menu (`GmailDispositionButtons`) so status can be changed while reading.
+/// Reader actions live in one trailing toolbar group. Gmail disposition remains queue-aware while
+/// Later/Library Readers fall back to the ContentPieceReaderModel's source operations.
 struct ReaderDispositionToolbar: ToolbarContent {
   let model: ContentPieceReaderModel
+  let editionContext: EditionReaderContext?
   var queueContext: ReaderQueueContext? = nil
+  let isTeachingReasonFocused: Bool
+  let dismissEdition: () async -> Void
+  let saveForLater: () async -> Void
+  let addToLibrary: () async -> Void
+  let chooseOfflineUntil: () -> Void
+  let keepOffline: () -> Void
+  let releaseOffline: () -> Void
+  let correctClaim: (PersonalKnowledgeRequest.Row) -> Void
 
   var body: some ToolbarContent {
-    if model.isGmailSource {
-      // Archive is the one-tap default; Trash and Undo stay under the menu so the common gesture does
-      // not require choosing between dispositions first.
-      ToolbarItem(placement: .topBarTrailing) {
-        Button("Archive", systemImage: "archivebox") {
-          Task { await archive() }
+    ToolbarItemGroup(placement: .topBarTrailing) {
+      if editionContext != nil {
+        Button("Dismiss", systemImage: "xmark.circle") {
+          Task { await dismissEdition() }
         }
       }
-      ToolbarItem(placement: .topBarTrailing) {
-        Menu {
+
+      if model.isGmailSource {
+        archiveButton
+        Button("Trash", systemImage: "trash", role: .destructive) {
+          Task { await trash() }
+        }
+      }
+
+      Button("Save for Later", systemImage: "clock") {
+        Task { await saveForLater() }
+      }
+      Button("Add to Library", systemImage: "books.vertical") {
+        Task { await addToLibrary() }
+      }
+
+      Menu {
+        if model.isGmailSource {
           MoveToSectionMenu(
             currentRole: model.currentRoutingRule?.role ?? model.resolvedContentRole ?? .forYou,
             isTransactional: model.currentTreatment == .transactional,
@@ -26,16 +48,49 @@ struct ReaderDispositionToolbar: ToolbarContent {
             Task { await model.moveToSection(to: role) }
           }
           Divider()
-          Button("Trash", systemImage: "trash", role: .destructive) {
-            Task { await trash() }
+        }
+
+        Menu("Offline", systemImage: "arrow.down.circle") {
+          Button("Offline until", systemImage: "calendar") { chooseOfflineUntil() }
+          Button("Keep Offline", systemImage: "pin") { keepOffline() }
+          if model.offlinePresentation.isActivePromise {
+            Button("Stop Keeping Offline", systemImage: "pin.slash") { releaseOffline() }
           }
+        }
+
+        if let readerTaughtClaim = model.readerTaughtClaim {
+          Divider()
+          Button("Correct this understanding", systemImage: "pencil") {
+            correctClaim(readerTaughtClaim)
+          }
+        }
+
+        if model.isGmailSource {
+          Divider()
           Button("Undo disposition", systemImage: "arrow.uturn.backward") {
             Task { await model.undoDisposition() }
           }
-        } label: {
-          Image(systemName: "ellipsis.circle")
         }
+      } label: {
+        Image(systemName: "ellipsis.circle")
       }
+      .accessibilityLabel("More Reader actions")
+    }
+  }
+
+  @ViewBuilder
+  private var archiveButton: some View {
+    if isTeachingReasonFocused {
+      Button("Archive", systemImage: "archivebox") {
+        Task { await archive() }
+      }
+      .buttonStyle(.borderedProminent)
+    } else {
+      Button("Archive", systemImage: "archivebox") {
+        Task { await archive() }
+      }
+      .buttonStyle(.borderedProminent)
+      .keyboardShortcut(.delete, modifiers: [])
     }
   }
 

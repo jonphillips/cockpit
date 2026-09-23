@@ -192,6 +192,70 @@ struct ContentPieceReaderModelTests {
     expectNoDifference(model.bodyPresentation, .compactPreview)
   }
 
+  @Test("An empty inline teaching submit is a no-op")
+  func emptyTeachingSubmitIsNoOp() async throws {
+    let pieceID = UUID(9018)
+    try await database.write { db in
+      try ContentPiece.insert {
+        ContentPiece.Draft(
+          id: pieceID, kind: .article, title: "Piece", publisher: "Publisher", createdAt: .distantPast)
+      }.execute(db)
+    }
+    let model = ContentPieceReaderModel(contentPieceID: pieceID)
+    try await model.$content.load()
+    model.teachingReason = "  \n\t"
+
+    await model.submitTeachingReason()
+
+    #expect(model.teachingStage == nil)
+    #expect(!model.isReviewingTeaching)
+    #expect(model.errorMessage == nil)
+    expectNoDifference(model.teachingReason, "  \n\t")
+  }
+
+  @Test("Cancel clears the inline teaching text and proposal")
+  func cancelTeachingClearsTextAndProposal() async throws {
+    let pieceID = UUID(9019)
+    try await database.write { db in
+      try ContentPiece.insert {
+        ContentPiece.Draft(
+          id: pieceID, kind: .article, title: "A reuse hotel", publisher: "Publisher",
+          summary: "A hotel adapted from a former factory.", createdAt: .distantPast)
+      }.execute(db)
+    }
+    let response = """
+    {"proposals":[{
+      "kind":"interest",
+      "claim":"Cares about adaptive reuse in hotels.",
+      "scope":"Travel",
+      "action":"new",
+      "replacesClaimIDs":[],
+      "semanticFidelity":true,
+      "rationale":"Faithful to the explicit teaching."
+    }]}
+    """
+    let model = withDependencies {
+      $0.modelClient = StubModelClient.constant(response)
+    } operation: {
+      ContentPieceReaderModel(contentPieceID: pieceID)
+    }
+    try await model.$content.load()
+    model.teachingReason = "  I care about adaptive reuse.  "
+
+    await model.submitTeachingReason()
+
+    guard case .proposal = model.teachingStage else {
+      Issue.record("expected inline teaching to present a proposal")
+      return
+    }
+    expectNoDifference(model.teachingReason, "I care about adaptive reuse.")
+
+    model.cancelTeaching()
+
+    #expect(model.teachingStage == nil)
+    expectNoDifference(model.teachingReason, "")
+  }
+
   @Test("Reader teaching persists its explicit reason and ContentPiece provenance only after confirmation")
   func readerTeachingPersistsProvenance() async throws {
     let pieceID = UUID(9002)
@@ -220,9 +284,8 @@ struct ContentPieceReaderModelTests {
     }
     try await model.$content.load()
 
-    model.beginTeaching()
     model.teachingReason = "I'm not interested in this specific hotel, but I care about this kind of adaptive reuse."
-    await model.reviewTeachingButtonTapped()
+    await model.submitTeachingReason()
 
     let proposal: PersonalKnowledgeProposal
     guard case let .proposal(value) = model.teachingStage else {
@@ -309,10 +372,9 @@ struct ContentPieceReaderModelTests {
       ContentPieceReaderModel(contentPieceID: pieceID)
     }
     try await model.$content.load()
-    model.beginTeaching()
     model.teachingReason = "When drinking dry Riesling, I generally prefer some fruit over severe austerity."
 
-    await model.reviewTeachingButtonTapped()
+    await model.submitTeachingReason()
 
     guard case let .proposal(proposal) = model.teachingStage else {
       Issue.record("expected the broad synthesis to remain a proposal")
@@ -321,7 +383,8 @@ struct ContentPieceReaderModelTests {
     expectNoDifference(proposal.claim, "Likes fruity wines.")
     #expect(proposal.requiresConfirmation)
     let storedCounts = try await database.read { db in
-      (try PersonalKnowledgeClaim.fetchCount(db), try PersonalKnowledgeTeaching.fetchCount(db))
+      (try PersonalKnowledgeClaim.fetchCount(db),
+       try PersonalKnowledgeTeaching.fetchCount(db))
     }
     expectNoDifference(storedCounts.0, 0)
     expectNoDifference(storedCounts.1, 0)
@@ -354,12 +417,11 @@ struct ContentPieceReaderModelTests {
       ContentPieceReaderModel(contentPieceID: pieceID)
     }
     try await model.$content.load()
-    model.beginTeaching()
     model.teachingReason = "I care about adaptive reuse."
 
-    await model.reviewTeachingButtonTapped()
+    await model.submitTeachingReason()
 
-    expectNoDifference(model.teachingStage, .reason)
+    #expect(model.teachingStage == nil)
     expectNoDifference(model.errorMessage, "The model proposed an action Cockpit does not support.")
     let teachings = try await database.read { db in try PersonalKnowledgeTeaching.fetchCount(db) }
     expectNoDifference(teachings, 0)
@@ -387,12 +449,11 @@ struct ContentPieceReaderModelTests {
       ContentPieceReaderModel(contentPieceID: pieceID)
     }
     try await model.$content.load()
-    model.beginTeaching()
     model.teachingReason = "This profile matters."
 
-    await model.reviewTeachingButtonTapped()
+    await model.submitTeachingReason()
 
-    expectNoDifference(model.teachingStage, .reason)
+    #expect(model.teachingStage == nil)
     expectNoDifference(model.errorMessage, "The model proposed an action Cockpit does not support.")
     let storedCounts = try await database.read { db in
       (try PersonalKnowledgeClaim.fetchCount(db), try PersonalKnowledgeTeaching.fetchCount(db))

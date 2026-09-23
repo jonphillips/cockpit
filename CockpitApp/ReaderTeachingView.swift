@@ -1,8 +1,8 @@
 import CockpitCore
 import SwiftUI
 
-/// The Reader's explicit-teaching sheet. It keeps the free-text reason and the model proposal in
-/// one short flow, while `ContentPieceReaderModel` owns the durable state transition for testing.
+/// The Reader's explicit confirmation sheet. The free-text reason is collected inline in the Reader;
+/// this sheet appears only after the model has produced a Personal Knowledge proposal.
 struct ReaderTeachingView: View {
   let model: ContentPieceReaderModel
   let stage: ReaderTeachingStage
@@ -12,8 +12,6 @@ struct ReaderTeachingView: View {
     NavigationStack {
       Group {
         switch stage {
-        case .reason:
-          reasonForm(model: model)
         case let .proposal(proposal):
           proposalReview(proposal: proposal, model: model)
         }
@@ -22,40 +20,6 @@ struct ReaderTeachingView: View {
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
           Button("Cancel") { model.cancelTeaching() }
-        }
-      }
-    }
-  }
-
-  @ViewBuilder
-  private func reasonForm(model: ContentPieceReaderModel) -> some View {
-    @Bindable var model = model
-    Form {
-      Section {
-        Text("Tell Cockpit what this reveals about what matters to you. It will propose a narrow Taste or Interest for you to confirm.")
-          .font(.subheadline)
-          .foregroundStyle(.secondary)
-        TextEditor(text: $model.teachingReason)
-          .frame(minHeight: 140)
-          .accessibilityLabel("Why this matters")
-      } header: {
-        Text("Why this matters")
-      }
-
-      Section {
-        Button("Review Teaching") {
-          Task { await model.reviewTeachingButtonTapped() }
-        }
-        .disabled(
-          model.isReviewingTeaching
-            || model.teachingReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        )
-        if model.isReviewingTeaching {
-          HStack {
-            ProgressView()
-            Text("Drafting with \(model.teachingProviderDescription ?? "the model")…")
-              .foregroundStyle(.secondary)
-          }
         }
       }
     }
