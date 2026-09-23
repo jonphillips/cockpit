@@ -11,11 +11,11 @@ touch `ReaderView.swift`).
 **Email fit (S-r7 … S-r9), recorded 2026-09-23 from Jon's iPad dogfooding.** Fixed-width HTML emails
 (Substack and similar, about 550–650px) render 1:1 in the Reader: a narrow column with wide margins on
 iPad, while the Cockpit header sits at the pane's leading edge and the email is centered. These slices
-are display-only: no schema, identity, Gmail, or judgment changes. S-r7 → S-r8 and S-r7 → S-r9. S-r8
-touches `ReaderView.swift`, so build it after S-r2 lands (or rebase onto it).
+are display-only: no schema, identity, Gmail, or judgment changes. S-r7 → S-r8 → S-r9, built in that
+order: S-r9's controls rely on the web-view width S-r8 adds.
 
 - [x] S-r1 — Queue flow: disposed issues leave the queue, advance to next, Undo
-- [ ] S-r2 — Reader chrome: actions in the toolbar, inline Tell Cockpit, Delete archives
+- [x] S-r2 — Reader chrome: actions in the toolbar, inline Tell Cockpit, Delete archives
 - [x] S-r3 — Reader facts: sender names, received dates, links open in Safari
 - [x] S-r4 — Sync on open/foreground (throttled)
 - [x] S-r5 — Plain-text reply in thread (DECISIONS §26)
@@ -36,9 +36,10 @@ touches `ReaderView.swift`, so build it after S-r2 lands (or rebase onto it).
 - S-r7 … S-r9: keep the Reader web view's security posture exactly as it is: page JavaScript off,
   non-persistent data store, no in-view navigation, links go out through `EmailLinkPolicy`. Don't
   turn on scrolling inside the web view: its height still comes from observing `contentSize`.
-- S-r7 … S-r9: never rewrite the email's own CSS/layout to widen it, and never use a transform scale.
-  Zoom goes through `WKWebView.pageZoom` only, so the page re-lays itself out and links, text
-  selection, and height tracking keep working.
+- S-r7 … S-r9: zoom goes through a root CSS `zoom` in a stylesheet the sanitizer appends, and nothing
+  else. Never use `WKWebView.pageZoom`: on iOS it scales the laid-out page without re-laying it out,
+  so any zoom above 1 pushes the email past the pane's right edge (found on device, 2026-09-23).
+  Never rewrite the email's own CSS/layout and never use a transform scale.
 
 ---
 
@@ -270,51 +271,65 @@ decisions without views accessing the database.
 **Goal.** A narrow fixed-width email grows to use the Reader pane up to a comfortable cap. An email
 wider than the pane shrinks to fit instead of being clipped. Fluid emails are unchanged.
 
+> **Amended 2026-09-23 after device checks of #74.** The first build used `WKWebView.pageZoom`. On iOS
+> it scales the laid-out page without re-laying it out, so zooms above 1 ran off the right edge. A
+> width-measuring backstop then misread that as the email's width and was reverted. This block
+> describes what #74 shipped.
+
 **Build.**
-- `CockpitCore`: `EmailDesignWidth.detect(html:) -> Double?`, a pure function using SwiftSoup that
-  returns the email's fixed design width in CSS px, or `nil` for fluid layouts. It looks at the
-  outermost layout containers under `<body>` (first few nesting levels of `table`/`td`/`div`/
-  `center`), reading `width="N"` attributes and inline `width: Npx` / `max-width: Npx`. It takes the
-  widest plausible value in the 320–1200 range. Percentages, `auto`, and values outside the range
-  don't count. A body whose containers are all fluid returns `nil`. No `<style>` sheet parsing in
-  this slice.
-- `CockpitCore`: `EmailFitZoom.zoom(designWidth: Double?, availableWidth: Double) -> Double`, a pure
-  function. `nil` design width → `1.0`. Otherwise `availableWidth / designWidth` clamped to
-  `0.5…1.3`. Put the cap and floor in named constants with a one-line why (1.3 keeps body copy
-  around 20pt, while filling a landscape iPad pane would be about 1.6× / 26pt).
-- `TodayOriginalHTML.sanitizedForWebView`: normalise the viewport so layout width equals the view
-  width. Remove any existing `<meta name="viewport">` and insert
-  `width=device-width, initial-scale=1`.
-- `TodayOriginalWebViewStore`:
-  - set `defaultWebpagePreferences.preferredContentMode = .mobile`. iPad defaults to desktop mode,
-    which lays out at 980px and mostly ignores the viewport tag.
-  - `load(rawHTML:)` stores the detected design width for that email.
-  - add `setAvailableWidth(_:)`. Recompute and apply `webView.pageZoom` only when the value changes,
-    and never reload the HTML for a width change.
-  - reset zoom state when a different email loads.
-- `ReaderBodyView` (`.html` case): report the web view's width through `onGeometryChange` to
-  `setAvailableWidth`. This covers rotation, sidebar collapse, and split view.
+- `CockpitCore`: `EmailDesignWidth.detect(html:)` / `detect(in:)`, a pure SwiftSoup function that
+  returns the email's fixed design width in CSS px, or `nil` for fluid layouts. It reads the outermost
+  layout containers under `<body>` (the first few nesting levels of `table`/`td`/`div`/`center`):
+  `width="N"` attributes and inline `width` / `max-width` / `min-width` in px, ignoring `!important`.
+  It takes the widest value in the 320–1200 range. `detect(in:)` reuses the sanitizer's parsed
+  document, so each email is parsed once.
+- `CockpitCore`: `EmailFitZoom`.
+  - Constants: cap `1.3` (body copy around 20pt; filling a landscape iPad pane would be about 1.6×),
+    floor `0.5`, and `horizontalGutter` 16 CSS px a side (covers the default body margin; without it
+    a fixed-width table at an exact fit is cut off).
+  - `zoom(designWidth:availableWidth:)`: the exact fit,
+    `availableWidth / (designWidth + 2 × horizontalGutter)` clamped to `0.5…1.3`; `nil` → `1.0`.
+  - `bands(designWidth:)`: 5% zoom steps from 0.5 to 1.3. Each starts at the viewport width where
+    its zoom fits, so a band never overflows and trails the exact fit by less than one step. `nil`
+    for fluid email.
+  - `bandedZoom(designWidth:viewportWidth:)`: the zoom the bands apply at a width.
+  - `stylesheet(designWidth:)`: the bands as `html { zoom: … }` rules, the floor unconditional and
+    the rest in `@media (min-width: …px)`.
+- `TodayOriginalHTML.sanitizedForWebView`:
+  - replace any `<meta name="viewport">` with one `width=device-width, initial-scale=1`, so CSS px
+    equal points and media queries see the web view's width;
+  - append the stylesheet last in `<head>` as `<style id="cockpit-email-fit">`. Fluid email gets
+    none.
+- `TodayOriginalWebViewStore`: `preferredContentMode = .mobile`, because iPad's default desktop mode
+  lays out at 980px and mostly ignores the viewport tag. There is no zoom state, width tracking, or
+  reload on resize: WebKit re-picks the band itself when the pane changes width.
 
 **Prove.**
-- Detection, with synthetic fixtures only (no real newsletter HTML in the repo): Substack-style
-  `max-width: 550px` wrapper → 550. `<table width="600">` outer with nested narrower tables → 600.
-  Outer `width="100%"` with a `600` inner → 600. All fluid → `nil`. A 1px spacer or a 2000px
-  value → ignored. `width="600px"` string form → 600.
-- Zoom: 550 in 950 → 1.3 (capped). 700 in 800 → about 1.14. 800 in 390 → about 0.49, clamped to 0.5.
-  `nil` → 1.0.
-- Sanitizer: an existing viewport meta is replaced, not duplicated. One is added when absent.
+- Detection, with synthetic fixtures only (no real newsletter HTML in the repo):
+  - a `max-width: 550px` wrapper → 550;
+  - a `<table width="600">` outer with nested narrower tables → 600;
+  - an outer `width="100%"` with a `600` inner → 600;
+  - `max-width: 600px !important` → 600, and `min-width: 600px` → 600;
+  - all fluid → `nil`, and a 1px spacer or a 2000px value is ignored.
+- Exact fit: 550 in 950 → 1.3 (capped). 700 in 800 → about 1.09. 600 in 390 → about 0.62, and
+  the email plus gutters fits. `nil` → 1.0.
+- Bands:
+  - 550 in 952 → 1.3, with the cap starting at 757px;
+  - 600 in 390 → 0.6;
+  - across many widths and design widths, no band overflows and each is within one step of the
+    exact fit;
+  - fluid → no stylesheet.
+- Sanitizer: the viewport meta is replaced, not duplicated. The fit stylesheet is last in `<head>`
+  for fixed-width email and absent for fluid email.
 
-**Device-only risks (name them).** `pageZoom` and `.mobile` content mode together on iPad. Whether
-`contentSize` height tracks promptly after a zoom change (look for a clipped or over-tall body). Some
-1× images get slightly soft at 1.3×. Jon checks one Substack issue, one table-based retail email, and
-one fluid email on iPad and iPhone.
+**Device-only risks (name them).** Checked on iPad 2026-09-23 (Negroni: 1.3×, centered, nothing
+clipped). Still to see: iPhone, and the body height after a resize changes the band.
 
-**Do not.** Don't enable page JavaScript or add app-injected measurement JS. If static detection proves
-insufficient for real emails, say so in the report rather than adding it. No user-facing controls yet
+**Do not.** Don't enable page JavaScript or add app-injected JavaScript. No user-facing controls
 (S-r9).
 
-**Done when.** On a landscape iPad, a 550px newsletter renders about 715pt wide with larger text. A wide
-email fits the pane on iPhone. Fluid emails look as before, and resizing the pane re-fits without
+**Done when.** On a landscape iPad, a 550px newsletter renders about 715pt wide and centered. A wide
+email fits the pane on iPhone. Fluid emails look as before. Resizing the pane re-fits without
 reloading.
 
 ---
@@ -325,29 +340,37 @@ reloading.
 same leading edge.
 
 **Build.**
-- `CockpitCore`: `EmailColumn.width(designWidth: Double?, zoom: Double, availableWidth: Double) ->
-  Double`, a pure function. Returns `min(designWidth × zoom, availableWidth)`, or `availableWidth`
-  when the design width is `nil`.
-- `TodayOriginalWebViewStore` publishes the current column width, computed from the S-r7 inputs.
+- The store needs the detected width. Have the sanitizer return it with the HTML, for example
+  `(html: String, designWidth: Double?)`, and have `TodayOriginalWebViewStore` publish it. Don't
+  run detection a second time.
+- `ReaderBodyView` reports the web view's own width through `onGeometryChange`. With
+  `initial-scale=1`, that width in points is the viewport width the media queries see. Measure the
+  web view, not the pane: the pane includes padding.
+- `CockpitCore`: `EmailColumn.width(designWidth: Double?, viewportWidth: Double) -> Double`, a pure
+  function. Returns `designWidth × EmailFitZoom.bandedZoom(designWidth:viewportWidth:)`, capped at
+  the viewport width, or the viewport width when the design width is `nil`. Use `bandedZoom`, the
+  zoom the stylesheet actually applies, not the exact fit.
 - `ReaderView`: constrain the header block, and the other Reader content above and below the body
   (summary, pending-Find card), to that width, centered in the pane:
   `.frame(maxWidth: column).frame(maxWidth: .infinity)`. Fixed-width emails center themselves, so
   the leading edges line up. With no HTML body (inline/unavailable/preview), keep today's layout.
-- The column moves with the zoom, so it tracks width changes and (after S-r9) manual zoom without a
-  jump. Animate only if it's free: a jumpy layout is worse than no animation.
+- The column follows width changes. Animate only if it's free: a jumpy layout is worse than no
+  animation.
 
-**Prove.** Column width: fixed email narrower than the pane after zoom → `design × zoom`. Wider →
-the pane width. Fluid → the pane width.
+**Prove.**
+- Column width: for a fixed email narrower than the pane after zoom, it's `design × bandedZoom`. For
+  a wider one, it's the viewport width. For fluid email, it's the viewport width.
+- The column changes exactly when the band changes.
 
 **Device-only risks (name them).** Alignment is to the email's outer container. Some emails pad their
 content inward, so the text edge may sit a little inside the header edge. Jon judges whether that's
 acceptable. No further heuristics in this slice.
 
-**Do not.** Don't restyle the header's type or change Reader chrome (S-r2 owns the toolbar). Don't touch
-the web view's own margins.
+**Do not.** Don't restyle the header's type or change Reader chrome. Don't touch the web view's own
+margins.
 
 **Done when.** On iPad, the header's leading edge sits on the email's column edge for fixed-width
-emails, and nothing changes on iPhone or for fluid emails.
+emails, and nothing changes for fluid emails.
 
 ---
 
@@ -357,9 +380,28 @@ emails, and nothing changes on iPhone or for fluid emails.
 from that publisher opens at the same adjustment.
 
 **Build.**
-- Store an **adjustment step**, not an absolute zoom: an integer in `-3…+5`, each step ×1.1 on top
-  of the S-r7 auto-fit. The same preference then works on iPhone, iPad, and split view. Final zoom =
-  `clamp(autoFit × 1.1^step, 0.5, 2.0)`. A manual step may go past the 1.3 auto cap.
+- Store an **adjustment step**, not an absolute zoom: an integer in `-3…+5`, each step ×1.1 on top of
+  the S-r7 fit. The same preference then works on iPhone, iPad, and split view.
+- Per viewport width `w`, the target zoom is:
+  - **Fixed-width email:** `max(0.5, min(auto(w) × 1.1^step, w / F, 2.0))`, where `auto` is the S-r7
+    fit and `F = designWidth + 2 × EmailFitZoom.horizontalGutter`. A manual step may pass the 1.3 auto
+    cap, but never the width that fills the pane: the web view doesn't scroll, so anything wider is
+    cut off and unreachable. The 0.5 floor still wins when an email is too wide even at 0.5.
+  - **Fluid email:** `clamp(1.1^step, 0.5, 2.0)` as a single unconditional rule. Its percentage
+    widths still fill the view at any zoom.
+- Generalize the S-r7 bands to take the step: `EmailFitZoom.bands(designWidth:adjustmentStep:)` and
+  `stylesheet(designWidth:adjustmentStep:)`, with step 0 producing exactly S-r7's output. The target
+  never decreases as the width grows, so bands keyed on 5% zoom steps stay valid. Each band starts
+  at the narrowest width that reaches its zoom, so none overflows. The ceiling lives in the
+  stylesheet per width. The stored step never changes with the pane, so a step clamped in a narrow
+  pane applies in full in a wider one.
+- Applying a step: regenerate the sanitized HTML with the new stylesheet and reload. Page JavaScript
+  stays off and there is no app-injected script. Keep the current `contentHeight` until the new
+  page reports its size, so the Reader doesn't jump to 44pt and back. The outer scroll position
+  should survive.
+- `larger()` does nothing when `bandedZoom` at the current web-view width (from S-r8) wouldn't rise
+  with the next step, so no hidden steps pile up. The menu's larger control is disabled there.
+  `smaller()` likewise stops at the floor.
 - Key: `GmailSeriesKey.seriesKey(forContentPieceID:in:)` (List-ID, else sender), so two
   publications from one sender stay distinct. Pieces without a series key get a session-only
   adjustment that isn't saved.
@@ -367,7 +409,7 @@ from that publisher opens at the same adjustment.
   This is a per-device display preference. It isn't synced, it isn't in SQLite, and it isn't
   Personal Knowledge or Stream Handling. Step 0 removes the key.
 - The reader model exposes the series key (fetched in Core, not in a view) and the
-  `larger()` / `smaller()` / `reset()` actions. The store applies the resulting zoom.
+  `larger()` / `smaller()` / `reset()` actions. The store applies the resulting stylesheet.
 - Controls:
   - ⌘+ / ⌘− / ⌘0 keyboard shortcuts while the Reader is visible.
   - A "Text Size" control in the Reader's ⋯ menu: smaller, larger, and "Fit" (reset). Show the
@@ -375,17 +417,33 @@ from that publisher opens at the same adjustment.
   - Pinch: a simultaneous `MagnifyGesture` on the web view that snaps to the nearest step when the
     gesture ends. If it fights WKWebView's own gestures on device, drop pinch and say so in the
     report. The keyboard shortcuts and menu are the required path.
-- S-r8's column follows the final zoom.
+- S-r8's column follows the stepped zoom: `EmailColumn` takes the step too.
 
-**Prove.** Step math and clamping. Adjusting persists under the series key and a new piece with the
-same key opens at that step. Two List-IDs from one sender don't share. Reset removes the key. A
-piece without a series key doesn't persist. The injected defaults are isolated per test.
+**Prove.**
+- Step 0 output is byte-identical to S-r7's.
+- Positive steps pass 1.3 but never exceed `w / F` or 2.0 at any width. Negative steps stop at 0.5.
+- Bands stay ascending, and none overflows.
+- A fluid email gets one rule at `1.1^step`.
+- `larger()` at the ceiling leaves the step unchanged.
+- Persistence:
+  - adjusting saves under the series key, and a new piece with the same key opens at that step;
+  - two List-IDs from one sender don't share;
+  - reset removes the key;
+  - a piece without a series key doesn't persist;
+  - the injected defaults are isolated per test.
 
-**Device-only risks (name them).** Pinch gesture conflicts. Keyboard shortcuts while focus is in the
-inline Tell Cockpit field (they must not steal ⌘+ from text editing if the system claims it).
+**Device-only risks (name them).**
+- The reload flicker when a step is applied, and whether the height and outer scroll position hold.
+- Pinch gesture conflicts.
+- Keyboard shortcuts while focus is in the inline Tell Cockpit field: they must not steal ⌘+ from
+  text editing if the system claims it.
 
 **Do not.** No per-piece persistence, no syncing, no learning a zoom from behaviour. It changes only
-when Jon explicitly adjusts it.
+when Jon explicitly adjusts it. No `pageZoom` and no app-injected JavaScript to swap the stylesheet.
 
-**Done when.** Jon bumps Feed Me up one step on iPad and the next Feed Me issue opens at that size.
-"Fit" returns it to auto, and a different newsletter from the same sender is unaffected.
+**Done when.**
+- Jon bumps Feed Me up one step on iPad and the next Feed Me issue opens at that size.
+- "Fit" returns it to auto.
+- A different newsletter from the same sender is unaffected.
+- On iPhone, pressing larger on a fixed-width email stops once the email fills the pane, and nothing
+  is cut off.
