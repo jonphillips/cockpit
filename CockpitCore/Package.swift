@@ -17,6 +17,7 @@ let package = Package(
     .package(path: "../../jon-platform/packages/CloudSyncKit"),
     .package(path: "../../jon-platform/packages/LLMClientKit"),
     .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.0.0"),
+    .package(url: "https://github.com/scinfu/SwiftSoup", from: "2.13.9"),
   ],
   targets: [
     .target(
@@ -27,6 +28,7 @@ let package = Package(
         .product(name: "LLMClientKit", package: "LLMClientKit"),
         .product(name: "SQLiteData", package: "sqlite-data"),
         .product(name: "StructuredQueries", package: "swift-structured-queries"),
+        .product(name: "SwiftSoup", package: "SwiftSoup"),
       ]
     ),
     .target(name: "JudgmentFixtureSupport"),

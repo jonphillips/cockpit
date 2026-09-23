@@ -15,6 +15,8 @@ enum TodayOriginalHTML {
   static func sanitizedForWebView(_ rawHTML: String) -> String {
     guard let document = try? SwiftSoup.parse(rawHTML) else { return rawHTML }
     _ = try? document.select("script").remove()
+    normalizeViewport(in: document)
+    appendFitZoom(to: document)
 
     for image in (try? document.select("img").array()) ?? [] {
       if isTrackingPixel(image) { try? image.remove() }
@@ -25,6 +27,36 @@ enum TodayOriginalHTML {
     }
     return (try? document.html()) ?? rawHTML
   }
+
+  private static func normalizeViewport(in document: SwiftSoup.Document) {
+    let viewportTags = (try? document.select("meta[name]").array()) ?? []
+    for meta in viewportTags where ((try? meta.attr("name")) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+      .caseInsensitiveCompare("viewport") == .orderedSame {
+      _ = try? meta.remove()
+    }
+
+    guard let viewport = try? document.createElement("meta") else { return }
+    _ = try? viewport.attr("name", "viewport")
+    _ = try? viewport.attr("content", "width=device-width, initial-scale=1")
+    if let head = document.head() {
+      _ = try? head.appendChild(viewport)
+    } else {
+      _ = try? document.prependChild(viewport)
+    }
+  }
+
+  /// Appended last in `<head>` so it follows the email's own head styles.
+  private static func appendFitZoom(to document: SwiftSoup.Document) {
+    guard let css = EmailFitZoom.stylesheet(designWidth: EmailDesignWidth.detect(in: document)),
+      let head = document.head(),
+      let style = try? document.createElement("style")
+    else { return }
+    _ = try? style.attr("id", fitZoomStyleID)
+    _ = try? style.html(css)
+    _ = try? head.appendChild(style)
+  }
+
+  static let fitZoomStyleID = "cockpit-email-fit"
 
   private static func isTrackingPixel(_ image: Element) -> Bool {
     let width = dimension(try? image.attr("width"))
@@ -88,6 +120,7 @@ final class TodayOriginalWebViewStore {
     configuration.processPool = Self.processPool
     configuration.websiteDataStore = .nonPersistent()
     configuration.defaultWebpagePreferences.allowsContentJavaScript = false
+    configuration.defaultWebpagePreferences.preferredContentMode = .mobile
 
     let webView = WKWebView(frame: .zero, configuration: configuration)
     let navigationCoordinator = TodayOriginalWebViewCoordinator()
