@@ -41,3 +41,54 @@ struct EmailFitTests {
     #expect(EmailFitZoom.zoom(designWidth: nil, availableWidth: 950) == 1.0)
   }
 }
+
+struct EmailFitBandTests {
+  @Test("Fluid email gets no bands and keeps its native scale")
+  func fluidEmail() {
+    #expect(EmailFitZoom.stylesheet(designWidth: nil) == nil)
+    #expect(EmailFitZoom.bandedZoom(designWidth: nil, viewportWidth: 952) == 1.0)
+  }
+
+  @Test("A 550px newsletter in a landscape iPad pane reaches the 1.3 cap")
+  func substackOnIPad() throws {
+    #expect(EmailFitZoom.bandedZoom(designWidth: 550, viewportWidth: 952) == 1.3)
+    let css = try #require(EmailFitZoom.stylesheet(designWidth: 550))
+    // 1.3 × (550 + 32) = 756.6, so the cap starts at 757px.
+    #expect(css.contains("@media (min-width: 757px) { html { zoom: 1.30; } }"))
+  }
+
+  @Test("A 600px email on iPhone shrinks to fit")
+  func tableOnIPhone() {
+    // The exact fit is 390 / 632 ≈ 0.617; the band below it applies.
+    #expect(EmailFitZoom.bandedZoom(designWidth: 600, viewportWidth: 390) == 0.6)
+  }
+
+  @Test("The floor band has no media query and the rest ascend")
+  func bandOrder() throws {
+    let bands = try #require(EmailFitZoom.bands(designWidth: 600))
+    #expect(bands.first == EmailFitZoom.Band(minimumViewportWidth: 0, zoom: 0.5))
+    #expect(bands.last?.zoom == EmailFitZoom.maximumZoom)
+    #expect(zip(bands, bands.dropFirst()).allSatisfy {
+      $0.minimumViewportWidth < $1.minimumViewportWidth && $0.zoom < $1.zoom
+    })
+    let css = try #require(EmailFitZoom.stylesheet(designWidth: 600))
+    #expect(css.hasPrefix("html { zoom: 0.50; }"))
+  }
+
+  @Test("At every width a band never overflows and trails the exact fit by under one step")
+  func bandsTrackExactFit() {
+    let step = 1 / Double(EmailFitZoom.bandsPerUnitZoom)
+    for designWidth in [320.0, 550, 600, 700, 1_000] {
+      let fittedWidth = designWidth + 2 * EmailFitZoom.horizontalGutter
+      for viewportWidth in stride(from: 300.0, through: 1_600, by: 7) {
+        let zoom = EmailFitZoom.bandedZoom(designWidth: designWidth, viewportWidth: viewportWidth)
+        let exact = EmailFitZoom.zoom(designWidth: designWidth, availableWidth: viewportWidth)
+        #expect(zoom <= exact + 1e-9)
+        #expect(exact - zoom < step + 1e-9)
+        if viewportWidth >= fittedWidth * EmailFitZoom.minimumZoom {
+          #expect(fittedWidth * zoom <= viewportWidth + 1e-9)
+        }
+      }
+    }
+  }
+}

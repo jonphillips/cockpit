@@ -1,4 +1,5 @@
 @testable import Cockpit
+import SwiftSoup
 import Testing
 
 struct TodayOriginalReaderTests {
@@ -41,5 +42,26 @@ struct TodayOriginalReaderTests {
 
     #expect(sanitized.lowercased().components(separatedBy: "name=\"viewport\"").count - 1 == 1)
     #expect(sanitized.contains("width=device-width, initial-scale=1"))
+  }
+
+  @Test("A fixed-width email gets the fit-zoom stylesheet last in the head")
+  func appendsFitZoomForFixedWidth() throws {
+    let sanitized = TodayOriginalHTML.sanitizedForWebView("""
+      <html><head><style>p { color: black; }</style></head>
+      <body><table width="600"><tr><td><p>Newsletter body</p></td></tr></table></body></html>
+      """)
+    let document = try SwiftSoup.parse(sanitized)
+    let lastInHead = try #require(document.head()?.children().last())
+
+    #expect(lastInHead.id() == TodayOriginalHTML.fitZoomStyleID)
+    #expect(try lastInHead.html().contains("html { zoom: 0.50; }"))
+  }
+
+  @Test("A fluid email gets no fit-zoom stylesheet")
+  func skipsFitZoomForFluidEmail() {
+    let sanitized = TodayOriginalHTML.sanitizedForWebView(
+      "<html><body><table width='100%'><tr><td><p>Newsletter body</p></td></tr></table></body></html>")
+
+    #expect(!sanitized.contains(TodayOriginalHTML.fitZoomStyleID))
   }
 }

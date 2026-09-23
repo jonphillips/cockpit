@@ -35,9 +35,6 @@ struct ReaderBodyView: View {
       TodayOriginalWebView(webView: originalWebViewStore.webView)
         .frame(height: originalWebViewStore.contentHeight)
         .clipShape(.rect(cornerRadius: 12))
-        .onGeometryChange(for: CGFloat.self) { proxy in proxy.size.width } action: { width in
-          originalWebViewStore.setAvailableWidth(width)
-        }
         .onAppear { originalWebViewStore.load(rawHTML: rawHTML) }
         .onChange(of: rawHTML) { _, newValue in
           originalWebViewStore.load(rawHTML: newValue)
