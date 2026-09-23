@@ -105,9 +105,10 @@ struct GmailDispositionPolicyTests {
   }
 
   @MainActor
-  @Test("Reader confirmation applies the enabled offer policy and records Undo")
+  @Test("Reader confirmation reports policy match for queue Trash and Undo")
   func confirmingFindAppliesEnabledPolicy() async throws {
     let pieceID = try await seedOffer(id: "confirm-applies", state: .pending)
+    _ = try await seedGmailMessage(id: "confirm-applies-adjacent")
     let findID = try await database.read { db in
       try PendingFind.where { $0.contentPieceID.eq(pieceID) }.fetchOne(db)?.id
     }
@@ -123,9 +124,23 @@ struct GmailDispositionPolicyTests {
       try await model.$content.load()
       try await model.$pendingFindContent.load()
       #expect(model.pendingFind?.id == findID)
-      await model.confirmPendingFind()
+      let shouldTrash = await model.confirmPendingFind()
+      #expect(shouldTrash)
       #expect(model.pendingFind == nil)
       #expect(model.errorMessage == nil)
+
+      // Confirmation establishes eligibility only. The queue owns the provider action, Undo, and
+      // selection advance, matching Archive/Trash from the toolbar.
+      #expect(log.calls.isEmpty)
+      let queue = TodayReadingQueueModel()
+      try await queue.$content.load()
+      let row = try #require(queue.rows.first { $0.id == pieceID })
+      let expectedNext = try #require(ReadingQueueSelection.neighbour(of: pieceID, in: queue.rows))
+      queue.selectedContentPieceID = pieceID
+      await queue.trash(row)
+      #expect(queue.selectedContentPieceID == expectedNext)
+      #expect(queue.lastDisposition?.contentPieceID == pieceID)
+      #expect(!queue.rows.contains { $0.id == pieceID })
     }
     let entries = try await database.read { db in try GmailDispositionLogEntry.fetchAll(db) }
     expectNoDifference(log.calls, ["trash:confirm-applies"])

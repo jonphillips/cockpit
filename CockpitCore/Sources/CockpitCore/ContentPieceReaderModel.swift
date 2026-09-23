@@ -46,6 +46,13 @@ public final class ContentPieceReaderModel {
   public var row: ContentPieceReaderRequest.Row? { content.row }
   public var readerTaughtClaim: PersonalKnowledgeRequest.Row? { readerTeaching.claim }
   public var matchedClaim: PersonalKnowledgeRequest.Row? { matchedPersonalKnowledge.claim }
+
+  public var bodyPresentation: ReaderBodyPresentation { readerBodyPresentation(for: row) }
+
+  /// In V1 an email ContentPiece is a Gmail message, so the Reader offers a source disposition only
+  /// for these. Other transports have no provider disposition yet.
+  public var isGmailSource: Bool { row?.kind == .email }
+
   public func saveForLater() async {
     guard let id = row?.id else { return }
     let date = now

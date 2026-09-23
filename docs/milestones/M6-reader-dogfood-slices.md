@@ -242,7 +242,8 @@ does not downgrade confirmed or dismissed state. Confirmation trashes exactly th
 Undo entry only when the policy is enabled. Full ingest with a model-proposed Find disposes nothing.
 
 **Device-only risks (name them).** An older device build may fail to decode the synced `confirmed` raw
-value in PendingFind. Jon still needs to check the Reader proposal card on device.
+value in PendingFind, and its upsert may reset that state to `pending` when it re-proposes the Find.
+Jon still needs to check the Reader proposal card on device.
 
 **Done when.** Offer Trash requires a Find Jon confirmed, and the UI exposes explicit Save / Not This
 decisions without views accessing the database.

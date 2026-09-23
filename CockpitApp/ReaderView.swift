@@ -37,7 +37,13 @@ struct ReaderView: View {
           if let find = model.pendingFind {
             PendingFindProposalCard(
               find: find,
-              save: { Task { await model.confirmPendingFind() } },
+              save: {
+                Task {
+                  guard await model.confirmPendingFind() else { return }
+                  if let queueContext { await queueContext.trash() }
+                  else { await model.trashSource() }
+                }
+              },
               dismiss: { Task { await model.dismissPendingFind() } }
             )
           }

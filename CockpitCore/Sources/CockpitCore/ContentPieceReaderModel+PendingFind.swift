@@ -6,26 +6,23 @@ extension ContentPieceReaderModel {
     row?.emailTreatment == .offer ? pendingFindContent.find : nil
   }
 
-  public var bodyPresentation: ReaderBodyPresentation { readerBodyPresentation(for: row) }
-
-  /// In V1 an email ContentPiece is a Gmail message, so the Reader offers a source disposition only
-  /// for these. Other transports have no provider disposition yet.
-  public var isGmailSource: Bool { row?.kind == .email }
-
   /// Explicitly confirms the Reader's proposal. If the established offer policy is enabled, it is
-  /// immediately re-evaluated for this piece through the shared disposition/Undo path.
-  public func confirmPendingFind() async {
-    guard let find = pendingFind else { return }
-    let dispositionDate = now
+  /// now eligible, leaving the surface to perform the appropriate disposition action.
+  public func confirmPendingFind() async -> Bool {
+    guard let find = pendingFind else { return false }
     do {
       try await database.write { db in try PendingFindOperations.confirm(find.id, in: db) }
       try await $pendingFindContent.load()
-      _ = try await GmailDispositionPolicyService(client: dispositionClient, now: { dispositionDate })
-        .applyEnabledPolicies(forContentPieceID: find.contentPieceID, in: database)
+      let matches = try await database.read { db in
+        try GmailDispositionPolicyOperations.matchingPieceIDs(in: db).contains(find.contentPieceID)
+      }
       errorMessage = nil
+      return matches
     } catch is CancellationError {
+      return false
     } catch {
       errorMessage = error.localizedDescription
+      return false
     }
   }
 
