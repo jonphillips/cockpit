@@ -87,3 +87,47 @@ public enum EmailFitZoom {
     return min(maximumZoom, max(minimumZoom, availableWidth / fittedWidth))
   }
 }
+
+/// The width an email is fitted to: the statically detected column, widened by any overflow the
+/// rendered page reveals. Stylesheet rules, deep nesting, or fixed images can make the page wider
+/// than the detected column; the web view does not scroll, so that overflow would be unreachable.
+public struct EmailFitWidth: Equatable, Sendable {
+  /// Sub-point differences are layout rounding, not overflow.
+  public static let overflowTolerance = 1.0
+
+  public let detected: Double?
+  public private(set) var measured: Double?
+  private var staleContentWidth: Double?
+
+  public init(detected: Double?) {
+    self.detected = detected
+  }
+
+  public var designWidth: Double? {
+    [detected, measured].compactMap(\.self).max()
+  }
+
+  /// Call before a zoom or view-width change. Until the page lays out again, the rendered width
+  /// still reflects the old layout, and reading it against the new zoom or a narrower view would
+  /// look like overflow. Because the fit width only widens, that misreading would stick.
+  public mutating func expectRelayout(fromContentWidth contentWidth: Double) {
+    staleContentWidth = contentWidth
+  }
+
+  /// Records a rendered page, in points at `zoom`. Returns true when the fit width grew. The width
+  /// only widens within one email, so a correction cannot oscillate: at the 0.5 floor a still-wide
+  /// page measures the same and stops.
+  public mutating func recordRendered(contentWidth: Double, viewWidth: Double, zoom: Double) -> Bool {
+    if let staleContentWidth {
+      guard abs(contentWidth - staleContentWidth) > Self.overflowTolerance else { return false }
+      self.staleContentWidth = nil
+    }
+    guard contentWidth.isFinite, viewWidth > 0, zoom > 0,
+      contentWidth > viewWidth + Self.overflowTolerance
+    else { return false }
+    let pageWidth = contentWidth / zoom
+    guard pageWidth > (measured ?? 0) else { return false }
+    measured = pageWidth
+    return true
+  }
+}
