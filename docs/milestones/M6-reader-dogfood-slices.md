@@ -364,7 +364,12 @@ same leading edge.
 
 **Device-only risks (name them).** Alignment is to the email's outer container. Some emails pad their
 content inward, so the text edge may sit a little inside the header edge. Jon judges whether that's
-acceptable. No further heuristics in this slice.
+acceptable. No further heuristics in this slice. Checked on iPad 2026-09-23 (#76): the header sits on
+the email's column edge. Still to see: a fixed-width email whose outer container isn't centered (a
+`<table width="600">` with no `align="center"` or `margin: auto`). It sits at the leading edge, so the
+centered header is off by about half the leftover width, not a small inset. If that turns up often,
+it's a small follow-up: detect whether the email centers itself, and don't center the column when it
+doesn't.
 
 **Do not.** Don't restyle the header's type or change Reader chrome. Don't touch the web view's own
 margins.
