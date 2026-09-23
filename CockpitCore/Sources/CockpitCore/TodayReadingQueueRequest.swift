@@ -56,7 +56,7 @@ extension TodayReadingQueueRequest {
 
     public var sourceLabel: String {
       if let streamName, !streamName.isEmpty { return streamName }
-      return publisher
+      return SenderDisplayName.make(from: publisher)
     }
   }
 }
@@ -148,9 +148,11 @@ extension TodayReadingQueueRequest {
       publisher: piece.publisher,
       summary: piece.summary,
       role: routedRole ?? editionRole(for: editionEntry?.section),
-      arrivedAt: piece.publishedAt
-        ?? pieceArtifacts.map(\.acquiredAt).max()
-        ?? piece.createdAt,
+      arrivedAt: ReceivedDate.resolve(
+        publishedAt: piece.publishedAt,
+        artifactAcquiredAt: pieceArtifacts.map(\.acquiredAt).max(),
+        createdAt: piece.createdAt
+      ),
       isGmailSource: isGmailSource,
       isFollowedStreamPiece: followedStream,
       streamID: streamID,

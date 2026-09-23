@@ -23,6 +23,9 @@ struct TodayReadingQueueRow: View {
       Text(row.sourceLabel)
         .font(.subheadline)
         .foregroundStyle(.secondary)
+      Text(row.arrivedAt, format: .dateTime.month().day().hour().minute())
+        .font(.caption)
+        .foregroundStyle(.tertiary)
       if let summary = row.summary, !summary.isEmpty {
         Text(summary)
           .font(.caption)

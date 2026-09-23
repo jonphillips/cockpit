@@ -10,7 +10,7 @@ touch `ReaderView.swift`).
 
 - [x] S-r1 — Queue flow: disposed issues leave the queue, advance to next, Undo
 - [ ] S-r2 — Reader chrome: actions in the toolbar, inline Tell Cockpit, Delete archives
-- [ ] S-r3 — Reader facts: sender names, received dates, links open in Safari
+- [x] S-r3 — Reader facts: sender names, received dates, links open in Safari
 - [ ] S-r4 — Sync on open/foreground (throttled)
 - [ ] S-r5 — Plain-text reply in thread (DECISIONS §26)
 

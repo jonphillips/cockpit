@@ -1,5 +1,7 @@
+import CockpitCore
 import SwiftSoup
 import SwiftUI
+import UIKit
 import WebKit
 
 enum TodayOriginalReaderConfiguration {
@@ -112,11 +114,16 @@ private final class TodayOriginalWebViewCoordinator: NSObject, WKNavigationDeleg
     decidePolicyFor navigationAction: WKNavigationAction,
     decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
   ) {
-    // loadHTMLString uses .other. Once that navigation is admitted, every link tap is canceled;
-    // email HTML is untrusted content and must not navigate the app or browser.
+    // loadHTMLString uses .other. Once it is admitted, only a user tap on an approved external
+    // scheme may leave the app; the web view itself never follows links.
     let isInitialLoad = allowNextInitialLoad && navigationAction.navigationType == .other
     allowNextInitialLoad = false
-    decisionHandler(isInitialLoad ? .allow : .cancel)
+    if isInitialLoad {
+      decisionHandler(.allow)
+    } else {
+      openExternally(navigationAction.request.url, isUserActivated: navigationAction.navigationType == .linkActivated)
+      decisionHandler(.cancel)
+    }
   }
 
   func webView(
@@ -125,7 +132,13 @@ private final class TodayOriginalWebViewCoordinator: NSObject, WKNavigationDeleg
     for navigationAction: WKNavigationAction,
     windowFeatures: WKWindowFeatures
   ) -> WKWebView? {
-    nil
+    openExternally(navigationAction.request.url, isUserActivated: navigationAction.navigationType == .linkActivated)
+    return nil
+  }
+
+  private func openExternally(_ url: URL?, isUserActivated: Bool) {
+    guard let url = EmailLinkPolicy.externalURL(for: url, isUserActivated: isUserActivated) else { return }
+    UIApplication.shared.open(url)
   }
 }
 
