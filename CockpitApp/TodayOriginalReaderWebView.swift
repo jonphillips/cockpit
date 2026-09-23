@@ -100,11 +100,9 @@ final class TodayOriginalWebViewStore {
   @ObservationIgnored let webView: WKWebView
 
   private(set) var contentHeight: CGFloat = 44
-  @ObservationIgnored private var fitWidth = EmailFitWidth(detected: nil)
+  @ObservationIgnored private var emailDesignWidth: Double?
   @ObservationIgnored private var availableWidth: CGFloat?
   @ObservationIgnored private var lastAppliedZoom: Double?
-  @ObservationIgnored private var currentNavigation: WKNavigation?
-  @ObservationIgnored private var hasCommittedCurrentEmail = false
 
   init() {
     let configuration = WKWebViewConfiguration()
@@ -123,13 +121,11 @@ final class TodayOriginalWebViewStore {
 
     self.webView = webView
     self.navigationCoordinator = navigationCoordinator
-    navigationCoordinator.didCommit = { [weak self] navigation in self?.didCommit(navigation) }
     contentSizeObservation = webView.scrollView.observe(\.contentSize, options: [.initial, .new]) {
       [weak self] _, _ in
       Task { @MainActor [weak self] in
         guard let self else { return }
         self.contentHeight = max(44, self.webView.scrollView.contentSize.height)
-        self.measureRenderedWidth()
       }
     }
   }
@@ -137,8 +133,7 @@ final class TodayOriginalWebViewStore {
   func load(rawHTML: String) {
     let sanitizedHTML = TodayOriginalHTML.sanitizedForWebView(rawHTML)
     guard loadedHTML != sanitizedHTML else { return }
-    fitWidth = EmailFitWidth(detected: EmailDesignWidth.detect(html: rawHTML))
-    hasCommittedCurrentEmail = false
+    emailDesignWidth = EmailDesignWidth.detect(html: rawHTML)
     lastAppliedZoom = nil
     webView.pageZoom = 1.0
     applyFitZoomIfNeeded()
@@ -147,53 +142,27 @@ final class TodayOriginalWebViewStore {
     contentHeight = 44
     navigationCoordinator.allowNextInitialLoad = true
     loadedHTML = sanitizedHTML
-    currentNavigation = webView.loadHTMLString(sanitizedHTML, baseURL: nil)
+    webView.loadHTMLString(sanitizedHTML, baseURL: nil)
   }
 
   func setAvailableWidth(_ width: CGFloat) {
     guard width.isFinite, width > 0, availableWidth != width else { return }
     availableWidth = width
-    fitWidth.expectRelayout(fromContentWidth: Double(webView.scrollView.contentSize.width))
     applyFitZoomIfNeeded()
   }
 
   private func applyFitZoomIfNeeded() {
     guard let availableWidth else { return }
-    let zoom = EmailFitZoom.zoom(designWidth: fitWidth.designWidth, availableWidth: Double(availableWidth))
+    let zoom = EmailFitZoom.zoom(designWidth: emailDesignWidth, availableWidth: Double(availableWidth))
     guard lastAppliedZoom != zoom else { return }
     lastAppliedZoom = zoom
-    fitWidth.expectRelayout(fromContentWidth: Double(webView.scrollView.contentSize.width))
     webView.pageZoom = zoom
-  }
-
-  /// Until the new email commits, content-size changes still describe the previous page.
-  private func didCommit(_ navigation: WKNavigation?) {
-    guard let navigation, navigation === currentNavigation else { return }
-    hasCommittedCurrentEmail = true
-    measureRenderedWidth()
-  }
-
-  /// Static detection misses stylesheet rules, deep nesting, and fixed images. The web view does
-  /// not scroll, so a page laid out wider than the view is refitted from its rendered width.
-  private func measureRenderedWidth() {
-    guard hasCommittedCurrentEmail else { return }
-    let scrollView = webView.scrollView
-    let grew = fitWidth.recordRendered(
-      contentWidth: Double(scrollView.contentSize.width),
-      viewWidth: Double(scrollView.bounds.width),
-      zoom: Double(webView.pageZoom))
-    if grew { applyFitZoomIfNeeded() }
   }
 }
 
 @MainActor
 private final class TodayOriginalWebViewCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
   var allowNextInitialLoad = false
-  var didCommit: ((WKNavigation?) -> Void)?
-
-  func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-    didCommit?(navigation)
-  }
 
   func webView(
     _ webView: WKWebView,
