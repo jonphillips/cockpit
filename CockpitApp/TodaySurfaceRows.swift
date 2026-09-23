@@ -91,7 +91,7 @@ struct TodayRowView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
       Text(row.title).font(emphasis ? .title3.weight(.semibold) : .headline)
-      Text(row.publisher).font(.subheadline).foregroundStyle(.secondary)
+      Text(row.sender).font(.subheadline).foregroundStyle(.secondary)
       if let treatmentSummary = row.treatmentSummary {
         Text(treatmentSummary).font(.subheadline).foregroundStyle(.primary).lineLimit(2)
       }
@@ -193,6 +193,7 @@ struct TodayRoleSectionListView: View {
             Text(role.displayName)
               .font(.caption)
               .foregroundStyle(.tertiary)
+            receivedDate(group.representative.arrivedAt)
           }
           Spacer()
           Image(systemName: "chevron.right")
@@ -220,6 +221,7 @@ struct TodayRoleSectionListView: View {
                 : group.representative.title)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+              receivedDate(group.representative.arrivedAt)
             }
             Spacer()
             Image(systemName: "chevron.right").foregroundStyle(.secondary)
@@ -274,6 +276,12 @@ struct TodayRoleSectionListView: View {
       Image(systemName: "ellipsis.circle").foregroundStyle(.secondary).padding(.top, 8)
     }
     .accessibilityLabel("\(group.label) actions")
+  }
+
+  private func receivedDate(_ date: Date) -> some View {
+    Text(date, format: .dateTime.month().day().hour().minute())
+      .font(.caption)
+      .foregroundStyle(.tertiary)
   }
 
   private func emailRow(_ row: TodayRequest.Row) -> some View {

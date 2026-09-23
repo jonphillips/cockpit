@@ -11,6 +11,8 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
     let title: String
     let creator: String?
     let publisher: String
+    let publishedAt: Date?
+    let createdAt: Date
     let summary: String?
     let canonicalURL: String?
     let isSubstantivePrimary: Bool?
@@ -30,6 +32,7 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
     public let title: String
     public let creator: String?
     public let publisher: String
+    public let receivedAt: Date
     public let summary: String?
     public let canonicalURL: String?
     public let isSubstantivePrimary: Bool?
@@ -46,12 +49,13 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
     public let laterAddedAt: Date?
     public let libraryAddedAt: Date?
 
-    init(base: BaseRow, rawSourceText: String?) {
+    init(base: BaseRow, rawSourceText: String?, receivedAt: Date) {
       id = base.id
       kind = base.kind
       title = base.title
       creator = base.creator
       publisher = base.publisher
+      self.receivedAt = receivedAt
       summary = base.summary
       canonicalURL = base.canonicalURL
       isSubstantivePrimary = base.isSubstantivePrimary
@@ -65,7 +69,7 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
       libraryAddedAt = base.libraryAddedAt
     }
 
-    public var sender: String { creator ?? publisher }
+    public var sender: String { SenderDisplayName.make(from: creator ?? publisher) }
   }
 
   public struct Value: Equatable, Sendable {
@@ -90,6 +94,7 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
       .select {
         BaseRow.Columns(
           id: $0.id, kind: $0.kind, title: $0.title, creator: $0.creator, publisher: $0.publisher,
+          publishedAt: $0.publishedAt, createdAt: $0.createdAt,
           summary: $0.summary,
           canonicalURL: $0.canonicalURL, isSubstantivePrimary: $0.isSubstantivePrimary,
           bodyCompleteness: $0.bodyCompleteness, emailTreatment: $0.emailTreatment,
@@ -101,13 +106,19 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
       .fetchOne(db)
     guard let base else { return value }
 
-    let rawSourceText = try Artifact
+    let artifacts = try Artifact
       .where { $0.contentPieceID.eq(contentPieceID) }
       .order { $0.acquiredAt.desc() }
       .fetchAll(db)
+    let rawSourceText = artifacts
       .compactMap(\.rawSourceText)
       .first
-    value.row = Row(base: base, rawSourceText: rawSourceText)
+    let receivedAt = ReceivedDate.resolve(
+      publishedAt: base.publishedAt,
+      artifactAcquiredAt: artifacts.map(\.acquiredAt).max(),
+      createdAt: base.createdAt
+    )
+    value.row = Row(base: base, rawSourceText: rawSourceText, receivedAt: receivedAt)
     return value
   }
 }

@@ -20,8 +20,10 @@ public struct TodayRequest: FetchKeyRequest {
     public let publishedAt: Date?
     public let acquiredAt: Date
 
-    public var arrivedAt: Date { publishedAt ?? acquiredAt }
-    public var sender: String { creator ?? publisher }
+    public var arrivedAt: Date {
+      ReceivedDate.resolve(publishedAt: publishedAt, artifactAcquiredAt: acquiredAt, createdAt: acquiredAt)
+    }
+    public var sender: String { SenderDisplayName.make(from: creator ?? publisher) }
 
     public var grabBagItems: [GrabBagItem] {
       guard let grabBagItemsJSON,

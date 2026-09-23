@@ -169,9 +169,7 @@ private extension TodayModel {
   }
 
   func offerGroupLabel(for publisher: String) -> String {
-    let label = publisher
-      .split(separator: "<", maxSplits: 1, omittingEmptySubsequences: true)[0]
-      .trimmingCharacters(in: .whitespacesAndNewlines)
+    let label = SenderDisplayName.make(from: publisher)
     return label.isEmpty ? "Offers" : label
   }
 }

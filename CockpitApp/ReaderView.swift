@@ -193,7 +193,10 @@ private struct ReaderHeader: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
       Text(row.title).font(.title2).bold()
-      Text(row.publisher).foregroundStyle(.secondary)
+      Text(row.sender).foregroundStyle(.secondary)
+      Text(ReceivedAgeLabel.text(received: row.receivedAt, now: .now))
+        .font(.caption)
+        .foregroundStyle(.secondary)
       OfflineAvailabilityStatus(presentation: offlinePresentation)
     }
   }
