@@ -158,7 +158,7 @@ struct EditionTests {
       try Artifact.insert {
         Artifact.Draft(
           Artifact(
-            id: UUID(8000 + (id.hashValue & 0xFFF)), streamID: streamID, transport: .rss,
+            id: id.seededArtifactID, streamID: streamID, transport: .rss,
             acquiredAt: createdAt, contentPieceID: id))
       }.execute(db)
       try NormalizedTextOperations.store("A concrete original article body.", for: id, in: db)

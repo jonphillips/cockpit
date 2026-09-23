@@ -178,7 +178,7 @@ struct EmailTreatmentProcessorTests {
       }.execute(db)
       try Artifact.insert {
         Artifact.Draft(
-          id: UUID(id.hashValue), transport: .gmail, providerID: "gmail:message:\(id.uuidString)",
+          id: id.seededArtifactID, transport: .gmail, providerID: "gmail:message:\(id.uuidString)",
           acquiredAt: .distantPast, rawSourceText: text, providerProvenance: "{}", contentPieceID: id)
       }.execute(db)
       try NormalizedTextOperations.store(text, for: id, in: db)
