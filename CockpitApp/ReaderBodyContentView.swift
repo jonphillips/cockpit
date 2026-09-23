@@ -5,7 +5,7 @@ extension View {
   @ViewBuilder
   func readerEmailColumn(width: CGFloat?) -> some View {
     if let width {
-      frame(maxWidth: width)
+      frame(maxWidth: width, alignment: .leading)
         .frame(maxWidth: .infinity)
     } else {
       self
