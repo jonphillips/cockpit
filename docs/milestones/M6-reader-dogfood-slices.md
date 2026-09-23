@@ -22,7 +22,7 @@ order: S-r9's controls rely on the web-view width S-r8 adds.
 - [x] S-r6 — Confirmed-Find barrier for offer disposition (DECISIONS §24 amendment, 2026-09-23)
 - [x] S-r7 — Email fit: capped fit-to-column zoom
 - [x] S-r8 — Reader column: header aligns with the email
-- [ ] S-r9 — Per-publisher zoom: adjust once, remembered per series
+- [x] S-r9 — Per-publisher zoom: adjust once, remembered per series
 
 ## Standing rules for every slice
 

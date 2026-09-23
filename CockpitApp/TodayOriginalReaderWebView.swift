@@ -17,14 +17,14 @@ enum TodayOriginalHTML {
     let designWidth: Double?
   }
 
-  static func sanitizedForWebView(_ rawHTML: String) -> SanitizedHTML {
+  static func sanitizedForWebView(_ rawHTML: String, adjustmentStep: Int = 0) -> SanitizedHTML {
     guard let document = try? SwiftSoup.parse(rawHTML) else {
       return SanitizedHTML(html: rawHTML, designWidth: nil)
     }
     _ = try? document.select("script").remove()
     normalizeViewport(in: document)
     let designWidth = EmailDesignWidth.detect(in: document)
-    appendFitZoom(to: document, designWidth: designWidth)
+    appendFitZoom(to: document, designWidth: designWidth, adjustmentStep: adjustmentStep)
 
     for image in (try? document.select("img").array()) ?? [] {
       if isTrackingPixel(image) { try? image.remove() }
@@ -54,8 +54,8 @@ enum TodayOriginalHTML {
   }
 
   /// Appended last in `<head>` so it follows the email's own head styles.
-  private static func appendFitZoom(to document: SwiftSoup.Document, designWidth: Double?) {
-    guard let css = EmailFitZoom.stylesheet(designWidth: designWidth),
+  private static func appendFitZoom(to document: SwiftSoup.Document, designWidth: Double?, adjustmentStep: Int) {
+    guard let css = EmailFitZoom.stylesheet(designWidth: designWidth, adjustmentStep: adjustmentStep),
       let head = document.head(),
       let style = try? document.createElement("style")
     else { return }
@@ -118,6 +118,8 @@ final class TodayOriginalWebViewStore {
   private static let processPool = WKProcessPool()
   @ObservationIgnored private var contentSizeObservation: NSKeyValueObservation?
   @ObservationIgnored private var loadedHTML: String?
+  @ObservationIgnored private var loadedRawHTML: String?
+  @ObservationIgnored private var loadedAdjustmentStep = 0
   @ObservationIgnored private let navigationCoordinator: TodayOriginalWebViewCoordinator
   @ObservationIgnored let webView: WKWebView
 
@@ -151,15 +153,20 @@ final class TodayOriginalWebViewStore {
     }
   }
 
-  func load(rawHTML: String) {
-    let sanitized = TodayOriginalHTML.sanitizedForWebView(rawHTML)
+  func load(rawHTML: String, adjustmentStep: Int = 0) {
+    let sanitized = TodayOriginalHTML.sanitizedForWebView(rawHTML, adjustmentStep: adjustmentStep)
     designWidth = sanitized.designWidth
     guard loadedHTML != sanitized.html else { return }
+    let isSameMessageAdjustment = loadedRawHTML == rawHTML && loadedAdjustmentStep != adjustmentStep
     webView.stopLoading()
-    webView.scrollView.setContentOffset(.zero, animated: false)
-    contentHeight = 44
+    if !isSameMessageAdjustment {
+      webView.scrollView.setContentOffset(.zero, animated: false)
+      contentHeight = 44
+    }
     navigationCoordinator.allowNextInitialLoad = true
     loadedHTML = sanitized.html
+    loadedRawHTML = rawHTML
+    loadedAdjustmentStep = adjustmentStep
     webView.loadHTMLString(sanitized.html, baseURL: nil)
   }
 

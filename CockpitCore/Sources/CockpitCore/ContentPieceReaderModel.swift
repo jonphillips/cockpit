@@ -14,6 +14,7 @@ public final class ContentPieceReaderModel {
   @ObservationIgnored @Dependency(\.modelClient) private var modelClient
   @ObservationIgnored @Dependency(\.apiKeyStore) private var apiKeyStore
   @ObservationIgnored @Dependency(\.frontierPreferenceStore) private var preferenceStore
+  @ObservationIgnored @Dependency(\.emailZoomPreferenceStore) var emailZoomPreferenceStore
   @ObservationIgnored @Dependency(\.gmailDispositionClient) var dispositionClient
   @ObservationIgnored @Dependency(\.uuid) private var uuid
   @ObservationIgnored @Fetch public var content = ContentPieceReaderRequest.Value()
@@ -26,6 +27,8 @@ public final class ContentPieceReaderModel {
   public var teachingStage: ReaderTeachingStage?
   public var isReviewingTeaching = false
   public var teachingProviderDescription: String?
+  public internal(set) var emailSeriesKey: String?
+  public internal(set) var emailZoomAdjustmentStep = 0
 
   public init(
     contentPieceID: ContentPiece.ID,
@@ -52,25 +55,6 @@ public final class ContentPieceReaderModel {
   /// In V1 an email ContentPiece is a Gmail message, so the Reader offers a source disposition only
   /// for these. Other transports have no provider disposition yet.
   public var isGmailSource: Bool { row?.kind == .email }
-
-  public func saveForLater() async {
-    guard let id = row?.id else { return }
-    let date = now
-    await run { try DestinationOperations.saveForLater(id, at: date, in: $0) }
-  }
-
-  public func addToLibrary() async {
-    guard let id = row?.id else { return }
-    let date = now
-    await run { try DestinationOperations.addToLibrary(id, at: date, in: $0) }
-  }
-
-  public func correctIsSubstantivePrimary(to value: Bool) async {
-    guard let id = row?.id else { return }
-    await run {
-      try ContentPiece.find(id).update { $0.isSubstantivePrimary = #bind(value) }.execute($0)
-    }
-  }
 
   /// The Reader collects teaching inline. Submitting asks the model for a narrow proposal, but the
   /// proposal remains non-canonical until `saveTeachingButtonTapped` receives explicit confirmation.

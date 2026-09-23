@@ -40,6 +40,8 @@ struct ReaderBodyView: View {
   let canonicalURL: String?
   let openURL: OpenURLAction
   let originalWebViewStore: TodayOriginalWebViewStore
+  let zoomAdjustmentStep: Int
+  let magnify: (CGFloat) -> Void
 
   var body: some View {
     switch presentation {
@@ -51,9 +53,15 @@ struct ReaderBodyView: View {
         .onGeometryChange(for: CGFloat.self) { proxy in proxy.size.width } action: {
           originalWebViewStore.reportViewportWidth($0)
         }
-        .onAppear { originalWebViewStore.load(rawHTML: rawHTML) }
+        .simultaneousGesture(
+          MagnifyGesture().onEnded { value in magnify(value.magnification) }
+        )
+        .onAppear { originalWebViewStore.load(rawHTML: rawHTML, adjustmentStep: zoomAdjustmentStep) }
         .onChange(of: rawHTML) { _, newValue in
-          originalWebViewStore.load(rawHTML: newValue)
+          originalWebViewStore.load(rawHTML: newValue, adjustmentStep: zoomAdjustmentStep)
+        }
+        .onChange(of: zoomAdjustmentStep) { _, newValue in
+          originalWebViewStore.load(rawHTML: rawHTML, adjustmentStep: newValue)
         }
 
     case let .inline(text, isTruncated):

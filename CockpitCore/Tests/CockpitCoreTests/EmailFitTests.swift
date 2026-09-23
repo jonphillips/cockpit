@@ -91,6 +91,50 @@ struct EmailFitBandTests {
       }
     }
   }
+
+  @Test("Step zero preserves the auto-fit stylesheet and fluid steps use one rule")
+  func adjustmentBaselineAndFluidRule() throws {
+    #expect(EmailFitZoom.stylesheet(designWidth: 550, adjustmentStep: 0)
+      == EmailFitZoom.stylesheet(designWidth: 550))
+    #expect(EmailFitZoom.stylesheet(designWidth: nil, adjustmentStep: 0) == nil)
+    #expect(EmailFitZoom.stylesheet(designWidth: nil, adjustmentStep: 1) == "html { zoom: 1.10; }")
+    #expect(EmailFitZoom.stylesheet(designWidth: nil, adjustmentStep: -3) == "html { zoom: 0.75; }")
+  }
+
+  @Test("Adjusted fixed email zoom stays in ascending bands, fills but does not pass the pane")
+  func adjustedBandsRespectWidthCeiling() throws {
+    for designWidth in [320.0, 550, 600, 1_000] {
+      for adjustmentStep in -3...5 {
+        let bands = try #require(EmailFitZoom.bands(
+          designWidth: designWidth, adjustmentStep: adjustmentStep
+        ))
+        #expect(zip(bands, bands.dropFirst()).allSatisfy {
+          $0.minimumViewportWidth < $1.minimumViewportWidth && $0.zoom < $1.zoom
+        })
+        for viewportWidth in stride(from: 300.0, through: 1_600, by: 11) {
+          let zoom = EmailFitZoom.bandedZoom(
+            designWidth: designWidth, viewportWidth: viewportWidth, adjustmentStep: adjustmentStep
+          )
+          let exact = EmailFitZoom.zoom(
+            designWidth: designWidth, availableWidth: viewportWidth, adjustmentStep: adjustmentStep
+          )
+          #expect(zoom <= exact + 1e-9)
+          #expect((EmailFitZoom.horizontalGutter * 2 + designWidth) * zoom <= viewportWidth + 1e-9
+            || zoom == EmailFitZoom.minimumZoom)
+          #expect(zoom <= EmailFitZoom.maximumAdjustmentZoom)
+        }
+      }
+    }
+  }
+
+  @Test("A positive step can pass the auto-fit cap and manual steps stop at the viewport ceiling")
+  func positiveAdjustmentAndCeiling() {
+    #expect(EmailFitZoom.bandedZoom(designWidth: 550, viewportWidth: 952, adjustmentStep: 1) > 1.3)
+    #expect(EmailFitZoom.bandedZoom(designWidth: 550, viewportWidth: 952, adjustmentStep: 5) <= 2.0)
+    #expect(!EmailFitZoom.canIncrease(designWidth: 600, viewportWidth: 390, adjustmentStep: 0))
+    #expect(!EmailFitZoom.canDecrease(designWidth: 600, viewportWidth: 390, adjustmentStep: -3))
+    #expect(EmailFitZoom.canIncrease(designWidth: nil, viewportWidth: 390, adjustmentStep: 0))
+  }
 }
 
 struct EmailColumnTests {
@@ -119,5 +163,29 @@ struct EmailColumnTests {
   func fluidEmailColumn() {
     #expect(EmailColumn.width(designWidth: nil, viewportWidth: 390) == 390)
     #expect(EmailColumn.width(designWidth: nil, viewportWidth: 0) == 0)
+  }
+}
+
+struct EmailZoomPreferenceStoreTests {
+  @Test("Preferences are keyed by series and Fit removes only that series override")
+  func seriesIsolationAndReset() {
+    let store = EmailZoomPreferenceStore.inMemory()
+    store.setAdjustmentStep(2, for: "feed-me.example")
+    store.setAdjustmentStep(-1, for: "another-letter.example")
+    #expect(store.adjustmentStep(for: "feed-me.example") == 2)
+    #expect(store.adjustmentStep(for: "another-letter.example") == -1)
+
+    store.setAdjustmentStep(0, for: "feed-me.example")
+    #expect(store.adjustmentStep(for: "feed-me.example") == nil)
+    #expect(store.adjustmentStep(for: "another-letter.example") == -1)
+  }
+
+  @Test("Stored values are clamped to the supported adjustment range")
+  func clampsStoredPreference() {
+    let store = EmailZoomPreferenceStore(
+      read: { _ in 100 }, write: { _, _ in }
+    )
+    #expect(store.adjustmentStep(for: "series") == EmailFitZoom.adjustmentRange.upperBound)
+    store.setAdjustmentStep(-100, for: "series")
   }
 }

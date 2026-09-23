@@ -89,7 +89,9 @@ public enum EmailFitZoom {
   // 1.3 keeps body copy around 20pt; filling a landscape iPad pane would reach ~1.6× / 26pt.
   public static let maximumZoom = 1.3
   public static let minimumZoom = 0.5
+  public static let maximumAdjustmentZoom = 2.0
   public static let horizontalGutter = 16.0
+  public static let adjustmentRange = -3...5
   /// Bands step the zoom by 5%, so a band undershoots the exact fit by less than one step.
   public static let bandsPerUnitZoom = 20
 
@@ -108,34 +110,110 @@ public enum EmailFitZoom {
 
   /// The zoom bands for a fixed design width, narrowest first; nil for fluid email. Each band
   /// starts at the width where its zoom exactly fits, so a band never overflows the view.
-  public static func bands(designWidth: Double?) -> [Band]? {
+  public static func bands(designWidth: Double?, adjustmentStep: Int = 0) -> [Band]? {
     guard let designWidth, designWidth > 0 else { return nil }
+    let adjustmentStep = min(adjustmentRange.upperBound, max(adjustmentRange.lowerBound, adjustmentStep))
+    guard adjustmentStep != 0 else { return baseBands(designWidth: designWidth) }
+    let maximum = min(adjustmentZoomFactor(adjustmentStep) * maximumZoom, maximumAdjustmentZoom)
+    let perUnit = Double(bandsPerUnitZoom)
+    let lowest = Int((minimumZoom * perUnit).rounded())
+    let highest = Int((maximum * perUnit).rounded(.down))
+    guard lowest <= highest else { return [Band(minimumViewportWidth: 0, zoom: minimumZoom)] }
+    var result: [Band] = [Band(minimumViewportWidth: 0, zoom: minimumZoom)]
+    for bandStep in (lowest + 1)...highest {
+      let targetZoom = Double(bandStep) / perUnit
+      guard let width = firstViewportWidth(
+        reaching: targetZoom, designWidth: designWidth, adjustmentStep: adjustmentStep
+      ),
+        width > result[result.count - 1].minimumViewportWidth
+      else { continue }
+      result.append(Band(minimumViewportWidth: width, zoom: targetZoom))
+    }
+    return result
+  }
+
+  private static func baseBands(designWidth: Double) -> [Band] {
     let fittedWidth = designWidth + 2 * horizontalGutter
     let perUnit = Double(bandsPerUnitZoom)
     let lowest = Int((minimumZoom * perUnit).rounded())
     let highest = Int((maximumZoom * perUnit).rounded())
-    return (lowest...highest).map { step in
-      let zoom = Double(step) / perUnit
-      let minimumWidth = step == lowest ? 0 : Int((zoom * fittedWidth).rounded(.up))
+    return (lowest...highest).map { bandStep in
+      let zoom = Double(bandStep) / perUnit
+      let minimumWidth = bandStep == lowest ? 0 : Int((zoom * fittedWidth).rounded(.up))
       return Band(minimumViewportWidth: minimumWidth, zoom: zoom)
     }
   }
 
+  private static func firstViewportWidth(
+    reaching targetZoom: Double, designWidth: Double, adjustmentStep: Int
+  ) -> Int? {
+    let fittedWidth = designWidth + 2 * horizontalGutter
+    var low = 0
+    var high = Int((fittedWidth * 8).rounded(.up))
+    guard zoom(at: Double(high), designWidth: designWidth, adjustmentStep: adjustmentStep) >= targetZoom else {
+      return nil
+    }
+    while low < high {
+      let middle = low + (high - low) / 2
+      if zoom(at: Double(middle), designWidth: designWidth, adjustmentStep: adjustmentStep) >= targetZoom {
+        high = middle
+      } else {
+        low = middle + 1
+      }
+    }
+    return low
+  }
+
+  private static func adjustmentZoomFactor(_ step: Int) -> Double { pow(1.1, Double(step)) }
+
+  /// Exact target from the S-r7 fit and a per-series adjustment step.
+  public static func zoom(designWidth: Double?, availableWidth: Double, adjustmentStep: Int) -> Double {
+    let factor = adjustmentZoomFactor(min(adjustmentRange.upperBound, max(adjustmentRange.lowerBound, adjustmentStep)))
+    guard let designWidth, designWidth > 0, availableWidth > 0 else {
+      return min(maximumAdjustmentZoom, max(minimumZoom, factor))
+    }
+    let fittedWidth = designWidth + 2 * horizontalGutter
+    let autoFit = min(maximumZoom, max(minimumZoom, availableWidth / fittedWidth))
+    return max(minimumZoom, min(autoFit * factor, availableWidth / fittedWidth, maximumAdjustmentZoom))
+  }
+
+  private static func zoom(at viewportWidth: Double, designWidth: Double, adjustmentStep: Int) -> Double {
+    zoom(designWidth: designWidth, availableWidth: viewportWidth, adjustmentStep: adjustmentStep)
+  }
+
   /// The zoom the bands apply at a viewport width.
-  public static func bandedZoom(designWidth: Double?, viewportWidth: Double) -> Double {
-    guard let bands = bands(designWidth: designWidth) else { return 1.0 }
+  public static func bandedZoom(designWidth: Double?, viewportWidth: Double, adjustmentStep: Int = 0) -> Double {
+    guard let bands = bands(designWidth: designWidth, adjustmentStep: adjustmentStep) else {
+      return zoom(designWidth: nil, availableWidth: viewportWidth, adjustmentStep: adjustmentStep)
+    }
     return bands.last { Double($0.minimumViewportWidth) <= viewportWidth }?.zoom ?? minimumZoom
   }
 
   /// The bands as a stylesheet of root `zoom` rules. Media queries re-pick the band when the pane
   /// resizes, with no reload or script.
-  public static func stylesheet(designWidth: Double?) -> String? {
-    guard let bands = bands(designWidth: designWidth) else { return nil }
+  public static func stylesheet(designWidth: Double?, adjustmentStep: Int = 0) -> String? {
+    guard let bands = bands(designWidth: designWidth, adjustmentStep: adjustmentStep) else {
+      guard adjustmentStep != 0 else { return nil }
+      let zoom = zoom(designWidth: nil, availableWidth: 1, adjustmentStep: adjustmentStep)
+      return "html { zoom: \(String(format: "%.2f", zoom)); }"
+    }
     return bands.map { band in
       let rule = "html { zoom: \(String(format: "%.2f", band.zoom)); }"
       guard band.minimumViewportWidth > 0 else { return rule }
       return "@media (min-width: \(band.minimumViewportWidth)px) { \(rule) }"
     }.joined(separator: "\n")
+  }
+
+  public static func canIncrease(designWidth: Double?, viewportWidth: Double, adjustmentStep: Int) -> Bool {
+    guard adjustmentStep < adjustmentRange.upperBound else { return false }
+    return bandedZoom(designWidth: designWidth, viewportWidth: viewportWidth, adjustmentStep: adjustmentStep + 1)
+      > bandedZoom(designWidth: designWidth, viewportWidth: viewportWidth, adjustmentStep: adjustmentStep)
+  }
+
+  public static func canDecrease(designWidth: Double?, viewportWidth: Double, adjustmentStep: Int) -> Bool {
+    guard adjustmentStep > adjustmentRange.lowerBound else { return false }
+    return bandedZoom(designWidth: designWidth, viewportWidth: viewportWidth, adjustmentStep: adjustmentStep - 1)
+      < bandedZoom(designWidth: designWidth, viewportWidth: viewportWidth, adjustmentStep: adjustmentStep)
   }
 }
 
@@ -143,12 +221,13 @@ public enum EmailFitZoom {
 public enum EmailColumn {
   /// Uses the same zoom band as the injected stylesheet, so surrounding Reader content follows
   /// the email's actual width at each viewport size. Fluid email occupies the whole viewport.
-  public static func width(designWidth: Double?, viewportWidth: Double) -> Double {
+  public static func width(designWidth: Double?, viewportWidth: Double, adjustmentStep: Int = 0) -> Double {
     let viewportWidth = max(0, viewportWidth)
     guard let designWidth, designWidth > 0 else { return viewportWidth }
     return min(viewportWidth, designWidth * EmailFitZoom.bandedZoom(
       designWidth: designWidth,
-      viewportWidth: viewportWidth
+      viewportWidth: viewportWidth,
+      adjustmentStep: adjustmentStep
     ))
   }
 }
