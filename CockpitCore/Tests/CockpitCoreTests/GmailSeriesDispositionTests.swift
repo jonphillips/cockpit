@@ -238,6 +238,8 @@ struct GmailSeriesDispositionTests {
     try await database.write { db in
       try GmailSeriesDispositionOperations.declare(
         seriesKey: "morning.example.com", at: .distantPast, in: db)
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: "morning.example.com", role: .dailyNews), in: db)
     }
     let log = CallLog()
     try await withDependencies {
