@@ -8,6 +8,7 @@ public enum ContentRole: String, Codable, QueryBindable, CaseIterable, Hashable,
   case transactional
   case dailyNews = "daily-news"
   case opinion
+  case arts
   case grabBag = "grab-bag"
   case food = "food"
   case wine
@@ -20,6 +21,7 @@ public enum ContentRole: String, Codable, QueryBindable, CaseIterable, Hashable,
     case .dailyNews: "Daily news"
     case .opinion: "Opinion"
     case .grabBag: "Grab-bag"
+    case .arts: "Arts"
     case .food: "Food"
     case .wine: "Wine"
     case .offers: "Offers"
@@ -33,9 +35,10 @@ public enum ContentRole: String, Codable, QueryBindable, CaseIterable, Hashable,
     case .dailyNews: 2
     case .opinion: 3
     case .grabBag: 4
-    case .food: 5
-    case .wine: 6
-    case .offers: 7
+    case .arts: 5
+    case .food: 6
+    case .wine: 7
+    case .offers: 8
     }
   }
 }
