@@ -11,4 +11,10 @@ public enum ReadingPaneWidth {
   public static func clamped(_ width: CGFloat) -> CGFloat {
     min(max(width, minimum), maximum)
   }
+
+  /// The list stays fixed while a drag is in progress. Commit only a genuinely changed width.
+  public static func committedWidth(current: CGFloat, translation: CGFloat) -> CGFloat? {
+    let result = clamped(current + translation)
+    return result == current ? nil : result
+  }
 }

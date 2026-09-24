@@ -2,8 +2,7 @@ import CockpitCore
 import SwiftUI
 
 /// The reading state for Today: one queue across every role section, with the selected piece in a
-/// real split detail. The orientation surface remains the landing state; this view does not create
-/// a second destination or a per-section navigation stack.
+/// real split detail. The orientation surface remains the landing state.
 struct TodayReadingView: View {
   @Bindable var model: TodayReadingQueueModel
   @Bindable var tailModel: EditionModel
@@ -11,8 +10,6 @@ struct TodayReadingView: View {
 
   @AppStorage("cockpit.today.reading-list-width") private var storedListWidth = Double(ReadingPaneWidth.defaultValue)
   @State private var columnVisibility: NavigationSplitViewVisibility = .all
-  @State private var isDraggingDivider = false
-  @State private var dragStartWidth: CGFloat?
 
   private var listWidth: CGFloat {
     ReadingPaneWidth.clamped(CGFloat(storedListWidth))
@@ -23,19 +20,18 @@ struct TodayReadingView: View {
       TodayReadingQueueSidebar(
         model: model,
         listWidth: listWidth,
-        isDraggingDivider: isDraggingDivider,
-        dividerDragChanged: dividerDragChanged,
-        dividerDragEnded: dividerDragEnded
+        backToToday: finishReading,
+        onCommitWidth: commitWidth
       )
     } detail: {
-      TodayReadingQueueDetail(model: model, tailModel: tailModel)
+      TodayReadingQueueDetail(
+        model: model,
+        tailModel: tailModel,
+        showsBackButton: columnVisibility == .detailOnly,
+        backToToday: finishReading
+      )
     }
     .navigationSplitViewStyle(.balanced)
-    .toolbar {
-      ToolbarItem(placement: .topBarLeading) {
-        Button("Done", systemImage: "checkmark") { finishReading() }
-      }
-    }
     .task { await model.reload() }
     .onChange(of: model.selectedContentPieceID) { oldID, newID in
       guard let oldID, oldID != newID else { return }
@@ -54,22 +50,14 @@ struct TodayReadingView: View {
     }
   }
 
-}
-
-private extension TodayReadingView {
-  func dividerDragChanged(_ translation: CGFloat) {
-    if dragStartWidth == nil { dragStartWidth = listWidth }
-    guard let dragStartWidth else { return }
-    isDraggingDivider = true
-    storedListWidth = Double(ReadingPaneWidth.clamped(dragStartWidth + translation))
+  private func commitWidth(_ translation: CGFloat) {
+    guard let width = ReadingPaneWidth.committedWidth(
+      current: listWidth, translation: translation
+    ) else { return }
+    storedListWidth = Double(width)
   }
 
-  func dividerDragEnded() {
-    isDraggingDivider = false
-    dragStartWidth = nil
-  }
-
-  func finishReading() {
+  private func finishReading() {
     let selectedID = model.selectedContentPieceID
     Task {
       if let selectedID { await model.applySeriesTrashOnLeave(selectedID) }
@@ -81,21 +69,52 @@ private extension TodayReadingView {
 private struct TodayReadingQueueSidebar: View {
   @Bindable var model: TodayReadingQueueModel
   let listWidth: CGFloat
-  let isDraggingDivider: Bool
-  let dividerDragChanged: (CGFloat) -> Void
-  let dividerDragEnded: () -> Void
+  let backToToday: () -> Void
+  let onCommitWidth: (CGFloat) -> Void
 
   var body: some View {
-    List(selection: $model.selectedContentPieceID) {
-      ForEach(model.sections) { section in
-        Section(section.role.displayName) {
-          ForEach(section.rows) { row in
-            TodayReadingQueueRow(
-              row: row,
-              archive: { Task { await model.archive(row) } },
-              trash: { Task { await model.trash(row) } }
+    ScrollViewReader { proxy in
+      List(selection: $model.selectedContentPieceID) {
+        ForEach(model.sections) { section in
+          Section(section.role.displayName) {
+            ForEach(section.rows) { row in
+              TodayReadingQueueRow(
+                row: row,
+                archive: { Task { await model.archive(row) } },
+                trash: { Task { await model.trash(row) } }
+              )
+              .tag(row.id)
+              .id(row.id)
+            }
+          }
+        }
+      }
+      .safeAreaInset(edge: .trailing, spacing: 0) {
+        if model.sections.count > 1 {
+          sectionRail { contentPieceID in
+            withAnimation { proxy.scrollTo(contentPieceID, anchor: .top) }
+          }
+        }
+      }
+      .overlay {
+        if model.rows.isEmpty {
+          ContentUnavailableView(
+            "Nothing in the Queue", systemImage: "checkmark.circle",
+            description: Text("The morning reading queue is clear."))
+        }
+      }
+      .toolbar {
+        ToolbarItem(placement: .topBarLeading) {
+          Button("Back to Today", systemImage: "chevron.backward", action: backToToday)
+        }
+        if let disposition = model.lastDisposition {
+          ToolbarItem(placement: .topBarTrailing) {
+            Button("Undo", systemImage: "arrow.uturn.backward") {
+              Task { await model.undoLastDisposition() }
+            }
+            .accessibilityLabel(
+              "Undo \(disposition.disposition == .archive ? "archive" : "trash") of \(disposition.title)"
             )
-            .tag(row.id)
           }
         }
       }
@@ -103,78 +122,97 @@ private struct TodayReadingQueueSidebar: View {
     .navigationSplitViewColumnWidth(
       min: ReadingPaneWidth.minimum, ideal: listWidth, max: ReadingPaneWidth.maximum)
     .overlay(alignment: .trailing) {
-      ReadingDividerHandle(
-        isDragging: isDraggingDivider,
-        onChanged: dividerDragChanged,
-        onEnded: dividerDragEnded
-      )
-    }
-    .overlay {
-      if model.rows.isEmpty {
-        ContentUnavailableView(
-          "Nothing in the Queue", systemImage: "checkmark.circle",
-          description: Text("The morning reading queue is clear."))
-      }
-    }
-    .toolbar {
-      if let disposition = model.lastDisposition {
-        ToolbarItem(placement: .topBarTrailing) {
-          Button("Undo", systemImage: "arrow.uturn.backward") {
-            Task { await model.undoLastDisposition() }
-          }
-          .accessibilityLabel(
-            "Undo \(disposition.disposition == .archive ? "archive" : "trash") of \(disposition.title)"
-          )
-        }
-      }
+      ReadingDividerHandle(currentWidth: listWidth, onCommit: onCommitWidth)
     }
   }
 
+  private func sectionRail(scrollTo: @escaping (ContentPiece.ID) -> Void) -> some View {
+    ScrollView(.vertical) {
+      VStack(spacing: 6) {
+        ForEach(model.sections) { section in
+          Button {
+            scrollTo(section.rows[0].id)
+          } label: {
+            VStack(spacing: 1) {
+              Image(systemName: section.role.symbolName)
+                .font(.body)
+                .foregroundStyle(section.role.color)
+              Text("\(section.rows.count)")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+            }
+            .frame(width: 44, height: 48)
+            .background {
+              if model.selectedRole == section.role {
+                Capsule().fill(section.role.color.opacity(0.16))
+              }
+            }
+            .contentShape(Rectangle())
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel("\(section.role.displayName), \(section.rows.count) messages")
+        }
+      }
+      .padding(.vertical, 4)
+    }
+    .frame(maxHeight: .infinity, alignment: .top)
+    .frame(width: 48)
+    .accessibilityElement(children: .contain)
+    .background(.regularMaterial)
+  }
 }
 
 private struct TodayReadingQueueDetail: View {
   @Bindable var model: TodayReadingQueueModel
   @Bindable var tailModel: EditionModel
+  let showsBackButton: Bool
+  let backToToday: () -> Void
   @State private var originalWebViewStore = TodayOriginalWebViewStore()
 
   var body: some View {
-    if let selectedContentPieceID = model.selectedContentPieceID,
-      let row = model.rows.first(where: { $0.id == selectedContentPieceID })
-    {
-      ReaderView(
-        contentPieceID: row.id,
-        editionContext: editionContext(for: row),
-        queueContext: ReaderQueueContext(
-          archive: { await model.archive(row) },
-          trash: { await model.trash(row) }
-        ),
-        isReachableStreamPiece: row.isFollowedStreamPiece,
-        originalWebViewStore: originalWebViewStore
-      )
-      .id(row.id)
-    } else {
-      ContentUnavailableView(
-        "Select a Piece", systemImage: "doc.text",
-        description: Text("The queue runs from For you through Offers."))
+    Group {
+      if let selectedContentPieceID = model.selectedContentPieceID,
+        let row = model.rows.first(where: { $0.id == selectedContentPieceID })
+      {
+        ReaderView(
+          contentPieceID: row.id,
+          editionContext: makeEditionReaderContext(
+            row: row, tailModel: tailModel,
+            clearSelection: { model.selectedContentPieceID = nil }),
+          queueContext: ReaderQueueContext(
+            archive: { await model.archive(row) },
+            trash: { await model.trash(row) }
+          ),
+          isReachableStreamPiece: row.isFollowedStreamPiece,
+          originalWebViewStore: originalWebViewStore
+        )
+        .id(row.id)
+      } else {
+        ContentUnavailableView(
+          "Select a Piece", systemImage: "doc.text",
+          description: Text("The queue runs from For you through Offers."))
+      }
     }
-  }
-
-  private func editionContext(for row: TodayReadingQueueRequest.Row) -> EditionReaderContext? {
-    guard let entryID = row.editionEntryID else { return nil }
-    return EditionReaderContext(
-      model: tailModel,
-      entryID: entryID,
-      rationale: row.editionRationale,
-      matchedPersonalKnowledgeClaimID: row.matchedPersonalKnowledgeClaimID,
-      clearSelection: { model.selectedContentPieceID = nil }
-    )
+    .toolbar {
+      if showsBackButton {
+        ToolbarItem(placement: .topBarLeading) {
+          Button("Back to Today", systemImage: "chevron.backward", action: backToToday)
+        }
+      }
+    }
   }
 }
 
 private struct ReadingDividerHandle: View {
-  let isDragging: Bool
-  let onChanged: (CGFloat) -> Void
-  let onEnded: () -> Void
+  let currentWidth: CGFloat
+  let onCommit: (CGFloat) -> Void
+  @State private var dragStartWidth: CGFloat?
+  @State private var translation: CGFloat = 0
+
+  private var previewOffset: CGFloat {
+    guard let dragStartWidth else { return 0 }
+    return ReadingPaneWidth.clamped(dragStartWidth + translation) - dragStartWidth
+  }
 
   var body: some View {
     Rectangle()
@@ -183,13 +221,22 @@ private struct ReadingDividerHandle: View {
       .contentShape(Rectangle())
       .overlay {
         Capsule()
-          .fill(isDragging ? .secondary : .quaternary)
+          .fill(dragStartWidth == nil ? .quaternary : .secondary)
           .frame(width: 4, height: 36)
       }
+      .offset(x: previewOffset)
       .gesture(
         DragGesture(minimumDistance: 1)
-          .onChanged { onChanged($0.translation.width) }
-          .onEnded { _ in onEnded() }
+          .onChanged { value in
+            if dragStartWidth == nil { dragStartWidth = currentWidth }
+            translation = value.translation.width
+          }
+          .onEnded { value in
+            if dragStartWidth == nil { dragStartWidth = currentWidth }
+            onCommit(value.translation.width)
+            dragStartWidth = nil
+            translation = 0
+          }
       )
       .accessibilityElement()
       .accessibilityLabel("Reading list divider")

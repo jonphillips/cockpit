@@ -10,6 +10,8 @@ struct TodayView: View {
   @State private var isConfirmingTailRecompose = false
   @State private var isShowingRecentTrashes = false
   @State private var isReading = false
+  @State private var highlightRow: TodayRequest.Row?
+  @State private var dismissedHighlightID: ContentPiece.ID?
 
   var body: some View {
     Group {
@@ -27,7 +29,11 @@ struct TodayView: View {
             readerNamespace: readerTransition,
             readableContentPieceIDs: readingQueueContentPieceIDs,
             didChangeEdition: { Task { await readingQueueModel.reload() } },
-            openReader: beginReader(for:))
+            openReader: beginReader(for:),
+            openHighlight: {
+              dismissedHighlightID = $0.id
+              highlightRow = $0
+            })
             .overlay {
               if model.sections.isEmpty && tailRows.isEmpty && !tailModel.isComposing {
                 ContentUnavailableView(
@@ -54,6 +60,26 @@ struct TodayView: View {
     }
     .sheet(isPresented: $isShowingRecentTrashes) {
       RecentTrashSheet(model: model)
+    }
+    .sheet(item: $highlightRow, onDismiss: highlightReaderDismissed) { row in
+      if let queueRow = readingQueueModel.rows.first(where: { $0.id == row.id }) {
+        TodayHighlightReaderSheet(
+          row: row,
+          queueRow: queueRow,
+          model: model,
+          tailModel: tailModel,
+          originalWebViewStore: TodayOriginalWebViewStore()
+        )
+        .presentationSizing(.page)
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        .navigationTransition(.zoom(sourceID: row.id, in: readerTransition))
+      } else {
+        ContentUnavailableView("Story Unavailable", systemImage: "doc.text")
+          .presentationSizing(.page)
+          .presentationDetents([.large])
+          .presentationDragIndicator(.visible)
+      }
     }
     .task {
       // S-d0b keeps Edition composition behind the standing entry card; opening Today does not
@@ -96,7 +122,9 @@ struct TodayView: View {
       }
     }
   }
+}
 
+private extension TodayView {
   private var tailRows: [CurrentEditionRequest.Row] {
     tailModel.entries.filter {
       ($0.entryState == .admitted || $0.entryState == .seen)
@@ -123,4 +151,65 @@ struct TodayView: View {
     readingQueueModel.selectedContentPieceID = contentPieceID
     isReading = true
   }
+
+  private func highlightReaderDismissed() {
+    guard let contentPieceID = dismissedHighlightID else { return }
+    dismissedHighlightID = nil
+    Task {
+      await readingQueueModel.applySeriesTrashOnLeave(contentPieceID)
+      try? await model.$content.load()
+      await readingQueueModel.reload()
+    }
+  }
+}
+
+private struct TodayHighlightReaderSheet: View {
+  @Environment(\.dismiss) private var dismiss
+  let row: TodayRequest.Row
+  let queueRow: TodayReadingQueueRequest.Row
+  let model: TodayModel
+  let tailModel: EditionModel
+  let originalWebViewStore: TodayOriginalWebViewStore
+
+  var body: some View {
+    NavigationStack {
+      ReaderView(
+        contentPieceID: row.id,
+        editionContext: makeEditionReaderContext(
+          row: queueRow, tailModel: tailModel, clearSelection: { dismiss() }),
+        queueContext: ReaderQueueContext(
+          archive: {
+            await model.archive(row)
+            dismiss()
+          },
+          trash: {
+            await model.trash(row)
+            dismiss()
+          }
+        ),
+        isReachableStreamPiece: queueRow.isFollowedStreamPiece,
+        originalWebViewStore: originalWebViewStore
+      )
+      .toolbar {
+        ToolbarItem(placement: .topBarLeading) {
+          Button("Done", systemImage: "checkmark") { dismiss() }
+        }
+      }
+    }
+  }
+}
+
+func makeEditionReaderContext(
+  row: TodayReadingQueueRequest.Row,
+  tailModel: EditionModel,
+  clearSelection: @escaping @MainActor () -> Void
+) -> EditionReaderContext? {
+  guard let entryID = row.editionEntryID else { return nil }
+  return EditionReaderContext(
+    model: tailModel,
+    entryID: entryID,
+    rationale: row.editionRationale,
+    matchedPersonalKnowledgeClaimID: row.matchedPersonalKnowledgeClaimID,
+    clearSelection: clearSelection
+  )
 }

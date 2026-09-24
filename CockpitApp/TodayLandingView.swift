@@ -9,6 +9,7 @@ struct TodayLandingView: View {
   let readableContentPieceIDs: Set<ContentPiece.ID>
   let didChangeEdition: () -> Void
   let openReader: (ContentPiece.ID) -> Void
+  let openHighlight: (TodayRequest.Row) -> Void
 
   var body: some View {
     ScrollView {
@@ -107,7 +108,7 @@ struct TodayLandingView: View {
         ScrollView(.horizontal, showsIndicators: false) {
           HStack(alignment: .top, spacing: 10) {
             ForEach(model.highlightRows) { row in
-              Button { openReader(row.id) } label: {
+              Button { openHighlight(row) } label: {
                 VStack(alignment: .leading, spacing: 5) {
                   Text(row.role.displayName.uppercased())
                     .font(.caption2.weight(.bold)).foregroundStyle(.secondary)

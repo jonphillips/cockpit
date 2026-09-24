@@ -130,7 +130,7 @@ struct TodayRoleSectionListView: View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(alignment: .firstTextBaseline, spacing: 8) {
         Circle()
-          .fill(sectionColor(section.role))
+          .fill(section.role.color)
           .frame(width: 9, height: 9)
         Text(section.title).font(.title3.weight(.semibold))
         Text("\(section.rows.count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
@@ -153,20 +153,6 @@ struct TodayRoleSectionListView: View {
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-  }
-
-  private func sectionColor(_ role: ContentRole) -> Color {
-    switch role {
-    case .forYou: .accentColor
-    case .transactional: .indigo
-    case .dailyNews: .blue
-    case .opinion: .orange
-    case .grabBag: .teal
-    case .arts: .purple
-    case .food: .green
-    case .wine: .red
-    case .offers: .brown
-    }
   }
 
   private func publisherRollup(_ group: TodayModel.PublisherRollup, role: ContentRole) -> some View {

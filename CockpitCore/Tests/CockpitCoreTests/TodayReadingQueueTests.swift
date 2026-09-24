@@ -10,6 +10,29 @@ struct TodayReadingQueueTests {
     #expect(ReadingPaneWidth.clamped(100) == ReadingPaneWidth.minimum)
     #expect(ReadingPaneWidth.clamped(ReadingPaneWidth.defaultValue) == ReadingPaneWidth.defaultValue)
     #expect(ReadingPaneWidth.clamped(900) == ReadingPaneWidth.maximum)
+    #expect(ReadingPaneWidth.committedWidth(current: 268, translation: -20) == nil)
+    #expect(ReadingPaneWidth.committedWidth(current: 560, translation: 20) == nil)
+    #expect(ReadingPaneWidth.committedWidth(current: 344, translation: 40) == 384)
+    #expect(ReadingPaneWidth.committedWidth(current: 344, translation: 500) == 560)
+  }
+
+  @MainActor
+  @Test("selected role follows the selected row and is nil without a selection")
+  func selectedRole() {
+    let forYou = TodayReadingQueueRequest.Row(
+      id: UUID(10_031), title: "For you", publisher: "Person", role: .forYou,
+      arrivedAt: .distantPast)
+    let wine = TodayReadingQueueRequest.Row(
+      id: UUID(10_032), title: "Wine", publisher: "Vinous", role: .wine,
+      arrivedAt: .distantPast)
+    let sections = [
+      TodayReadingQueueModel.Section(role: .forYou, rows: [forYou]),
+      TodayReadingQueueModel.Section(role: .wine, rows: [wine]),
+    ]
+    #expect(TodayReadingQueueModel.selectedRole(for: nil, in: sections) == nil)
+    #expect(TodayReadingQueueModel.selectedRole(for: forYou.id, in: sections) == .forYou)
+    #expect(TodayReadingQueueModel.selectedRole(for: wine.id, in: sections) == .wine)
+    #expect(TodayReadingQueueModel.selectedRole(for: UUID(), in: sections) == nil)
   }
 
   @Test("queue order is one role-priority sequence across section boundaries")
