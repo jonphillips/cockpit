@@ -29,6 +29,7 @@ struct ReaderView: View {
         editionContext: editionContext,
         queueContext: queueContext,
         openReply: openReply,
+        openMail: openMail,
         isTeachingReasonFocused: isTeachingReasonFocused,
         dismissEdition: dismissEditionButtonTapped,
         saveForLater: saveForLaterButtonTapped,
@@ -143,6 +144,15 @@ extension ReaderView {
         contentPieceID: contentPieceID,
         matchedPersonalKnowledgeClaimID: editionContext?.matchedPersonalKnowledgeClaimID
       )
+    }
+  }
+}
+
+private extension ReaderView {
+  func openMail() {
+    guard let url = model.mailMessageURL else { return }
+    openURL(url) { accepted in
+      if !accepted { model.errorMessage = "Couldn't open Mail" }
     }
   }
 }

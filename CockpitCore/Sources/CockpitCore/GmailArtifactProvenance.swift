@@ -1,4 +1,5 @@
 import Foundation
+import SQLiteData
 
 /// Raw, device-local provenance S5 will read deterministically. This intentionally preserves
 /// header values rather than assigning a treatment or building a reputation system.
@@ -33,5 +34,20 @@ public struct GmailArtifactProvenance: Codable, Equatable, Sendable {
       toRecipientCount: GmailHeaderParser.recipientCount(in: message.header(named: "To")),
       ccRecipientCount: GmailHeaderParser.recipientCount(in: message.header(named: "Cc"))
     )
+  }
+
+  /// Returns the newest decodable Gmail provenance attached to a ContentPiece. A newer Artifact
+  /// with unrelated or malformed provenance does not hide an older usable Gmail record.
+  public static func latest(forContentPiece id: ContentPiece.ID, in db: Database) throws -> Self? {
+    let artifacts = try Artifact.where { $0.contentPieceID.eq(id) }
+      .order { $0.acquiredAt.desc() }
+      .fetchAll(db)
+    for artifact in artifacts {
+      guard let text = artifact.providerProvenance, let data = text.data(using: .utf8) else { continue }
+      if let provenance = try? JSONDecoder().decode(Self.self, from: data) {
+        return provenance
+      }
+    }
+    return nil
   }
 }

@@ -96,15 +96,7 @@ public final class ReaderReplyModel {
     do {
       let contentPieceID = self.contentPieceID
       let provenance = try await database.read { db -> GmailArtifactProvenance? in
-        let artifacts = try Artifact.where { $0.contentPieceID.eq(contentPieceID) }
-          .order { $0.acquiredAt.desc() }.fetchAll(db)
-        for artifact in artifacts {
-          guard let text = artifact.providerProvenance, let data = text.data(using: .utf8) else { continue }
-          if let provenance = try? JSONDecoder().decode(GmailArtifactProvenance.self, from: data) {
-            return provenance
-          }
-        }
-        return nil
+        try GmailArtifactProvenance.latest(forContentPiece: contentPieceID, in: db)
       }
       guard let provenance else { throw GmailReplyConfigurationError.missingProvenance }
       let headers = try await client.replyHeaders(provenance.messageID)
