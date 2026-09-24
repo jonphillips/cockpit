@@ -89,6 +89,8 @@ private struct TodayReadingQueueSidebar: View {
           }
         }
       }
+      .navigationSplitViewColumnWidth(
+        min: ReadingPaneWidth.minimum, ideal: listWidth, max: ReadingPaneWidth.maximum)
       .safeAreaInset(edge: .trailing, spacing: 0) {
         if model.sections.count > 1 {
           sectionRail { contentPieceID in
@@ -118,11 +120,9 @@ private struct TodayReadingQueueSidebar: View {
           }
         }
       }
-    }
-    .navigationSplitViewColumnWidth(
-      min: ReadingPaneWidth.minimum, ideal: listWidth, max: ReadingPaneWidth.maximum)
-    .overlay(alignment: .trailing) {
-      ReadingDividerHandle(currentWidth: listWidth, onCommit: onCommitWidth)
+      .overlay(alignment: .trailing) {
+        ReadingDividerHandle(currentWidth: listWidth, onCommit: onCommitWidth)
+      }
     }
   }
 
@@ -223,8 +223,8 @@ private struct ReadingDividerHandle: View {
         Capsule()
           .fill(dragStartWidth == nil ? .quaternary : .secondary)
           .frame(width: 4, height: 36)
+          .offset(x: previewOffset)
       }
-      .offset(x: previewOffset)
       .gesture(
         DragGesture(minimumDistance: 1)
           .onChanged { value in
