@@ -10,6 +10,12 @@
 > sliceable plan: `M6-gate5-find-handoff-slice-plan.md` (the frozen contract, invariants, and
 > decomposition). This note remains the rationale of record; the slice plan is what the executor builds
 > to.**
+>
+> **Transport superseded (2026-09-24).** The "App Intent to initiate" and "reverse App Intent" return below
+> are not implementable: no public API lets one app invoke another's App Intent (established by Yes Chef
+> PR #322). The slice plan redrafts the transport as a pair-scoped App Group mailbox + `yeschef://` open,
+> ratified 2026-09-24 (APP-FAMILY §9 exception). The *why* here (finish in the moment, no id Jon
+> handles, receiver owns intelligence) still stands; only the mechanism changed.
 
 ## What Gate 5 proves
 

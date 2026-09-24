@@ -160,6 +160,13 @@ Do not build in V1 merely for conceptual completeness:
 
 Use the smallest concrete projection/handoff that proves the real consumer relationship.
 
+**Exception (M6 Gate 5, ratified 2026-09-24): a single pair-scoped App Group mailbox between Cockpit and
+Yes Chef** carries Find referrals and verdicts, because no public API lets one app invoke another's App
+Intent. It holds messages in transit only (the consumer deletes), no records, and no shared schema
+beyond the two message types, and it admits no third app. It is not family infrastructure and not a
+precedent: a second receiver reopens the transport question under §7. Contract:
+`docs/milestones/M6-gate5-find-handoff-slice-plan.md`.
+
 ---
 
 ## 10. Cross-app principle
