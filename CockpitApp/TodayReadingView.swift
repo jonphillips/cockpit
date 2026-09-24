@@ -36,6 +36,9 @@ struct TodayReadingView: View {
       )
     }
     .navigationSplitViewStyle(.balanced)
+    // Reading is a focused sub-mode of Today with its own Back to Today. Hiding the floating tab bar
+    // also stops iPadOS from stacking every column's bar beneath it after a divider drag.
+    .toolbarVisibility(.hidden, for: .tabBar)
     .task { await model.reload() }
     .onChange(of: model.selectedContentPieceID) { oldID, newID in
       guard let oldID, oldID != newID else { return }

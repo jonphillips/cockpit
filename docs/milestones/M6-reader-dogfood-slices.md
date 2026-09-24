@@ -591,26 +591,22 @@ every Reader path keeps the same safety boundary.
      `finishReading()` (which still applies series trash-on-leave to the open piece).
    - When `columnVisibility == .detailOnly`, show the same button at `.topBarLeading` in the detail
      column, so it's never lost. Keep the system sidebar toggle as it is.
-3. **The Reader toolbar stays on one row.**
-   - *Evidence (Jon's screen recording, 2026-09-24).* The list sits at its 268pt minimum in every frame.
-     The bars in both columns drop below the floating tab bar the moment the drag starts, with no width
-     change at all. So width and toolbar collisions aren't the trigger.
-   - *Likely cause (inferred from the code; the recording can't show it).* Every drag event writes state that `TodayReadingView` owns: `isDraggingDivider`,
-     `dragStartWidth`, and the `@AppStorage` width, which is written even when the clamp leaves it
-     unchanged. So the whole `NavigationSplitView` re-evaluates mid-gesture: the column-width modifier,
-     and the orphaned `Done` toolbar attached outside the columns. After that, iPadOS lays the bars out
-     stacked, and they stay that way.
-   - *Fix: a drag doesn't touch the split until it ends, and then only if the width changed.*
-     - Move `isDraggingDivider` and `dragStartWidth` out of `TodayReadingView` into
-       `ReadingDividerHandle`'s own `@State`. During the drag, only the handle re-renders. It previews
-       the pending edge by following the finger with `.offset`, clamped to `ReadingPaneWidth`.
-     - On release, the handle reports the final clamped width once, through an `onCommit(CGFloat)`
-       closure. `TodayReadingView` writes `storedListWidth` only if the value differs from the current
-       one. A drag that ends where it started, like the one in the recording, writes nothing.
-     - Put the new-width decision in `ReadingPaneWidth` as a pure function, e.g.
-       `committedWidth(current:translation:) -> CGFloat?`, which returns nil when nothing changes.
-     - Item 2 already removes the column-less `Done` toolbar.
-     - The list no longer resizes live. It snaps to the new width on release. That's the accepted cost.
+3. **The Reader toolbar stays on one row.** *(As shipped, 2026-09-24. This replaces the planned
+   commit-on-release fix, which device testing ruled out.)*
+   - *Cause.* With `.sidebarAdaptable`, iPadOS fits the floating tab bar into the same row as the
+     split's navigation bars. A divider drag makes it re-decide. When it gives up, it moves every
+     column's bar below the tab bar and never moves them back. It isn't about toolbar width: removing
+     Reply and Open in Mail changed nothing, and the list column's bar dropped too.
+   - *Fix.* `TodayReadingView` hides the tab bar with `.toolbarVisibility(.hidden, for: .tabBar)`.
+     Reading is a focused sub-mode of Today and has its own Back to Today (item 2). With no tab bar,
+     there's nothing for the bars to stack under. Apply it only to the Today reading split, never to
+     `ReaderView`: Later, Library, Following, and the Highlights sheet reuse `ReaderView` and have no
+     Back to Today.
+   - *Divider.* Live resize, as before S-r11. The drag state stays in `TodayReadingView`, and the
+     stored width updates as the finger moves. `ReadingPaneWidth.draggedWidth(start:translation:current:)`
+     skips the write when the clamp leaves the width unchanged. Tried and dropped: committing on release
+     with a preview line. On device, the drag felt dead.
+   - *Cost.* To reach Later, Library, or Settings from the reading split, go Back to Today first.
    - *Narrow detail.* In `ReaderDispositionToolbar`, put Archive and Trash in their own
      `ToolbarItemGroup` with `.visibilityPriority(.high)` (iOS 27), so Reply, Open in Mail, and Dismiss
      go to overflow first. Archive stays the only `.borderedProminent` action.
@@ -637,8 +633,10 @@ every Reader path keeps the same safety boundary.
      containing `selectedContentPieceID`, or nil. Counts come from `sections[i].rows.count`. No new
      query.
    - **View.** `TodayReadingQueueSidebar` wraps the `List` in a `ScrollViewReader` and hosts a vertical
-     rail in a trailing `safeAreaInset`, so rows never run under it.
-     - The rail is top-aligned, inside the list column, and left of the divider handle.
+     rail in a **leading** `safeAreaInset`, like a mini menu, so rows never run under it. *(As shipped:
+     on the trailing edge, the rail sat under the divider handle and fought its drag.)*
+     - The rail is top-aligned, inside the list column, with a hairline on its trailing edge. The
+       divider handle keeps the list's trailing edge to itself.
      - It has one item per non-empty section, in queue order. Each item is the role's symbol, tinted
        with the role's color, over its count in `.caption.monospacedDigit()`, with a 44pt minimum
        target.
@@ -650,7 +648,7 @@ every Reader path keeps the same safety boundary.
      - If the items outgrow the column's height, the rail scrolls.
 
 **Prove.**
-- `ReadingPaneWidth.committedWidth`:
+- `ReadingPaneWidth.draggedWidth`:
   - nil when the clamped result equals the current width (including a drag past either bound while
     already at it);
   - the clamped value otherwise.
@@ -673,12 +671,8 @@ every Reader path keeps the same safety boundary.
 - No schema, query, or Gmail change.
 
 **Device-only risks (name them).**
-- Whether a committed width change (a real one, on release) still drops the bars. The recording
-  proves only that the mid-drag re-render does. If a committed change drops them too, stop and report.
-  Don't iterate on the device. The recorded next step is to hand resizing to the system: check
-  whether iPadOS 27's `NavigationSplitView` resizes columns natively from
-  `navigationSplitViewColumnWidth(min:ideal:max:)`, and if it does, delete the custom handle.
-- The handle's preview is clipped at the list column's edge when dragging wider.
+- Checked on iPad (Jon, 2026-09-24): with the tab bar hidden, the bars stay on one row through
+  divider drags. The drag works but is finicky; that's accepted for now.
 - `scrollTo` landing under a pinned section header.
 - Row legibility at the 268pt minimum list width once the rail takes its share.
 - The zoom transition from a card inside a horizontal `ScrollView`.
@@ -689,8 +683,7 @@ every Reader path keeps the same safety boundary.
   scroll position on the orientation surface. Archive or Trash in the sheet dismisses it, and the piece
   is gone from the landing.
 - The reading split shows Back to Today top-left at all times.
-- After any divider drag, including one that doesn't change the width, the Reader toolbar sits on the
-  same row as the tab bar.
+- After any divider drag, the navigation bars stay on one row. The tab bar is hidden while reading.
 - The rail jumps to each section, and its counts fall as pieces leave.
 
 **Sequencing.** Touches `TodayView.swift`, `TodayLandingView.swift`, `TodayReadingView.swift`,
