@@ -1,4 +1,4 @@
-# M6 — Reader dogfood slices (S-r1 … S-r10)
+# M6 — Reader dogfood slices (S-r1 … S-r11)
 
 > **Build order, architect-recorded 2026-09-22 from Jon's device dogfooding of the S-d0 surface.**
 > These make the Today reading split usable day to day ahead of the S-d device eval. They do not
@@ -18,6 +18,12 @@ order: S-r9's controls rely on the web-view width S-r8 adds.
 email work. It's a link, not composition: DECISIONS §26 is unchanged. Build it after S-r9, because both
 touch the Reader toolbar, view, and model.
 
+**Today navigation (S-r11), recorded 2026-09-24 from Jon's iPad dogfooding.** Four display-only fixes
+that keep Jon oriented in Today: Highlights peek in a sheet, the reading split gets a way back, the
+Reader toolbar stops dropping a row when a divider drag starts, and a section rail jumps down the
+queue. No
+schema, identity, Gmail, or judgment changes. Amends D-E for Highlights only (see the gate doc).
+
 - [x] S-r1 — Queue flow: disposed issues leave the queue, advance to next, Undo
 - [x] S-r2 — Reader chrome: actions in the toolbar, inline Tell Cockpit, Delete archives
 - [x] S-r3 — Reader facts: sender names, received dates, links open in Safari
@@ -28,6 +34,7 @@ touch the Reader toolbar, view, and model.
 - [x] S-r8 — Reader column: header aligns with the email
 - [x] S-r9 — Per-publisher zoom: adjust once, remembered per series
 - [x] S-r10 — Open in Mail: hand off to the exact message in Mail.app
+- [ ] S-r11 — Today navigation: Highlights sheet, way back, one-row toolbar, section rail
 
 ## Standing rules for every slice
 
@@ -540,3 +547,153 @@ exact message in Mail.app. The button is absent where there's no Message-ID.
 **Sequencing.** S-r10 touches `ReaderDispositionToolbar.swift`, `ReaderView.swift`, and
 `ContentPieceReaderModel.swift`, all of which S-r9 is also changing. Build it after S-r9 merges, or
 rebase onto it. Branch: `m6/s-r10-open-in-mail`.
+
+---
+
+### S-r11 — Today navigation: Highlights sheet, way back, one-row toolbar, section rail
+
+**Goal.** Moving around Today never strands Jon. A Highlight is a quick look that keeps him on the
+orientation surface. The reading split always has a visible way back. The Reader toolbar stays on one
+row whatever the divider has done. A rail on the reading list jumps to any section and shows how much
+is left in each.
+
+**Decision (Jon, 2026-09-24).** D-E stands for section rows and the tail: they open the reading split.
+**Highlights cards are the exception:** they open the Reader in a sheet over the orientation surface,
+because a Highlight is a sampler ("a quick way in"), and entering the split for it leaves Today. This
+brings back the pre-S-d0c sheet presentation for Highlights only. The sheet is still a full Reader, and
+every Reader path keeps the same safety boundary.
+
+**Build.**
+
+1. **Highlights open in a sheet.**
+   - `TodayLandingView` gains an `openHighlight: (TodayRequest.Row) -> Void` closure. Only the
+     Highlights cards call it. Section rows, Offers roll-ups, and tail rows keep calling `openReader`.
+   - `TodayView` owns `@State var highlightRow: TodayRequest.Row?` and presents it with
+     `.sheet(item:onDismiss:)`: `NavigationStack { ReaderView(…) }` with `.presentationSizing(.page)`,
+     `.presentationDetents([.large])`, `.presentationDragIndicator(.visible)`, and
+     `.navigationTransition(.zoom(sourceID: row.id, in: readerTransition))`. The cards already carry
+     `matchedTransitionSource`. In the sheet, add a leading `Button("Done", systemImage: "checkmark")`
+     that dismisses it. Swipe-down dismisses too.
+   - Configure `ReaderView` from the piece's reading-queue row, looked up in `readingQueueModel.rows`
+     (the I5 projection-consistency test guarantees it's there): same `editionContext` and
+     `isReachableStreamPiece` as the split detail. Extract the `editionContext(for:)` builder out of
+     `TodayReadingQueueDetail` so both call sites share it. Its `clearSelection` dismisses the sheet.
+   - `queueContext` archives and trashes through `TodayModel.archive(_:)` / `trash(_:)`, the same path
+     the landing row menu uses, then dismisses the sheet. Never through `TodayReadingQueueModel`:
+     that model moves the split's selection and sets the split's Undo, and neither applies here.
+   - `onDismiss`: `await readingQueueModel.applySeriesTrashOnLeave(id)` (the one M6 S1 boundary every
+     Reader path shares), then reload `model.$content` and `readingQueueModel`, so a disposed piece
+     leaves the landing (M5: disposed items disappear).
+2. **A way back from the reading split.** The `Done` item in `TodayReadingView` is attached outside
+   the split's columns, so iPadOS never shows it. That's the lost affordance.
+   - Move it into the list column's toolbar at `.topBarLeading`:
+     `Button("Back to Today", systemImage: "chevron.backward")`, calling the existing
+     `finishReading()` (which still applies series trash-on-leave to the open piece).
+   - When `columnVisibility == .detailOnly`, show the same button at `.topBarLeading` in the detail
+     column, so it's never lost. Keep the system sidebar toggle as it is.
+3. **The Reader toolbar stays on one row.**
+   - *Evidence (Jon's screen recording, 2026-09-24).* The list sits at its 268pt minimum in every frame.
+     The bars in both columns drop below the floating tab bar the moment the drag starts, with no width
+     change at all. So width and toolbar collisions aren't the trigger.
+   - *Likely cause (inferred from the code; the recording can't show it).* Every drag event writes state that `TodayReadingView` owns: `isDraggingDivider`,
+     `dragStartWidth`, and the `@AppStorage` width, which is written even when the clamp leaves it
+     unchanged. So the whole `NavigationSplitView` re-evaluates mid-gesture: the column-width modifier,
+     and the orphaned `Done` toolbar attached outside the columns. After that, iPadOS lays the bars out
+     stacked, and they stay that way.
+   - *Fix: a drag doesn't touch the split until it ends, and then only if the width changed.*
+     - Move `isDraggingDivider` and `dragStartWidth` out of `TodayReadingView` into
+       `ReadingDividerHandle`'s own `@State`. During the drag, only the handle re-renders. It previews
+       the pending edge by following the finger with `.offset`, clamped to `ReadingPaneWidth`.
+     - On release, the handle reports the final clamped width once, through an `onCommit(CGFloat)`
+       closure. `TodayReadingView` writes `storedListWidth` only if the value differs from the current
+       one. A drag that ends where it started, like the one in the recording, writes nothing.
+     - Put the new-width decision in `ReadingPaneWidth` as a pure function, e.g.
+       `committedWidth(current:translation:) -> CGFloat?`, which returns nil when nothing changes.
+     - Item 2 already removes the column-less `Done` toolbar.
+     - The list no longer resizes live. It snaps to the new width on release. That's the accepted cost.
+   - *Narrow detail.* In `ReaderDispositionToolbar`, put Archive and Trash in their own
+     `ToolbarItemGroup` with `.visibilityPriority(.high)` (iOS 27), so Reply, Open in Mail, and Dismiss
+     go to overflow first. Archive stays the only `.borderedProminent` action.
+4. **Section rail on the reading list.**
+   - **Presentation mapping.** Add `CockpitApp/ContentRolePresentation.swift` with
+     `ContentRole.color` and `ContentRole.symbolName`, using exhaustive switches with no `default`.
+     Move `sectionColor(_:)` there from `TodaySurfaceRows.swift`, so the landing's section dots and the
+     rail share one mapping. Symbols:
+
+     | Role | Symbol |
+     | --- | --- |
+     | For you | `person.crop.circle` |
+     | Transactional | `creditcard` |
+     | Daily news | `newspaper` |
+     | Opinion | `quote.bubble` |
+     | Grab-bag | `square.grid.2x2` |
+     | Food | `fork.knife` |
+     | Wine | `wineglass` |
+     | Offers | `tag` |
+
+     Any role added later (for example `arts`, which is in progress) must get a color and a symbol,
+     and the missing switch case stops the build until it does.
+   - **Model.** `TodayReadingQueueModel` gains `selectedRole: ContentRole?`, the role of the section
+     containing `selectedContentPieceID`, or nil. Counts come from `sections[i].rows.count`. No new
+     query.
+   - **View.** `TodayReadingQueueSidebar` wraps the `List` in a `ScrollViewReader` and hosts a vertical
+     rail in a trailing `safeAreaInset`, so rows never run under it.
+     - The rail is top-aligned, inside the list column, and left of the divider handle.
+     - It has one item per non-empty section, in queue order. Each item is the role's symbol, tinted
+       with the role's color, over its count in `.caption.monospacedDigit()`, with a 44pt minimum
+       target.
+     - The item for `selectedRole` gets a tinted capsule background: that's where Jon is reading.
+     - Tapping an item calls `proxy.scrollTo(section.rows[0].id, anchor: .top)`. It **never** changes
+       selection, because a selection change fires series trash-on-leave on the open piece.
+     - Accessibility label per item: "Wine, 3 messages".
+     - Hide the rail when there's only one section.
+     - If the items outgrow the column's height, the rail scrolls.
+
+**Prove.**
+- `ReadingPaneWidth.committedWidth`:
+  - nil when the clamped result equals the current width (including a drag past either bound while
+    already at it);
+  - the clamped value otherwise.
+- `TodayReadingQueueModel.selectedRole`:
+  - nil with no selection;
+  - the right role for a selected row;
+  - it follows selection when `archive(_:)` advances to a neighbour in the next section;
+  - nil after the last row is disposed.
+- The sheet's queue-row lookup is already guaranteed. `landingItemsOpenInQueue` asserts every
+  `TodayRequest` row is a reading-queue row, and Highlights are drawn from those rows. Keep that test
+  passing; no new test is needed for it.
+- The existing `applySeriesTrashOnLeave` and S-r1 queue tests pass unchanged.
+
+**Do not.**
+- Don't change what the Highlights row contains (D-D/I5). Only its presentation changes.
+- Don't send section rows, Offers roll-ups, or tail rows to the sheet.
+- Don't archive or trash from the sheet through `TodayReadingQueueModel`.
+- Don't let a rail tap change selection.
+- No scrubbing along the rail, and no rail on the orientation surface.
+- No schema, query, or Gmail change.
+
+**Device-only risks (name them).**
+- Whether a committed width change (a real one, on release) still drops the bars. The recording
+  proves only that the mid-drag re-render does. If a committed change drops them too, stop and report.
+  Don't iterate on the device. The recorded next step is to hand resizing to the system: check
+  whether iPadOS 27's `NavigationSplitView` resizes columns natively from
+  `navigationSplitViewColumnWidth(min:ideal:max:)`, and if it does, delete the custom handle.
+- The handle's preview is clipped at the list column's edge when dragging wider.
+- `scrollTo` landing under a pinned section header.
+- Row legibility at the 268pt minimum list width once the rail takes its share.
+- The zoom transition from a card inside a horizontal `ScrollView`.
+- A Reader sheet presented over a `NavigationStack` inside a `sidebarAdaptable` tab.
+
+**Done when.**
+- On iPad, tapping a Highlight opens its Reader in a sheet, and dismissing it returns to the same
+  scroll position on the orientation surface. Archive or Trash in the sheet dismisses it, and the piece
+  is gone from the landing.
+- The reading split shows Back to Today top-left at all times.
+- After any divider drag, including one that doesn't change the width, the Reader toolbar sits on the
+  same row as the tab bar.
+- The rail jumps to each section, and its counts fall as pieces leave.
+
+**Sequencing.** Touches `TodayView.swift`, `TodayLandingView.swift`, `TodayReadingView.swift`,
+`TodaySurfaceRows.swift`, `ReaderDispositionToolbar.swift`, and `TodayReadingQueueModel.swift`. If the
+in-progress `arts` role lands first, rebase onto it; the exhaustive switches will name what it needs.
+Branch: `m6/s-r11-today-navigation`.

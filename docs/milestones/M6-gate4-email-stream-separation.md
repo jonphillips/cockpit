@@ -216,6 +216,9 @@ Settings-buried stub.
      (clamped, remembered, with a full-width read toggle), reader on the right. Consistent with the
      existing `StreamHandlingView` (already a split view) and `ReaderView`; the half-sheet was the
      outlier. Draggable-divider-with-remembered-width is modest custom work, not free from SwiftUI.
+  **Dogfood amendment (2026-09-24, Jon):** Highlights cards are the one exception. A Highlight is a
+  sampler, so it opens the Reader in a sheet over Orientation instead of entering Reading. Section rows
+  and the tail still open the split. Slice: `M6-reader-dogfood-slices.md` S-r11.
 
 - **D-F — Reading is ONE ordered queue across all sections, not per-section lists.** Categorization
   runs twice: to **orient** (grouping shows the shape of the morning) and to **order** (one linear
