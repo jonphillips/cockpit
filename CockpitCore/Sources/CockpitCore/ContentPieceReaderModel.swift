@@ -23,6 +23,7 @@ public final class ContentPieceReaderModel {
   @ObservationIgnored @Fetch public var matchedPersonalKnowledge = MatchedPersonalKnowledgeClaimRequest.Value()
   public let contentPieceID: ContentPiece.ID
   public private(set) var routingResolution: CurationRoutingResolution?
+  public internal(set) var mailMessageURL: URL?
   public var errorMessage: String?
   public var teachingReason = ""
   public var teachingStage: ReaderTeachingStage?

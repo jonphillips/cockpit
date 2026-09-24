@@ -120,6 +120,7 @@ extension ReaderView {
     try? await readerModel.$matchedPersonalKnowledge.load()
     try? await readerModel.$pendingFindContent.load()
     await readerModel.loadRoutingResolution()
+    await readerModel.loadMailMessageLink()
     if let editionContext {
       await editionContext.model.markSeen(editionContext.entryID)
     }

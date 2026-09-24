@@ -27,7 +27,7 @@ touch the Reader toolbar, view, and model.
 - [x] S-r7 — Email fit: capped fit-to-column zoom
 - [x] S-r8 — Reader column: header aligns with the email
 - [x] S-r9 — Per-publisher zoom: adjust once, remembered per series
-- [ ] S-r10 — Open in Mail: hand off to the exact message in Mail.app
+- [x] S-r10 — Open in Mail: hand off to the exact message in Mail.app
 
 ## Standing rules for every slice
 

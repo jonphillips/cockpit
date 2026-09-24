@@ -8,6 +8,7 @@ struct ReaderDispositionToolbar: ToolbarContent {
   let editionContext: EditionReaderContext?
   var queueContext: ReaderQueueContext? = nil
   var openReply: () -> Void = {}
+  var openMail: () -> Void = {}
   let isTeachingReasonFocused: Bool
   let dismissEdition: () async -> Void
   let saveForLater: () async -> Void
@@ -29,6 +30,10 @@ struct ReaderDispositionToolbar: ToolbarContent {
     ToolbarItemGroup(placement: .topBarTrailing) {
       if model.isReplyAvailable {
         Button("Reply", systemImage: "arrowshape.turn.up.left", action: openReply)
+      }
+
+      if model.mailMessageURL != nil {
+        Button("Open in Mail", systemImage: "envelope", action: openMail)
       }
 
       if editionContext != nil {
