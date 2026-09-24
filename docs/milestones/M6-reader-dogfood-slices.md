@@ -1,4 +1,4 @@
-# M6 — Reader dogfood slices (S-r1 … S-r9)
+# M6 — Reader dogfood slices (S-r1 … S-r10)
 
 > **Build order, architect-recorded 2026-09-22 from Jon's device dogfooding of the S-d0 surface.**
 > These make the Today reading split usable day to day ahead of the S-d device eval. They do not
@@ -14,6 +14,10 @@ iPad, while the Cockpit header sits at the pane's leading edge and the email is 
 are display-only: no schema, identity, Gmail, or judgment changes. S-r7 → S-r8 → S-r9, built in that
 order: S-r9's controls rely on the web-view width S-r8 adds.
 
+**Mail hand-off (S-r10), recorded 2026-09-23.** One tap opens the exact message in Mail.app for real
+email work. It's a link, not composition: DECISIONS §26 is unchanged. Build it after S-r9, because both
+touch the Reader toolbar, view, and model.
+
 - [x] S-r1 — Queue flow: disposed issues leave the queue, advance to next, Undo
 - [x] S-r2 — Reader chrome: actions in the toolbar, inline Tell Cockpit, Delete archives
 - [x] S-r3 — Reader facts: sender names, received dates, links open in Safari
@@ -22,7 +26,8 @@ order: S-r9's controls rely on the web-view width S-r8 adds.
 - [x] S-r6 — Confirmed-Find barrier for offer disposition (DECISIONS §24 amendment, 2026-09-23)
 - [x] S-r7 — Email fit: capped fit-to-column zoom
 - [x] S-r8 — Reader column: header aligns with the email
-- [ ] S-r9 — Per-publisher zoom: adjust once, remembered per series
+- [x] S-r9 — Per-publisher zoom: adjust once, remembered per series
+- [ ] S-r10 — Open in Mail: hand off to the exact message in Mail.app
 
 ## Standing rules for every slice
 
@@ -452,3 +457,86 @@ when Jon explicitly adjusts it. No `pageZoom` and no app-injected JavaScript to 
 - A different newsletter from the same sender is unaffected.
 - On iPhone, pressing larger on a fixed-width email stops once the email fills the pane, and nothing
   is cut off.
+
+---
+
+### S-r10 — Open in Mail: hand off to the exact message in Mail.app
+
+**Goal.** When an email needs real email work (forward, reply-all, attachments, careful composition),
+one tap in the Reader opens that exact message in Mail.app. Cockpit owns triage and understanding;
+Mail owns exceptional email work. This is a hand-off link, not composition. DECISIONS §26 is unchanged.
+
+**Background.** Mail.app resolves `message:` URLs built from the RFC 5322 `Message-ID`. Apple doesn't
+document the mechanism, but it has worked for a long time. Jon verified that this exact form opens the
+message (from a Mail → Notes drag):
+`message:%3C7A.8E.15342.8EF44BA6@i-0a25a4edc84d77c0e.mta1vrest.sd.prd.sparkpost%3E`
+Cockpit already stores the value: `GmailArtifactProvenance.rfcMessageID`, captured at ingest from the
+`Message-ID` header. No new fetch, no schema change.
+
+**Build.**
+- **Pure helper** `MailMessageLink` in CockpitCore: `static func url(rfcMessageID: String?) -> URL?`.
+  Trim whitespace, then strip one surrounding `<` `>` pair if present. Return nil if the remaining ID
+  is empty or contains whitespace. Build `"message:" + "%3C" + encoded(id) + "%3E"`. Leave the
+  RFC 3986 unreserved set plus `@` unencoded (`A–Z a–z 0–9 - . _ ~ @`) and percent-encode everything
+  else, notably `+ = / $ % #`, which appear in Gmail-generated IDs. Construct with `URL(string:)`.
+  Don't use `URLComponents`: `message:` is opaque, with no `//`. This is the only place that knows the
+  scheme, so it can be swapped out if Apple ever breaks it.
+- **Provenance lookup, once.** `ReaderReplyModel.load()` (in `GmailReplyService.swift`) has a loop
+  that finds the newest Artifact for a ContentPiece and decodes its `GmailArtifactProvenance`. Other
+  places re-decode it too. Extract a small CockpitCore helper, e.g.
+  `GmailArtifactProvenance.latest(forContentPiece:in:)`, that keeps that loop's semantics: artifacts
+  newest `acquiredAt` first, first one that decodes wins. Use it from both `ReaderReplyModel` and the
+  Reader model. Leave the other decode sites alone in this slice (`GmailSeriesKey`,
+  `CurationRouting`, `CurationRoutingDiscovery`, `EmailTreatment`, `GmailStreamResolver`).
+- **Model.** `ContentPieceReaderModel` gains `mailMessageURL: URL?`, set by a new
+  `loadMailMessageLink()`. `ReaderView.readerAppeared()` calls it next to `loadRoutingResolution()` and
+  `loadEmailZoomPreference()`. The value is nil unless `isGmailSource` is true and a provenance with a
+  usable `rfcMessageID` exists. Views never read the database.
+- **UI.** In `ReaderDispositionToolbar`, add `Button("Open in Mail", systemImage: "envelope")`.
+  - Show it when `model.mailMessageURL != nil`.
+  - Put it right after Reply, or first when Reply is absent.
+  - Plain style: Archive stays the only `.borderedProminent` action.
+  - Offer it for every email role, newsletters included, not only the roles Reply is limited to.
+  - Open the URL through the Reader's existing `openURL` environment action, using the
+    `openURL(_:completion:)` form. If `accepted` is false (Mail is missing), show a short non-blocking
+    message ("Couldn't open Mail") and don't retry.
+- Opening Mail has no side effects: no disposition, no attention-state change, no queue advance.
+
+**Prove.**
+- `MailMessageLink`:
+  - The Notes fixture above round-trips exactly: input
+    `<7A.8E.15342.8EF44BA6@i-0a25a4edc84d77c0e.mta1vrest.sd.prd.sparkpost>` gives that exact string.
+  - Input without brackets gets wrapped.
+  - nil, empty, `<>`, whitespace-only, and internal whitespace all give nil.
+  - A Gmail-shaped ID, `<CAF+ab=cd/ef@mail.gmail.com>`, encodes `+ = /`.
+- Reader model:
+  - an email piece with `rfcMessageID` gives a URL;
+  - an email piece whose provenance lacks it gives nil;
+  - a non-email piece gives nil;
+  - no Artifact on this device gives nil.
+- `ReaderReplyModel` tests still pass after the lookup is extracted.
+
+**Do not.**
+- No schema or migration change.
+- No syncing of `Artifact` or provenance.
+- No persisted URL.
+- No Gmail-web or Gmail-app fallback.
+- No attempt to detect whether Mail found the message.
+- No changes to Reply or to the scope of DECISIONS §26.
+
+**Device-only risks (name them).**
+- Whether Mail.app on iPad resolves the link, in particular:
+  - for a message Cockpit has already **archived** in Gmail, which lives only in All Mail;
+  - for a Gmail-originated ID containing `+` or `=`.
+- A miss is silent: `openURL` reports success once Mail launches, even if Mail can't find the
+  message.
+- Only the ingesting device has the button. `Artifact` isn't in the CloudKit sync set, so on a
+  non-ingesting device (e.g. iPhone) the button is hidden. That's intended for now.
+- Toolbar overflow at narrow split widths, which adds to S-r2's risk.
+
+**Done when.** On the ingesting iPad, tapping Open in Mail in the Reader for a Gmail piece opens that
+exact message in Mail.app. The button is absent where there's no Message-ID.
+
+**Sequencing.** S-r10 touches `ReaderDispositionToolbar.swift`, `ReaderView.swift`, and
+`ContentPieceReaderModel.swift`, all of which S-r9 is also changing. Build it after S-r9 merges, or
+rebase onto it. Branch: `m6/s-r10-open-in-mail`.

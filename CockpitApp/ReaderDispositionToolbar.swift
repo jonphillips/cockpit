@@ -16,6 +16,14 @@ struct ReaderDispositionToolbar: ToolbarContent {
   let keepOffline: () -> Void
   let releaseOffline: () -> Void
   let correctClaim: (PersonalKnowledgeRequest.Row) -> Void
+  let emailZoomStep: Int
+  let emailZoom: Double
+  let showsEmailTextSize: Bool
+  let canIncreaseEmailZoom: Bool
+  let canDecreaseEmailZoom: Bool
+  let smallerEmailText: () -> Void
+  let largerEmailText: () -> Void
+  let resetEmailText: () -> Void
 
   var body: some ToolbarContent {
     ToolbarItemGroup(placement: .topBarTrailing) {
@@ -37,6 +45,19 @@ struct ReaderDispositionToolbar: ToolbarContent {
       }
 
       Menu {
+        if showsEmailTextSize {
+          Menu("Text Size · \(Int((emailZoom * 100).rounded()))%", systemImage: "textformat.size") {
+            Button("Smaller", systemImage: "textformat.size.smaller", action: smallerEmailText)
+              .disabled(!canDecreaseEmailZoom)
+            Button("Larger", systemImage: "textformat.size.larger", action: largerEmailText)
+              .disabled(!canIncreaseEmailZoom)
+            Divider()
+            Button("Fit", systemImage: "arrow.left.and.right", action: resetEmailText)
+              .disabled(emailZoomStep == 0)
+          }
+          Divider()
+        }
+
         Button("Save for Later", systemImage: "clock") {
           Task { await saveForLater() }
         }

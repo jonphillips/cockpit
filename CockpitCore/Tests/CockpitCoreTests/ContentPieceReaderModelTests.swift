@@ -462,3 +462,126 @@ struct ContentPieceReaderModelTests {
     expectNoDifference(storedCounts.1, 0)
   }
 }
+
+@Suite(.dependencies { try $0.bootstrapDatabase() })
+@MainActor
+struct EmailZoomReaderModelTests {
+  @Dependency(\.defaultDatabase) var database
+
+  @Test("A new newsletter piece in the same List-ID series opens at its saved step")
+  func preferenceFollowsListIDSeries() async throws {
+    let firstID = UUID(9201)
+    let sameSeriesID = UUID(9202)
+    let otherSeriesID = UUID(9203)
+    try await seedNewsletter(id: firstID, messageID: "zoom-1", listID: "Daily <daily.example.com>")
+    try await seedNewsletter(
+      id: sameSeriesID, messageID: "zoom-2", listID: "Daily <daily.example.com>")
+    try await seedNewsletter(id: otherSeriesID, messageID: "zoom-3", listID: "Weekend <weekend.example.com>")
+
+    let store = EmailZoomPreferenceStore.inMemory()
+    let first = withDependencies { $0.emailZoomPreferenceStore = store } operation: {
+      ContentPieceReaderModel(contentPieceID: firstID)
+    }
+    await first.loadEmailZoomPreference()
+    #expect(first.isEmailZoomPreferenceLoaded)
+    first.setEmailZoomAdjustmentStep(2)
+
+    let nextIssue = withDependencies { $0.emailZoomPreferenceStore = store } operation: {
+      ContentPieceReaderModel(contentPieceID: sameSeriesID)
+    }
+    await nextIssue.loadEmailZoomPreference()
+    expectNoDifference(nextIssue.emailZoomAdjustmentStep, 2)
+
+    let otherPublication = withDependencies { $0.emailZoomPreferenceStore = store } operation: {
+      ContentPieceReaderModel(contentPieceID: otherSeriesID)
+    }
+    await otherPublication.loadEmailZoomPreference()
+    expectNoDifference(otherPublication.emailZoomAdjustmentStep, 0)
+  }
+
+  @Test("Two List-IDs from the same sender keep separate zoom preferences")
+  func listIDsFromOneSenderStaySeparate() async throws {
+    let firstID = UUID(9204)
+    let secondID = UUID(9205)
+    try await seedNewsletter(id: firstID, messageID: "zoom-4", listID: "Daily <daily.example.com>")
+    try await seedNewsletter(id: secondID, messageID: "zoom-5", listID: "Weekend <weekend.example.com>")
+
+    let store = EmailZoomPreferenceStore.inMemory()
+    let first = withDependencies { $0.emailZoomPreferenceStore = store } operation: {
+      ContentPieceReaderModel(contentPieceID: firstID)
+    }
+    await first.loadEmailZoomPreference()
+    first.setEmailZoomAdjustmentStep(2)
+
+    let second = withDependencies { $0.emailZoomPreferenceStore = store } operation: {
+      ContentPieceReaderModel(contentPieceID: secondID)
+    }
+    await second.loadEmailZoomPreference()
+    expectNoDifference(second.emailZoomAdjustmentStep, 0)
+    second.setEmailZoomAdjustmentStep(1)
+
+    let reopenedFirst = withDependencies { $0.emailZoomPreferenceStore = store } operation: {
+      ContentPieceReaderModel(contentPieceID: firstID)
+    }
+    await reopenedFirst.loadEmailZoomPreference()
+    expectNoDifference(reopenedFirst.emailZoomAdjustmentStep, 2)
+  }
+
+  @Test("A non-newsletter without a series key never saves a zoom preference")
+  func noSeriesKeyDoesNotPersist() async throws {
+    let pieceID = UUID(9206)
+    try await seedNewsletter(
+      id: pieceID, messageID: "zoom-personal", listID: "Daily <daily.example.com>", treatment: .personal)
+
+    let store = EmailZoomPreferenceStore.inMemory()
+    let model = withDependencies { $0.emailZoomPreferenceStore = store } operation: {
+      ContentPieceReaderModel(contentPieceID: pieceID)
+    }
+    await model.loadEmailZoomPreference()
+
+    #expect(model.emailSeriesKey == nil)
+    model.setEmailZoomAdjustmentStep(2)
+    #expect(model.emailSeriesKey == nil)
+    #expect(store.adjustmentStep(for: "news@example.com") == nil)
+  }
+
+  @Test("Pinch cannot add hidden steps when Larger is blocked by the viewport ceiling")
+  func largerAtCeilingLeavesStepUnchanged() async throws {
+    let pieceID = UUID(9207)
+    try await seedNewsletter(id: pieceID, messageID: "zoom-ceiling", listID: "Daily <daily.example.com>")
+
+    let store = EmailZoomPreferenceStore.inMemory()
+    let model = withDependencies { $0.emailZoomPreferenceStore = store } operation: {
+      ContentPieceReaderModel(contentPieceID: pieceID)
+    }
+    await model.loadEmailZoomPreference()
+
+    model.adjustEmailZoom(by: 2, designWidth: 600, viewportWidth: 390)
+
+    expectNoDifference(model.emailZoomAdjustmentStep, 0)
+    expectNoDifference(store.adjustmentStep(for: "daily.example.com"), nil)
+  }
+
+  private func seedNewsletter(
+    id: UUID, messageID: String, listID: String?, treatment: EmailTreatment = .newsletter
+  ) async throws {
+    let provenance = GmailArtifactProvenance(
+      accountID: "jon@example.com", messageID: messageID, threadID: messageID,
+      rfcMessageID: nil, listUnsubscribe: nil, listID: listID, precedence: "bulk",
+      senderAddress: "Newsletter <news@example.com>", sendingDomain: "example.com",
+      dkimDomain: nil, toRecipientCount: 1, ccRecipientCount: 0)
+    let provenanceJSON = String(data: try JSONEncoder().encode(provenance), encoding: .utf8)
+    try await database.write { db in
+      try ContentPiece.insert {
+        ContentPiece.Draft(ContentPiece(
+          id: id, kind: .email, title: messageID, creator: "Newsletter <news@example.com>",
+          publisher: "Newsletter", emailTreatment: treatment, createdAt: .distantPast))
+      }.execute(db)
+      try Artifact.insert {
+        Artifact.Draft(Artifact(
+          id: UUID(), transport: .gmail, acquiredAt: .distantPast,
+          providerProvenance: provenanceJSON, contentPieceID: id))
+      }.execute(db)
+    }
+  }
+}
