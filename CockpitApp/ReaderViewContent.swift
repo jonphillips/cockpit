@@ -52,6 +52,7 @@ extension ReaderView {
           openURL: openURL,
           originalWebViewStore: originalWebViewStore,
           zoomAdjustmentStep: readerModel.emailZoomAdjustmentStep,
+          isZoomPreferenceLoaded: readerModel.isEmailZoomPreferenceLoaded,
           magnify: handleEmailMagnification
         )
 
@@ -102,14 +103,19 @@ extension ReaderView {
 
   func handleEmailMagnification(_ magnification: CGFloat) {
     guard magnification.isFinite, magnification > 0 else { return }
-    let change = Int((log(Double(magnification)) / log(1.1)).rounded())
+    let requestedChange = (log(Double(magnification)) / log(1.1)).rounded()
+    let change = Int(min(8, max(-8, requestedChange)))
     guard change != 0 else { return }
-    readerModel.setEmailZoomAdjustmentStep(readerModel.emailZoomAdjustmentStep + change)
+    readerModel.adjustEmailZoom(
+      by: change,
+      designWidth: originalWebViewStore.designWidth,
+      viewportWidth: Double(originalWebViewStore.viewportWidth)
+    )
   }
 
   func readerAppeared() async {
-    try? await readerModel.$content.load()
     await readerModel.loadEmailZoomPreference()
+    try? await readerModel.$content.load()
     try? await readerModel.$readerTeaching.load()
     try? await readerModel.$matchedPersonalKnowledge.load()
     try? await readerModel.$pendingFindContent.load()

@@ -39,7 +39,7 @@ struct ReaderView: View {
         correctClaim: { correctingClaim = $0 },
         emailZoomStep: model.emailZoomAdjustmentStep,
         emailZoom: currentEmailZoom,
-        showsEmailTextSize: isHTMLReaderBody,
+        showsEmailTextSize: isHTMLReaderBody && model.isEmailZoomPreferenceLoaded,
         canIncreaseEmailZoom: EmailFitZoom.canIncrease(
           designWidth: originalWebViewStore.designWidth,
           viewportWidth: Double(originalWebViewStore.viewportWidth),
@@ -65,13 +65,16 @@ struct ReaderView: View {
       VStack {
         Button("Larger Text") { adjustEmailText(by: 1) }
           .keyboardShortcut("+", modifiers: .command)
-          .disabled(isTeachingReasonFocused)
+          .disabled(!isHTMLReaderBody || !model.isEmailZoomPreferenceLoaded || isTeachingReasonFocused)
+        Button("Larger Text") { adjustEmailText(by: 1) }
+          .keyboardShortcut("=", modifiers: .command)
+          .disabled(!isHTMLReaderBody || !model.isEmailZoomPreferenceLoaded || isTeachingReasonFocused)
         Button("Smaller Text") { adjustEmailText(by: -1) }
           .keyboardShortcut("-", modifiers: .command)
-          .disabled(isTeachingReasonFocused)
+          .disabled(!isHTMLReaderBody || !model.isEmailZoomPreferenceLoaded || isTeachingReasonFocused)
         Button("Fit Text") { model.resetEmailTextSize() }
           .keyboardShortcut("0", modifiers: .command)
-          .disabled(isTeachingReasonFocused)
+          .disabled(!isHTMLReaderBody || !model.isEmailZoomPreferenceLoaded || isTeachingReasonFocused)
       }
       .frame(width: 1, height: 1)
       .opacity(0)

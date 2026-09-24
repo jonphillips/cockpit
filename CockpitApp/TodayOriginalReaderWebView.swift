@@ -45,7 +45,9 @@ enum TodayOriginalHTML {
 
     guard let viewport = try? document.createElement("meta") else { return }
     _ = try? viewport.attr("name", "viewport")
-    _ = try? viewport.attr("content", "width=device-width, initial-scale=1")
+    _ = try? viewport.attr(
+      "content", "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    )
     if let head = document.head() {
       _ = try? head.appendChild(viewport)
     } else {

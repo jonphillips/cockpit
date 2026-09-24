@@ -41,6 +41,7 @@ struct ReaderBodyView: View {
   let openURL: OpenURLAction
   let originalWebViewStore: TodayOriginalWebViewStore
   let zoomAdjustmentStep: Int
+  let isZoomPreferenceLoaded: Bool
   let magnify: (CGFloat) -> Void
 
   var body: some View {
@@ -56,12 +57,15 @@ struct ReaderBodyView: View {
         .simultaneousGesture(
           MagnifyGesture().onEnded { value in magnify(value.magnification) }
         )
-        .onAppear { originalWebViewStore.load(rawHTML: rawHTML, adjustmentStep: zoomAdjustmentStep) }
+        .onAppear { loadHTMLIfReady(rawHTML, step: zoomAdjustmentStep) }
         .onChange(of: rawHTML) { _, newValue in
-          originalWebViewStore.load(rawHTML: newValue, adjustmentStep: zoomAdjustmentStep)
+          loadHTMLIfReady(newValue, step: zoomAdjustmentStep)
         }
         .onChange(of: zoomAdjustmentStep) { _, newValue in
-          originalWebViewStore.load(rawHTML: rawHTML, adjustmentStep: newValue)
+          loadHTMLIfReady(rawHTML, step: newValue)
+        }
+        .onChange(of: isZoomPreferenceLoaded) { _, isLoaded in
+          if isLoaded { originalWebViewStore.load(rawHTML: rawHTML, adjustmentStep: zoomAdjustmentStep) }
         }
 
     case let .inline(text, isTruncated):
@@ -89,6 +93,11 @@ struct ReaderBodyView: View {
     case .preview, .compactPreview:
       openOriginalButton
     }
+  }
+
+  private func loadHTMLIfReady(_ html: String, step: Int) {
+    guard isZoomPreferenceLoaded else { return }
+    originalWebViewStore.load(rawHTML: html, adjustmentStep: step)
   }
 
   @ViewBuilder

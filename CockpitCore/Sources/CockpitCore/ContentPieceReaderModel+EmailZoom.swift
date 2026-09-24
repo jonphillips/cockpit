@@ -2,36 +2,21 @@ import Foundation
 import SQLiteData
 
 extension ContentPieceReaderModel {
-  public func saveForLater() async {
-    guard let id = row?.id else { return }
-    let date = now
-    await run { try DestinationOperations.saveForLater(id, at: date, in: $0) }
-  }
-
-  public func addToLibrary() async {
-    guard let id = row?.id else { return }
-    let date = now
-    await run { try DestinationOperations.addToLibrary(id, at: date, in: $0) }
-  }
-
-  public func correctIsSubstantivePrimary(to value: Bool) async {
-    guard let id = row?.id else { return }
-    await run {
-      try ContentPiece.find(id).update { $0.isSubstantivePrimary = #bind(value) }.execute($0)
-    }
-  }
-
   /// Loads the device-local size preference for this newsletter's List-ID-first series.
   public func loadEmailZoomPreference() async {
-    guard let id = row?.id else { return }
     do {
-      let key = try await database.read { db in try GmailSeriesKey.seriesKey(forContentPieceID: id, in: db) }
+      let key = try await database.read { db in
+        try GmailSeriesKey.seriesKey(forContentPieceID: contentPieceID, in: db)
+      }
       emailSeriesKey = key
       emailZoomAdjustmentStep = key.flatMap(emailZoomPreferenceStore.adjustmentStep(for:)) ?? 0
+      isEmailZoomPreferenceLoaded = true
     } catch is CancellationError {
+      isEmailZoomPreferenceLoaded = true
     } catch {
       emailSeriesKey = nil
       emailZoomAdjustmentStep = 0
+      isEmailZoomPreferenceLoaded = true
     }
   }
 
@@ -47,6 +32,21 @@ extension ContentPieceReaderModel {
       designWidth: designWidth, viewportWidth: viewportWidth, adjustmentStep: emailZoomAdjustmentStep
     ) else { return }
     setEmailZoomAdjustmentStep(emailZoomAdjustmentStep - 1)
+  }
+
+  /// Applies a multi-step gesture through the same per-step viewport checks as the buttons.
+  public func adjustEmailZoom(by requestedSteps: Int, designWidth: Double?, viewportWidth: Double) {
+    let steps = min(8, max(-8, requestedSteps))
+    guard steps != 0 else { return }
+    for _ in 0..<abs(steps) {
+      let previousStep = emailZoomAdjustmentStep
+      if steps > 0 {
+        largerEmailText(designWidth: designWidth, viewportWidth: viewportWidth)
+      } else {
+        smallerEmailText(designWidth: designWidth, viewportWidth: viewportWidth)
+      }
+      guard emailZoomAdjustmentStep != previousStep else { break }
+    }
   }
 
   public func resetEmailTextSize() {

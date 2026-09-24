@@ -21,6 +21,7 @@ public final class ContentPieceReaderModel {
   @ObservationIgnored @Fetch public var pendingFindContent = PendingFindForContentPieceRequest.Value()
   @ObservationIgnored @Fetch public var readerTeaching = ReaderTeachingClaimRequest.Value()
   @ObservationIgnored @Fetch public var matchedPersonalKnowledge = MatchedPersonalKnowledgeClaimRequest.Value()
+  public let contentPieceID: ContentPiece.ID
   public private(set) var routingResolution: CurationRoutingResolution?
   public var errorMessage: String?
   public var teachingReason = ""
@@ -29,11 +30,13 @@ public final class ContentPieceReaderModel {
   public var teachingProviderDescription: String?
   public internal(set) var emailSeriesKey: String?
   public internal(set) var emailZoomAdjustmentStep = 0
+  public internal(set) var isEmailZoomPreferenceLoaded = false
 
   public init(
     contentPieceID: ContentPiece.ID,
     matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID? = nil
   ) {
+    self.contentPieceID = contentPieceID
     _content = Fetch(wrappedValue: .init(), ContentPieceReaderRequest(contentPieceID: contentPieceID))
     _pendingFindContent = Fetch(
       wrappedValue: .init(), PendingFindForContentPieceRequest(contentPieceID: contentPieceID))
