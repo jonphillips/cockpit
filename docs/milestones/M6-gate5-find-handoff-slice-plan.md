@@ -85,9 +85,10 @@ The §9 exception it needs is recorded narrowly in APP-FAMILY §9, not smuggled 
     per-app (D8).
 - **Initiate (Cockpit → Yes Chef).** Cockpit writes the referral message, then opens
   **`yeschef://find-referral?id=<referralID>`**. Yes Chef's URL handler reads and consumes the message and
-  stages it through the **same** `CreateRecipeCoordinator.stage(referral:)` path `CaptureRecipeFromText`
-  already uses (one staging path; the intent keeps serving Shortcuts). Jon lands in Create Recipe review
-  and finishes in the moment. The body travels as a file, so there is no URL-length risk.
+  stages it through `CreateRecipeCoordinator.stage(referral:)`. That is the only referral door:
+  `CaptureRecipeFromText` goes back to text-only Shortcuts use (Yes Chef ADR-0058 D2/D3). Jon lands in
+  Create Recipe review and finishes in the moment. The body travels as a file, so there is no URL-length
+  risk.
   - `rawText` — the **whole readable body** (+ chrome). **Never pre-trim to "the recipe"** — trimming is
     parsing, wrong side of the line.
   - `provenance` — Yes Chef's `FindProvenance` fields. `contentPieceToken` is opaque Cockpit custody
@@ -115,7 +116,8 @@ The §9 exception it needs is recorded narrowly in APP-FAMILY §9, not smuggled 
                   { "kind": "declined", "reason": "extractionFailed", "detail": "…" } ] }
   ```
   `reason` ∈ `noRecipeFound | duplicate | dismissed | extractionFailed`. `detail` appears only on
-  `extractionFailed` and is diagnostic, never shown to Jon. A per-message `version` is not the §9
+  `extractionFailed` and is diagnostic, never shown to Jon. Encoders omit absent optional fields; decoders
+  accept either an omitted field or `null`. A per-message `version` is not the §9
   "universal envelope". It versions these two message types between these two apps, nothing more.
 
 ### Why a mailbox, not App Intents or URLs both ways
@@ -195,10 +197,9 @@ Contract first, then the two repos in parallel, then the join. Gate 5's **gate r
    ratified Option A. The §9 exception is recorded in `docs/APP-FAMILY-INTERACTION.md`, and this doc's
    "The contract" section, including both golden fixtures, is frozen. Nothing remains for an executor.
    The per-repo mechanical work (entitlement, URL scheme, fixture copies) opens S-c1 and S-y3.
-   **Architect follow-up in yes-chef (gates S-y3):** update `docs/efforts/cockpit-find-handoff-receiver.md`
-   to match. The transport fork is resolved, the initiate path is now URL + mailbox rather than the intent,
-   and S-y3 replaces the old "prove the silent App Intent" check. Assign the Yes Chef ADR number there,
-   since the transport choice is what makes this ADR-worthy.
+   **Architect follow-up in yes-chef (gates S-y3):** Yes Chef's effort doc is updated to match, and the
+   transport is recorded as ADR-0058, in
+   [jonphillips/yes-chef#324](https://github.com/jonphillips/yes-chef/pull/324).
 1. **S-c1 (cockpit) — recipe-candidate hint + referral send.**
    - Add the `group.com.jonphillips.cockpit-yeschef` App Group entitlement to Cockpit (`project.yml` +
      entitlements).
@@ -221,25 +222,29 @@ Contract first, then the two repos in parallel, then the join. Gate 5's **gate r
 3. **S-y1 (Yes Chef) — ✅ done in #322.** Extractor isolates 0/1/N from messy/large input. Proves **I6.**
 4. **S-y2 (Yes Chef) — ✅ compute done in #322.** Referral staged with provenance; exactly-one verdict per
    referral; emitted through the `FindReturnEmitter` seam (still a stub).
-5. **S-y3 (Yes Chef) — the transport.** Starts after the architect's effort-doc update (S0 follow-up).
-   - Add the `group.com.jonphillips.cockpit-yeschef` App Group to the Yes Chef app target (alongside its
-     existing group, which stays share-extension-only).
-   - Register the `yeschef` URL scheme and handle `yeschef://find-referral`.
-   - The URL handler reads and consumes `find-referrals/<id>.json` and calls `stage(referral:)`.
-   - Replace `FindReturnEmitter.liveValue` with the mailbox writer.
-   - Hand-write `Codable` for `FindReferral` / `FindVerdict` against the golden fixtures.
-   - **Reconsider abandon-on-scene-background.** It was needed while the transport might be a URL hop,
-     which can't fire later. Under A a verdict can be written at any time, and today a quick glance back
-     at Cockpit mid-review emits `dismissed`, clears the referral, and orphans a save made after
-     returning.
-   - Prefer abandoning on leaving Create Recipe, on superseding intake, or on a relaunch that can't
-     restore the review. Yes Chef's call; Cockpit tolerates either, because `dismissed` is re-sendable.
+5. **S-y3 (Yes Chef) — the transport.** Specified in Yes Chef's
+   [ADR-0058](https://github.com/jonphillips/yes-chef/blob/main/docs/decisions/ADR-0058-cockpit-find-referral-transport.md)
+   and the S-y3 section of `docs/efforts/cockpit-find-handoff-receiver.md` (Next Up there). In summary:
+   - add the pair App Group to the app target;
+   - add the single-purpose `yeschef://find-referral` door (stage → persist the outstanding id → delete
+     the file);
+   - hand-write `Codable` against the fixtures;
+   - make the mailbox writer `FindReturnEmitter.liveValue`;
+   - trim `CaptureRecipeFromText` back to text-only;
+   - **make exactly one verdict survive process death.** A device-local outstanding `referralID` emits
+     `dismissed` on relaunch, and abandon-on-scene-background is removed, because a glance back at
+     Cockpit mid-review must not dismiss the referral.
+
+   That makes "Yes Chef guarantees exactly one verdict per staged referral" true across process death,
+   which the strand design above relies on.
 6. **S-join — round-trip gate review (device; Jon's).**
    - Use a real multi-recipe email: send → pick one in Yes Chef → switch back → the Find shows admitted
      with no id handled and no hop.
    - Check the decline path (a non-recipe email → `declined`, `noRecipeFound`).
    - Check that dismiss returns the Find to re-sendable.
    - Kill Yes Chef before it handles the URL → Cockpit surfaces the strand.
+   - Kill Yes Chef mid-review → on its next launch, the Find returns to re-sendable (`dismissed`).
+   - Glance back at Cockpit mid-review → the Find stays `referred`, and a save after returning admits it.
    - Confirm custody survives.
    - Ratify the boundary. **Do not run ahead of Gate 4's close.**
 
