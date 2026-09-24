@@ -6,6 +6,7 @@ struct TodayView: View {
   @Bindable var tailModel: EditionModel
   @Bindable var inboxIngest: GmailInboxIngestModel
   @State private var readingQueueModel = TodayReadingQueueModel()
+  @State private var highlightWebViewStore = TodayOriginalWebViewStore()
   @Namespace private var readerTransition
   @State private var isConfirmingTailRecompose = false
   @State private var isShowingRecentTrashes = false
@@ -68,7 +69,7 @@ struct TodayView: View {
           queueRow: queueRow,
           model: model,
           tailModel: tailModel,
-          originalWebViewStore: TodayOriginalWebViewStore()
+          originalWebViewStore: highlightWebViewStore
         )
         .presentationSizing(.page)
         .presentationDetents([.large])

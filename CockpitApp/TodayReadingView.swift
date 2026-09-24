@@ -1,4 +1,5 @@
 import CockpitCore
+import Observation
 import SwiftUI
 
 /// The reading state for Today: one queue across every role section, with the selected piece in a
@@ -10,6 +11,7 @@ struct TodayReadingView: View {
 
   @AppStorage("cockpit.today.reading-list-width") private var storedListWidth = Double(ReadingPaneWidth.defaultValue)
   @State private var columnVisibility: NavigationSplitViewVisibility = .all
+  @State private var dividerDragState = ReadingDividerDragState()
 
   private var listWidth: CGFloat {
     ReadingPaneWidth.clamped(CGFloat(storedListWidth))
@@ -20,6 +22,7 @@ struct TodayReadingView: View {
       TodayReadingQueueSidebar(
         model: model,
         listWidth: listWidth,
+        dividerDragState: dividerDragState,
         backToToday: finishReading,
         onCommitWidth: commitWidth
       )
@@ -32,6 +35,9 @@ struct TodayReadingView: View {
       )
     }
     .navigationSplitViewStyle(.balanced)
+    .overlay {
+      ReadingDividerPreviewLine(dragState: dividerDragState)
+    }
     .task { await model.reload() }
     .onChange(of: model.selectedContentPieceID) { oldID, newID in
       guard let oldID, oldID != newID else { return }
@@ -50,10 +56,8 @@ struct TodayReadingView: View {
     }
   }
 
-  private func commitWidth(_ translation: CGFloat) {
-    guard let width = ReadingPaneWidth.committedWidth(
-      current: listWidth, translation: translation
-    ) else { return }
+  private func commitWidth(_ width: CGFloat?) {
+    guard let width else { return }
     storedListWidth = Double(width)
   }
 
@@ -69,8 +73,9 @@ struct TodayReadingView: View {
 private struct TodayReadingQueueSidebar: View {
   @Bindable var model: TodayReadingQueueModel
   let listWidth: CGFloat
+  let dividerDragState: ReadingDividerDragState
   let backToToday: () -> Void
-  let onCommitWidth: (CGFloat) -> Void
+  let onCommitWidth: (CGFloat?) -> Void
 
   var body: some View {
     ScrollViewReader { proxy in
@@ -92,11 +97,19 @@ private struct TodayReadingQueueSidebar: View {
       .navigationSplitViewColumnWidth(
         min: ReadingPaneWidth.minimum, ideal: listWidth, max: ReadingPaneWidth.maximum)
       .safeAreaInset(edge: .trailing, spacing: 0) {
-        if model.sections.count > 1 {
-          sectionRail { contentPieceID in
-            withAnimation { proxy.scrollTo(contentPieceID, anchor: .top) }
+        HStack(spacing: 0) {
+          if model.sections.count > 1 {
+            sectionRail { contentPieceID in
+              withAnimation { proxy.scrollTo(contentPieceID, anchor: .top) }
+            }
           }
+          ReadingDividerHandle(
+            currentWidth: listWidth,
+            dragState: dividerDragState,
+            onCommitWidth: onCommitWidth
+          )
         }
+        .frame(maxHeight: .infinity, alignment: .top)
       }
       .overlay {
         if model.rows.isEmpty {
@@ -119,9 +132,6 @@ private struct TodayReadingQueueSidebar: View {
             )
           }
         }
-      }
-      .overlay(alignment: .trailing) {
-        ReadingDividerHandle(currentWidth: listWidth, onCommit: onCommitWidth)
       }
     }
   }
@@ -200,46 +210,5 @@ private struct TodayReadingQueueDetail: View {
         }
       }
     }
-  }
-}
-
-private struct ReadingDividerHandle: View {
-  let currentWidth: CGFloat
-  let onCommit: (CGFloat) -> Void
-  @State private var dragStartWidth: CGFloat?
-  @State private var translation: CGFloat = 0
-
-  private var previewOffset: CGFloat {
-    guard let dragStartWidth else { return 0 }
-    return ReadingPaneWidth.clamped(dragStartWidth + translation) - dragStartWidth
-  }
-
-  var body: some View {
-    Rectangle()
-      .fill(.clear)
-      .frame(width: 24)
-      .contentShape(Rectangle())
-      .overlay {
-        Capsule()
-          .fill(dragStartWidth == nil ? .quaternary : .secondary)
-          .frame(width: 4, height: 36)
-          .offset(x: previewOffset)
-      }
-      .gesture(
-        DragGesture(minimumDistance: 1)
-          .onChanged { value in
-            if dragStartWidth == nil { dragStartWidth = currentWidth }
-            translation = value.translation.width
-          }
-          .onEnded { value in
-            if dragStartWidth == nil { dragStartWidth = currentWidth }
-            onCommit(value.translation.width)
-            dragStartWidth = nil
-            translation = 0
-          }
-      )
-      .accessibilityElement()
-      .accessibilityLabel("Reading list divider")
-      .accessibilityHint("Drag to resize the reading list")
   }
 }

@@ -59,7 +59,7 @@ struct ReaderDispositionToolbar: ToolbarContent {
 
 private extension ReaderDispositionToolbar {
   @ViewBuilder
-  private var moreActions: some View {
+  var moreActions: some View {
     Menu {
       if showsEmailTextSize {
         Menu("Text Size · \(Int((emailZoom * 100).rounded()))%", systemImage: "textformat.size") {
