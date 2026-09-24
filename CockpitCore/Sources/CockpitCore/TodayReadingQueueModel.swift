@@ -45,6 +45,17 @@ public final class TodayReadingQueueModel {
 
   public var rows: [TodayReadingQueueRequest.Row] { content.rows }
 
+  public var selectedRole: ContentRole? {
+    Self.selectedRole(for: selectedContentPieceID, in: sections)
+  }
+
+  public static func selectedRole(
+    for contentPieceID: ContentPiece.ID?, in sections: [Section]
+  ) -> ContentRole? {
+    guard let contentPieceID else { return nil }
+    return sections.first { section in section.rows.contains { $0.id == contentPieceID } }?.role
+  }
+
   public var sections: [Section] {
     ContentRole.allCases.sorted { $0.sortOrder < $1.sortOrder }.compactMap { role in
       let rows = content.rows.filter { $0.role == role }

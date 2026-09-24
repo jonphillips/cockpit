@@ -11,4 +11,11 @@ public enum ReadingPaneWidth {
   public static func clamped(_ width: CGFloat) -> CGFloat {
     min(max(width, minimum), maximum)
   }
+
+  /// The live width for a divider drag, or nil when the clamp leaves the current width unchanged,
+  /// so a drag pinned at either bound writes nothing.
+  public static func draggedWidth(start: CGFloat, translation: CGFloat, current: CGFloat) -> CGFloat? {
+    let result = clamped(start + translation)
+    return result == current ? nil : result
+  }
 }
