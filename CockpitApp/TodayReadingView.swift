@@ -1,5 +1,4 @@
 import CockpitCore
-import Observation
 import SwiftUI
 
 /// The reading state for Today: one queue across every role section, with the selected piece in a
@@ -11,7 +10,8 @@ struct TodayReadingView: View {
 
   @AppStorage("cockpit.today.reading-list-width") private var storedListWidth = Double(ReadingPaneWidth.defaultValue)
   @State private var columnVisibility: NavigationSplitViewVisibility = .all
-  @State private var dividerDragState = ReadingDividerDragState()
+  @State private var isDraggingDivider = false
+  @State private var dragStartWidth: CGFloat?
 
   private var listWidth: CGFloat {
     ReadingPaneWidth.clamped(CGFloat(storedListWidth))
@@ -22,9 +22,10 @@ struct TodayReadingView: View {
       TodayReadingQueueSidebar(
         model: model,
         listWidth: listWidth,
-        dividerDragState: dividerDragState,
-        backToToday: finishReading,
-        onCommitWidth: commitWidth
+        isDraggingDivider: isDraggingDivider,
+        dividerDragChanged: dividerDragChanged,
+        dividerDragEnded: dividerDragEnded,
+        backToToday: finishReading
       )
     } detail: {
       TodayReadingQueueDetail(
@@ -35,9 +36,6 @@ struct TodayReadingView: View {
       )
     }
     .navigationSplitViewStyle(.balanced)
-    .overlay {
-      ReadingDividerPreviewLine(dragState: dividerDragState)
-    }
     .task { await model.reload() }
     .onChange(of: model.selectedContentPieceID) { oldID, newID in
       guard let oldID, oldID != newID else { return }
@@ -56,9 +54,20 @@ struct TodayReadingView: View {
     }
   }
 
-  private func commitWidth(_ width: CGFloat?) {
-    guard let width else { return }
-    storedListWidth = Double(width)
+  private func dividerDragChanged(_ translation: CGFloat) {
+    if dragStartWidth == nil { dragStartWidth = listWidth }
+    guard let dragStartWidth else { return }
+    isDraggingDivider = true
+    if let width = ReadingPaneWidth.draggedWidth(
+      start: dragStartWidth, translation: translation, current: listWidth)
+    {
+      storedListWidth = Double(width)
+    }
+  }
+
+  private func dividerDragEnded() {
+    isDraggingDivider = false
+    dragStartWidth = nil
   }
 
   private func finishReading() {
@@ -73,9 +82,10 @@ struct TodayReadingView: View {
 private struct TodayReadingQueueSidebar: View {
   @Bindable var model: TodayReadingQueueModel
   let listWidth: CGFloat
-  let dividerDragState: ReadingDividerDragState
+  let isDraggingDivider: Bool
+  let dividerDragChanged: (CGFloat) -> Void
+  let dividerDragEnded: () -> Void
   let backToToday: () -> Void
-  let onCommitWidth: (CGFloat?) -> Void
 
   var body: some View {
     ScrollViewReader { proxy in
@@ -96,20 +106,19 @@ private struct TodayReadingQueueSidebar: View {
       }
       .navigationSplitViewColumnWidth(
         min: ReadingPaneWidth.minimum, ideal: listWidth, max: ReadingPaneWidth.maximum)
-      .safeAreaInset(edge: .trailing, spacing: 0) {
-        HStack(spacing: 0) {
-          if model.sections.count > 1 {
-            sectionRail { contentPieceID in
-              withAnimation { proxy.scrollTo(contentPieceID, anchor: .top) }
-            }
+      .safeAreaInset(edge: .leading, spacing: 0) {
+        if model.sections.count > 1 {
+          sectionRail { contentPieceID in
+            withAnimation { proxy.scrollTo(contentPieceID, anchor: .top) }
           }
-          ReadingDividerHandle(
-            currentWidth: listWidth,
-            dragState: dividerDragState,
-            onCommitWidth: onCommitWidth
-          )
         }
-        .frame(maxHeight: .infinity, alignment: .top)
+      }
+      .overlay(alignment: .trailing) {
+        ReadingDividerHandle(
+          isDragging: isDraggingDivider,
+          onChanged: dividerDragChanged,
+          onEnded: dividerDragEnded
+        )
       }
       .overlay {
         if model.rows.isEmpty {
@@ -169,6 +178,7 @@ private struct TodayReadingQueueSidebar: View {
     .frame(width: 48)
     .accessibilityElement(children: .contain)
     .background(.regularMaterial)
+    .overlay(alignment: .trailing) { Divider() }
   }
 }
 
