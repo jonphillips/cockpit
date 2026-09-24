@@ -34,7 +34,7 @@ schema, identity, Gmail, or judgment changes. Amends D-E for Highlights only (se
 - [x] S-r8 — Reader column: header aligns with the email
 - [x] S-r9 — Per-publisher zoom: adjust once, remembered per series
 - [x] S-r10 — Open in Mail: hand off to the exact message in Mail.app
-- [ ] S-r11 — Today navigation: Highlights sheet, way back, one-row toolbar, section rail
+- [x] S-r11 — Today navigation: Highlights sheet, way back, one-row toolbar, section rail
 
 ## Standing rules for every slice
 
