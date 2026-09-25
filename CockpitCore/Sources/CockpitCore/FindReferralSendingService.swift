@@ -2,39 +2,54 @@ import Dependencies
 import Foundation
 import SQLiteData
 
-/// The one referral path used by the Finds list and the Reader. It owns mailbox delivery, the
-/// device-local referral log, failed-open recovery, and the post-confirmation disposition pass.
+public struct FindReferralSendingResult: Equatable, Sendable {
+  public let contentPieceID: ContentPiece.ID
+  public let opened: Bool
+  public let dispositionPolicyMatches: Bool
+
+  public init(
+    contentPieceID: ContentPiece.ID, opened: Bool, dispositionPolicyMatches: Bool = false
+  ) {
+    self.contentPieceID = contentPieceID
+    self.opened = opened
+    self.dispositionPolicyMatches = dispositionPolicyMatches
+  }
+}
+
+/// The one referral path used by the Finds list and the Reader. It owns mailbox delivery and the
+/// device-local referral log; the caller owns any resulting Gmail disposition.
 public struct FindReferralSendingService: Sendable {
   private let database: any DatabaseWriter
   private let handoffClient: FindReferralHandoffClient
-  private let dispositionClient: GmailDispositionClient
   private let now: @Sendable () -> Date
   private let uuid: @Sendable () -> UUID
 
   public init(
     database: any DatabaseWriter,
     handoffClient: FindReferralHandoffClient,
-    dispositionClient: GmailDispositionClient,
     now: @escaping @Sendable () -> Date = Date.init,
     uuid: @escaping @Sendable () -> UUID = UUID.init
   ) {
     self.database = database
     self.handoffClient = handoffClient
-    self.dispositionClient = dispositionClient
     self.now = now
     self.uuid = uuid
   }
 
-  /// Returns `false` when Yes Chef could not be opened. The Find is restored to confirmed first.
+  /// Reports whether Yes Chef opened and whether a disposition policy now matches the piece.
+  /// A failed open is recorded and the Find is restored to confirmed first.
   @discardableResult
-  public func send(findID: PendingFind.ID) async throws -> Bool {
+  public func send(findID: PendingFind.ID) async throws -> FindReferralSendingResult {
     let referralID = uuid()
     let snapshot = try await database.read { db -> Snapshot in
       guard let find = try PendingFind.find(findID).fetchOne(db),
-        find.state == .pending || find.state == .confirmed,
-        RecipeCandidateKind.matches(find.kind),
-        let row = try ContentPieceReaderRequest(contentPieceID: find.contentPieceID).fetch(db).row
-      else { throw PendingFindOperations.Failure.cannotRefer }
+        RecipeCandidateKind.matches(find.kind)
+      else { throw FindReferralHandoffError.readableBodyUnavailable }
+      guard find.state == .pending || find.state == .confirmed else {
+        throw PendingFindOperations.Failure.cannotRefer
+      }
+      guard let row = try ContentPieceReaderRequest(contentPieceID: find.contentPieceID).fetch(db).row
+      else { throw FindReferralHandoffError.readableBodyUnavailable }
       let provenance = try GmailArtifactProvenance.latest(forContentPiece: row.id, in: db)
       return Snapshot(
         contentPieceID: row.id, findID: find.id, find: find, row: row,
@@ -47,7 +62,7 @@ public struct FindReferralSendingService: Sendable {
   /// Sends a Reader-declared recipe Find, reusing an extracted pending/confirmed Find when present.
   /// A new Find and its referral log row are committed together after the message is built.
   @discardableResult
-  public func sendFromReader(contentPieceID: ContentPiece.ID) async throws -> Bool {
+  public func sendFromReader(contentPieceID: ContentPiece.ID) async throws -> FindReferralSendingResult {
     let referralID = uuid()
     let snapshot = try await database.read { db -> Snapshot in
       guard let row = try ContentPieceReaderRequest(contentPieceID: contentPieceID).fetch(db).row
@@ -74,7 +89,9 @@ public struct FindReferralSendingService: Sendable {
     return try await send(snapshot, referralID: referralID)
   }
 
-  private func send(_ snapshot: Snapshot, referralID: UUID) async throws -> Bool {
+  private func send(
+    _ snapshot: Snapshot, referralID: UUID
+  ) async throws -> FindReferralSendingResult {
     let message = try FindReferralMessage.make(
       referralID: referralID, find: snapshot.find, readerRow: snapshot.row,
       gmailProvenance: snapshot.gmailProvenance
@@ -113,12 +130,17 @@ public struct FindReferralSendingService: Sendable {
         )
       }
       _ = try? await handoffClient.deleteReferral(referralID)
-      return false
+      return FindReferralSendingResult(contentPieceID: snapshot.contentPieceID, opened: false)
     }
 
-    _ = try? await GmailDispositionPolicyService(client: dispositionClient, now: { sentAt })
-      .applyEnabledPolicies(forContentPieceID: snapshot.contentPieceID, in: database)
-    return true
+    let policyMatches = (try? await database.read { db in
+      try GmailDispositionPolicyOperations.matchingPieceIDs(in: db)
+        .contains(snapshot.contentPieceID)
+    }) ?? false
+    return FindReferralSendingResult(
+      contentPieceID: snapshot.contentPieceID, opened: true,
+      dispositionPolicyMatches: policyMatches
+    )
   }
 
 }

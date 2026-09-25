@@ -30,6 +30,7 @@ struct ReaderView: View {
         queueContext: queueContext,
         openReply: openReply,
         openMail: openMail,
+        sendToYesChef: sendReaderFindToYesChef,
         isTeachingReasonFocused: isTeachingReasonFocused,
         dismissEdition: dismissEditionButtonTapped,
         saveForLater: saveForLaterButtonTapped,

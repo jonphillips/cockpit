@@ -28,6 +28,7 @@ public final class ContentPieceReaderModel {
   public var errorMessage: String?
   public var teachingReason = ""
   public var teachingStage: ReaderTeachingStage?
+  public private(set) var isSendingToYesChef = false
   public var isReviewingTeaching = false
   public var teachingProviderDescription: String?
   public internal(set) var emailSeriesKey: String?
@@ -54,6 +55,8 @@ public final class ContentPieceReaderModel {
   public var row: ContentPieceReaderRequest.Row? { content.row }
   public var readerTaughtClaim: PersonalKnowledgeRequest.Row? { readerTeaching.claim }
   public var matchedClaim: PersonalKnowledgeRequest.Row? { matchedPersonalKnowledge.claim }
+
+  func setSendingToYesChef(_ value: Bool) { isSendingToYesChef = value }
 
   public var bodyPresentation: ReaderBodyPresentation { readerBodyPresentation(for: row) }
 

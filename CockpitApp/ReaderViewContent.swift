@@ -135,6 +135,12 @@ extension ReaderView {
     }
   }
 
+  func sendReaderFindToYesChef() async {
+    guard await readerModel.sendToYesChefFromReader() else { return }
+    if let queueContext { await queueContext.trash() }
+    else { await readerModel.trashSource() }
+  }
+
   func saveForLaterButtonTapped() async {
     if let editionContext {
       await editionContext.model.saveForLater(editionContext.entryID)

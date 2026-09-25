@@ -44,12 +44,16 @@ public final class PendingFindListModel {
     do {
       let sentAt = now
       let makeUUID = uuid
-      let opened = try await FindReferralSendingService(
+      let result = try await FindReferralSendingService(
         database: database, handoffClient: findReferralClient,
-        dispositionClient: dispositionClient, now: { sentAt }, uuid: { makeUUID() }
+        now: { sentAt }, uuid: { makeUUID() }
       ).send(findID: id)
       try await $content.load()
-      errorMessage = opened ? nil : FindReferralHandoffError.yesChefUnavailable.localizedDescription
+      errorMessage = result.opened ? nil : FindReferralHandoffError.yesChefUnavailable.localizedDescription
+      if result.opened && result.dispositionPolicyMatches {
+        _ = try? await GmailDispositionPolicyService(client: dispositionClient, now: { sentAt })
+          .applyEnabledPolicies(forContentPieceID: result.contentPieceID, in: database)
+      }
     } catch is CancellationError {
     } catch {
       errorTitle = "Couldn't Send Find"
