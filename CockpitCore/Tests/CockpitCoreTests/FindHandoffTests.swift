@@ -128,10 +128,18 @@ struct FindHandoffTests {
 
   @Test("Gate 5 referral log migration is app-local persistence")
   func referralLogSchema() async throws {
-    let columns = try await database.read { db in
-      try #sql("SELECT name FROM pragma_table_info('pendingFindReferrals')", as: String.self).fetchAll(db)
+    let schema = try await database.read { db in
+      let columns = try #sql(
+        "SELECT name FROM pragma_table_info('pendingFindReferrals')", as: String.self
+      ).fetchAll(db)
+      let hintSourceDefault = try #sql(
+        "SELECT dflt_value FROM pragma_table_info('pendingFindReferrals') WHERE name = 'hintSource'",
+        as: String.self
+      ).fetchOne(db)
+      return (columns, hintSourceDefault)
     }
-    #expect(columns == ["id", "pendingFindID", "sentAt", "resolvedAt", "rawOutcomeSet"])
+    #expect(schema.0 == ["id", "pendingFindID", "sentAt", "resolvedAt", "rawOutcomeSet", "hintSource"])
+    #expect(schema.1 == "'extracted'")
   }
 
   @Test("Failed URL open deletes the referral, restores confirmation, and tells Jon Yes Chef is unavailable")

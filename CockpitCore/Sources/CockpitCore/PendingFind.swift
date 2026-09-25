@@ -58,12 +58,9 @@ public enum PendingFindOperations {
     guard let finds else { return }
     for find in finds {
       let hints = try encodeHints(find.hints)
-      let id = ContentIdentity.uuidV5(
-        namespace: ContentIdentity.cockpitNamespace,
-        name: [
-          "pending-find", contentPieceID.uuidString, find.kind, find.name,
-          find.sourceURL ?? ""
-        ].map(ContentIdentity.normalizeText).joined(separator: "\u{001F}"))
+      let id = id(
+        kind: find.kind, name: find.name, sourceURL: find.sourceURL, for: contentPieceID
+      )
       if try PendingFind.find(id).fetchOne(db) != nil {
         try PendingFind.find(id).update {
           $0.kind = #bind(find.kind)
@@ -85,6 +82,16 @@ public enum PendingFindOperations {
     }
   }
 
+  /// The stable identity used by extracted Finds, also used when Jon declares a Find from the Reader.
+  public static func id(
+    kind: String, name: String, sourceURL: String?, for contentPieceID: ContentPiece.ID
+  ) -> PendingFind.ID {
+    ContentIdentity.uuidV5(
+      namespace: ContentIdentity.cockpitNamespace,
+      name: ["pending-find", contentPieceID.uuidString, kind, name, sourceURL ?? ""]
+        .map(ContentIdentity.normalizeText).joined(separator: "\u{001F}"))
+  }
+
   /// Records Jon's explicit decision to keep a proposed Find.
   public static func confirm(_ id: PendingFind.ID, in db: Database) throws {
     try PendingFind.find(id).update { $0.state = #bind(PendingFindState.confirmed) }.execute(db)
@@ -104,7 +111,8 @@ public enum PendingFindOperations {
   }
 
   public static func startReferral(
-    referralID: UUID, for id: PendingFind.ID, at date: Date, in db: Database
+    referralID: UUID, for id: PendingFind.ID, at date: Date,
+    hintSource: FindHintSource = .extracted, in db: Database
   ) throws {
     guard let find = try PendingFind.find(id).fetchOne(db),
       RecipeCandidateKind.matches(find.kind),
@@ -112,7 +120,9 @@ public enum PendingFindOperations {
     else { throw Failure.cannotRefer }
     try refer(id, in: db)
     try PendingFindReferral.insert {
-      PendingFindReferral.Draft(PendingFindReferral(id: referralID, pendingFindID: id, sentAt: date))
+      PendingFindReferral.Draft(PendingFindReferral(
+        id: referralID, pendingFindID: id, sentAt: date, hintSource: hintSource
+      ))
     }.execute(db)
   }
 

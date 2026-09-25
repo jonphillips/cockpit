@@ -35,7 +35,17 @@ extension CockpitMigrations {
         "CREATE INDEX \"index_pendingFindReferrals_on_pendingFindID\" ON \"pendingFindReferrals\" (\"pendingFindID\")"
       ).execute(db)
     }
+    migrator.registerMigration("M6 S-c3 Find referral hint source") { db in
+      try #sql(
+        "ALTER TABLE \"pendingFindReferrals\" ADD COLUMN \"hintSource\" TEXT NOT NULL DEFAULT 'extracted' CHECK (\"hintSource\" IN ('extracted', 'jonDeclared'))"
+      ).execute(db)
+    }
   }
+}
+
+public enum FindHintSource: String, Codable, QueryBindable, Sendable {
+  case extracted
+  case jonDeclared
 }
 
 @Table("pendingFindReferrals")
@@ -43,16 +53,19 @@ public struct PendingFindReferral: Codable, Equatable, Identifiable, Sendable {
   public let id: UUID
   public let pendingFindID: PendingFind.ID
   public let sentAt: Date
+  public var hintSource: FindHintSource
   public var resolvedAt: Date?
   public var rawOutcomeSet: String?
 
   public init(
-    id: UUID, pendingFindID: PendingFind.ID, sentAt: Date, resolvedAt: Date? = nil,
+    id: UUID, pendingFindID: PendingFind.ID, sentAt: Date,
+    hintSource: FindHintSource = .extracted, resolvedAt: Date? = nil,
     rawOutcomeSet: String? = nil
   ) {
     self.id = id
     self.pendingFindID = pendingFindID
     self.sentAt = sentAt
+    self.hintSource = hintSource
     self.resolvedAt = resolvedAt
     self.rawOutcomeSet = rawOutcomeSet
   }

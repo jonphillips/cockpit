@@ -16,7 +16,8 @@ public final class ContentPieceReaderModel {
   @ObservationIgnored @Dependency(\.frontierPreferenceStore) private var preferenceStore
   @ObservationIgnored @Dependency(\.emailZoomPreferenceStore) var emailZoomPreferenceStore
   @ObservationIgnored @Dependency(\.gmailDispositionClient) var dispositionClient
-  @ObservationIgnored @Dependency(\.uuid) private var uuid
+  @ObservationIgnored @Dependency(\.findReferralHandoffClient) var findReferralClient
+  @ObservationIgnored @Dependency(\.uuid) var uuid
   @ObservationIgnored @Fetch public var content = ContentPieceReaderRequest.Value()
   @ObservationIgnored @Fetch public var pendingFindContent = PendingFindForContentPieceRequest.Value()
   @ObservationIgnored @Fetch public var readerTeaching = ReaderTeachingClaimRequest.Value()
@@ -27,6 +28,7 @@ public final class ContentPieceReaderModel {
   public var errorMessage: String?
   public var teachingReason = ""
   public var teachingStage: ReaderTeachingStage?
+  public private(set) var isSendingToYesChef = false
   public var isReviewingTeaching = false
   public var teachingProviderDescription: String?
   public internal(set) var emailSeriesKey: String?
@@ -53,6 +55,8 @@ public final class ContentPieceReaderModel {
   public var row: ContentPieceReaderRequest.Row? { content.row }
   public var readerTaughtClaim: PersonalKnowledgeRequest.Row? { readerTeaching.claim }
   public var matchedClaim: PersonalKnowledgeRequest.Row? { matchedPersonalKnowledge.claim }
+
+  func setSendingToYesChef(_ value: Bool) { isSendingToYesChef = value }
 
   public var bodyPresentation: ReaderBodyPresentation { readerBodyPresentation(for: row) }
 

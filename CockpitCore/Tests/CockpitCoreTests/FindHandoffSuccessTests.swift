@@ -52,6 +52,7 @@ struct FindHandoffSuccessTests {
     #expect(persisted.1 != nil)
     #expect(persisted.1?.id == messages.withLock { $0.first?.referralID })
     #expect(persisted.1?.sentAt == Date(timeIntervalSince1970: 200))
+    #expect(persisted.1?.hintSource == .extracted)
     #expect(persisted.1?.resolvedAt == nil)
     #expect(persisted.1?.rawOutcomeSet == nil)
     #expect(events.withLock { $0 } == ["write", "open"])

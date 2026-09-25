@@ -9,6 +9,7 @@ struct ReaderDispositionToolbar: ToolbarContent {
   var queueContext: ReaderQueueContext? = nil
   var openReply: () -> Void = {}
   var openMail: () -> Void = {}
+  var sendToYesChef: () async -> Void = {}
   let isTeachingReasonFocused: Bool
   let dismissEdition: () async -> Void
   let saveForLater: () async -> Void
@@ -81,6 +82,14 @@ private extension ReaderDispositionToolbar {
         Task { await addToLibrary() }
       }
       Divider()
+
+      if let title = model.yesChefReaderActionTitle {
+        Button(title, systemImage: "arrow.up.forward.app") {
+          Task { await sendToYesChef() }
+        }
+        .disabled(!model.canSendToYesChefFromReader)
+        Divider()
+      }
 
       if model.isGmailSource {
         MoveToSectionMenu(
