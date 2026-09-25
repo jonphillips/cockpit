@@ -261,6 +261,16 @@ Contract first, then the two repos in parallel, then the join. Gate 5's **gate r
    - Check that dismiss returns the Find to re-sendable.
    - Kill Yes Chef before it handles the URL → Cockpit surfaces the strand.
    - Confirm custody survives.
+   - **Carried from the S-c2 review (2026-09-25):**
+     - **Return-to-Confirmed vs. consume race (open; Yes Chef's fix).** Cockpit's Return to Confirmed
+       deletes the queued referral first and keeps waiting if the file is already gone (cockpit#83).
+       Yes Chef's `receiveReferral` reads, stages, *then* deletes. If Cockpit deletes during `stage`,
+       both apps own the referral: Yes Chef's later verdict is ignored as already resolved, and a re-send
+       can come back `duplicate`, a false strike against the hint (I2/I3). This needs both apps on
+       screen at once (iPad split view / Slide Over). The fix is a claim-by-rename in Yes Chef before
+       staging. Decide at S-join whether to take it or accept the window.
+     - **Stale strand row after "Waiting for Yes Chef".** The warning stays until Cockpit's next
+       active-phase refresh. Cosmetic. Check that it reads sensibly on device.
    - Ratify the boundary. **Do not run ahead of Gate 4's close.**
 
 S-c1 and S-y3 build in parallel against the fixtures. Neither needs the other to pass its own tests. Only
