@@ -217,6 +217,26 @@ Contract first, then the two repos in parallel, then the join. Gate 5's **gate r
    - Resolve `referred → handedOff | declined | confirmed` per the outcome classification, recording the
      set; retain custody untouched.
    - Detect unconsumed referrals and surface them (re-send / return to confirmed); no silent cleanup.
+   - **Carried from the S-c1 / S-y3 reviews (2026-09-25):**
+     - **Drain only `*.json`.** Skip dotfiles and temporary names: Yes Chef's `.atomic` write and
+       Cockpit's own `.<id>.tmp` both leave transient files in the mailbox.
+     - **Make the drain idempotent.** A narrow launch interleaving in Yes Chef can write the same
+       `dismissed` verdict twice. A verdict for a referral whose log row is already resolved is deleted
+       and ignored, never applied twice. A verdict whose id is missing from the local log is deleted and
+       logged.
+     - **Key strand detection to the device-local referral log** (`pendingFindReferrals`, not synced),
+       never to Find state. `PendingFind` syncs through CloudKit but the mailbox is per-device, so a Find
+       sent from the iPhone shows as `referred` on the iPad, which has no referral file and no verdict to
+       wait for. Only the sending device checks its mailbox.
+     - **Don't send a teaser as the body.** S-c1's switch to `localNormalizedText` dropped the Reader's
+       `bodyCompleteness != .teaser` gate. A teaser would come back `noRecipeFound`, which is a false
+       strike against the hint (I2/I3). Restore the gate in the referral builder as
+       `readableBodyUnavailable`, with a test.
+     - **Give `rawOutcomeSet` one shape.** S-c1 stores a delivery failure as
+       `{"delivery":"openFailed"}`, while S-c2 will store verdict outcomes in the same column. Use one
+       typed shape (or a separate column) so the quality signal stays queryable.
+     - **Install matched builds on both devices.** The new `referred` / `declined` values sync, and an
+       older build on the other device won't decode them.
    - Proves **I3, I4, I5.** (Delta #4.)
 3. **S-y1 (Yes Chef) — ✅ done in #322.** Extractor isolates 0/1/N from messy/large input. Proves **I6.**
 4. **S-y2 (Yes Chef) — ✅ compute done in #322.** Referral staged with provenance; exactly-one verdict per
@@ -246,6 +266,14 @@ Contract first, then the two repos in parallel, then the join. Gate 5's **gate r
 S-c1 and S-y3 build in parallel against the fixtures. Neither needs the other to pass its own tests. Only
 S-join needs both.
 
+## Executor status
+
+- [x] S-c1 — cockpit#82 (architect-reviewed 2026-09-25; 252 core tests re-run locally).
+- [x] S-y3 — yes-chef#325 (architect-reviewed 2026-09-25; 66 `YesChefTests` re-run locally). Wire
+  fixtures are byte-identical across the two repos.
+- [ ] S-c2 — next Cockpit slice.
+- [ ] S-join — Jon's device round trip, after S-c2; trails Gate 4's close.
+
 ## First checks for the executor
 
 - **Cockpit (this repo):**
@@ -257,7 +285,9 @@ S-join needs both.
   - **The new group needs registering on the developer portal once**, by whichever app builds first
     (team `7MQEE539G9`). If automatic signing can't register it from the command line, stop and ask Jon
     to add it in Xcode's Signing & Capabilities. Don't work around it.
-  - The readable-body source for `rawText` must be the same text the Reader shows, not a re-parse.
+  - For Gmail, `rawText` must come from the stored `LocalNormalizedText.normalizedText` exposed as
+    `readerRow.localNormalizedText`. Do not re-parse `Artifact.rawSourceText` or pass raw email HTML;
+    the stored value is Cockpit's readable message text, including its existing chrome normalization.
 - **Yes Chef (`/Users/jon/code/cooking/yes-chef`):**
   - Stage through `CreateRecipeCoordinator.stage(referral:)`; don't add a second staging path.
   - Keep `FindReturnEmitter` as the seam; the mailbox writer is its `liveValue`.

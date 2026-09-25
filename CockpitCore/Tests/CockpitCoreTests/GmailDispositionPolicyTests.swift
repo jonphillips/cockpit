@@ -50,11 +50,13 @@ struct GmailDispositionPolicyTests {
     expectNoDifference(applied.isEmpty, true)
   }
 
-  @Test("Only confirmed or handed-off Finds satisfy the offer policy barrier")
+  @Test("Confirmed, referred, handed-off, and declined Finds satisfy the offer policy barrier")
   func offerBarrierRequiresConfirmation() async throws {
     let pending = try await seedOffer(id: "find-pending", state: .pending)
     let confirmed = try await seedOffer(id: "find-confirmed", state: .confirmed)
+    let referred = try await seedOffer(id: "find-referred", state: .referred)
     let handedOff = try await seedOffer(id: "find-handed-off", state: .handedOff)
+    let declined = try await seedOffer(id: "find-declined", state: .declined)
     let dismissed = try await seedOffer(id: "find-dismissed", state: .dismissed)
 
     let candidates = try await database.read { db in
@@ -62,7 +64,9 @@ struct GmailDispositionPolicyTests {
     }
     #expect(!candidates.contains(pending))
     #expect(candidates.contains(confirmed))
+    #expect(candidates.contains(referred))
     #expect(candidates.contains(handedOff))
+    #expect(candidates.contains(declined))
     #expect(!candidates.contains(dismissed))
   }
 

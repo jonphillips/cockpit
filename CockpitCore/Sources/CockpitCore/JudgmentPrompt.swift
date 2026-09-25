@@ -93,7 +93,10 @@ enum JudgmentEditorialPrompt {
       matchedPersonalKnowledgeClaimID. The rationale must name that claim in the reader's terms;
       otherwise return null for matchedPersonalKnowledgeClaimID.
       Return exactly one editorial judgment object for every candidate ID, including non-admitted
-      pieces. Keep rationales under 40 words and finds empty when no concrete useful thing is present.
+      pieces. Keep Find kind a short singular noun; use the exact kind `recipe` for recipe candidates
+      so Cockpit can offer the user-initiated Yes Chef referral. This is only a routing hint; do not
+      parse, validate, split, or structure the recipe. Keep rationales under 40 words and finds empty
+      when no concrete useful thing is present.
     """
   }
 
@@ -170,7 +173,10 @@ enum JudgmentSinglePassControlPrompt {
       preserve the supplied value. Use truncated for a real body cut off by a paywall and teaser
       when only an introduction or no body is held.
       Subjects are three to eight short lowercase topical strings. Keep summaries under 70 words,
-      rationales under 40 words, and finds empty when no concrete useful thing is present.
+      rationales under 40 words, and finds empty when no concrete useful thing is present. Keep Find
+      kind a short singular noun; use the exact kind `recipe` for recipe candidates so Cockpit can
+      offer the user-initiated Yes Chef referral. This is only a routing hint; do not parse, validate,
+      split, or structure the recipe.
     """
   }
 

@@ -709,6 +709,12 @@ the auto-Trash barrier is a Find Jon confirmed, never a model proposal. A handed
 confirmed; pending and dismissed proposals do not satisfy the barrier. Confirmation may immediately
 apply the already-enabled policy through its existing barrier and Undo log.
 
+**Find referral extension (2026-09-24, M6 Gate 5 S-c1).** A `referred` Find also satisfies the
+`offerWithFind` barrier because sending is a confirming act, and a receiver-judged `declined` Find keeps
+that authority because the receiver's quality verdict does not revoke Jon's confirmation. Failed app
+opens return the Find to `confirmed`; a dismissed or extraction-failed receiver verdict is likewise
+re-sendable as `confirmed`.
+
 **The AI boundary this sharpens (extends §22).** For curated input the model classifies, summarizes,
 extracts, and highlights — it **never admits/declines or suppresses**. Organization changes order,
 grouping, and summary; it never changes *membership* of curated mail. This is strictly more faithful to

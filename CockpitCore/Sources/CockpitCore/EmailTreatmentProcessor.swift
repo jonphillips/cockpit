@@ -138,6 +138,8 @@ private enum EmailTreatmentPrompt {
       Summarize this domain offer in one factual sentence, then extract exactly one useful Pending
       Find candidate. The Find is descriptive/provenance context for a future specialist app, not
       a purchase recommendation or canonical product record. Use only evidence in this message.
+      Use the short singular noun `recipe` as kind for recipe candidates. This is only a routing hint;
+      do not parse, validate, split, or structure a recipe.
       Return a JSON object with summary and find. Find has kind, name, descriptor, rationale, and
       optional sourceURL. Omit sourceURL when the message does not contain the exact URL.
 

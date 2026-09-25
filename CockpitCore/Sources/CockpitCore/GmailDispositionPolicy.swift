@@ -97,8 +97,11 @@ public enum GmailDispositionPolicyOperations {
       return try offers
         .filter { offer in
           try PendingFind.where {
-            $0.contentPieceID.eq(offer.id)
-              && ($0.state.eq(PendingFindState.confirmed) || $0.state.eq(PendingFindState.handedOff))
+              $0.contentPieceID.eq(offer.id)
+              && ($0.state.eq(PendingFindState.confirmed)
+                || $0.state.eq(PendingFindState.referred)
+                || $0.state.eq(PendingFindState.handedOff)
+                || $0.state.eq(PendingFindState.declined))
           }.fetchCount(db) > 0
         }
         .map(\.id)
