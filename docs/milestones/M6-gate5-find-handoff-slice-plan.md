@@ -350,7 +350,7 @@ S-join needs both.
 - [x] S-y3 — yes-chef#325 (architect-reviewed 2026-09-25; 66 `YesChefTests` re-run locally). Wire
   fixtures are byte-identical across the two repos.
 - [x] S-c2 — Cockpit PR #83 (263 core tests, strict lint, unsigned iOS build pass).
-- [ ] S-c3 — Jon-declared send from the Reader; gates S-join.
+- [x] S-c3 — cockpit#85 (architect-reviewed 2026-09-25; 273 core tests re-run locally). Jon-declared send from the Reader; gates S-join.
 - [ ] S-join — Jon's device round trip, after S-c3; trails Gate 4's close.
 - [ ] S-c4 — Food-role recipe extraction (on-device); follow-up after S-join.
 
