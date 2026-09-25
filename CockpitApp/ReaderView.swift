@@ -6,6 +6,7 @@ struct ReaderView: View {
   let contentPieceID: ContentPiece.ID
   let editionContext: EditionReaderContext?
   let queueContext: ReaderQueueContext?
+  let onSourceDisposed: (@MainActor () -> Void)?
   let isReachableStreamPiece: Bool
   @State var originalWebViewStore: TodayOriginalWebViewStore
   @LazyState private var model: ContentPieceReaderModel
@@ -24,44 +25,7 @@ struct ReaderView: View {
       readerDocument
     }
     .toolbar {
-      ReaderDispositionToolbar(
-        model: model,
-        editionContext: editionContext,
-        queueContext: queueContext,
-        openReply: openReply,
-        openMail: openMail,
-        sendToYesChef: sendReaderFindToYesChef,
-        isTeachingReasonFocused: isTeachingReasonFocused,
-        dismissEdition: dismissEditionButtonTapped,
-        saveForLater: saveForLaterButtonTapped,
-        addToLibrary: addToLibraryButtonTapped,
-        chooseOfflineUntil: { offlineSheet = .until },
-        keepOffline: { Task { await model.keepOffline() } },
-        releaseOffline: { Task { await model.releaseOffline() } },
-        correctClaim: { correctingClaim = $0 },
-        emailZoomStep: model.emailZoomAdjustmentStep,
-        emailZoom: currentEmailZoom,
-        showsEmailTextSize: isHTMLReaderBody && model.isEmailZoomPreferenceLoaded,
-        canIncreaseEmailZoom: EmailFitZoom.canIncrease(
-          designWidth: originalWebViewStore.designWidth,
-          viewportWidth: Double(originalWebViewStore.viewportWidth),
-          adjustmentStep: model.emailZoomAdjustmentStep
-        ),
-        canDecreaseEmailZoom: EmailFitZoom.canDecrease(
-          designWidth: originalWebViewStore.designWidth,
-          viewportWidth: Double(originalWebViewStore.viewportWidth),
-          adjustmentStep: model.emailZoomAdjustmentStep
-        ),
-        smallerEmailText: { model.smallerEmailText(
-          designWidth: originalWebViewStore.designWidth,
-          viewportWidth: Double(originalWebViewStore.viewportWidth)
-        ) },
-        largerEmailText: { model.largerEmailText(
-          designWidth: originalWebViewStore.designWidth,
-          viewportWidth: Double(originalWebViewStore.viewportWidth)
-        ) },
-        resetEmailText: model.resetEmailTextSize
-      )
+      readerToolbar
     }
     .background {
       VStack {
@@ -127,17 +91,64 @@ struct ReaderView: View {
 
 }
 
+private extension ReaderView {
+  var readerToolbar: some ToolbarContent {
+    ReaderDispositionToolbar(
+      model: model,
+      editionContext: editionContext,
+      queueContext: queueContext,
+      openReply: openReply,
+      openMail: openMail,
+      sendToYesChef: sendReaderFindToYesChef,
+      archiveSource: archiveReaderSource,
+      trashSource: trashReaderSource,
+      isTeachingReasonFocused: isTeachingReasonFocused,
+      dismissEdition: dismissEditionButtonTapped,
+      saveForLater: saveForLaterButtonTapped,
+      addToLibrary: addToLibraryButtonTapped,
+      chooseOfflineUntil: { offlineSheet = .until },
+      keepOffline: { Task { await model.keepOffline() } },
+      releaseOffline: { Task { await model.releaseOffline() } },
+      correctClaim: { correctingClaim = $0 },
+      emailZoomStep: model.emailZoomAdjustmentStep,
+      emailZoom: currentEmailZoom,
+      showsEmailTextSize: isHTMLReaderBody && model.isEmailZoomPreferenceLoaded,
+      canIncreaseEmailZoom: EmailFitZoom.canIncrease(
+        designWidth: originalWebViewStore.designWidth,
+        viewportWidth: Double(originalWebViewStore.viewportWidth),
+        adjustmentStep: model.emailZoomAdjustmentStep
+      ),
+      canDecreaseEmailZoom: EmailFitZoom.canDecrease(
+        designWidth: originalWebViewStore.designWidth,
+        viewportWidth: Double(originalWebViewStore.viewportWidth),
+        adjustmentStep: model.emailZoomAdjustmentStep
+      ),
+      smallerEmailText: { model.smallerEmailText(
+        designWidth: originalWebViewStore.designWidth,
+        viewportWidth: Double(originalWebViewStore.viewportWidth)
+      ) },
+      largerEmailText: { model.largerEmailText(
+        designWidth: originalWebViewStore.designWidth,
+        viewportWidth: Double(originalWebViewStore.viewportWidth)
+      ) },
+      resetEmailText: model.resetEmailTextSize
+    )
+  }
+}
+
 extension ReaderView {
   init(
     contentPieceID: ContentPiece.ID,
     editionContext: EditionReaderContext? = nil,
     queueContext: ReaderQueueContext? = nil,
     isReachableStreamPiece: Bool = false,
+    onSourceDisposed: (@MainActor () -> Void)? = nil,
     originalWebViewStore: TodayOriginalWebViewStore? = nil
   ) {
     self.contentPieceID = contentPieceID
     self.editionContext = editionContext
     self.queueContext = queueContext
+    self.onSourceDisposed = onSourceDisposed
     self.isReachableStreamPiece = isReachableStreamPiece
     _originalWebViewStore = State(initialValue: originalWebViewStore ?? TodayOriginalWebViewStore())
     _model = LazyState {
@@ -146,6 +157,20 @@ extension ReaderView {
         matchedPersonalKnowledgeClaimID: editionContext?.matchedPersonalKnowledgeClaimID
       )
     }
+  }
+}
+
+extension ReaderView {
+  func archiveReaderSource() async {
+    await disposeSource { await readerModel.archiveSource() }
+  }
+
+  func trashReaderSource() async {
+    await disposeSource { await readerModel.trashSource() }
+  }
+
+  private func disposeSource(_ disposition: () async -> Bool) async {
+    if await disposition() { onSourceDisposed?() }
   }
 }
 

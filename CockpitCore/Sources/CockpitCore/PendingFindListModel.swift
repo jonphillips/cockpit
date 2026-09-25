@@ -12,6 +12,7 @@ public final class PendingFindListModel {
   @ObservationIgnored @Dependency(\.date.now) private var now
   @ObservationIgnored @Dependency(\.uuid) private var uuid
   @ObservationIgnored @Fetch(PendingFindListRequest()) public var content = .init()
+  public private(set) var showDismissed = false
   public var errorMessage: String?
   public var errorTitle = "Couldn't Send Find"
   public private(set) var strandedReferrals: [PendingFind.ID: FindReferralStrand] = [:]
@@ -20,20 +21,46 @@ public final class PendingFindListModel {
   public init() {}
 
   public var rows: [PendingFindListRequest.Row] { content.rows }
+  public var needsDecisionRows: [PendingFindListRequest.Row] {
+    rows.filter { $0.section == .needsDecision }
+  }
+  public var savedRows: [PendingFindListRequest.Row] { rows.filter { $0.section == .saved } }
+  public var resolvedRows: [PendingFindListRequest.Row] { rows.filter { $0.section == .resolved } }
+  public var dismissedRows: [PendingFindListRequest.Row] { rows.filter { $0.section == .dismissed } }
+
+  @discardableResult
+  public func load() async -> Bool {
+    do {
+      _ = try await $content.load(PendingFindListRequest(showDismissed: showDismissed))
+      return true
+    } catch is CancellationError {
+      return false
+    } catch {
+      errorTitle = "Couldn't Load Finds"
+      errorMessage = error.localizedDescription
+      return false
+    }
+  }
+
+  public func setShowDismissed(_ show: Bool) {
+    showDismissed = show
+  }
 
   public func confirm(_ id: PendingFind.ID) async {
+    errorMessage = nil
     do {
       guard let pieceID = try await database.read({ db in
         try PendingFind.find(id).fetchOne(db)?.contentPieceID
       }) else { return }
       let dispositionDate = now
       try await database.write { db in try PendingFindOperations.confirm(id, in: db) }
-      try await $content.load()
-      _ = try await GmailDispositionPolicyService(client: dispositionClient, now: { dispositionDate })
+      await load()
+      _ = try? await GmailDispositionPolicyService(client: dispositionClient, now: { dispositionDate })
         .applyEnabledPolicies(forContentPieceID: pieceID, in: database)
     } catch is CancellationError {
     } catch {
-      // The list has no separate error surface; the persisted row remains available for retry.
+      errorTitle = "Couldn't Save Find"
+      errorMessage = error.localizedDescription
     }
   }
 
@@ -48,8 +75,13 @@ public final class PendingFindListModel {
         database: database, handoffClient: findReferralClient,
         now: { sentAt }, uuid: { makeUUID() }
       ).send(findID: id)
-      try await $content.load()
-      errorMessage = result.opened ? nil : FindReferralHandoffError.yesChefUnavailable.localizedDescription
+      let loaded = await load()
+      if !result.opened {
+        errorTitle = "Couldn't Send Find"
+        errorMessage = FindReferralHandoffError.yesChefUnavailable.localizedDescription
+      } else if loaded {
+        errorMessage = nil
+      }
       if result.opened && result.dispositionPolicyMatches {
         _ = try? await GmailDispositionPolicyService(client: dispositionClient, now: { sentAt })
           .applyEnabledPolicies(forContentPieceID: result.contentPieceID, in: database)
@@ -62,6 +94,7 @@ public final class PendingFindListModel {
   }
 
   private func update(_ id: PendingFind.ID, state: PendingFindState) async {
+    errorMessage = nil
     do {
       try await database.write { db in
         switch state {
@@ -70,11 +103,11 @@ public final class PendingFindListModel {
         case .pending, .referred, .handedOff, .declined: break
         }
       }
-      try await $content.load()
-      errorMessage = nil
+      _ = await load()
     } catch is CancellationError {
     } catch {
-      // The list has no separate error surface; the persisted row remains available for retry.
+      errorTitle = "Couldn't Update Find"
+      errorMessage = error.localizedDescription
     }
   }
 }
@@ -118,8 +151,7 @@ extension PendingFindListModel {
           return mailboxReferralIDs.contains(referral.id)
             ? (referral.pendingFindID, FindReferralStrand.unconsumed(referral.id)) : nil
         }, uniquingKeysWith: { _, latest in latest })
-      try await $content.load()
-      errorMessage = nil
+      if await load() { errorMessage = nil }
     } catch is CancellationError {
     } catch {
       errorTitle = "Couldn't Check Find Replies"
@@ -162,7 +194,7 @@ extension PendingFindListModel {
         )
       }
       strandedReferrals[findID] = nil
-      try await $content.load()
+      await load()
     } catch is CancellationError {
     } catch {
       errorTitle = "Couldn't Return Find to Confirmed"

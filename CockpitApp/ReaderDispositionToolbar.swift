@@ -10,6 +10,8 @@ struct ReaderDispositionToolbar: ToolbarContent {
   var openReply: () -> Void = {}
   var openMail: () -> Void = {}
   var sendToYesChef: () async -> Void = {}
+  var archiveSource: () async -> Void = {}
+  var trashSource: () async -> Void = {}
   let isTeachingReasonFocused: Bool
   let dismissEdition: () async -> Void
   let saveForLater: () async -> Void
@@ -147,11 +149,11 @@ private extension ReaderDispositionToolbar {
 
   private func archive() async {
     if let queueContext { await queueContext.archive() }
-    else { await model.archiveSource() }
+    else { await archiveSource() }
   }
 
   private func trash() async {
     if let queueContext { await queueContext.trash() }
-    else { await model.trashSource() }
+    else { await trashSource() }
   }
 }

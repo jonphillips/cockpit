@@ -49,5 +49,6 @@ public enum SettingsRoute: Hashable, Sendable {
   case personalKnowledge(claimID: UUID?)
   case ai
   case pendingFinds
+  case reader(contentPieceID: UUID)
   case gmailAuthorizationProbe
 }

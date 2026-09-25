@@ -36,7 +36,7 @@ struct SettingsView: View {
             Label("AI Settings", systemImage: "brain")
           }
           NavigationLink(value: SettingsRoute.pendingFinds) {
-            Label("Pending Finds", systemImage: "sparkle.magnifyingglass")
+            Label("Finds", systemImage: "sparkle.magnifyingglass")
           }
         }
 
@@ -80,6 +80,8 @@ struct SettingsView: View {
           AISettingsView()
         case .pendingFinds:
           PendingFindListView(model: pendingFindModel)
+        case let .reader(contentPieceID):
+          ReaderView(contentPieceID: contentPieceID, onSourceDisposed: { model.popSettings() })
         case .gmailAuthorizationProbe:
           GmailAuthorizationProbeView(probe: gmailAuthorizationProbe)
         }

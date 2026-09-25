@@ -168,10 +168,30 @@ struct GmailDispositionTests {
       let model = ContentPieceReaderModel(contentPieceID: pieceID)
       try await model.$content.load()
       #expect(model.isGmailSource)
-      await model.trashSource()
+      #expect(await model.trashSource())
       await model.undoDisposition()
     }
     expectNoDifference(log.calls, ["trash:message-reader", "untrash:message-reader"])
+  }
+
+  @MainActor
+  @Test("Reader reports a failed source disposition without claiming it committed")
+  func readerModelDispositionFailureReturnsFalse() async throws {
+    let pieceID = try await seedGmailMessage(id: "message-reader-failure")
+    let failingClient = GmailDispositionClient(
+      archive: { _ in throw URLError(.timedOut) },
+      trash: { _ in throw URLError(.timedOut) },
+      reAddInbox: { _ in throw URLError(.timedOut) },
+      untrash: { _ in throw URLError(.timedOut) }
+    )
+    try await withDependencies {
+      $0.gmailDispositionClient = failingClient
+    } operation: {
+      let model = ContentPieceReaderModel(contentPieceID: pieceID)
+      try await model.$content.load()
+      #expect(!(await model.archiveSource()))
+      #expect(model.errorMessage != nil)
+    }
   }
 
   // MARK: - Helpers

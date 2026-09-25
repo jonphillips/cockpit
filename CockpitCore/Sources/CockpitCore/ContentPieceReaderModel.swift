@@ -218,10 +218,12 @@ extension ContentPieceReaderModel {
 
 extension ContentPieceReaderModel {
   /// Archives the Gmail source of the piece being read, behind the disposition barrier.
-  public func archiveSource() async { await applyDisposition(.archive) }
+  @discardableResult
+  public func archiveSource() async -> Bool { await applyDisposition(.archive) }
 
   /// Trashes the Gmail source of the piece being read; reversible via `undoDisposition`.
-  public func trashSource() async { await applyDisposition(.trash) }
+  @discardableResult
+  public func trashSource() async -> Bool { await applyDisposition(.trash) }
 
   /// Reverses the current disposition of the piece being read, if any.
   public func undoDisposition() async {
@@ -238,14 +240,17 @@ extension ContentPieceReaderModel {
     }
   }
 
-  private func applyDisposition(_ disposition: GmailSourceDisposition) async {
-    guard let id = row?.id else { return }
+  private func applyDisposition(_ disposition: GmailSourceDisposition) async -> Bool {
+    guard let id = row?.id else { return false }
     do {
       _ = try await dispositionService.apply(disposition, toContentPieceID: id, in: database)
       errorMessage = nil
+      return true
     } catch is CancellationError {
+      return false
     } catch {
       errorMessage = error.localizedDescription
+      return false
     }
   }
 
