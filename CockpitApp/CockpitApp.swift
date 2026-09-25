@@ -34,6 +34,7 @@ private struct CockpitRootView: View {
   @State private var followingModel = FollowingModel()
   @State private var editionModel = EditionModel()
   @State private var todayModel = TodayModel()
+  @State private var pendingFindModel = PendingFindListModel()
   @State private var inboxIngest = GmailInboxIngestModel()
   @Environment(\.scenePhase) private var scenePhase
 
@@ -50,15 +51,19 @@ private struct CockpitRootView: View {
         ContentPieceListView(destination: .library)
       }
       Tab("Settings", systemImage: "gearshape", value: .settings) {
-        SettingsView(model: shellModel, followingModel: followingModel)
+        SettingsView(model: shellModel, followingModel: followingModel, pendingFindModel: pendingFindModel)
       }
     }
     .tabViewStyle(.sidebarAdaptable)
     .task { await followingModel.acquireOnLaunchOrRefresh() }
     .task { _ = await inboxIngest.autoSyncIfNeeded() }
+    .task { await pendingFindModel.refreshHandoffState() }
     .onChange(of: scenePhase) { _, phase in
       guard phase == .active else { return }
-      Task { _ = await inboxIngest.autoSyncIfNeeded() }
+      Task {
+        await pendingFindModel.refreshHandoffState()
+        _ = await inboxIngest.autoSyncIfNeeded()
+      }
     }
   }
 }

@@ -25,7 +25,7 @@ struct FindHandoffSuccessTests {
         events.withLock { $0.append("write") }
         messages.withLock { $0.append(message) }
       },
-      deleteReferral: { _ in },
+      deleteReferral: { _ in true },
       openReferral: { _ in
         events.withLock { $0.append("open") }
         return true

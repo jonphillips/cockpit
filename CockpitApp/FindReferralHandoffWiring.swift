@@ -8,26 +8,30 @@ enum FindReferralHandoffWiring {
   static let liveClient = FindReferralHandoffClient(
     writeReferral: writeReferral,
     deleteReferral: deleteReferral,
-    openReferral: { await openReferral($0) }
+    openReferral: { await openReferral($0) },
+    listVerdicts: listVerdicts,
+    deleteVerdict: deleteVerdict,
+    unconsumedReferralIDs: unconsumedReferralIDs
   )
 
   private static func writeReferral(_ message: FindReferralMessage) async throws {
-    let directory = try mailboxDirectory("find-referrals")
-    let destination = directory.appending(path: "\(message.referralID.uuidString.lowercased()).json")
-    let temporary = directory.appending(path: ".\(message.referralID.uuidString.lowercased()).tmp")
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.sortedKeys]
-    try encoder.encode(message).write(to: temporary)
-    if FileManager.default.fileExists(atPath: destination.path) {
-      try FileManager.default.removeItem(at: destination)
-    }
-    try FileManager.default.moveItem(at: temporary, to: destination)
+    try mailbox().writeReferral(message)
   }
 
-  private static func deleteReferral(_ referralID: UUID) async throws {
-    let url = try mailboxDirectory("find-referrals")
-      .appending(path: "\(referralID.uuidString.lowercased()).json")
-    try? FileManager.default.removeItem(at: url)
+  private static func deleteReferral(_ referralID: UUID) async throws -> Bool {
+    try mailbox().deleteReferral(referralID)
+  }
+
+  private static func listVerdicts() async throws -> FindVerdictMailboxScan {
+    try mailbox().listVerdicts()
+  }
+
+  private static func deleteVerdict(_ referralID: UUID) async throws -> Bool {
+    try mailbox().deleteVerdict(referralID)
+  }
+
+  private static func unconsumedReferralIDs() async throws -> Set<UUID> {
+    try mailbox().unconsumedReferralIDs()
   }
 
   @MainActor
@@ -44,12 +48,10 @@ enum FindReferralHandoffWiring {
     }
   }
 
-  private static func mailboxDirectory(_ name: String) throws -> URL {
+  private static func mailbox() throws -> FindReferralMailbox {
     guard let container = FileManager.default.containerURL(
       forSecurityApplicationGroupIdentifier: appGroupIdentifier
     ) else { throw FindReferralHandoffError.appGroupUnavailable }
-    let directory = container.appending(path: name, directoryHint: .isDirectory)
-    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    return directory
+    return FindReferralMailbox(baseDirectory: container)
   }
 }

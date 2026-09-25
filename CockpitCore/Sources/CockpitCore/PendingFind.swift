@@ -119,10 +119,11 @@ public enum PendingFindOperations {
   public static func recordReferralOpenFailure(
     referralID: UUID, for id: PendingFind.ID, at date: Date, in db: Database
   ) throws {
+    let rawOutcomeSet = try FindReferralOperations.encodeOutcomeRecord(.delivery(.openFailed))
     try returnToConfirmed(id, in: db)
     try PendingFindReferral.find(referralID).update {
       $0.resolvedAt = #bind(date)
-      $0.rawOutcomeSet = #bind("{\"delivery\":\"openFailed\"}")
+      $0.rawOutcomeSet = #bind(rawOutcomeSet)
     }.execute(db)
   }
 
