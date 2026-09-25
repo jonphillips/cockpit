@@ -14,6 +14,11 @@
 > redrafted below as **Option A: a pair-scoped App Group mailbox + a `yeschef://` open**. **Jon ratified
 > Option A and the §9 exception on 2026-09-24 (S0 ✅).** The exception now lives in
 > `docs/APP-FAMILY-INTERACTION.md` §9.
+>
+> **Amended 2026-09-25 after S-c2 (cockpit#83): S-c3 added.** No path produces a recipe Find for a
+> Food email, so the handoff built in S-c1/S-c2 had nothing to send for Gate 5's own test case (see
+> "The Gmail recipe gap" below). S-c3 adds a Jon-declared send from the Reader and gates S-join.
+> S-c4 records the automatic Food extraction as a follow-up.
 
 ## What Gate 5 proves
 
@@ -34,6 +39,16 @@ a coarse hint safe.
   "this is a recipe" classification today** — the routing convention must be *established and tested* by
   the cockpit slice, not assumed. This is the correct coarse hint; it just doesn't exist yet as a pinned,
   tested value.
+- **The Gmail recipe gap (found 2026-09-25, after S-c2).** The `recipe` kind convention reaches only
+  two Find producers, and neither covers a recipe newsletter:
+  - **Edition judgment** (`EditionEntryWriter`) never sees Gmail material. Since Gate 4,
+    `CurationRouting.editionExcludedContentPieceIDs` keeps every Gmail-backed piece out of both
+    judgment passes.
+  - **Offer treatment** (`EmailTreatmentProcessor`) runs only for the `offers` role (or an
+    `offer`-treated piece), proposes one Find, and never re-runs once `offerSummary` is set.
+  - A Food-role email therefore gets **no Find at all**, and "Send to Yes Chef" lives only in
+    Settings → Finds. Gate 5's own test case (a real multi-recipe email) had no way in. S-c3 closes
+    this with a user-initiated send. S-c4 is the automatic follow-up.
 - **Cockpit's Find surface now has write paths (S-r6, 2026-09-23).** `PendingFindState` is
   `pending | confirmed | handedOff | dismissed`, and `PendingFindListModel` has `confirm` / `dismiss`
   (`CockpitCore/Sources/CockpitCore/PendingFindListModel.swift`). S-r6 also made the `offerWithFind`
@@ -238,6 +253,59 @@ Contract first, then the two repos in parallel, then the join. Gate 5's **gate r
      - **Install matched builds on both devices.** The new `referred` / `declined` values sync, and an
        older build on the other device won't decode them.
    - Proves **I3, I4, I5.** (Delta #4.)
+2a. **S-c3 (cockpit) — Jon-declared send from the Reader. Gates S-join.**
+   - **Why.** See "The Gmail recipe gap". Jon saying "this is a recipe" is the strongest hint there
+     is, needs no model call, and works on email already in the inbox. It keeps the first handoff
+     user-initiated.
+   - **Surface.** Add "Send to Yes Chef" to the Reader's overflow menu (`moreActions` in
+     `ReaderDispositionToolbar.swift`), not a new toolbar button (S-r11 keeps the toolbar to one
+     row). Show it for any piece the referral builder accepts: a readable, non-teaser
+     `localNormalizedText`. When this piece already has a recipe Find in `referred`, `handedOff` or
+     `declined`, show that state ("Sent to Yes Chef" / "Added to Yes Chef" / "Declined by Yes Chef")
+     disabled instead of the action.
+   - **One send path.** Factor the body of `PendingFindListModel.sendToYesChef` into a shared
+     operation that both the Finds list and `ContentPieceReaderModel` call. That covers building the
+     message, writing it to the mailbox, `startReferral`, opening the link, failed-open handling and
+     the disposition-policy pass. Views still don't touch the database.
+   - **The Find.** If the piece already has a `recipe` Find in `pending` or `confirmed`, send that
+     one. Otherwise create one in the same transaction as `startReferral`:
+     - `kind = "recipe"`, name = the piece title, `state = confirmed` (Jon's act is the confirmation);
+     - a rationale that says Jon sent it from the Reader;
+     - the ID from the existing `PendingFindOperations` derivation, so a later extraction of the
+       same Find converges on this row rather than duplicating it.
+     - Create nothing unless the referral message builds. A teaser, or a piece with no readable
+       body, fails with `readableBodyUnavailable` and leaves no Find behind.
+   - **Keep the quality signal honest (I2/I3).** Add a `hintSource` column (`extracted |
+     jonDeclared`) to the device-local `pendingFindReferrals` table, which is not synced. Don't
+     change `PendingFind`: it syncs through CloudKit and the origin isn't needed there.
+     - A Reader send of a Find that was already extracted records `extracted`: the hint existed and
+       Jon confirmed it.
+     - A Reader send that creates the Find records `jonDeclared`.
+     - Only `extracted` declines count against the hint. A `jonDeclared` `noRecipeFound` is still
+       recorded and still resolves the Find to `declined`, but it says something about Jon's call,
+       not about the extractor.
+   - **Barrier.** Unchanged. A `confirmed` → `referred` Find satisfies S-r6's `offerWithFind`
+     barrier, the same as a send from the Finds list.
+   - **Not in scope.** A second send of the same email to admit another of its recipes is still the
+     deferred multi-admit item. `declined → referred` stays disallowed.
+   - **Tests (core).**
+     - A Reader send with no Find creates a confirmed `recipe` Find and a `jonDeclared` referral in
+       one transaction.
+     - A Reader send reuses an existing pending or confirmed recipe Find and records `extracted`.
+     - A second send while `referred` does nothing.
+     - A teaser leaves no Find and no mailbox message.
+     - Failed-open handling matches the Finds list.
+     - `referralID` never reaches Reader model state.
+   - Proves **I1, I2** on the Reader path. S-c2's drain covers the return unchanged.
+2b. **S-c4 (cockpit) — Food-role recipe extraction. Follow-up; not needed for S-join.**
+   - Extend `EmailTreatmentProcessor` to Food-role email. Tell it to propose `recipe` Finds only, as
+     a coarse hint that never parses, splits or counts recipes (I6 stays in Yes Chef).
+   - **On-device model**, matching the offer pass (`tier: .onDevice`). The job is a yes/no
+     classification, not a parse. The 12,000-character input prefix is acceptable for a hint
+     because the referral still ships the whole body (I1).
+   - Give it its own "extraction ran" marker, not `offerSummary`. Backfill existing Food email once.
+   - This is what makes the extraction-quality signal real: its `extracted` referrals are the ones
+     whose declines count. Schedule it after S-join shows the Reader path working on device.
 3. **S-y1 (Yes Chef) — ✅ done in #322.** Extractor isolates 0/1/N from messy/large input. Proves **I6.**
 4. **S-y2 (Yes Chef) — ✅ compute done in #322.** Referral staged with provenance; exactly-one verdict per
    referral; emitted through the `FindReturnEmitter` seam (still a stub).
@@ -255,7 +323,7 @@ Contract first, then the two repos in parallel, then the join. Gate 5's **gate r
    - Prefer abandoning on leaving Create Recipe, on superseding intake, or on a relaunch that can't
      restore the review. Yes Chef's call; Cockpit tolerates either, because `dismissed` is re-sendable.
 6. **S-join — round-trip gate review (device; Jon's).**
-   - Use a real multi-recipe email: send → pick one in Yes Chef → switch back → the Find shows admitted
+   - Use a real multi-recipe email: send it from the Reader (S-c3) → pick one in Yes Chef → switch back → the Find shows admitted
      with no id handled and no hop.
    - Check the decline path (a non-recipe email → `declined`, `noRecipeFound`).
    - Check that dismiss returns the Find to re-sendable.
@@ -282,7 +350,9 @@ S-join needs both.
 - [x] S-y3 — yes-chef#325 (architect-reviewed 2026-09-25; 66 `YesChefTests` re-run locally). Wire
   fixtures are byte-identical across the two repos.
 - [x] S-c2 — Cockpit PR #83 (263 core tests, strict lint, unsigned iOS build pass).
-- [ ] S-join — Jon's device round trip, after S-c2; trails Gate 4's close.
+- [ ] S-c3 — Jon-declared send from the Reader; gates S-join.
+- [ ] S-join — Jon's device round trip, after S-c3; trails Gate 4's close.
+- [ ] S-c4 — Food-role recipe extraction (on-device); follow-up after S-join.
 
 ## First checks for the executor
 
