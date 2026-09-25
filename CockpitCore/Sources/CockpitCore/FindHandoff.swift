@@ -76,18 +76,18 @@ public enum FindReferralHandoffError: LocalizedError, Equatable, Sendable {
 
 public struct FindReferralHandoffClient: Sendable {
   public var writeReferral: @Sendable (FindReferralMessage) async throws -> Void
-  public var deleteReferral: @Sendable (UUID) async throws -> Void
+  public var deleteReferral: @Sendable (UUID) async throws -> Bool
   public var openReferral: @Sendable (UUID) async -> Bool
-  public var listVerdicts: @Sendable () async throws -> [FindVerdictMessage]
-  public var deleteVerdict: @Sendable (UUID) async throws -> Void
+  public var listVerdicts: @Sendable () async throws -> FindVerdictMailboxScan
+  public var deleteVerdict: @Sendable (UUID) async throws -> Bool
   public var unconsumedReferralIDs: @Sendable () async throws -> Set<UUID>
 
   public init(
     writeReferral: @escaping @Sendable (FindReferralMessage) async throws -> Void,
-    deleteReferral: @escaping @Sendable (UUID) async throws -> Void,
+    deleteReferral: @escaping @Sendable (UUID) async throws -> Bool,
     openReferral: @escaping @Sendable (UUID) async -> Bool,
-    listVerdicts: @escaping @Sendable () async throws -> [FindVerdictMessage] = { [] },
-    deleteVerdict: @escaping @Sendable (UUID) async throws -> Void = { _ in },
+    listVerdicts: @escaping @Sendable () async throws -> FindVerdictMailboxScan = { .init() },
+    deleteVerdict: @escaping @Sendable (UUID) async throws -> Bool = { _ in false },
     unconsumedReferralIDs: @escaping @Sendable () async throws -> Set<UUID> = { [] }
   ) {
     self.writeReferral = writeReferral

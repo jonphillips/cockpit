@@ -98,7 +98,7 @@ struct FindReferralResolutionTests {
     let (_, findID, referralID) = try await seedReferral(seed: 94_501)
     let unrelatedMailboxID = UUID(94_509)
     let client = FindReferralHandoffClient(
-      writeReferral: { _ in }, deleteReferral: { _ in }, openReferral: { _ in true },
+      writeReferral: { _ in }, deleteReferral: { _ in true }, openReferral: { _ in true },
       unconsumedReferralIDs: { [referralID, unrelatedMailboxID] }
     )
 
@@ -107,8 +107,81 @@ struct FindReferralResolutionTests {
     } operation: {
       let model = PendingFindListModel()
       await model.refreshHandoffState()
-      #expect(model.strandedReferrals == [findID: referralID])
+    #expect(model.strandedReferrals == [findID: .unconsumed(referralID)])
     }
+  }
+
+  @Test("Verdict drain deletes applied, already-resolved, and unknown referrals")
+  func verdictDrainDeletesEveryConsumedVerdict() async throws {
+    let (_, _, appliedID) = try await seedReferral(seed: 94_551)
+    let (_, _, resolvedID) = try await seedReferral(seed: 94_561)
+    let applied = FindVerdictMessage(referralID: appliedID, outcomes: [.declined(reason: .dismissed)])
+    let duplicateAdmission = FindVerdictMessage(
+      referralID: resolvedID, outcomes: [.admitted(recipeRef: "late-admission")]
+    )
+    _ = try await database.write { db in
+      try FindReferralOperations.resolve(
+        FindVerdictMessage(referralID: resolvedID, outcomes: []),
+        at: Date(timeIntervalSince1970: 299), in: db
+      )
+    }
+    let unknown = FindVerdictMessage(referralID: UUID(94_579), outcomes: [])
+    let deleted = Mutex<[UUID]>([])
+    let client = FindReferralHandoffClient(
+      writeReferral: { _ in }, deleteReferral: { _ in true }, openReferral: { _ in true },
+      listVerdicts: { .init(verdicts: [applied, duplicateAdmission, unknown]) },
+      deleteVerdict: { id in deleted.withLock { $0.append(id) }; return true }
+    )
+
+    await withDependencies {
+      $0.findReferralHandoffClient = client
+    } operation: {
+      await PendingFindListModel().refreshHandoffState()
+    }
+
+    #expect(deleted.withLock { $0 } == [appliedID, resolvedID, unknown.referralID])
+  }
+
+  @Test("Unreadable mailbox replies strand the local Find with a recoverable action")
+  func unreadableReplyIsSurfaced() async throws {
+    let (_, findID, referralID) = try await seedReferral(seed: 94_581)
+    let client = FindReferralHandoffClient(
+      writeReferral: { _ in }, deleteReferral: { _ in true }, openReferral: { _ in true },
+      listVerdicts: { .init(unreadableReferralIDs: [referralID]) }
+    )
+
+    await withDependencies {
+      $0.findReferralHandoffClient = client
+    } operation: {
+      let model = PendingFindListModel()
+      await model.refreshHandoffState()
+      #expect(model.strandedReferrals[findID] == .unreadableReply(referralID))
+    }
+  }
+
+  @Test("Returning a referral is refused once Yes Chef has consumed its file")
+  func consumedReferralCannotBeReturnedAndResent() async throws {
+    let (_, findID, referralID) = try await seedReferral(seed: 94_591)
+    let client = FindReferralHandoffClient(
+      writeReferral: { _ in }, deleteReferral: { _ in false }, openReferral: { _ in true },
+      unconsumedReferralIDs: { [referralID] }
+    )
+
+    await withDependencies {
+      $0.findReferralHandoffClient = client
+    } operation: {
+      let model = PendingFindListModel()
+      await model.refreshHandoffState()
+      await model.returnStrandedReferralToConfirmed(for: findID)
+      #expect(model.errorTitle == "Waiting for Yes Chef")
+      #expect(model.strandedReferrals[findID] == .unconsumed(referralID))
+    }
+
+    let (find, referral) = try await database.read { db in
+      (try PendingFind.find(findID).fetchOne(db), try PendingFindReferral.find(referralID).fetchOne(db))
+    }
+    #expect(find?.state == .referred)
+    #expect(referral?.resolvedAt == nil)
   }
 
   @Test("Returning a stranded referral restores confirmation and closes the local log")
@@ -117,7 +190,7 @@ struct FindReferralResolutionTests {
     let deleted = Mutex<[UUID]>([])
     let client = FindReferralHandoffClient(
       writeReferral: { _ in },
-      deleteReferral: { id in deleted.withLock { $0.append(id) } },
+      deleteReferral: { id in deleted.withLock { $0.append(id) }; return true },
       openReferral: { _ in true },
       unconsumedReferralIDs: { [referralID] }
     )

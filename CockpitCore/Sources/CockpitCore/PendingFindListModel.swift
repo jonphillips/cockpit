@@ -13,7 +13,8 @@ public final class PendingFindListModel {
   @ObservationIgnored @Dependency(\.uuid) private var uuid
   @ObservationIgnored @Fetch(PendingFindListRequest()) public var content = .init()
   public var errorMessage: String?
-  public private(set) var strandedReferrals: [PendingFind.ID: UUID] = [:]
+  public var errorTitle = "Couldn't Send Find"
+  public private(set) var strandedReferrals: [PendingFind.ID: FindReferralStrand] = [:]
   private var isRefreshingHandoff = false
 
   public init() {}
@@ -39,6 +40,7 @@ public final class PendingFindListModel {
   public func dismiss(_ id: PendingFind.ID) async { await update(id, state: .dismissed) }
 
   public func sendToYesChef(_ id: PendingFind.ID) async {
+    errorTitle = "Couldn't Send Find"
     do {
       let referralID = uuid()
       let (contentPieceID, message) = try await database.read { db -> (ContentPiece.ID, FindReferralMessage) in
@@ -64,7 +66,7 @@ public final class PendingFindListModel {
           )
         }
       } catch {
-        try? await findReferralClient.deleteReferral(message.referralID)
+        _ = try? await findReferralClient.deleteReferral(message.referralID)
         throw error
       }
 
@@ -75,7 +77,7 @@ public final class PendingFindListModel {
             referralID: message.referralID, for: id, at: failedAt, in: db
           )
         }
-        try? await findReferralClient.deleteReferral(message.referralID)
+        _ = try? await findReferralClient.deleteReferral(message.referralID)
         try await $content.load()
         errorMessage = FindReferralHandoffError.yesChefUnavailable.localizedDescription
         return
@@ -87,6 +89,7 @@ public final class PendingFindListModel {
         .applyEnabledPolicies(forContentPieceID: contentPieceID, in: database)
     } catch is CancellationError {
     } catch {
+      errorTitle = "Couldn't Send Find"
       errorMessage = error.localizedDescription
     }
   }
@@ -101,6 +104,7 @@ public final class PendingFindListModel {
         }
       }
       try await $content.load()
+      errorMessage = nil
     } catch is CancellationError {
     } catch {
       // The list has no separate error surface; the persisted row remains available for retry.
@@ -114,8 +118,8 @@ extension PendingFindListModel {
     isRefreshingHandoff = true
     defer { isRefreshingHandoff = false }
     do {
-      let verdicts = try await findReferralClient.listVerdicts()
-      for verdict in verdicts {
+      let scan = try await findReferralClient.listVerdicts()
+      for verdict in scan.verdicts {
         let resolvedAt = now
         let resolution = try await database.write { db in
           try FindReferralOperations.resolve(verdict, at: resolvedAt, in: db)
@@ -125,10 +129,14 @@ extension PendingFindListModel {
           FindHandoffLog.record("Discarding a verdict with no local referral log: \(verdict.referralID)")
         case .missingFind:
           FindHandoffLog.record("Resolved a verdict whose Find no longer exists: \(verdict.referralID)")
-        case .alreadyResolved, .applied:
+        case .alreadyResolved:
+          if verdict.outcomes.contains(where: { if case .admitted = $0 { true } else { false } }) {
+            FindHandoffLog.record("Ignored a duplicate admitted verdict for referral: \(verdict.referralID)")
+          }
+        case .applied:
           break
         }
-        try await findReferralClient.deleteVerdict(verdict.referralID)
+        _ = try await findReferralClient.deleteVerdict(verdict.referralID)
       }
 
       let mailboxReferralIDs = try await findReferralClient.unconsumedReferralIDs()
@@ -137,18 +145,25 @@ extension PendingFindListModel {
       }
       strandedReferrals = Dictionary(
         unresolved.compactMap { referral in
-          mailboxReferralIDs.contains(referral.id) ? (referral.pendingFindID, referral.id) : nil
+          if scan.unreadableReferralIDs.contains(referral.id) {
+            return (referral.pendingFindID, FindReferralStrand.unreadableReply(referral.id))
+          }
+          return mailboxReferralIDs.contains(referral.id)
+            ? (referral.pendingFindID, FindReferralStrand.unconsumed(referral.id)) : nil
         }, uniquingKeysWith: { _, latest in latest })
       try await $content.load()
+      errorMessage = nil
     } catch is CancellationError {
     } catch {
+      errorTitle = "Couldn't Check Find Replies"
       errorMessage = error.localizedDescription
     }
   }
 
   public func retryStrandedReferral(for findID: PendingFind.ID) async {
-    guard let referralID = strandedReferrals[findID] else { return }
+    guard case let .unconsumed(referralID)? = strandedReferrals[findID] else { return }
     guard await findReferralClient.openReferral(referralID) else {
+      errorTitle = "Couldn't Send Find"
       errorMessage = FindReferralHandoffError.yesChefUnavailable.localizedDescription
       return
     }
@@ -156,8 +171,23 @@ extension PendingFindListModel {
   }
 
   public func returnStrandedReferralToConfirmed(for findID: PendingFind.ID) async {
-    guard let referralID = strandedReferrals[findID] else { return }
+    guard let strand = strandedReferrals[findID] else { return }
     do {
+      let referralID: UUID
+      let removed: Bool
+      switch strand {
+      case let .unconsumed(id):
+        referralID = id
+        removed = try await findReferralClient.deleteReferral(id)
+      case let .unreadableReply(id):
+        referralID = id
+        removed = try await findReferralClient.deleteVerdict(id)
+      }
+      guard removed else {
+        errorTitle = "Waiting for Yes Chef"
+        errorMessage = "Yes Chef has this referral. Cockpit will keep waiting for its reply."
+        return
+      }
       let returnedAt = now
       _ = try await database.write { db in
         try FindReferralOperations.returnToConfirmed(
@@ -166,14 +196,21 @@ extension PendingFindListModel {
       }
       strandedReferrals[findID] = nil
       try await $content.load()
-      do {
-        try await findReferralClient.deleteReferral(referralID)
-      } catch {
-        errorMessage = "The Find is confirmed again, but Cockpit couldn't remove its queued referral. It may still reach Yes Chef."
-      }
     } catch is CancellationError {
     } catch {
+      errorTitle = "Couldn't Return Find to Confirmed"
       errorMessage = error.localizedDescription
+    }
+  }
+}
+
+public enum FindReferralStrand: Equatable, Sendable {
+  case unconsumed(UUID)
+  case unreadableReply(UUID)
+
+  public var referralID: UUID {
+    switch self {
+    case let .unconsumed(id), let .unreadableReply(id): id
     }
   }
 }

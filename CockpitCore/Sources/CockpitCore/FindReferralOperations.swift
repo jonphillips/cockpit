@@ -69,7 +69,7 @@ public enum FindReferralOperations {
   }
 
   public static func unresolved(in db: Database) throws -> [PendingFindReferral] {
-    try PendingFindReferral.fetchAll(db).filter { $0.resolvedAt == nil }
+    try PendingFindReferral.where { $0.resolvedAt.is(nil) }.fetchAll(db)
   }
 
   static func encodeOutcomeRecord(_ value: PendingFindReferralOutcomeRecord) throws -> String {

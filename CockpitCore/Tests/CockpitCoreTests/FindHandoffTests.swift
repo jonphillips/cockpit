@@ -141,7 +141,7 @@ struct FindHandoffTests {
     let deleted = Mutex<[UUID]>([])
     let client = FindReferralHandoffClient(
       writeReferral: { message in written.withLock { $0.append(message) } },
-      deleteReferral: { id in deleted.withLock { $0.append(id) } },
+      deleteReferral: { id in deleted.withLock { $0.append(id) }; return true },
       openReferral: { _ in false }
     )
 
