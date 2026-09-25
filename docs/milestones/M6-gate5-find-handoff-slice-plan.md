@@ -246,6 +246,10 @@ Contract first, then the two repos in parallel, then the join. Gate 5's **gate r
 S-c1 and S-y3 build in parallel against the fixtures. Neither needs the other to pass its own tests. Only
 S-join needs both.
 
+## Executor status
+
+- [x] S-c1 — implemented and verified in this PR.
+
 ## First checks for the executor
 
 - **Cockpit (this repo):**

@@ -49,6 +49,7 @@ targets:
       path: CockpitApp/Cockpit.entitlements
       properties:
         aps-environment: development
+        com.apple.security.application-groups: [group.com.jonphillips.cockpit-yeschef]
         com.apple.developer.icloud-container-identifiers: [iCloud.com.jonphillips.cockpit]
         com.apple.developer.icloud-services: [CloudKit]
     info:

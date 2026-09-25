@@ -5,7 +5,9 @@ import SQLiteData
 public enum PendingFindState: String, Codable, QueryBindable, Sendable {
   case pending
   case confirmed
+  case referred
   case handedOff
+  case declined
   case dismissed
 }
 
@@ -41,6 +43,12 @@ public struct PendingFind: Codable, Equatable, Identifiable, Sendable {
 }
 
 public enum PendingFindOperations {
+  public enum Failure: LocalizedError, Equatable, Sendable {
+    case cannotRefer
+
+    public var errorDescription: String? { "This Find was already sent or is no longer available." }
+  }
+
   /// Writes only the finds proposed by this judgment outcome. IDs are derived from the originating
   /// ContentPiece and the find's stable descriptive identity, so repeated composition converges and
   /// does not create duplicate orphan rows.
@@ -85,6 +93,37 @@ public enum PendingFindOperations {
   /// Records Jon's explicit decision to reject a proposed Find.
   public static func dismiss(_ id: PendingFind.ID, in db: Database) throws {
     try PendingFind.find(id).update { $0.state = #bind(PendingFindState.dismissed) }.execute(db)
+  }
+
+  public static func refer(_ id: PendingFind.ID, in db: Database) throws {
+    try PendingFind.find(id).update { $0.state = #bind(PendingFindState.referred) }.execute(db)
+  }
+
+  public static func returnToConfirmed(_ id: PendingFind.ID, in db: Database) throws {
+    try PendingFind.find(id).update { $0.state = #bind(PendingFindState.confirmed) }.execute(db)
+  }
+
+  public static func startReferral(
+    referralID: UUID, for id: PendingFind.ID, at date: Date, in db: Database
+  ) throws {
+    guard let find = try PendingFind.find(id).fetchOne(db),
+      RecipeCandidateKind.matches(find.kind),
+      find.state == .pending || find.state == .confirmed
+    else { throw Failure.cannotRefer }
+    try refer(id, in: db)
+    try PendingFindReferral.insert {
+      PendingFindReferral.Draft(PendingFindReferral(id: referralID, pendingFindID: id, sentAt: date))
+    }.execute(db)
+  }
+
+  public static func recordReferralOpenFailure(
+    referralID: UUID, for id: PendingFind.ID, at date: Date, in db: Database
+  ) throws {
+    try returnToConfirmed(id, in: db)
+    try PendingFindReferral.find(referralID).update {
+      $0.resolvedAt = #bind(date)
+      $0.rawOutcomeSet = #bind("{\"delivery\":\"openFailed\"}")
+    }.execute(db)
   }
 
   private static func encodeHints(_ hints: [String: JSONValue]) throws -> String? {

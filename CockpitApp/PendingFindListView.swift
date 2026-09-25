@@ -12,7 +12,7 @@ struct PendingFindListView: View {
           Spacer()
           VStack(alignment: .trailing, spacing: 2) {
             Text(row.kind.capitalized).font(.caption).foregroundStyle(.secondary)
-            Text(row.state.rawValue.capitalized).font(.caption2).foregroundStyle(.secondary)
+            Text(stateLabel(row.state)).font(.caption2).foregroundStyle(.secondary)
           }
         }
         if !row.descriptor.isEmpty {
@@ -21,8 +21,13 @@ struct PendingFindListView: View {
         if !row.rationale.isEmpty {
           Text(row.rationale).font(.caption).foregroundStyle(.secondary).lineLimit(2)
         }
+        if RecipeCandidateKind.matches(row.kind), (row.state == .pending || row.state == .confirmed) {
+          Button("Send to Yes Chef", systemImage: "arrow.up.forward.app") {
+            Task { await model.sendToYesChef(row.id) }
+          }
+          .font(.subheadline)
+        }
       }
-      .accessibilityElement(children: .combine)
       .swipeActions(edge: .trailing) {
         if row.state == .pending {
           Button("Dismiss", systemImage: "xmark", role: .destructive) {
@@ -43,6 +48,21 @@ struct PendingFindListView: View {
       }
     }
     .navigationTitle("Finds")
+    .alert("Couldn't Send Find", isPresented: Binding(
+      get: { model.errorMessage != nil },
+      set: { if !$0 { model.errorMessage = nil } }
+    )) {
+      Button("OK", role: .cancel) { model.errorMessage = nil }
+    } message: {
+      Text(model.errorMessage ?? "Please try again.")
+    }
     .task { try? await model.$content.load() }
+  }
+
+  private func stateLabel(_ state: PendingFindState) -> String {
+    switch state {
+    case .referred: "Sent to Yes Chef"
+    case .pending, .confirmed, .handedOff, .declined, .dismissed: state.rawValue.capitalized
+    }
   }
 }
