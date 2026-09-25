@@ -172,25 +172,27 @@ private struct PendingFindRowActions: View {
   let model: PendingFindListModel
 
   var body: some View {
-    if row.state == .pending {
+    if hasDecisionActions {
       HStack(spacing: 12) {
-        Button("Save", systemImage: "bookmark.fill") {
-          Task { await model.confirm(row.id) }
+        if row.state == .pending || row.state == .dismissed {
+          Button("Save", systemImage: "bookmark.fill") {
+            Task { await model.confirm(row.id) }
+          }
+          .tint(.accentColor)
         }
-        .tint(.accentColor)
-        Button("Dismiss", systemImage: "xmark", role: .destructive) {
-          Task { await model.dismiss(row.id) }
+        if row.state == .pending {
+          Button("Dismiss", systemImage: "xmark", role: .destructive) {
+            Task { await model.dismiss(row.id) }
+          }
+        }
+        if canSendToYesChef {
+          Button("Send to Yes Chef", systemImage: "arrow.up.forward.app") {
+            Task { await model.sendToYesChef(row.id) }
+          }
         }
       }
       .font(.subheadline)
       .buttonStyle(.borderless)
-    } else if row.state == .dismissed {
-      Button("Save", systemImage: "bookmark.fill") {
-        Task { await model.confirm(row.id) }
-      }
-      .font(.subheadline)
-      .buttonStyle(.borderless)
-      .tint(.accentColor)
     }
 
     if let strand = model.strandedReferrals[row.id] {
@@ -209,12 +211,13 @@ private struct PendingFindRowActions: View {
       .buttonStyle(.borderless)
       .accessibilityIdentifier("stranded-referral-\(strand.referralID.uuidString.lowercased())")
     }
-    if RecipeCandidateKind.matches(row.kind), row.state == .pending || row.state == .confirmed {
-      Button("Send to Yes Chef", systemImage: "arrow.up.forward.app") {
-        Task { await model.sendToYesChef(row.id) }
-      }
-      .font(.subheadline)
-      .buttonStyle(.borderless)
-    }
+  }
+
+  private var canSendToYesChef: Bool {
+    RecipeCandidateKind.matches(row.kind) && (row.state == .pending || row.state == .confirmed)
+  }
+
+  private var hasDecisionActions: Bool {
+    row.state == .pending || row.state == .dismissed || canSendToYesChef
   }
 }

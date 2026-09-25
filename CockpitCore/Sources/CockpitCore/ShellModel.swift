@@ -34,6 +34,13 @@ public final class ShellModel {
     settingsPath.removeLast()
   }
 
+  /// Pops only while `route` is still on top, so a late async completion can't pop the screen
+  /// beneath it after Jon has already navigated back.
+  public func popSettings(ifShowing route: SettingsRoute) {
+    guard settingsPath.last == route else { return }
+    settingsPath.removeLast()
+  }
+
   public func popToSettingsRoot() {
     settingsPath.removeAll()
   }

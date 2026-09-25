@@ -81,7 +81,10 @@ struct SettingsView: View {
         case .pendingFinds:
           PendingFindListView(model: pendingFindModel)
         case let .reader(contentPieceID):
-          ReaderView(contentPieceID: contentPieceID, onSourceDisposed: { model.popSettings() })
+          ReaderView(
+            contentPieceID: contentPieceID,
+            onSourceDisposed: { model.popSettings(ifShowing: route) }
+          )
         case .gmailAuthorizationProbe:
           GmailAuthorizationProbeView(probe: gmailAuthorizationProbe)
         }
