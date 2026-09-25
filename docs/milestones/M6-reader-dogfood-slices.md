@@ -1,4 +1,4 @@
-# M6 — Reader dogfood slices (S-r1 … S-r11)
+# M6 — Reader dogfood slices (S-r1 … S-r12)
 
 > **Build order, architect-recorded 2026-09-22 from Jon's device dogfooding of the S-d0 surface.**
 > These make the Today reading split usable day to day ahead of the S-d device eval. They do not
@@ -24,6 +24,12 @@ Reader toolbar stops dropping a row when a divider drag starts, and a section ra
 queue. No
 schema, identity, Gmail, or judgment changes. Amends D-E for Highlights only (see the gate doc).
 
+**Finds list tidy-up (S-r12), recorded 2026-09-25 from Jon's dogfooding.** Settings → Finds reads as
+a raw dump: the rows come out in UUID order, dismissed Finds never leave, and there's no way back to the
+email a Find came from. Jon's question was "what am I supposed to be doing with those?", so the list has
+to answer it. Display and query only: no schema, identity, Gmail, or judgment changes. Build it after
+Gate 5's S-c3, because both touch `PendingFindListModel`.
+
 - [x] S-r1 — Queue flow: disposed issues leave the queue, advance to next, Undo
 - [x] S-r2 — Reader chrome: actions in the toolbar, inline Tell Cockpit, Delete archives
 - [x] S-r3 — Reader facts: sender names, received dates, links open in Safari
@@ -35,6 +41,7 @@ schema, identity, Gmail, or judgment changes. Amends D-E for Highlights only (se
 - [x] S-r9 — Per-publisher zoom: adjust once, remembered per series
 - [x] S-r10 — Open in Mail: hand off to the exact message in Mail.app
 - [x] S-r11 — Today navigation: Highlights sheet, way back, one-row toolbar, section rail
+- [ ] S-r12 — Finds list tidy-up: grouped by what's needed, newest first, dismissed hidden, open the source
 
 ## Standing rules for every slice
 
@@ -690,3 +697,63 @@ every Reader path keeps the same safety boundary.
 `TodaySurfaceRows.swift`, `ReaderDispositionToolbar.swift`, and `TodayReadingQueueModel.swift`. If the
 in-progress `arts` role lands first, rebase onto it; the exhaustive switches will name what it needs.
 Branch: `m6/s-r11-today-navigation`.
+
+### S-r12 — Finds list tidy-up: grouped by what's needed, newest first, dismissed hidden, open the source
+
+**Why.** A Find waits in Settings → Finds until an app can take it (APP-FAMILY §5). Today the list
+doesn't say that, and it can't be scanned:
+- `PendingFindListRequest` orders by `PendingFind.id`, a derived UUIDv5, so the order is effectively
+  random.
+- Dismissed Finds stay in the list forever.
+- A row can't open the ContentPiece it came from.
+
+**Build.**
+- **Group by what's needed.** Three sections, in this order:
+  - **Needs a decision:** `pending`. Swipe Save / Dismiss, as now.
+  - **Saved:** `confirmed` and `referred`. "Send to Yes Chef" stays on recipe Finds, and S-c2's strand
+    row stays as is.
+  - **Resolved:** `handedOff` and `declined`, with S-c2's labels ("Added to Yes Chef" / "Declined by
+    Yes Chef").
+
+  Hide empty sections.
+- **Newest first within each section.** Order by the source piece's `publishedAt`, falling back to
+  `ContentPiece.createdAt`, then by `name`. `PendingFind` has no timestamp of its own, and this slice
+  doesn't add one: the table syncs through CloudKit, so a new column would be a schema change.
+- **Hide dismissed by default.** Add a "Show Dismissed" toggle in the list's toolbar menu, so a
+  mistaken swipe can still be found and saved again. When the toggle is on, dismissed Finds appear
+  in a fourth section at the bottom with a Save action. This is a view filter, not a state change.
+- **Open the source.** Tapping a row pushes `ReaderView(contentPieceID:)` for the Find's
+  ContentPiece, the same way Later and Library host the Reader (`ContentPieceListView`). Keep the
+  row's actions as buttons and swipes so they don't fight the tap.
+- **Say what the list is for.** A footer under the first section, one or two lines: Finds wait here
+  until an app can take them; recipes can go to Yes Chef now; the rest keep until an app exists.
+  Keep the empty state.
+
+**Prove (core).**
+- The request returns rows grouped and ordered as above (publishedAt desc, createdAt fallback, name
+  tie-break).
+- Dismissed Finds are excluded unless the model's show-dismissed flag is set.
+- Saving from the dismissed section restores `confirmed`.
+- A Find whose piece has no `publishedAt` sorts by `createdAt`.
+
+**Do not.**
+- No new column on `PendingFind`.
+- Don't hard-delete dismissed Finds.
+- Don't auto-dismiss or age anything out: nothing leaves this list without Jon's act.
+- Don't add receivers or actions for non-recipe kinds. Galavant and the rest stay deferred.
+- Don't change the S-r6 barrier or when disposition policies run.
+
+**Device-only risks (name them).**
+- Reader dispositions (Archive / Trash / Delete) when the Reader is pushed from Settings, not from
+  Today: the view should pop back, the way it does from Library.
+- Tap-versus-swipe conflicts on rows that also carry inline buttons.
+
+**Done when.**
+- Settings → Finds shows Needs a decision / Saved / Resolved, newest first, with no dismissed rows
+  until the toggle is on.
+- Tapping a Find opens its email or article in the Reader.
+- The footer tells Jon what the list is for.
+
+**Sequencing.** Touches `PendingFindListRequest.swift`, `PendingFindListModel.swift`, and
+`PendingFindListView.swift`. Build after Gate 5's S-c3, which refactors the send path in the same
+model. Branch: `m6/s-r12-finds-list-tidy`.
