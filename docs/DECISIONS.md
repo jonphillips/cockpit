@@ -92,6 +92,8 @@ Examples of legitimate orphan Finds include pantry products, wines, travel cloth
 
 Accumulated orphan Finds are evidence about what future Jon Universe app may be needed. Do not predict that app's ontology in advance.
 
+**Clarified 2026-09-25 (Jon, from dogfooding the Finds list).** A Find is a *thing*: something a specialist app could admit, meaning a place, a product, a dish, a bottle, a book, an event, a stay. A piece of software or a hardware tool is a product and counts. An idea does not count: a technique, capability, pattern, practice, argument, insight, trend, or tip is understanding, not a thing. It stays with its ContentPiece (Later, Library), and becomes Personal Knowledge only when Jon teaches it. The evidence came from tech newsletters, which filled the list with Techniques and Capabilities that no app could ever take, so they could never resolve. They also polluted the orphan-Find evidence this section relies on. Extraction prompts carry this definition, and a deterministic guard declines idea kinds at persist (M6 S-r13).
+
 A retained Find may outlive Library membership of the originating ContentPiece; sufficient provenance/evidence must remain to keep the Find intelligible.
 
 `Find` is initially a product concept, not a mandatory universal protocol/class hierarchy. Persist it when an independent lifecycle or handoff requires durable identity.

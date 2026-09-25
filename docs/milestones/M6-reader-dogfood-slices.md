@@ -1,4 +1,4 @@
-# M6 — Reader dogfood slices (S-r1 … S-r12)
+# M6 — Reader dogfood slices (S-r1 … S-r13)
 
 > **Build order, architect-recorded 2026-09-22 from Jon's device dogfooding of the S-d0 surface.**
 > These make the Today reading split usable day to day ahead of the S-d device eval. They do not
@@ -28,7 +28,16 @@ schema, identity, Gmail, or judgment changes. Amends D-E for Highlights only (se
 a raw dump: the rows come out in UUID order, dismissed Finds never leave, and there's no way back to the
 email a Find came from. Jon's question was "what am I supposed to be doing with those?", so the list has
 to answer it. Display and query only: no schema, identity, Gmail, or judgment changes. Build it after
-Gate 5's S-c3, because both touch `PendingFindListModel`.
+Gate 5's S-c3, because both touch `PendingFindListModel`. **Amended 2026-09-25** after Jon's device pass:
+pending rows get visible Save / Dismiss buttons, and a Reader opened from Finds closes after it disposes
+its source (see the S-r12 block).
+
+**Find definition (S-r13), recorded 2026-09-25 from Jon's dogfooding.** The Finds list fills with
+Techniques and Capabilities from tech newsletters: ideas, not things an app could take, so they can
+never resolve. (The Tools there are products and stay Finds.) Neither prompt says what a Find is. S-r13
+gives both prompts DECISIONS §3's definition (clarified the same day) plus a deterministic backstop. It
+changes judgment and extraction only: no schema, identity, Gmail, or list changes. Build it after
+S-r12.
 
 - [x] S-r1 — Queue flow: disposed issues leave the queue, advance to next, Undo
 - [x] S-r2 — Reader chrome: actions in the toolbar, inline Tell Cockpit, Delete archives
@@ -41,7 +50,8 @@ Gate 5's S-c3, because both touch `PendingFindListModel`.
 - [x] S-r9 — Per-publisher zoom: adjust once, remembered per series
 - [x] S-r10 — Open in Mail: hand off to the exact message in Mail.app
 - [x] S-r11 — Today navigation: Highlights sheet, way back, one-row toolbar, section rail
-- [ ] S-r12 — Finds list tidy-up: grouped by what's needed, newest first, dismissed hidden, open the source
+- [x] S-r12 — Finds list tidy-up: grouped by what's needed, newest first, dismissed hidden, open the source
+- [ ] S-r13 — Find definition: ideas aren't Finds, in both prompts and at persist
 
 ## Standing rules for every slice
 
@@ -709,7 +719,9 @@ doesn't say that, and it can't be scanned:
 
 **Build.**
 - **Group by what's needed.** Three sections, in this order:
-  - **Needs a decision:** `pending`. Swipe Save / Dismiss, as now.
+  - **Needs a decision:** `pending`. Visible Save and Dismiss buttons on the row, and the same two
+    as swipes. *(Amended 2026-09-25: swipe-only hid the decision. Recipe rows looked fine only because
+    they also carry "Send to Yes Chef"; every other kind showed no way to decide.)*
   - **Saved:** `confirmed` and `referred`. "Send to Yes Chef" stays on recipe Finds, and S-c2's strand
     row stays as is.
   - **Resolved:** `handedOff` and `declined`, with S-c2's labels ("Added to Yes Chef" / "Declined by
@@ -721,20 +733,42 @@ doesn't say that, and it can't be scanned:
   doesn't add one: the table syncs through CloudKit, so a new column would be a schema change.
 - **Hide dismissed by default.** Add a "Show Dismissed" toggle in the list's toolbar menu, so a
   mistaken swipe can still be found and saved again. When the toggle is on, dismissed Finds appear
-  in a fourth section at the bottom with a Save action. This is a view filter, not a state change.
+  in a fourth section at the bottom with a visible Save button (and a Save swipe). This is a view
+  filter, not a state change.
 - **Open the source.** Tapping a row pushes `ReaderView(contentPieceID:)` for the Find's
   ContentPiece, the same way Later and Library host the Reader (`ContentPieceListView`). Keep the
   row's actions as buttons and swipes so they don't fight the tap.
+- **Close the Reader after it disposes its source.** *(Added 2026-09-25 from Jon's device pass: from
+  Finds, Archive / Trash left the Reader open with no sign anything happened.)* Outside Today's queue,
+  every Reader disposition path ends in `ContentPieceReaderModel.archiveSource()` / `trashSource()` and
+  nothing closes the view. (Library doesn't close it either; there the Reader is a split-view detail,
+  so it doesn't matter. The original risk line below claimed otherwise and was wrong.)
+  - `archiveSource()` and `trashSource()` return `Bool` (`@discardableResult`): `true` when the
+    disposition committed.
+  - `ReaderView` takes an optional `onSourceDisposed: (@MainActor () -> Void)?`, the same shape of
+    seam as `ReaderQueueContext`. The Settings route passes `{ model.popSettings() }`
+    (`SettingsView.model` is the `ShellModel`). Today, Later, Library, and Stream Handling pass
+    nothing and behave exactly as now.
+  - Route every non-queue disposition through one helper in the Reader that calls the model and, on
+    `true`, calls `onSourceDisposed`. That covers the toolbar's Archive / Trash / Delete, Send Reply &
+    Archive, the offer card's Save Find (which trashes), and Send to Yes Chef from the Reader (which
+    trashes). Don't use `@Environment(\.dismiss)`: in Library's split view it would do the wrong thing.
+  - The Find itself is untouched: archiving the email is a decision about the email, not the Find
+    (DECISIONS §3). The row stays where it was in the list.
+  - No new Undo banner. Undo stays in the Reader's ⋯ menu and the Recent Trash sheet.
 - **Say what the list is for.** A footer under the first section, one or two lines: Finds wait here
   until an app can take them; recipes can go to Yes Chef now; the rest keep until an app exists.
   Keep the empty state.
 
 **Prove (core).**
-- The request returns rows grouped and ordered as above (publishedAt desc, createdAt fallback, name
-  tie-break).
+- The model's sections group rows as above, and the request orders them (publishedAt desc, createdAt
+  fallback, name tie-break). Section membership comes from one exhaustive switch on the state.
 - Dismissed Finds are excluded unless the model's show-dismissed flag is set.
 - Saving from the dismissed section restores `confirmed`.
 - A Find whose piece has no `publishedAt` sorts by `createdAt`.
+- `archiveSource()` / `trashSource()` return `true` on a committed disposition and `false` when the
+  client fails (the model's existing failing-client setup). The close itself is view wiring and isn't
+  tested.
 
 **Do not.**
 - No new column on `PendingFind`.
@@ -744,16 +778,112 @@ doesn't say that, and it can't be scanned:
 - Don't change the S-r6 barrier or when disposition policies run.
 
 **Device-only risks (name them).**
-- Reader dispositions (Archive / Trash / Delete) when the Reader is pushed from Settings, not from
-  Today: the view should pop back, the way it does from Library.
-- Tap-versus-swipe conflicts on rows that also carry inline buttons.
+- From Finds, Archive / Trash / Delete / Send Reply & Archive / Save Find on an offer / Send to Yes
+  Chef each close the Reader back to the list once, and a failed disposition leaves it open with its
+  error.
+- Tap-versus-swipe conflicts on rows that also carry inline buttons, and whether rows read as tappable
+  without a chevron.
 
 **Done when.**
 - Settings → Finds shows Needs a decision / Saved / Resolved, newest first, with no dismissed rows
   until the toggle is on.
 - Tapping a Find opens its email or article in the Reader.
 - The footer tells Jon what the list is for.
+- Every pending row shows Save and Dismiss without swiping.
+- Archiving or trashing from a Reader opened from Finds lands back on the list.
 
 **Sequencing.** Touches `PendingFindListRequest.swift`, `PendingFindListModel.swift`, and
-`PendingFindListView.swift`. Build after Gate 5's S-c3, which refactors the send path in the same
-model. Branch: `m6/s-r12-finds-list-tidy`.
+`PendingFindListView.swift`; the 2026-09-25 amendment adds `SettingsView.swift`, `ReaderView.swift`,
+`ReaderViewContent.swift`, `ReaderDispositionToolbar.swift`, and `ContentPieceReaderModel.swift`.
+Build after Gate 5's S-c3, which refactors the send path in the same model. Branch:
+`m6/s-r12-finds-list-tidy`.
+
+---
+
+### S-r13 — Find definition: ideas aren't Finds, in both prompts and at persist
+
+**Why.** Jon's Finds list (2026-09-25) holds Techniques and Capabilities pulled from tech newsletters
+(its Tools are products and stay Finds). The ideas can't resolve: no app will ever take a technique, so
+Save only parks it under Saved forever. They also pollute the orphan-Find evidence that DECISIONS §3
+relies on. The cause is that neither prompt says what a Find is:
+- `JudgmentPrompt` (editorial pass, and the single-pass control) says only "finds empty when no
+  concrete useful thing is present".
+- `EmailTreatmentPrompt` (the offer treatment in `EmailTreatmentProcessor`) asks for "exactly one
+  useful Pending Find candidate".
+
+DECISIONS §3 was clarified the same day and `JUDGMENT-CONTRACT.md` now states the rule. This slice
+implements it.
+
+**Build.**
+- **One definition, shared.** Add a single prompt fragment in `CockpitCore` (for example
+  `FindDefinition.promptText`) and interpolate it wherever a prompt asks for Finds: the editorial
+  prompt, the single-pass control prompt, and the offer prompt. Wording, close to:
+  > A Find is a thing a specialist app could admit: a place, product, dish, bottle, book, event, or
+  > stay. Software and hardware tools are products. Ideas are never Finds: not a technique,
+  > capability, pattern, practice, argument, insight, trend, or tip. When a piece's value is its
+  > ideas, return no Finds.
+
+  Keep the existing `recipe` routing-hint sentence as it is.
+- **Offer prompt.** Keep "exactly one" and the schema's required `find`: an offer is a domain offer
+  by classification, and S-r6's barrier relies on its Find. Add the definition so that the one Find
+  is a thing.
+- **Deterministic backstop.** In `PendingFindOperations.persist`, skip any proposal whose `kind`,
+  lowercased and trimmed, is on a short idea-kind list: `technique`, `capability`, `pattern`,
+  `practice`, `approach`, `method`, `concept`, `idea`, `insight`, `argument`, `trend`, `tip`,
+  `lesson`, each with its plural spelled out (`capabilities`, not a stemmer). Leave `framework` and
+  `tool` off: a software framework is a product. Put the list next to `RecipeCandidateKind` as an enum
+  with a `matches(_:)` in the same style. It's a drift guard, not a classifier: don't grow it into one,
+  and don't consult `name` or `descriptor`.
+  - The guard runs before the insert/update branch, so a declined proposal neither creates a row nor
+    updates an existing one. Rows already persisted are never touched.
+  - It sits in `persist` so it covers both callers: `EditionEntryWriter` and
+    `EmailTreatmentProcessor`. For an offer, the summary still persists when its Find is declined;
+    that offer simply has no Find (it can't satisfy `offerWithFind`, which is correct).
+- **Bump prompt versions:** `JudgmentEngine.editorialPromptVersion` and
+  `singlePassControlPromptVersion`, and the offer prompt's version if it has one (add one if it
+  doesn't, following the judgment pattern).
+
+**Prove (core).**
+- `persist` skips `technique`, `Techniques`, ` capability `, and `Capabilities`; keeps `restaurant`,
+  `recipe`, `tool`, `framework`, `book`, and `product`; and writes nothing when every proposal is
+  declined.
+- A declined proposal whose ID matches an existing row (same kind, name, and URL) leaves that row
+  exactly as it was, state included.
+- An offer output whose Find is declined still persists its summary and creates no `PendingFind`.
+- Every prompt that asks for Finds contains `FindDefinition.promptText` (one assertion per prompt, so
+  a new prompt without it fails loudly).
+
+**Prove (eval), recorded in `docs/eval-log.md`.** Run the live eval (`COCKPIT_RUN_JUDGMENT_EVAL=1`)
+on the old and new editorial prompt versions over the frozen corpus, and tally Finds by kind (add the
+tally to the eval report; it's a count, not a new metric). Record:
+- idea-kind proposals before → after, which should reach zero or near it;
+- thing-kind proposals before → after, especially Feed Me and Bon Appetit, which must not drop
+  materially;
+- a sample of what Benedict Evans and Techmeme now yield.
+
+The six existing metrics must not regress. The offer prompt runs on device, so its effect is a
+device-only risk (see below).
+
+**Do not.**
+- Don't dismiss, delete, or migrate existing idea-kind Finds. Jon dismisses them with S-r12's buttons:
+  nothing leaves the list without his act.
+- Don't route ideas anywhere else: no Personal Knowledge proposal, no Library admission, no new
+  "idea" destination. Model output never becomes Personal Knowledge (AGENTS.md AI boundary).
+- Don't add a `kind` enum, a schema change, or kind validation beyond the idea-kind guard. `kind` stays
+  a free-text routing hint.
+- Don't change the offer schema, the S-r6 barrier, or the list.
+
+**Device-only risks (name them).**
+- On-device offer extraction may still return an idea kind for a course, webinar, or service offer.
+  The guard catches listed kinds; watch the list for new ones and report them rather than extending the
+  guard in this slice.
+
+**Done when.**
+- Recomposing after the slice adds no new Technique, Capability, or similar Finds from tech
+  newsletters, and restaurants, recipes, wines, products, and tools still arrive.
+- `eval-log.md` has the before/after tally.
+
+**Sequencing.** Touches `JudgmentPrompt.swift`, `EmailTreatmentProcessor.swift`, `PendingFind.swift`,
+`FindHandoff.swift` (or a sibling file for the kind list), `JudgmentEngine.swift` (versions), and the
+eval report in `JudgmentEngineTests.swift`. Build after S-r12, so that Jon can dismiss the existing
+idea Finds from the list. Branch: `m6/s-r13-find-definition`.
