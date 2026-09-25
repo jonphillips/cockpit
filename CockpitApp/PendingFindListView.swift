@@ -7,25 +7,29 @@ struct PendingFindListView: View {
   var body: some View {
     List(model.rows) { row in
       VStack(alignment: .leading, spacing: 4) {
-        HStack {
-          Text(row.name).font(.headline)
-          Spacer()
-          VStack(alignment: .trailing, spacing: 2) {
-            Text(row.kind.capitalized).font(.caption).foregroundStyle(.secondary)
-            Text(stateLabel(row.state)).font(.caption2).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 4) {
+          HStack {
+            Text(row.name).font(.headline)
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+              Text(row.kind.capitalized).font(.caption).foregroundStyle(.secondary)
+              Text(stateLabel(row.state)).font(.caption2).foregroundStyle(.secondary)
+            }
+          }
+          if !row.descriptor.isEmpty {
+            Text(row.descriptor).font(.subheadline)
+          }
+          if !row.rationale.isEmpty {
+            Text(row.rationale).font(.caption).foregroundStyle(.secondary).lineLimit(2)
           }
         }
-        if !row.descriptor.isEmpty {
-          Text(row.descriptor).font(.subheadline)
-        }
-        if !row.rationale.isEmpty {
-          Text(row.rationale).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-        }
+        .accessibilityElement(children: .combine)
         if RecipeCandidateKind.matches(row.kind), (row.state == .pending || row.state == .confirmed) {
           Button("Send to Yes Chef", systemImage: "arrow.up.forward.app") {
             Task { await model.sendToYesChef(row.id) }
           }
           .font(.subheadline)
+          .buttonStyle(.borderless)
         }
       }
       .swipeActions(edge: .trailing) {

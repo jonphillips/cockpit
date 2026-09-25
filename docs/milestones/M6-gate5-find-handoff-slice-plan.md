@@ -261,7 +261,9 @@ S-join needs both.
   - **The new group needs registering on the developer portal once**, by whichever app builds first
     (team `7MQEE539G9`). If automatic signing can't register it from the command line, stop and ask Jon
     to add it in Xcode's Signing & Capabilities. Don't work around it.
-  - The readable-body source for `rawText` must be the same text the Reader shows, not a re-parse.
+  - For Gmail, `rawText` must come from the stored `LocalNormalizedText.normalizedText` exposed as
+    `readerRow.localNormalizedText`. Do not re-parse `Artifact.rawSourceText` or pass raw email HTML;
+    the stored value is Cockpit's readable message text, including its existing chrome normalization.
 - **Yes Chef (`/Users/jon/code/cooking/yes-chef`):**
   - Stage through `CreateRecipeCoordinator.stage(referral:)`; don't add a second staging path.
   - Keep `FindReturnEmitter` as the seam; the mailbox writer is its `liveValue`.

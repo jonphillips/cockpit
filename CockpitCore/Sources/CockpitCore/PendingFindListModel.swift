@@ -39,10 +39,11 @@ public final class PendingFindListModel {
     do {
       let referralID = uuid()
       let (contentPieceID, message) = try await database.read { db -> (ContentPiece.ID, FindReferralMessage) in
-        guard let find = try PendingFind.find(id).fetchOne(db),
-          RecipeCandidateKind.matches(find.kind),
-          find.state == .pending || find.state == .confirmed
+        guard let find = try PendingFind.find(id).fetchOne(db), RecipeCandidateKind.matches(find.kind)
         else { throw FindReferralHandoffError.readableBodyUnavailable }
+        guard find.state == .pending || find.state == .confirmed else {
+          throw PendingFindOperations.Failure.cannotRefer
+        }
         guard let row = try ContentPieceReaderRequest(contentPieceID: find.contentPieceID).fetch(db).row
         else { throw FindReferralHandoffError.readableBodyUnavailable }
         let gmailProvenance = try GmailArtifactProvenance.latest(forContentPiece: row.id, in: db)

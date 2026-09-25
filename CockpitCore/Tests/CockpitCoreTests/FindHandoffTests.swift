@@ -46,7 +46,7 @@ struct FindHandoffTests {
     #expect(!RecipeCandidateKind.matches("restaurant"))
   }
 
-  @Test("Referral builder ships the complete Reader body unchanged with provenance")
+  @Test("Referral builder ships stored readable text, not raw email HTML")
   func referralBuilderPreservesReaderBody() async throws {
     let pieceID = UUID(94_001)
     let findID = UUID(94_002)
@@ -85,7 +85,8 @@ struct FindHandoffTests {
     }
     let message = try FindReferralMessage.make(
       referralID: UUID(94_004), find: find, readerRow: row, gmailProvenance: provenance)
-    #expect(message.rawText == body)
+    #expect(message.rawText == "Recipe one\nRecipe two")
+    #expect(message.rawText != body)
     #expect(message.provenance.seriesID == "recipes.example.com")
     #expect(message.provenance.contentPieceToken == pieceID.uuidString.lowercased())
     #expect(message.provenance.hints["sourceURL"] == "https://example.com/recipe")
@@ -141,6 +142,9 @@ struct FindHandoffTests {
           id: pieceID, kind: .email, title: "Recipe issue", creator: "Test Kitchen",
           publisher: "Example Newsletter", publishedAt: Date(timeIntervalSince1970: 100),
           isSubstantivePrimary: true, bodyCompleteness: .full, createdAt: Date(timeIntervalSince1970: 100))
+      }.execute(db)
+      try LocalNormalizedText.insert {
+        LocalNormalizedText.Draft(contentPieceID: pieceID, normalizedText: "Whole recipe issue, readable text")
       }.execute(db)
       try Artifact.insert {
         Artifact.Draft(Artifact(

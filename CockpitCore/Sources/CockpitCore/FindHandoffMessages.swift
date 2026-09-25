@@ -81,11 +81,7 @@ public struct FindReferralMessage: Codable, Equatable, Sendable {
     guard RecipeCandidateKind.matches(find.kind) else {
       throw FindReferralHandoffError.readableBodyUnavailable
     }
-    let rawText: String
-    switch readerBodyPresentation(for: readerRow) {
-    case let .html(rawHTML): rawText = rawHTML
-    case let .inline(text, _): rawText = text
-    case .compactPreview, .preview, .unavailable:
+    guard let rawText = readerRow.localNormalizedText, !rawText.isEmpty else {
       throw FindReferralHandoffError.readableBodyUnavailable
     }
     var hints = find.hints.flatMap {
