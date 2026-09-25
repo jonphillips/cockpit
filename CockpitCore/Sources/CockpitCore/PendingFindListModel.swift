@@ -42,51 +42,14 @@ public final class PendingFindListModel {
   public func sendToYesChef(_ id: PendingFind.ID) async {
     errorTitle = "Couldn't Send Find"
     do {
-      let referralID = uuid()
-      let (contentPieceID, message) = try await database.read { db -> (ContentPiece.ID, FindReferralMessage) in
-        guard let find = try PendingFind.find(id).fetchOne(db), RecipeCandidateKind.matches(find.kind)
-        else { throw FindReferralHandoffError.readableBodyUnavailable }
-        guard find.state == .pending || find.state == .confirmed else {
-          throw PendingFindOperations.Failure.cannotRefer
-        }
-        guard let row = try ContentPieceReaderRequest(contentPieceID: find.contentPieceID).fetch(db).row
-        else { throw FindReferralHandoffError.readableBodyUnavailable }
-        let gmailProvenance = try GmailArtifactProvenance.latest(forContentPiece: row.id, in: db)
-        return (row.id, try FindReferralMessage.make(
-          referralID: referralID, find: find, readerRow: row, gmailProvenance: gmailProvenance
-        ))
-      }
-
       let sentAt = now
-      try await findReferralClient.writeReferral(message)
-      do {
-        try await database.write { db in
-          try PendingFindOperations.startReferral(
-            referralID: message.referralID, for: id, at: sentAt, in: db
-          )
-        }
-      } catch {
-        _ = try? await findReferralClient.deleteReferral(message.referralID)
-        throw error
-      }
-
-      guard await findReferralClient.openReferral(message.referralID) else {
-        let failedAt = now
-        try await database.write { db in
-          try PendingFindOperations.recordReferralOpenFailure(
-            referralID: message.referralID, for: id, at: failedAt, in: db
-          )
-        }
-        _ = try? await findReferralClient.deleteReferral(message.referralID)
-        try await $content.load()
-        errorMessage = FindReferralHandoffError.yesChefUnavailable.localizedDescription
-        return
-      }
-
+      let makeUUID = uuid
+      let opened = try await FindReferralSendingService(
+        database: database, handoffClient: findReferralClient,
+        dispositionClient: dispositionClient, now: { sentAt }, uuid: { makeUUID() }
+      ).send(findID: id)
       try await $content.load()
-      errorMessage = nil
-      _ = try? await GmailDispositionPolicyService(client: dispositionClient, now: { sentAt })
-        .applyEnabledPolicies(forContentPieceID: contentPieceID, in: database)
+      errorMessage = opened ? nil : FindReferralHandoffError.yesChefUnavailable.localizedDescription
     } catch is CancellationError {
     } catch {
       errorTitle = "Couldn't Send Find"

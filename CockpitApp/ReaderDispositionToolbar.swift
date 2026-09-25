@@ -82,6 +82,14 @@ private extension ReaderDispositionToolbar {
       }
       Divider()
 
+      if let title = model.yesChefReaderActionTitle {
+        Button(title, systemImage: "arrow.up.forward.app") {
+          Task { await model.sendToYesChefFromReader() }
+        }
+        .disabled(!model.canSendToYesChefFromReader)
+        Divider()
+      }
+
       if model.isGmailSource {
         MoveToSectionMenu(
           currentRole: model.currentRoutingRule?.role ?? model.resolvedContentRole ?? .forYou,
