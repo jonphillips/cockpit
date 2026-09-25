@@ -2,7 +2,7 @@ import CockpitCore
 import SwiftUI
 
 struct PendingFindListView: View {
-  @State private var model = PendingFindListModel()
+  let model: PendingFindListModel
 
   var body: some View {
     List(model.rows) { row in
@@ -24,6 +24,23 @@ struct PendingFindListView: View {
           }
         }
         .accessibilityElement(children: .combine)
+        if let referralID = model.strandedReferrals[row.id] {
+          Text("Yes Chef hasn't picked up this referral yet.")
+            .font(.caption)
+            .foregroundStyle(.orange)
+          HStack {
+            Button("Open Yes Chef Again", systemImage: "arrow.clockwise") {
+              Task { await model.retryStrandedReferral(for: row.id) }
+            }
+            Button("Return to Confirmed", systemImage: "arrow.uturn.backward") {
+              Task { await model.returnStrandedReferralToConfirmed(for: row.id) }
+            }
+            .tint(.secondary)
+          }
+          .font(.caption)
+          .buttonStyle(.borderless)
+          .accessibilityIdentifier("stranded-referral-\(referralID.uuidString.lowercased())")
+        }
         if RecipeCandidateKind.matches(row.kind), (row.state == .pending || row.state == .confirmed) {
           Button("Send to Yes Chef", systemImage: "arrow.up.forward.app") {
             Task { await model.sendToYesChef(row.id) }
@@ -60,13 +77,18 @@ struct PendingFindListView: View {
     } message: {
       Text(model.errorMessage ?? "Please try again.")
     }
-    .task { try? await model.$content.load() }
+    .task {
+      try? await model.$content.load()
+      await model.refreshHandoffState()
+    }
   }
 
   private func stateLabel(_ state: PendingFindState) -> String {
     switch state {
     case .referred: "Sent to Yes Chef"
-    case .pending, .confirmed, .handedOff, .declined, .dismissed: state.rawValue.capitalized
+    case .handedOff: "Added to Yes Chef"
+    case .declined: "Declined by Yes Chef"
+    case .pending, .confirmed, .dismissed: state.rawValue.capitalized
     }
   }
 }

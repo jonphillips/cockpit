@@ -92,6 +92,40 @@ struct FindHandoffTests {
     #expect(message.provenance.hints["sourceURL"] == "https://example.com/recipe")
   }
 
+  @Test("A teaser body is unavailable for handoff even when local text exists")
+  func referralBuilderRejectsTeaserBody() async throws {
+    let pieceID = UUID(94_051)
+    let findID = UUID(94_052)
+    try await database.write { db in
+      try ContentPiece.insert {
+        ContentPiece.Draft(
+          id: pieceID, kind: .email, title: "Recipe teaser", publisher: "Example",
+          isSubstantivePrimary: true, bodyCompleteness: .teaser,
+          createdAt: Date(timeIntervalSince1970: 100))
+      }.execute(db)
+      try LocalNormalizedText.insert {
+        LocalNormalizedText.Draft(contentPieceID: pieceID, normalizedText: "Try our new recipe")
+      }.execute(db)
+      try PendingFind.insert {
+        PendingFind.Draft(PendingFind(
+          id: findID, contentPieceID: pieceID, kind: "recipe", name: "Teaser recipe",
+          descriptor: "Recipe", rationale: "A teaser"))
+      }.execute(db)
+    }
+    let (find, row) = try await database.read { db in
+      let find = try #require(try PendingFind.find(findID).fetchOne(db))
+      let readerValue = try ContentPieceReaderRequest(contentPieceID: pieceID).fetch(db)
+      let row = try #require(readerValue.row)
+      return (find, row)
+    }
+
+    #expect(throws: FindReferralHandoffError.readableBodyUnavailable) {
+      try FindReferralMessage.make(
+        referralID: UUID(94_053), find: find, readerRow: row, gmailProvenance: nil
+      )
+    }
+  }
+
   @Test("Gate 5 referral log migration is app-local persistence")
   func referralLogSchema() async throws {
     let columns = try await database.read { db in

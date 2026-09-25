@@ -81,6 +81,9 @@ public struct FindReferralMessage: Codable, Equatable, Sendable {
     guard RecipeCandidateKind.matches(find.kind) else {
       throw FindReferralHandoffError.readableBodyUnavailable
     }
+    guard readerRow.bodyCompleteness != .teaser else {
+      throw FindReferralHandoffError.readableBodyUnavailable
+    }
     guard let rawText = readerRow.localNormalizedText, !rawText.isEmpty else {
       throw FindReferralHandoffError.readableBodyUnavailable
     }

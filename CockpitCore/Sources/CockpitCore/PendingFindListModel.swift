@@ -1,5 +1,6 @@
 import Observation
 import Dependencies
+import Foundation
 import SQLiteData
 
 @MainActor
@@ -12,6 +13,8 @@ public final class PendingFindListModel {
   @ObservationIgnored @Dependency(\.uuid) private var uuid
   @ObservationIgnored @Fetch(PendingFindListRequest()) public var content = .init()
   public var errorMessage: String?
+  public private(set) var strandedReferrals: [PendingFind.ID: UUID] = [:]
+  private var isRefreshingHandoff = false
 
   public init() {}
 
@@ -66,13 +69,13 @@ public final class PendingFindListModel {
       }
 
       guard await findReferralClient.openReferral(message.referralID) else {
-        try? await findReferralClient.deleteReferral(message.referralID)
         let failedAt = now
         try await database.write { db in
           try PendingFindOperations.recordReferralOpenFailure(
             referralID: message.referralID, for: id, at: failedAt, in: db
           )
         }
+        try? await findReferralClient.deleteReferral(message.referralID)
         try await $content.load()
         errorMessage = FindReferralHandoffError.yesChefUnavailable.localizedDescription
         return
@@ -101,6 +104,76 @@ public final class PendingFindListModel {
     } catch is CancellationError {
     } catch {
       // The list has no separate error surface; the persisted row remains available for retry.
+    }
+  }
+}
+
+extension PendingFindListModel {
+  public func refreshHandoffState() async {
+    guard !isRefreshingHandoff else { return }
+    isRefreshingHandoff = true
+    defer { isRefreshingHandoff = false }
+    do {
+      let verdicts = try await findReferralClient.listVerdicts()
+      for verdict in verdicts {
+        let resolvedAt = now
+        let resolution = try await database.write { db in
+          try FindReferralOperations.resolve(verdict, at: resolvedAt, in: db)
+        }
+        switch resolution {
+        case .missingLog:
+          FindHandoffLog.record("Discarding a verdict with no local referral log: \(verdict.referralID)")
+        case .missingFind:
+          FindHandoffLog.record("Resolved a verdict whose Find no longer exists: \(verdict.referralID)")
+        case .alreadyResolved, .applied:
+          break
+        }
+        try await findReferralClient.deleteVerdict(verdict.referralID)
+      }
+
+      let mailboxReferralIDs = try await findReferralClient.unconsumedReferralIDs()
+      let unresolved = try await database.read { db in
+        try FindReferralOperations.unresolved(in: db)
+      }
+      strandedReferrals = Dictionary(
+        unresolved.compactMap { referral in
+          mailboxReferralIDs.contains(referral.id) ? (referral.pendingFindID, referral.id) : nil
+        }, uniquingKeysWith: { _, latest in latest })
+      try await $content.load()
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  public func retryStrandedReferral(for findID: PendingFind.ID) async {
+    guard let referralID = strandedReferrals[findID] else { return }
+    guard await findReferralClient.openReferral(referralID) else {
+      errorMessage = FindReferralHandoffError.yesChefUnavailable.localizedDescription
+      return
+    }
+    strandedReferrals[findID] = nil
+  }
+
+  public func returnStrandedReferralToConfirmed(for findID: PendingFind.ID) async {
+    guard let referralID = strandedReferrals[findID] else { return }
+    do {
+      let returnedAt = now
+      _ = try await database.write { db in
+        try FindReferralOperations.returnToConfirmed(
+          referralID: referralID, at: returnedAt, in: db
+        )
+      }
+      strandedReferrals[findID] = nil
+      try await $content.load()
+      do {
+        try await findReferralClient.deleteReferral(referralID)
+      } catch {
+        errorMessage = "The Find is confirmed again, but Cockpit couldn't remove its queued referral. It may still reach Yes Chef."
+      }
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
     }
   }
 }

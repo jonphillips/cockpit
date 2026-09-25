@@ -5,6 +5,7 @@ import SwiftUI
 struct SettingsView: View {
   let model: ShellModel
   let followingModel: FollowingModel
+  let pendingFindModel: PendingFindListModel
   @State private var gmailAuthorizationProbe = GmailAuthorizationProbe()
   @State private var dispositionPolicyModel = GmailDispositionPolicyModel()
 
@@ -78,7 +79,7 @@ struct SettingsView: View {
         case .ai:
           AISettingsView()
         case .pendingFinds:
-          PendingFindListView()
+          PendingFindListView(model: pendingFindModel)
         case .gmailAuthorizationProbe:
           GmailAuthorizationProbeView(probe: gmailAuthorizationProbe)
         }

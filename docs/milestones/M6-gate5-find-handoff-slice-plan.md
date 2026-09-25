@@ -271,7 +271,7 @@ S-join needs both.
 - [x] S-c1 — cockpit#82 (architect-reviewed 2026-09-25; 252 core tests re-run locally).
 - [x] S-y3 — yes-chef#325 (architect-reviewed 2026-09-25; 66 `YesChefTests` re-run locally). Wire
   fixtures are byte-identical across the two repos.
-- [ ] S-c2 — next Cockpit slice.
+- [x] S-c2 — this Cockpit PR (258 core tests, strict lint, unsigned iOS build pass).
 - [ ] S-join — Jon's device round trip, after S-c2; trails Gate 4's close.
 
 ## First checks for the executor

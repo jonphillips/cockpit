@@ -1,6 +1,15 @@
 import Dependencies
 import Foundation
+import os
 import SQLiteData
+
+enum FindHandoffLog {
+  private static let logger = Logger(subsystem: "com.jonphillips.cockpit", category: "FindHandoff")
+
+  static func record(_ message: String) {
+    logger.warning("\(message, privacy: .public)")
+  }
+}
 
 public enum RecipeCandidateKind {
   public static func matches(_ kind: String) -> Bool {
@@ -53,12 +62,14 @@ public enum FindReferralHandoffError: LocalizedError, Equatable, Sendable {
   case appGroupUnavailable
   case readableBodyUnavailable
   case yesChefUnavailable
+  case referralNoLongerPending
 
   public var errorDescription: String? {
     switch self {
     case .appGroupUnavailable: "Cockpit could not access the Yes Chef handoff mailbox."
     case .readableBodyUnavailable: "Cockpit does not hold readable content to send for this Find."
     case .yesChefUnavailable: "Yes Chef isn't available. The Find is still confirmed and can be sent again."
+    case .referralNoLongerPending: "This referral is no longer waiting for a Yes Chef response."
     }
   }
 }
@@ -67,15 +78,24 @@ public struct FindReferralHandoffClient: Sendable {
   public var writeReferral: @Sendable (FindReferralMessage) async throws -> Void
   public var deleteReferral: @Sendable (UUID) async throws -> Void
   public var openReferral: @Sendable (UUID) async -> Bool
+  public var listVerdicts: @Sendable () async throws -> [FindVerdictMessage]
+  public var deleteVerdict: @Sendable (UUID) async throws -> Void
+  public var unconsumedReferralIDs: @Sendable () async throws -> Set<UUID>
 
   public init(
     writeReferral: @escaping @Sendable (FindReferralMessage) async throws -> Void,
     deleteReferral: @escaping @Sendable (UUID) async throws -> Void,
-    openReferral: @escaping @Sendable (UUID) async -> Bool
+    openReferral: @escaping @Sendable (UUID) async -> Bool,
+    listVerdicts: @escaping @Sendable () async throws -> [FindVerdictMessage] = { [] },
+    deleteVerdict: @escaping @Sendable (UUID) async throws -> Void = { _ in },
+    unconsumedReferralIDs: @escaping @Sendable () async throws -> Set<UUID> = { [] }
   ) {
     self.writeReferral = writeReferral
     self.deleteReferral = deleteReferral
     self.openReferral = openReferral
+    self.listVerdicts = listVerdicts
+    self.deleteVerdict = deleteVerdict
+    self.unconsumedReferralIDs = unconsumedReferralIDs
   }
 }
 
