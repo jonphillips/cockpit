@@ -2,16 +2,6 @@ import Foundation
 import SQLiteData
 
 extension GmailInboxIngestor {
-  static func fetchSnapshot(
-    using client: GmailInboxClient, cursor: GmailSyncState?, startedAt: Date
-  ) async throws -> GmailInboxSnapshot {
-    guard let cursor else { return try await client.currentInbox() }
-    if let fetch = client.inboxChangesIncludingPromotions {
-      return try await fetch(cursor.accountID, cursor.historyID, cursor.promotionsSince ?? startedAt)
-    }
-    return try await client.inboxChanges(cursor.accountID, cursor.historyID)
-  }
-
   static func recordArtifact(
     message: GmailInboxMessage, artifactID: UUID, providerID: String, accountID: String,
     pieceID: ContentPiece.ID, acquiredAt: Date, in db: Database
@@ -21,6 +11,8 @@ extension GmailInboxIngestor {
     let matchedStreamID = try GmailStreamResolver.streamID(
       for: provenance, sender: message.sender, in: db)
     if let artifact = try Artifact.where({ $0.providerID.eq(providerID) }).fetchOne(db) {
+      // Provider IDs are account-scoped, so re-reads update the same Artifact even when a new
+      // deterministic lookup now finds its Stream.
       try Artifact.find(artifact.id).update { row in
         row.providerIsUnread = #bind(message.labelIDs.contains("UNREAD"))
         row.providerProvenance = #bind(provenanceJSON)

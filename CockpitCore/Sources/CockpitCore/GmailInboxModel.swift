@@ -11,24 +11,23 @@ public struct GmailInboxClient: Sendable {
   public var currentInbox: @Sendable () async throws -> GmailInboxSnapshot
   /// Fetches only messages that changed since the persisted Gmail history cursor. The account is
   /// supplied so the live transport can reject an accidental account switch before any writes.
-  public var inboxChanges: @Sendable (_ accountID: String, _ startHistoryID: String) async throws -> GmailInboxSnapshot
-  /// Promotions are queried from a fixed epoch. Kept as an additive seam so older injected
-  /// clients can continue to model Primary-only syncs.
-  public var inboxChangesIncludingPromotions: (@Sendable (_ accountID: String, _ startHistoryID: String, _ promotionsSince: Date) async throws -> GmailInboxSnapshot)?
+  public var inboxChanges: @Sendable (
+    _ accountID: String, _ startHistoryID: String, _ promotionsSince: Date
+  ) async throws -> GmailInboxSnapshot
   /// Refreshes labels for existing Gmail messages, using minimal bounded reads in the live client.
   public var refreshUnreadStates: (@Sendable ([String]) async throws -> [String: Bool])?
 
   public init(
     currentInbox: @escaping @Sendable () async throws -> GmailInboxSnapshot,
-    inboxChanges: (@Sendable (_ accountID: String, _ startHistoryID: String) async throws -> GmailInboxSnapshot)? = nil,
-    inboxChangesIncludingPromotions: (@Sendable (_ accountID: String, _ startHistoryID: String, _ promotionsSince: Date) async throws -> GmailInboxSnapshot)? = nil,
+    inboxChanges: (@Sendable (
+      _ accountID: String, _ startHistoryID: String, _ promotionsSince: Date
+    ) async throws -> GmailInboxSnapshot)? = nil,
     refreshUnreadStates: (@Sendable ([String]) async throws -> [String: Bool])? = nil
   ) {
     self.currentInbox = currentInbox
     // Keeping this fallback makes existing read-only callers deterministic while a dedicated
     // delta closure is introduced. The live client always supplies the real history endpoint.
-    self.inboxChanges = inboxChanges ?? { @Sendable _, _ in try await currentInbox() }
-    self.inboxChangesIncludingPromotions = inboxChangesIncludingPromotions
+    self.inboxChanges = inboxChanges ?? { @Sendable _, _, _ in try await currentInbox() }
     self.refreshUnreadStates = refreshUnreadStates
   }
 
@@ -36,10 +35,7 @@ public struct GmailInboxClient: Sendable {
     let api = GmailInboxAPI(accessToken: accessToken)
     return Self(
       currentInbox: { try await api.currentInbox() },
-      inboxChanges: { accountID, historyID in
-        try await api.inboxChanges(accountID: accountID, since: historyID)
-      },
-      inboxChangesIncludingPromotions: { accountID, historyID, promotionsSince in
+      inboxChanges: { accountID, historyID, promotionsSince in
         try await api.inboxChanges(accountID: accountID, since: historyID, promotionsSince: promotionsSince)
       },
       refreshUnreadStates: { try await api.unreadStates(messageIDs: $0) }

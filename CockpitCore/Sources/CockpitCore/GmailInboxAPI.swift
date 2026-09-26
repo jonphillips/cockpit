@@ -21,7 +21,8 @@ struct GmailInboxAPI {
     )
   }
 
-  /// Returns the changed Primary-Inbox messages from Gmail's history feed. The profile request
+  /// Returns the changed Primary and epoch-scoped Promotions messages from Gmail's history feed.
+  /// The profile request
   /// verifies the persisted account before Cockpit touches its local state; the returned profile
   /// history ID is the committed cursor only after every message is persisted by the ingestor.
   ///
@@ -32,7 +33,7 @@ struct GmailInboxAPI {
   /// Primary messages the backfill would have kept. Asking Gmail the one authoritative question keeps
   /// the two reads in lockstep.
   func inboxChanges(
-    accountID: String, since historyID: String, promotionsSince: Date? = nil
+    accountID: String, since historyID: String, promotionsSince: Date
   ) async throws -> GmailInboxSnapshot {
     async let profile: GmailProfile = get(path: "profile")
     let history = try await listHistory(since: historyID)
@@ -42,12 +43,7 @@ struct GmailInboxAPI {
     else { throw GmailInboxError.accountChanged }
 
     let primaryInboxIDs = try await primaryInboxMessageIDs()
-    let promotionsInboxIDs: Set<String>
-    if let promotionsSince {
-      promotionsInboxIDs = try await promotionsInboxMessageIDs(since: promotionsSince)
-    } else {
-      promotionsInboxIDs = []
-    }
+    let promotionsInboxIDs = try await promotionsInboxMessageIDs(since: promotionsSince)
     let membership = Self.changedInboxMembership(
       changedIDs: history.messageIDs, primaryInboxIDs: primaryInboxIDs,
       promotionsInboxIDs: promotionsInboxIDs)
@@ -61,7 +57,7 @@ struct GmailInboxAPI {
       messages: reads.messages,
       failures: reads.failures,
       departedMessageIDs: Self.departedChangedIDs(
-        changedIDs: history.messageIDs, inboxMessageIDs: heldIDs)
+        changedIDs: history.messageIDs, heldInboxIDs: heldIDs)
     )
   }
 
@@ -78,23 +74,8 @@ struct GmailInboxAPI {
     return result
   }
 
-  /// The intersection at the heart of the delta: keep only changed messages that are currently in the
-  /// Primary set. Membership decides inclusion, so a message Gmail tagged `CATEGORY_UPDATES`/`FORUMS`
-  /// but shows in Primary is kept, and a message that just left Primary (archived/trashed) is dropped.
-  static func primaryChangedIDs(changedIDs: [String], primaryInboxIDs: Set<String>) -> [String] {
-    changedIDs.filter(primaryInboxIDs.contains)
-  }
-
-  /// The complement of `primaryChangedIDs`: changed messages that are *no longer* in the Primary set.
-  /// These left the Inbox in Gmail (archived/trashed/re-categorized) since the cursor, so the ingestor
-  /// clears them from Today. This is the read half of the fix for "trashed in Gmail still shows in
-  /// Cockpit" — the same intersection, kept rather than discarded.
-  static func departedChangedIDs(changedIDs: [String], primaryInboxIDs: Set<String>) -> [String] {
-    changedIDs.filter { !primaryInboxIDs.contains($0) }
-  }
-
-  static func departedChangedIDs(changedIDs: [String], inboxMessageIDs: Set<String>) -> [String] {
-    changedIDs.filter { !inboxMessageIDs.contains($0) }
+  static func departedChangedIDs(changedIDs: [String], heldInboxIDs: Set<String>) -> [String] {
+    changedIDs.filter { !heldInboxIDs.contains($0) }
   }
 }
 
