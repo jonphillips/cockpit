@@ -57,6 +57,7 @@ public enum PendingFindOperations {
   ) throws {
     guard let finds else { return }
     for find in finds {
+      guard !IdeaFindKind.matches(find.kind) else { continue }
       let hints = try encodeHints(find.hints)
       let id = id(
         kind: find.kind, name: find.name, sourceURL: find.sourceURL, for: contentPieceID

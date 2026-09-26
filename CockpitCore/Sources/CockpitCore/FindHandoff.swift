@@ -17,6 +17,21 @@ public enum RecipeCandidateKind {
   }
 }
 
+/// A narrow persistence backstop for model proposals that describe ideas rather than handoff-able
+/// things. Keep this list explicit: it is a drift guard, not a general Find classifier.
+enum IdeaFindKind {
+  private static let kinds: Set<String> = [
+    "technique", "techniques", "capability", "capabilities", "pattern", "patterns",
+    "practice", "practices", "approach", "approaches", "method", "methods", "concept",
+    "concepts", "idea", "ideas", "insight", "insights", "argument", "arguments", "trend",
+    "trends", "tip", "tips", "lesson", "lessons",
+  ]
+
+  static func matches(_ kind: String) -> Bool {
+    kinds.contains(kind.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+  }
+}
+
 extension CockpitMigrations {
   static func registerFindHandoff(in migrator: inout DatabaseMigrator) {
     migrator.registerMigration("M6 Gate 5 S-c1 Find referral log") { db in

@@ -37,7 +37,8 @@ Techniques and Capabilities from tech newsletters: ideas, not things an app coul
 never resolve. (The Tools there are products and stay Finds.) Neither prompt says what a Find is. S-r13
 gives both prompts DECISIONS §3's definition (clarified the same day) plus a deterministic backstop. It
 changes judgment and extraction only: no schema, identity, Gmail, or list changes. Build it after
-S-r12.
+S-r12. **Amended 2026-09-26** after Jon's device pass: offer extraction never proposes a recipe (see
+the S-r13 block).
 
 - [x] S-r1 — Queue flow: disposed issues leave the queue, advance to next, Undo
 - [x] S-r2 — Reader chrome: actions in the toolbar, inline Tell Cockpit, Delete archives
@@ -51,7 +52,7 @@ S-r12.
 - [x] S-r10 — Open in Mail: hand off to the exact message in Mail.app
 - [x] S-r11 — Today navigation: Highlights sheet, way back, one-row toolbar, section rail
 - [x] S-r12 — Finds list tidy-up: grouped by what's needed, newest first, dismissed hidden, open the source
-- [ ] S-r13 — Find definition: ideas aren't Finds, in both prompts and at persist
+- [x] S-r13 — Find definition: ideas aren't Finds, in both prompts and at persist
 
 ## Standing rules for every slice
 
@@ -839,6 +840,20 @@ implements it.
   - It sits in `persist` so it covers both callers: `EditionEntryWriter` and
     `EmailTreatmentProcessor`. For an offer, the summary still persists when its Find is declined;
     that offer simply has no Find (it can't satisfy `offerWithFind`, which is correct).
+- **Offers never propose a recipe (amended 2026-09-26, Jon).** On device, the Finds list showed a
+  T. rex science story and two wine allocations as `Recipe`, each with Send to Yes Chef. All three
+  came from the on-device offer extraction. Its prompt's only named kind is `recipe`, and a small
+  model copies the one example it's given. Jon's rule: recipes come from newsletters he reads anyway,
+  so offers don't need to find them. Recipe Finds come only from the editorial pass and from Send to
+  Yes Chef in the Reader.
+  - Offer prompt: drop the `recipe` routing sentence. Give thing kinds as examples instead (wine,
+    product, stay, event), and keep "exactly one".
+  - Offer decoder: when the Find's kind matches `RecipeCandidateKind`, return the summary with no
+    Find, the same path as an all-blank Find. Do it in `EmailTreatmentResponseDecoder`, not in
+    `PendingFindOperations.persist`: the editorial pass still persists recipes.
+  - Bump `offerPromptVersion`. The editorial and control prompts and their `recipe` sentence are
+    unchanged.
+  - Leave existing recipe-kind offer Finds alone: Jon dismisses them.
 - **Bump prompt versions:** `JudgmentEngine.editorialPromptVersion` and
   `singlePassControlPromptVersion`, and the offer prompt's version if it has one (add one if it
   doesn't, following the judgment pattern).
@@ -852,6 +867,8 @@ implements it.
 - An offer output whose Find is declined still persists its summary and creates no `PendingFind`.
 - Every prompt that asks for Finds contains `FindDefinition.promptText` (one assertion per prompt, so
   a new prompt without it fails loudly).
+- The offer prompt doesn't contain `recipe`. An offer output with kind `recipe` (or ` Recipe `)
+  persists its summary and creates no `PendingFind`. An editorial `recipe` proposal still persists.
 
 **Prove (eval), recorded in `docs/eval-log.md`.** Run the live eval (`COCKPIT_RUN_JUDGMENT_EVAL=1`)
 on the old and new editorial prompt versions over the frozen corpus, and tally Finds by kind (add the
@@ -881,6 +898,7 @@ device-only risk (see below).
 **Done when.**
 - Recomposing after the slice adds no new Technique, Capability, or similar Finds from tech
   newsletters, and restaurants, recipes, wines, products, and tools still arrive.
+- New offer emails produce no Recipe Finds. A wine offer's Find is a wine.
 - `eval-log.md` has the before/after tally.
 
 **Sequencing.** Touches `JudgmentPrompt.swift`, `EmailTreatmentProcessor.swift`, `PendingFind.swift`,
