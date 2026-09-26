@@ -22,18 +22,20 @@ public final class TodayModel {
     }
   }
 
-  public struct PublisherRollup: Equatable, Identifiable, Sendable {
-    public let id: String
-    public let label: String
-    public let rows: [TodayRequest.Row]
+  public struct OfferDoor: Equatable, Identifiable, Sendable {
+    public let role: ContentRole
+    public let count: Int
+    public let heroURLs: [URL]
+    public let keptCount: Int
 
-    public var count: Int { rows.count }
-    public var representative: TodayRequest.Row { rows[0] }
+    public var id: ContentRole { role }
+    public var title: String { role.displayName }
 
-    public init(id: String, label: String, rows: [TodayRequest.Row]) {
-      self.id = id
-      self.label = label
-      self.rows = rows
+    public init(role: ContentRole, rows: [OfferReviewRequest.Row]) {
+      self.role = role
+      count = rows.count
+      heroURLs = Array(rows.compactMap(\.heroURL).prefix(4))
+      keptCount = rows.filter { $0.pendingFind?.state == .confirmed }.count
     }
   }
 
@@ -42,7 +44,10 @@ public final class TodayModel {
   @ObservationIgnored @Dependency(\.gmailDispositionClient) var dispositionClient
   @ObservationIgnored @Dependency(\.modelClient) private var modelClient
   @ObservationIgnored @Fetch(TodayRequest()) public var content = .init()
+  @ObservationIgnored @Fetch(OfferReviewRequest()) public var offers = OfferReviewRequest.Value()
   public var recentTrashes = RecentTrashRequest.Value()
+  public var lastOfferBatch: [GmailDispositionLogEntry] = []
+  public var offerUndoMessage: String?
   public var selectedContentPieceID: ContentPiece.ID?
   public var errorMessage: String?
 
@@ -54,13 +59,17 @@ public final class TodayModel {
   /// queue. Rows stay in the projection's arrival order within a role.
   public var sections: [RoleSection] {
     ContentRole.allCases.sorted { $0.sortOrder < $1.sortOrder }.compactMap { role in
-      let rows = content.rows.filter { $0.role == role }
+      let rows = content.rows.filter {
+        $0.role == role && !OfferPieces.isOffer(role: $0.role, treatment: $0.treatment)
+      }
       return rows.isEmpty ? nil : RoleSection(role: role, rows: rows)
     }
   }
 
   public func rows(for role: ContentRole) -> [TodayRequest.Row] {
-    content.rows.filter { $0.role == role }
+    content.rows.filter {
+      $0.role == role && !OfferPieces.isOffer(role: $0.role, treatment: $0.treatment)
+    }
   }
 
   /// Highlights are a navigational sampler only. Every row is selected from an existing section;
@@ -69,14 +78,21 @@ public final class TodayModel {
     sections.compactMap(\.rows.first)
   }
 
-  /// Offers are compacted by publisher for orientation. The rows remain intact behind each group;
-  /// this is presentational grouping, not a new Find or entity.
-  public var offerGroups: [PublisherRollup] {
-    publisherRollups(for: .offers)
+  /// One review door per role with a Today offer, in the same deterministic order as role sections.
+  public var offerDoors: [OfferDoor] {
+    ContentRole.allCases.sorted { $0.sortOrder < $1.sortOrder }.compactMap { role in
+      let rows = offers.rows.filter { $0.role == role }
+      return rows.isEmpty ? nil : OfferDoor(role: role, rows: rows)
+    }
   }
 
   public var roleCounts: [ContentRole: Int] {
-    Dictionary(grouping: content.rows, by: \.role).mapValues(\.count)
+    Dictionary(
+      grouping: content.rows.filter {
+        !OfferPieces.isOffer(role: $0.role, treatment: $0.treatment)
+      },
+      by: \.role
+    ).mapValues(\.count)
   }
 
   public var orientationSummary: String {
@@ -139,34 +155,6 @@ public final class TodayModel {
 
 }
 
-private extension TodayModel {
-  func publisherRollups(for role: ContentRole) -> [PublisherRollup] {
-    var groups: [String: [TodayRequest.Row]] = [:]
-    var order: [String] = []
-    for row in rows(for: role) {
-      let key = offerGroupKey(for: row.publisher)
-      if groups[key] == nil { order.append(key) }
-      groups[key, default: []].append(row)
-    }
-    return order.compactMap { key in
-      guard let rows = groups[key] else { return nil }
-      return PublisherRollup(id: key, label: offerGroupLabel(for: rows[0].publisher), rows: rows)
-    }
-  }
-
-  func offerGroupKey(for publisher: String) -> String {
-    publisher
-      .split(separator: "<", maxSplits: 1, omittingEmptySubsequences: true)[0]
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-      .lowercased()
-  }
-
-  func offerGroupLabel(for publisher: String) -> String {
-    let label = SenderDisplayName.make(from: publisher)
-    return label.isEmpty ? "Offers" : label
-  }
-}
-
 extension TodayModel {
   /// Archives the Gmail source behind the disposition barrier. Independent of `clear`: archiving the
   /// provider message does not resolve Today attention, and clearing does not mutate Gmail (§7).
@@ -192,6 +180,38 @@ extension TodayModel {
     await applyDisposition(.trash, to: rows.map(\.id))
   }
 
+  public func rememberOfferBatch(_ entries: [GmailDispositionLogEntry]) {
+    lastOfferBatch = entries
+    offerUndoMessage = nil
+  }
+
+  public func undoLastOfferBatch() async {
+    guard !lastOfferBatch.isEmpty else { return }
+    let batch = lastOfferBatch
+    let service = dispositionService
+    var failed: [GmailDispositionLogEntry] = []
+    for (index, entry) in batch.enumerated() {
+      do {
+        try await service.undo(entry, in: database)
+      } catch is CancellationError {
+        failed.append(contentsOf: batch[index...])
+        break
+      } catch {
+        failed.append(entry)
+      }
+    }
+    lastOfferBatch = failed
+    offerUndoMessage = failed.isEmpty ? nil : "Restored \(batch.count - failed.count) of \(batch.count). \(failed.count) couldn't be restored."
+    try? await $content.load()
+    try? await $offers.load()
+    await loadRecentTrashes()
+  }
+
+  public func dismissOfferUndo() {
+    lastOfferBatch = []
+    offerUndoMessage = nil
+  }
+
   /// Reverses the message's current disposition, if any, by issuing the inverse label operation.
   public func undoDisposition(_ row: TodayRequest.Row) async {
     await undoDisposition(forContentPieceID: row.id)
@@ -202,6 +222,8 @@ extension TodayModel {
   }
 
   private func applyDisposition(_ disposition: GmailSourceDisposition, to ids: [ContentPiece.ID]) async {
+    lastOfferBatch = []
+    offerUndoMessage = nil
     do {
       let service = dispositionService
       for id in ids {
@@ -209,6 +231,7 @@ extension TodayModel {
       }
       // The disposition log now hides these rows (`TodayRequest`); reload so Today reflects it now.
       try await $content.load()
+      try await $offers.load()
       await loadRecentTrashes()
       errorMessage = nil
     } catch is CancellationError {
@@ -216,6 +239,7 @@ extension TodayModel {
       // A failed barrier aborts the batch, but any rows disposed before it are already durable and
       // hidden by `TodayRequest`; reload so they leave Today instead of lingering until the next load.
       try? await $content.load()
+      try? await $offers.load()
       await loadRecentTrashes()
       errorMessage = error.localizedDescription
     }

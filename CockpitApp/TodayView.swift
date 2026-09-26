@@ -15,6 +15,7 @@ struct TodayView: View {
   @State private var isReading = false
   @State private var highlightRow: TodayRequest.Row?
   @State private var dismissedHighlightID: ContentPiece.ID?
+  @State private var offerReviewRole: ContentRole?
 
   var body: some View {
     Group {
@@ -37,9 +38,12 @@ struct TodayView: View {
             openHighlight: {
               dismissedHighlightID = $0.id
               highlightRow = $0
+            },
+            openOfferReview: {
+              offerReviewRole = $0
             })
             .overlay {
-              if model.sections.isEmpty && tailRows.isEmpty && !tailModel.isComposing {
+              if model.sections.isEmpty && model.offerDoors.isEmpty && tailRows.isEmpty && !tailModel.isComposing {
                 ContentUnavailableView(
                   "Nothing to Review", systemImage: "sun.max",
                   description: Text("Loose Gmail messages and screened tail stories will appear here."))
@@ -52,6 +56,13 @@ struct TodayView: View {
     }
     .sheet(isPresented: $isShowingRecentTrashes) {
       RecentTrashSheet(model: model)
+    }
+    .offerReviewCover(role: $offerReviewRole, model: model) {
+      Task {
+        try? await model.$content.load()
+        try? await model.$offers.load()
+        await readingQueueModel.reload()
+      }
     }
     .sheet(item: $highlightRow, onDismiss: highlightReaderDismissed) { row in
       if let queueRow = readingQueueModel.rows.first(where: { $0.id == row.id }) {
@@ -78,12 +89,14 @@ struct TodayView: View {
       // S-d0b keeps Edition composition behind the standing entry card; opening Today does not
       // spend the editorial budget or silently start a multi-minute judgment pass.
       try? await model.$content.load()
+      try? await model.$offers.load()
       await readingQueueModel.reload()
     }
     .onChange(of: inboxIngest.status) { _, status in
       guard case .ingested = status else { return }
       Task {
         try? await model.$content.load()
+        try? await model.$offers.load()
         await readingQueueModel.reload()
       }
     }
@@ -100,24 +113,47 @@ struct TodayView: View {
     } message: {
       Text("This discards today's screened tail and judges its candidates again from scratch.")
     }
-    .safeAreaInset(edge: .bottom) {
-      if model.errorMessage != nil || tailModel.errorMessage != nil {
-        HStack {
-          Text(model.errorMessage ?? tailModel.errorMessage ?? "")
-          Spacer()
-          Button("Dismiss") {
-            model.errorMessage = nil
-            tailModel.errorMessage = nil
-          }
-        }
-        .padding()
-        .background(.regularMaterial)
-      }
-    }
+    .safeAreaInset(edge: .bottom) { bottomBanner }
   }
 }
 
 private extension TodayView {
+  @ViewBuilder
+  var bottomBanner: some View {
+    if !model.lastOfferBatch.isEmpty || model.offerUndoMessage != nil
+      || model.errorMessage != nil || tailModel.errorMessage != nil
+    {
+      VStack(spacing: 8) {
+        if !model.lastOfferBatch.isEmpty {
+          HStack {
+            Text(model.offerUndoMessage ?? "Trashed \(model.lastOfferBatch.count) offers")
+            Spacer()
+            Button("Undo") { Task { await model.undoLastOfferBatch() } }.fontWeight(.semibold)
+            Button("Dismiss") { model.dismissOfferUndo() }.accessibilityLabel("Dismiss Undo")
+          }
+        } else if let offerUndoMessage = model.offerUndoMessage {
+          HStack {
+            Text(offerUndoMessage)
+            Spacer()
+            Button("Dismiss") { model.dismissOfferUndo() }
+          }
+        }
+        if let error = model.errorMessage ?? tailModel.errorMessage {
+          HStack {
+            Text(error)
+            Spacer()
+            Button("Dismiss") {
+              model.errorMessage = nil
+              tailModel.errorMessage = nil
+            }
+          }
+        }
+      }
+      .padding()
+      .background(.regularMaterial)
+    }
+  }
+
   @ToolbarContentBuilder
   var todayToolbar: some ToolbarContent {
     ToolbarItem(placement: .topBarLeading) {
@@ -175,55 +211,4 @@ private extension TodayView {
     }
   }
 
-}
-
-private struct TodayHighlightReaderSheet: View {
-  @Environment(\.dismiss) private var dismiss
-  let row: TodayRequest.Row
-  let queueRow: TodayReadingQueueRequest.Row
-  let model: TodayModel
-  let tailModel: EditionModel
-  let originalWebViewStore: TodayOriginalWebViewStore
-
-  var body: some View {
-    NavigationStack {
-      ReaderView(
-        contentPieceID: row.id,
-        editionContext: makeEditionReaderContext(
-          row: queueRow, tailModel: tailModel, clearSelection: { dismiss() }),
-        queueContext: ReaderQueueContext(
-          archive: {
-            await model.archive(row)
-            dismiss()
-          },
-          trash: {
-            await model.trash(row)
-            dismiss()
-          }
-        ),
-        isReachableStreamPiece: queueRow.isFollowedStreamPiece,
-        originalWebViewStore: originalWebViewStore
-      )
-      .toolbar {
-        ToolbarItem(placement: .topBarLeading) {
-          Button("Done", systemImage: "checkmark") { dismiss() }
-        }
-      }
-    }
-  }
-}
-
-func makeEditionReaderContext(
-  row: TodayReadingQueueRequest.Row,
-  tailModel: EditionModel,
-  clearSelection: @escaping @MainActor () -> Void
-) -> EditionReaderContext? {
-  guard let entryID = row.editionEntryID else { return nil }
-  return EditionReaderContext(
-    model: tailModel,
-    entryID: entryID,
-    rationale: row.editionRationale,
-    matchedPersonalKnowledgeClaimID: row.matchedPersonalKnowledgeClaimID,
-    clearSelection: clearSelection
-  )
 }

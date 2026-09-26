@@ -24,6 +24,7 @@ struct TodayOrientationTests {
     let food = UUID(7_307)
     let transactional = UUID(7_308)
     let wine = UUID(7_309)
+    let wineOffer = UUID(7_310)
 
     try await seed(
       dailyNews, treatment: .newsletter, receivedAt: 9_995, publisher: "Washington Post",
@@ -54,16 +55,22 @@ struct TodayOrientationTests {
     try await seed(
       wine, treatment: .newsletter, receivedAt: 9_990, publisher: "Vinous",
       listID: "Vinous <vinous.example.com>")
+    try await seed(
+      wineOffer, treatment: .offer, receivedAt: 9_989, publisher: "Vinous",
+      listID: "Vinous <vinous.example.com>")
     try await database.write { db in
       try StreamOperations.saveRoutingRule(
         ContentRoleRoutingRule(locator: "vinous.example.com", role: .wine), in: db)
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: "e.nordstrom.com", role: .offers), in: db)
     }
 
     let model = TodayModel()
     try await model.$content.load()
+    try await model.$offers.load()
 
     #expect(model.sections.map(\.role) == [
-      .forYou, .transactional, .dailyNews, .opinion, .grabBag, .food, .wine, .offers
+      .forYou, .transactional, .dailyNews, .opinion, .grabBag, .food, .wine
     ])
     #expect(model.rows(for: .dailyNews).map(\.id) == [dailyNews])
     #expect(model.rows(for: .opinion).map(\.id) == [wapoOpinion, opinion])
@@ -71,7 +78,8 @@ struct TodayOrientationTests {
     #expect(model.rows(for: .food).map(\.id) == [food])
     #expect(model.rows(for: .transactional).map(\.id) == [transactional])
     #expect(model.rows(for: .wine).map(\.id) == [wine])
-    #expect(model.offerGroups.map(\.label) == ["Nordstrom"])
+    #expect(model.offerDoors.map(\.role) == [.wine, .offers])
+    #expect(model.offerDoors.map(\.count) == [1, 1])
     #expect(model.rows(for: .grabBag).map(\.id) == [digest])
 
     let sectionIDs = Set(model.sections.flatMap(\.rows).map(\.id))

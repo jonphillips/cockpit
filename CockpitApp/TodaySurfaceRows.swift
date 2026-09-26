@@ -1,8 +1,7 @@
 import CockpitCore
 import SwiftUI
 
-// This file keeps the small Today row family together; the orientation section view intentionally
-// owns the complete roll-up interaction for Offers.
+// This file keeps the small Today row family together.
 // swiftlint:disable file_length type_body_length
 
 struct TailCompositionControl: View {
@@ -143,9 +142,7 @@ struct TodayRoleSectionListView: View {
 
       switch section.role {
       case .offers:
-        ForEach(model.offerGroups) { group in
-          publisherRollup(group, role: section.role)
-        }
+        EmptyView()
       case .grabBag:
         ForEach(section.rows) { row in
           emailRow(row)
@@ -157,60 +154,6 @@ struct TodayRoleSectionListView: View {
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-  }
-
-  private func publisherRollup(_ group: TodayModel.PublisherRollup, role: ContentRole) -> some View {
-    HStack(alignment: .top, spacing: 8) {
-      Button { openReader(group.representative.id) } label: {
-        HStack {
-          VStack(alignment: .leading, spacing: 3) {
-            Text(group.count > 1 ? "\(group.count) \(group.label) messages" : group.label)
-              .font(.headline.weight(group.rows.contains(where: \.isUnread) ? .semibold : .regular))
-            Text(group.representative.title)
-              .font(.subheadline)
-              .foregroundStyle(.secondary)
-              .lineLimit(2)
-            Text(role.displayName)
-              .font(.caption)
-              .foregroundStyle(.tertiary)
-            receivedDate(group.representative.arrivedAt)
-          }
-          Spacer()
-          Image(systemName: "chevron.right")
-            .foregroundStyle(.secondary)
-        }
-        .padding(12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .matchedTransitionSource(id: group.representative.id, in: readerNamespace)
-      }
-      .buttonStyle(.plain)
-
-      rollupMenu(group)
-    }
-  }
-
-  private func rollupMenu(_ group: TodayModel.PublisherRollup) -> some View {
-    Menu {
-      MoveToSectionMenu(currentRole: group.representative.role, isTransactional: false) { role in
-        Task { await model.moveToSection(group.representative.id, to: role) }
-      }
-      Divider()
-      Button(
-        group.count > 1 ? "Archive all \(group.count)" : "Archive",
-        systemImage: "archivebox"
-      ) { Task { await model.archiveAll(group.rows) } }
-      Button(
-        group.count > 1 ? "Trash all \(group.count)" : "Trash",
-        systemImage: "trash", role: .destructive
-      ) { Task { await model.trashAll(group.rows) } }
-      Divider()
-      Button("Undo disposition", systemImage: "arrow.uturn.backward") {
-        Task { for row in group.rows { await model.undoDisposition(row) } }
-      }
-    } label: {
-      Image(systemName: "ellipsis.circle").foregroundStyle(.secondary).padding(.top, 8)
-    }
-    .accessibilityLabel("\(group.label) actions")
   }
 
   private func receivedDate(_ date: Date) -> some View {

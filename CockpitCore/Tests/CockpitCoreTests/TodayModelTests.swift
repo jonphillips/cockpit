@@ -31,11 +31,13 @@ struct TodayModelTests {
 
     let model = TodayModel()
     try await model.$content.load()
+    try await model.$offers.load()
 
     expectNoDifference(model.sections.map(\.role), [.forYou, .transactional])
     expectNoDifference(
       model.sections[0].rows.map(\.id),
-      [grabBag, offer, newsletter, personalLate, personalEarly])
+      [grabBag, newsletter, personalLate, personalEarly])
+    expectNoDifference(model.offerDoors.map(\.count), [1])
     expectNoDifference(model.sections[1].rows.map(\.id), [transactional])
   }
 
