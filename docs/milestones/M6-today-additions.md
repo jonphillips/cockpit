@@ -25,7 +25,7 @@ adoption), not to these slices.
 - [ ] S-t1 — Tech section: a content role below Daily news
 - [ ] S-t2 — Read state: mirror Gmail's `UNREAD`, bold unread rows, mark read on open, Mark as Unread
 - [ ] S-t3 — Promotions intake: new Promotions mail lands in Offers, with no backfill and no source list
-- [ ] S-t4 — Daily links: an icon column beside Today, managed in Settings
+- [x] S-t4 — Daily links: an icon column beside Today, managed in Settings
 - [ ] S-t5 — Offer hero image: pick the lead image from held email HTML
 - [ ] S-t6 — Offer review mode: a door per offer role, a card grid, Keep, Trash all, one Undo
 

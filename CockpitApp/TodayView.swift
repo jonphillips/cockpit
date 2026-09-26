@@ -5,6 +5,8 @@ struct TodayView: View {
   @Bindable var model: TodayModel
   @Bindable var tailModel: EditionModel
   @Bindable var inboxIngest: GmailInboxIngestModel
+  @Bindable var dailyLinkModel: DailyLinkModel
+  @Environment(\.horizontalSizeClass) private var horizontalSizeClass
   @State private var readingQueueModel = TodayReadingQueueModel()
   @State private var highlightWebViewStore = TodayOriginalWebViewStore()
   @Namespace private var readerTransition
@@ -26,6 +28,7 @@ struct TodayView: View {
           TodayLandingView(
             model: model,
             tailModel: tailModel,
+            dailyLinkModel: dailyLinkModel,
             isConfirmingRecompose: $isConfirmingTailRecompose,
             readerNamespace: readerTransition,
             readableContentPieceIDs: readingQueueContentPieceIDs,
@@ -43,19 +46,7 @@ struct TodayView: View {
               }
             }
             .navigationTitle("Today")
-            .toolbar {
-              ToolbarItem(placement: .topBarLeading) {
-                if inboxIngest.status == .ingesting {
-                  ProgressView()
-                    .accessibilityLabel("Refreshing Today")
-                } else {
-                  Button("Refresh", systemImage: "arrow.clockwise") {
-                    Task { await refreshToday() }
-                  }
-                }
-              }
-              RecentTrashToolbar(model: model, isShowing: $isShowingRecentTrashes)
-            }
+            .toolbar { todayToolbar }
         }
       }
     }
@@ -83,6 +74,7 @@ struct TodayView: View {
       }
     }
     .task {
+      try? await dailyLinkModel.$content.load()
       // S-d0b keeps Edition composition behind the standing entry card; opening Today does not
       // spend the editorial budget or silently start a multi-minute judgment pass.
       try? await model.$content.load()
@@ -126,6 +118,26 @@ struct TodayView: View {
 }
 
 private extension TodayView {
+  @ToolbarContentBuilder
+  var todayToolbar: some ToolbarContent {
+    ToolbarItem(placement: .topBarLeading) {
+      if inboxIngest.status == .ingesting {
+        ProgressView()
+          .accessibilityLabel("Refreshing Today")
+      } else {
+        Button("Refresh", systemImage: "arrow.clockwise") {
+          Task { await refreshToday() }
+        }
+      }
+    }
+    RecentTrashToolbar(model: model, isShowing: $isShowingRecentTrashes)
+    if horizontalSizeClass == .compact && !dailyLinkModel.links.isEmpty {
+      ToolbarItem(placement: .topBarTrailing) {
+        DailyLinksMenu(model: dailyLinkModel)
+      }
+    }
+  }
+
   private var tailRows: [CurrentEditionRequest.Row] {
     tailModel.entries.filter {
       ($0.entryState == .admitted || $0.entryState == .seen)
@@ -162,6 +174,7 @@ private extension TodayView {
       await readingQueueModel.reload()
     }
   }
+
 }
 
 private struct TodayHighlightReaderSheet: View {
