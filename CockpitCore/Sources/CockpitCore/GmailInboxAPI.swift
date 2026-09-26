@@ -240,7 +240,7 @@ private struct GmailBody: Decodable { let data: String? }
 
 /// Preserves the Gmail error body so a 403 rate-limit (`usageLimits`) is retried and distinguished
 /// from a configuration/scope 403, and so the surfaced message names the real reason.
-private struct GmailInboxError: LocalizedError {
+struct GmailInboxError: LocalizedError {
   let status: Int
   let reason: String?
   let message: String?

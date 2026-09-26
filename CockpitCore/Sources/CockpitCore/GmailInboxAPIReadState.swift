@@ -6,14 +6,14 @@ extension GmailInboxAPI {
   func unreadStates(messageIDs: [String]) async throws -> [String: Bool] {
     try Task.checkCancellation()
     var values: [String: Bool] = [:]
-    try await withThrowingTaskGroup(of: (String, Bool).self) { group in
+    try await withThrowingTaskGroup(of: (String, Bool)?.self) { group in
       var iterator = messageIDs.makeIterator()
       for _ in 0..<Self.maxConcurrentMessageReads {
         guard let id = iterator.next() else { break }
         group.addTask { try await readUnreadState(id: id) }
       }
-      while let (id, isUnread) = try await group.next() {
-        values[id] = isUnread
+      while let result = try await group.next() {
+        if let (id, isUnread) = result { values[id] = isUnread }
         if let nextID = iterator.next() {
           group.addTask { try await readUnreadState(id: nextID) }
         }
@@ -23,11 +23,15 @@ extension GmailInboxAPI {
     return values
   }
 
-  private func readUnreadState(id: String) async throws -> (String, Bool) {
-    let response: GmailMessageMetadata = try await get(
-      path: "messages/\(id)", query: [URLQueryItem(name: "format", value: "minimal")]
-    )
-    return (response.id, response.labelIDs.contains("UNREAD"))
+  private func readUnreadState(id: String) async throws -> (String, Bool)? {
+    do {
+      let response: GmailMessageMetadata = try await get(
+        path: "messages/\(id)", query: [URLQueryItem(name: "format", value: "minimal")]
+      )
+      return (response.id, response.labelIDs.contains("UNREAD"))
+    } catch let error as GmailInboxError where error.status == 404 {
+      return nil
+    }
   }
 }
 

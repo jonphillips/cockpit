@@ -92,8 +92,8 @@ struct TodayRowView: View {
     VStack(alignment: .leading, spacing: 4) {
       Text(row.title).font(
         emphasis
-          ? .title3.weight(row.isUnread ? .bold : .regular)
-          : .headline.weight(row.isUnread ? .bold : .regular)
+          ? .title3.weight(row.isUnread ? .semibold : .regular)
+          : .headline.weight(row.isUnread ? .semibold : .regular)
       )
       Text(row.sender).font(.subheadline).foregroundStyle(.secondary)
       if let treatmentSummary = row.treatmentSummary {
@@ -165,7 +165,7 @@ struct TodayRoleSectionListView: View {
         HStack {
           VStack(alignment: .leading, spacing: 3) {
             Text(group.count > 1 ? "\(group.count) \(group.label) messages" : group.label)
-              .font(.headline.weight(group.rows.contains(where: \.isUnread) ? .bold : .regular))
+              .font(.headline.weight(group.rows.contains(where: \.isUnread) ? .semibold : .regular))
             Text(group.representative.title)
               .font(.subheadline)
               .foregroundStyle(.secondary)
