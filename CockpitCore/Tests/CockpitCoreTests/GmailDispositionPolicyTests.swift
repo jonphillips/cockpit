@@ -109,7 +109,7 @@ struct GmailDispositionPolicyTests {
   }
 
   @MainActor
-  @Test("Reader confirmation reports policy match for queue Trash and Undo")
+  @Test("Reader confirmation and disposition still work when offers leave the reading queue")
   func confirmingFindAppliesEnabledPolicy() async throws {
     let pieceID = try await seedOffer(id: "confirm-applies", state: .pending)
     _ = try await seedGmailMessage(id: "confirm-applies-adjacent")
@@ -133,23 +133,26 @@ struct GmailDispositionPolicyTests {
       #expect(model.pendingFind == nil)
       #expect(model.errorMessage == nil)
 
-      // Confirmation establishes eligibility only. The queue owns the provider action, Undo, and
-      // selection advance, matching Archive/Trash from the toolbar.
+      // Confirmation establishes eligibility; the Reader owns the provider action because offers
+      // now leave the general reading queue and live behind their review door.
       #expect(log.calls.isEmpty)
       let queue = TodayReadingQueueModel()
       try await queue.$content.load()
-      let row = try #require(queue.rows.first { $0.id == pieceID })
-      let expectedNext = try #require(ReadingQueueSelection.neighbour(of: pieceID, in: queue.rows))
-      queue.selectedContentPieceID = pieceID
-      await queue.trash(row)
-      #expect(queue.selectedContentPieceID == expectedNext)
-      #expect(queue.lastDisposition?.contentPieceID == pieceID)
+      #expect(queue.rows.first { $0.id == pieceID } == nil)
+      #expect(await model.trashSource())
+      await model.undoDisposition()
+      await queue.reload()
       #expect(!queue.rows.contains { $0.id == pieceID })
+      let restoredToReview = try await database.read { db in
+        try OfferReviewRequest(role: .forYou).fetch(db).rows.contains { $0.id == pieceID }
+      }
+      #expect(restoredToReview)
     }
     let entries = try await database.read { db in try GmailDispositionLogEntry.fetchAll(db) }
-    expectNoDifference(log.calls, ["trash:confirm-applies"])
+    expectNoDifference(log.calls, ["trash:confirm-applies", "untrash:confirm-applies"])
     #expect(entries.count == 1)
     #expect(entries.first?.operation == .trash)
+    #expect(entries.first?.reversedAt != nil)
   }
 
   @Test("Confirming a Find with the offer policy disabled does not dispose it")

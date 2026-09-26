@@ -134,4 +134,23 @@ public struct GmailDispositionService: Sendable {
       try GmailDispositionOperations.markReversed(entryID: entry.id, at: reversedAt, in: db)
     }
   }
+
+  /// Reverses a disposition batch in order and returns the entries that remain unapplied. A
+  /// cancellation preserves the unattempted suffix so the caller can offer another Undo attempt.
+  public func undo(
+    _ entries: [GmailDispositionLogEntry], in database: any DatabaseWriter
+  ) async -> [GmailDispositionLogEntry] {
+    var failed: [GmailDispositionLogEntry] = []
+    for (index, entry) in entries.enumerated() {
+      do {
+        try await undo(entry, in: database)
+      } catch is CancellationError {
+        failed.append(contentsOf: entries[index...])
+        break
+      } catch {
+        failed.append(entry)
+      }
+    }
+    return failed
+  }
 }

@@ -45,8 +45,14 @@ public struct PendingFind: Codable, Equatable, Identifiable, Sendable {
 public enum PendingFindOperations {
   public enum Failure: LocalizedError, Equatable, Sendable {
     case cannotRefer
+    case cannotUnconfirm
 
-    public var errorDescription: String? { "This Find was already sent or is no longer available." }
+    public var errorDescription: String? {
+      switch self {
+      case .cannotRefer: "This Find was already sent or is no longer available."
+      case .cannotUnconfirm: "Only a kept Find can be un-kept."
+      }
+    }
   }
 
   /// Writes only the finds proposed by this judgment outcome. IDs are derived from the originating
@@ -96,6 +102,15 @@ public enum PendingFindOperations {
   /// Records Jon's explicit decision to keep a proposed Find.
   public static func confirm(_ id: PendingFind.ID, in db: Database) throws {
     try PendingFind.find(id).update { $0.state = #bind(PendingFindState.confirmed) }.execute(db)
+  }
+
+  /// Reverses Keep only while the Find is still in Cockpit. A referred or handed-off Find has
+  /// crossed an ownership boundary and cannot be put back into the pending state here.
+  public static func unconfirm(_ id: PendingFind.ID, in db: Database) throws {
+    guard let find = try PendingFind.find(id).fetchOne(db), find.state == .confirmed else {
+      throw Failure.cannotUnconfirm
+    }
+    try PendingFind.find(id).update { $0.state = #bind(PendingFindState.pending) }.execute(db)
   }
 
   /// Records Jon's explicit decision to reject a proposed Find.

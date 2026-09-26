@@ -11,6 +11,7 @@ struct TodayLandingView: View {
   let didChangeEdition: () -> Void
   let openReader: (ContentPiece.ID) -> Void
   let openHighlight: (TodayRequest.Row) -> Void
+  let openOfferReview: (ContentRole) -> Void
   @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
   var body: some View {
@@ -21,6 +22,7 @@ struct TodayLandingView: View {
           highlights
           TodayRoleSectionListView(
             model: model, readerNamespace: readerNamespace, openReader: openReader)
+          offerReviewDoors
           TailCompositionControl(
             tailModel: tailModel,
             isConfirmingRecompose: $isConfirmingRecompose,
@@ -41,6 +43,55 @@ struct TodayLandingView: View {
 }
 
 private extension TodayLandingView {
+  @ViewBuilder
+  var offerReviewDoors: some View {
+    if !model.offerDoors.isEmpty {
+      VStack(alignment: .leading, spacing: 10) {
+        Text("Offers to review").font(.headline)
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
+          ForEach(model.offerDoors) { door in
+            Button { openOfferReview(door.role) } label: {
+              VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 9) {
+                  Image(systemName: "tag")
+                    .font(.headline)
+                    .foregroundStyle(door.role.color)
+                  VStack(alignment: .leading, spacing: 2) {
+                    Text(door.title).font(.headline)
+                    Text("\(door.count) \(door.count == 1 ? "email" : "emails")")
+                      .font(.caption).foregroundStyle(.secondary)
+                  }
+                  Spacer()
+                  if door.keptCount > 0 {
+                    Label("\(door.keptCount) kept", systemImage: "checkmark.circle.fill")
+                      .font(.caption).foregroundStyle(.secondary)
+                  }
+                  Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                }
+                if !door.heroURLs.isEmpty {
+                  HStack(spacing: 6) {
+                    ForEach(Array(door.heroURLs.enumerated()), id: \.offset) { _, url in
+                      OfferRemoteHero(url: url, color: door.role.color)
+                      .frame(maxWidth: .infinity)
+                      .aspectRatio(4 / 3, contentMode: .fit)
+                      .clipShape(RoundedRectangle(cornerRadius: 7))
+                    }
+                  }
+                }
+              }
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .padding(14)
+              .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Review \(door.count) \(door.title) offers")
+          }
+        }
+      }
+      .padding(.top, 22)
+    }
+  }
+
   var tailRows: [CurrentEditionRequest.Row] {
     tailModel.entries.filter {
       ($0.entryState == .admitted || $0.entryState == .seen)

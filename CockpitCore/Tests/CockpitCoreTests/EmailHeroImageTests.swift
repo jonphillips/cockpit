@@ -75,6 +75,10 @@ struct EmailHeroImageTests {
     #expect(EmailHeroImage.candidate(inHTML: """
       <img width="180" src="https://cdn.example/small.jpg">
       <img src="https://cdn.example/unknown.jpg">
+      """)?.absoluteString == "https://cdn.example/unknown.jpg")
+    #expect(EmailHeroImage.candidate(inHTML: """
+      <img width="180" src="https://cdn.example/small.jpg">
+      <img width="240" src="https://cdn.example/other-small.jpg">
       """) == nil)
   }
 

@@ -25,7 +25,10 @@ public enum EmailHeroImage {
 
     guard !candidates.isEmpty else { return nil }
     if candidates.contains(where: { $0.1 != nil }) {
-      return candidates.first(where: { ($0.1 ?? 0) >= 300 })?.0
+      if let declaredHero = candidates.first(where: { ($0.1 ?? 0) >= 300 })?.0 {
+        return declaredHero
+      }
+      return candidates.first(where: { $0.1 == nil })?.0
     }
     return candidates.first?.0
   }

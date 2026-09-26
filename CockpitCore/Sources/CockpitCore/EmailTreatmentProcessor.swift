@@ -66,11 +66,7 @@ public struct EmailTreatmentProcessor: Sendable {
   private func extractionTreatment(
     role: ContentRole?, treatment: EmailTreatment?
   ) -> EmailTreatment? {
-    switch role {
-    case .grabBag: nil
-    case .offers: .offer
-    default: treatment == .offer ? .offer : nil
-    }
+    OfferPieces.isOffer(role: role, treatment: treatment) ? .offer : nil
   }
 
   private func extract(_ candidate: EmailTreatmentCandidate) async throws -> EmailTreatmentOutput {

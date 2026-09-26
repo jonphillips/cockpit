@@ -140,6 +140,9 @@ extension TodayReadingQueueRequest {
     // TodayRequest requires a resolved role for Gmail material. Keep the split reader on the same
     // membership boundary instead of defaulting an unrouted Gmail piece into a blank detail path.
     guard !isGmailSource || routedRole != nil else { return nil }
+    guard !isGmailSource || !OfferPieces.isOffer(role: routedRole, treatment: piece.emailTreatment) else {
+      return nil
+    }
     guard !inputs.routing.mutedContentPieceIDs.contains(piece.id),
       isGmailSource || editionEntry != nil
     else { return nil }
