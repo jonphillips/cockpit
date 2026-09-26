@@ -17,6 +17,7 @@ extension TodayReadingQueueRequest {
     public let role: ContentRole
     public let arrivedAt: Date
     public let isGmailSource: Bool
+    public let isUnread: Bool
     public let isFollowedStreamPiece: Bool
     public let streamID: Stream.ID?
     public let streamName: String?
@@ -32,6 +33,7 @@ extension TodayReadingQueueRequest {
       role: ContentRole,
       arrivedAt: Date,
       isGmailSource: Bool = false,
+      isUnread: Bool = false,
       isFollowedStreamPiece: Bool = false,
       streamID: Stream.ID? = nil,
       streamName: String? = nil,
@@ -46,6 +48,7 @@ extension TodayReadingQueueRequest {
       self.role = role
       self.arrivedAt = arrivedAt
       self.isGmailSource = isGmailSource
+      self.isUnread = isUnread
       self.isFollowedStreamPiece = isFollowedStreamPiece
       self.streamID = streamID
       self.streamName = streamName
@@ -125,6 +128,7 @@ extension TodayReadingQueueRequest {
   private func row(for piece: ContentPiece, inputs: TodayReadingQueueFetchInputs) -> Row? {
     let pieceArtifacts = inputs.artifactsByContentPieceID[piece.id] ?? []
     let isGmailSource = pieceArtifacts.contains { $0.transport == .gmail }
+    let isUnread = pieceArtifacts.contains { $0.transport == .gmail && $0.providerIsUnread == true }
     let followedStream = inputs.routing.followedGmailStreamContentPieceIDs.contains(piece.id)
     let editionEntry = inputs.editionEntryByContentPieceID[piece.id]
     let routedRole = inputs.routing.role(for: piece.id)
@@ -154,6 +158,7 @@ extension TodayReadingQueueRequest {
         createdAt: piece.createdAt
       ),
       isGmailSource: isGmailSource,
+      isUnread: isUnread,
       isFollowedStreamPiece: followedStream,
       streamID: streamID,
       streamName: streamID.flatMap { inputs.streamByID[$0]?.name },

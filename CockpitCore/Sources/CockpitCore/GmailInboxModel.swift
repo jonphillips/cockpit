@@ -7,15 +7,19 @@ public struct GmailInboxClient: Sendable {
   /// Fetches only messages that changed since the persisted Gmail history cursor. The account is
   /// supplied so the live transport can reject an accidental account switch before any writes.
   public var inboxChanges: @Sendable (_ accountID: String, _ startHistoryID: String) async throws -> GmailInboxSnapshot
+  /// Refreshes labels for existing Gmail messages, using minimal bounded reads in the live client.
+  public var refreshUnreadStates: (@Sendable ([String]) async throws -> [String: Bool])?
 
   public init(
     currentInbox: @escaping @Sendable () async throws -> GmailInboxSnapshot,
-    inboxChanges: (@Sendable (_ accountID: String, _ startHistoryID: String) async throws -> GmailInboxSnapshot)? = nil
+    inboxChanges: (@Sendable (_ accountID: String, _ startHistoryID: String) async throws -> GmailInboxSnapshot)? = nil,
+    refreshUnreadStates: (@Sendable ([String]) async throws -> [String: Bool])? = nil
   ) {
     self.currentInbox = currentInbox
     // Keeping this fallback makes existing read-only callers deterministic while a dedicated
     // delta closure is introduced. The live client always supplies the real history endpoint.
     self.inboxChanges = inboxChanges ?? { @Sendable _, _ in try await currentInbox() }
+    self.refreshUnreadStates = refreshUnreadStates
   }
 
   public static func live(accessToken: String) -> Self {
@@ -24,7 +28,8 @@ public struct GmailInboxClient: Sendable {
       currentInbox: { try await api.currentInbox() },
       inboxChanges: { accountID, historyID in
         try await api.inboxChanges(accountID: accountID, since: historyID)
-      }
+      },
+      refreshUnreadStates: { try await api.unreadStates(messageIDs: $0) }
     )
   }
 }

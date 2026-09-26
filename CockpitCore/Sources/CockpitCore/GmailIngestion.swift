@@ -74,8 +74,16 @@ public struct GmailInboxIngestor {
 
     await Self.reconcileDepartures(in: snapshot, at: acquiredAt, database: database)
 
+    var refreshedAt = savedCursor?.readStateRefreshCompletedAt
+    if refreshedAt == nil, let refreshUnreadStates = client.refreshUnreadStates {
+      refreshedAt = await Self.refreshTodayUnreadState(
+        using: refreshUnreadStates, at: acquiredAt, database: database
+      )
+    }
+
     try await Self.advanceCursorIfClean(
-      snapshot: snapshot, failures: failures, at: acquiredAt, database: database)
+      snapshot: snapshot, failures: failures, at: acquiredAt,
+      readStateRefreshCompletedAt: refreshedAt, database: database)
 
     let reportSnapshot = GmailInboxSnapshot(
       accountID: snapshot.accountID,
@@ -98,6 +106,7 @@ extension GmailInboxIngestor {
   /// that message without inventing a parallel retry queue.
   private static func advanceCursorIfClean(
     snapshot: GmailInboxSnapshot, failures: [GmailInboxMessageFailure], at date: Date,
+    readStateRefreshCompletedAt: Date?,
     database: any DatabaseWriter
   ) async throws {
     guard failures.isEmpty, let historyID = snapshot.historyID else { return }
@@ -105,9 +114,47 @@ extension GmailInboxIngestor {
     try await database.write { db in
       try GmailSyncState.upsert {
         GmailSyncState.Draft(
-          GmailSyncState(accountID: accountID, historyID: historyID, updatedAt: date)
+          GmailSyncState(
+            accountID: accountID, historyID: historyID, updatedAt: date,
+            readStateRefreshCompletedAt: readStateRefreshCompletedAt)
         )
       }.execute(db)
+    }
+  }
+
+  /// Backfills the mirror only for messages in the current Today projection. A failed or partial
+  /// refresh leaves its completion marker unset so the next sync retries naturally.
+  private static func refreshTodayUnreadState(
+    using refresh: @Sendable ([String]) async throws -> [String: Bool],
+    at date: Date,
+    database: any DatabaseWriter
+  ) async -> Date? {
+    do {
+      let targets = try await database.read { db -> [(Artifact.ID, String)] in
+        let todayIDs = Set(try TodayRequest().fetch(db).rows.map(\.id))
+        return try Artifact.all.fetchAll(db).compactMap { artifact in
+          guard artifact.transport == .gmail,
+            artifact.providerIsUnread == nil,
+            let pieceID = artifact.contentPieceID, todayIDs.contains(pieceID),
+            let messageID = GmailReadStateService.messageID(from: artifact.providerID)
+          else { return nil }
+          return (artifact.id, messageID)
+        }
+      }
+      let messageIDs = Array(Set(targets.map(\.1)))
+      let states = try await refresh(messageIDs)
+      guard states.count == messageIDs.count, messageIDs.allSatisfy({ states[$0] != nil }) else {
+        return nil
+      }
+      try await database.write { db in
+        for (artifactID, messageID) in targets {
+          guard let isUnread = states[messageID] else { continue }
+          try Artifact.find(artifactID).update { $0.providerIsUnread = #bind(isUnread) }.execute(db)
+        }
+      }
+      return date
+    } catch {
+      return nil
     }
   }
 
@@ -169,9 +216,12 @@ extension GmailInboxIngestor {
     if let artifact = try Artifact.where({ $0.providerID.eq(providerID) }).fetchOne(db) {
       // Provider IDs are account-scoped (`gmail:<account>:message:<id>`), so they identify one
       // Artifact regardless of whether this new deterministic lookup now finds its Stream.
-      if artifact.streamID == nil, let matchedStreamID {
-        try Artifact.find(artifact.id).update { $0.streamID = #bind(matchedStreamID) }.execute(db)
-      }
+      try Artifact.find(artifact.id).update { row in
+        row.providerIsUnread = #bind(message.labelIDs.contains("UNREAD"))
+        if artifact.streamID == nil, let matchedStreamID {
+          row.streamID = #bind(matchedStreamID)
+        }
+      }.execute(db)
     } else {
       let provenanceJSON = String(data: try JSONEncoder().encode(provenance), encoding: .utf8)
       try Artifact.insert {
@@ -184,6 +234,7 @@ extension GmailInboxIngestor {
             acquiredAt: acquiredAt,
             rawSourceText: message.sourceText,
             providerProvenance: provenanceJSON,
+            providerIsUnread: message.labelIDs.contains("UNREAD"),
             contentPieceID: piece.id
           )
         )

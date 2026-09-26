@@ -10,7 +10,7 @@ struct TodayReadingQueueRow: View {
     VStack(alignment: .leading, spacing: 4) {
       HStack(alignment: .firstTextBaseline, spacing: 6) {
         Text(row.title)
-          .font(.headline)
+          .font(.headline.weight(row.isUnread ? .bold : .regular))
           .lineLimit(2)
         Spacer(minLength: 0)
         if row.isFollowedStreamPiece {

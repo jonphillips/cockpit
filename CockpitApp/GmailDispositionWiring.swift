@@ -15,6 +15,17 @@ enum GmailDispositionWiring {
     )
   }
 
+  static var liveReadStateClient: GmailReadStateClient {
+    GmailReadStateClient(
+      markRead: { try await readStateClient().markRead($0) },
+      markUnread: { try await readStateClient().markUnread($0) }
+    )
+  }
+
+  private static func readStateClient() async throws -> GmailReadStateClient {
+    .live(accessToken: try await accessToken())
+  }
+
   private static func client() async throws -> GmailDispositionClient {
     .live(accessToken: try await accessToken())
   }

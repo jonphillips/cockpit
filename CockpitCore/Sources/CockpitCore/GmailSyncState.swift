@@ -9,12 +9,17 @@ public struct GmailSyncState: Equatable, Identifiable, Sendable {
   @Column(primaryKey: true) public let accountID: String
   public let historyID: String
   public let updatedAt: Date
+  public let readStateRefreshCompletedAt: Date?
 
   public var id: String { accountID }
 
-  public init(accountID: String, historyID: String, updatedAt: Date) {
+  public init(
+    accountID: String, historyID: String, updatedAt: Date,
+    readStateRefreshCompletedAt: Date? = nil
+  ) {
     self.accountID = accountID
     self.historyID = historyID
     self.updatedAt = updatedAt
+    self.readStateRefreshCompletedAt = readStateRefreshCompletedAt
   }
 }

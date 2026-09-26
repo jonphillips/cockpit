@@ -155,6 +155,9 @@ public struct Artifact: Codable, Equatable, Identifiable, Sendable {
   /// raw classification headers and message/thread/account identifiers here; it is deliberately
   /// not a new cross-provider entity or a synced field.
   public var providerProvenance: String?
+  /// Device-local mirror of Gmail's UNREAD label. This changes with provider state, so it is kept
+  /// separate from immutable ingest provenance. Nil means unknown or a non-Gmail transport.
+  public var providerIsUnread: Bool?
   public var contentPieceID: ContentPiece.ID?
 
   public init(
@@ -167,18 +170,17 @@ public struct Artifact: Codable, Equatable, Identifiable, Sendable {
     payloadRef: String? = nil,
     rawSourceText: String? = nil,
     providerProvenance: String? = nil,
+    providerIsUnread: Bool? = nil,
     contentPieceID: ContentPiece.ID? = nil
   ) {
     self.id = id
-    self.streamID = streamID
-    self.transport = transport
+    (self.streamID, self.transport) = (streamID, transport)
     self.providerID = providerID
     self.canonicalURL = canonicalURL
     self.acquiredAt = acquiredAt
     self.payloadRef = payloadRef
-    self.rawSourceText = rawSourceText
-    self.providerProvenance = providerProvenance
-    self.contentPieceID = contentPieceID
+    (self.rawSourceText, self.providerProvenance) = (rawSourceText, providerProvenance)
+    (self.providerIsUnread, self.contentPieceID) = (providerIsUnread, contentPieceID)
   }
 }
 

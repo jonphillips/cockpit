@@ -13,6 +13,7 @@ struct CockpitApp: App {
     prepareDependencies {
       try! $0.bootstrapDatabase()
       $0.gmailDispositionClient = GmailDispositionWiring.liveClient
+      $0.gmailReadStateClient = GmailDispositionWiring.liveReadStateClient
       $0.gmailReplyClient = GmailReplyWiring.liveClient
       $0.findReferralHandoffClient = FindReferralHandoffWiring.liveClient
     }
