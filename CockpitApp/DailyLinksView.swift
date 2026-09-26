@@ -14,9 +14,8 @@ struct DailyLinksColumn: View {
             open(link)
           } label: {
             VStack(spacing: 2) {
-              Image(systemName: link.symbolName)
-                .font(.system(size: 22))
-                .frame(width: 36, height: 32)
+              DailyLinkGlyph(link: link, size: 36)
+                .saturation(visited ? 0 : 1)
               if visited {
                 Image(systemName: "checkmark")
                   .font(.system(size: 9, weight: .bold))
@@ -67,7 +66,17 @@ struct DailyLinksMenu: View {
               Task { await model.recordVisit(link.id) }
             }
           } label: {
-            Label(link.title, systemImage: link.isVisited(on: context.date) ? "checkmark" : link.symbolName)
+            if link.isVisited(on: context.date) {
+              Label(link.title, systemImage: "checkmark")
+            } else if let thumbnail = link.menuThumbnail {
+              Label {
+                Text(link.title)
+              } icon: {
+                Image(uiImage: thumbnail)
+              }
+            } else {
+              Label(link.title, systemImage: link.symbolName)
+            }
           }
         }
       } label: {
@@ -87,11 +96,14 @@ struct DailyLinksView: View {
       Section {
         ForEach(model.links) { link in
           Button {
-            editor = Editor(draft: DailyLinkDraft(
-              id: link.id, title: link.title, url: link.url, symbolName: link.symbolName))
+            editor = Editor(draft: DailyLinkDraft(editing: link))
           } label: {
-            Label(link.title, systemImage: link.symbolName)
-              .foregroundStyle(.primary)
+            Label {
+              Text(link.title)
+            } icon: {
+              DailyLinkGlyph(link: link, size: 28)
+            }
+            .foregroundStyle(.primary)
           }
           .swipeActions {
             Button("Delete", systemImage: "trash", role: .destructive) {
@@ -99,12 +111,11 @@ struct DailyLinksView: View {
             }
           }
         }
-        .onMove { source, destination in
-          guard let first = source.first else { return }
-          Task { await model.move(from: first, to: destination) }
-        }
+        .reorderable()
       } footer: {
-        Text("In News, open a channel, tap Share → Copy Link, and paste it here.")
+        Text(
+          "Touch and hold a link, then drag to reorder. "
+            + "In News, open a channel, tap Share → Copy Link, and paste it here.")
       }
 
       if let errorMessage = model.errorMessage {
@@ -113,9 +124,15 @@ struct DailyLinksView: View {
         }
       }
     }
+    .reorderContainer(for: DailyLink.self) { difference in
+      let anchor: DailyLink.ID? = switch difference.destination.position {
+      case .before(let id): id
+      case .end: nil
+      }
+      Task { await model.reorder(moving: difference.sources, before: anchor) }
+    }
     .navigationTitle("Daily links")
     .toolbar {
-      ToolbarItem(placement: .topBarTrailing) { EditButton() }
       ToolbarItem(placement: .topBarTrailing) {
         Button("Add", systemImage: "plus") { editor = Editor(draft: DailyLinkDraft()) }
       }
@@ -130,72 +147,4 @@ struct DailyLinksView: View {
 private struct Editor: Identifiable {
   let id = UUID()
   var draft: DailyLinkDraft
-}
-
-private struct DailyLinkEditorSheet: View {
-  @Environment(\.dismiss) private var dismiss
-  @Bindable var model: DailyLinkModel
-  @State var draft: DailyLinkDraft
-  @State private var validationMessage: String?
-
-  var body: some View {
-    NavigationStack {
-      Form {
-        Section("Link") {
-          TextField("Title", text: $draft.title)
-            .textInputAutocapitalization(.words)
-          TextField("https://…", text: $draft.url)
-            .keyboardType(.URL)
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled()
-          if let validationMessage {
-            Text(validationMessage).font(.footnote).foregroundStyle(.red)
-          }
-        }
-
-        Section("Icon") {
-          LazyVGrid(columns: [GridItem(.adaptive(minimum: 52))], spacing: 12) {
-            ForEach(DailyLinkIcon.symbols, id: \.self) { symbol in
-              Button {
-                draft.symbolName = symbol
-              } label: {
-                Image(systemName: symbol)
-                  .font(.title2)
-                  .frame(width: 44, height: 44)
-                  .foregroundStyle(draft.symbolName == symbol ? Color.accentColor : .primary)
-                  .background {
-                    if draft.symbolName == symbol {
-                      RoundedRectangle(cornerRadius: 8).fill(Color.accentColor.opacity(0.14))
-                    }
-                  }
-              }
-              .buttonStyle(.plain)
-              .accessibilityLabel(symbol)
-              .accessibilityAddTraits(draft.symbolName == symbol ? .isSelected : [])
-            }
-          }
-          .padding(.vertical, 4)
-        }
-      }
-      .navigationTitle(draft.id == nil ? "Add Daily link" : "Edit Daily link")
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar {
-        ToolbarItem(placement: .cancellationAction) {
-          Button("Cancel") { dismiss() }
-        }
-        ToolbarItem(placement: .confirmationAction) {
-          Button("Save") {
-            Task {
-              if await model.save(draft) {
-                dismiss()
-              } else {
-                validationMessage = model.errorMessage
-              }
-            }
-          }
-        }
-      }
-    }
-    .presentationDetents([.medium, .large])
-  }
 }

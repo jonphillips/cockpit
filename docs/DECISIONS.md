@@ -1063,8 +1063,14 @@ narrow icon column on the trailing edge of Today's landing surface in regular wi
 menu in compact width.
 
 - A Daily link is a title, a URL (`http`/`https`, which covers `apple.news`), an icon chosen from a
-  small curated set of SF Symbols, an order, and a last-visited time. Jon manages the list in
-  **Settings → Daily links**: add, edit, reorder, delete.
+  small curated set of SF Symbols, an optional thumbnail, an order, and a last-visited time. Jon
+  manages the list in **Settings → Daily links**: add, edit, reorder (touch and hold, then drag),
+  delete.
+- **Thumbnail (amended 2026-09-26, Jon, from dogfooding).** Jon picks a thumbnail from Photos. When
+  there is one it replaces the symbol everywhere the link appears, and the symbol stays as the
+  fallback. Cockpit stores a center-cropped 192-px square JPEG (under 100 KB) inline on the row, so
+  it travels with the link once DailyLinks sync. It is chosen by Jon and never fetched from the
+  link's destination; the "never previews" boundary below still holds.
 - Tapping a link opens it through the system: `apple.news` links go to News, web links go to Safari.
   The tap records a visit. The icon dims for the rest of the local calendar day and comes back the
   next day. That is the whole attention model: a daily checklist, not a feed.
