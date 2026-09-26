@@ -71,6 +71,225 @@ struct GmailIngestionTests {
     }
   }
 
+  @Test("Gmail UNREAD labels are mirrored on insert and every re-read")
+  func unreadMirrorTracksMessageLabels() async throws {
+    let unread = GmailInboxSnapshot(
+      accountID: "jon@example.com", historyID: "read-state-1",
+      messages: [Self.message(id: "read-state-message", unread: true)])
+    let read = GmailInboxSnapshot(
+      accountID: "jon@example.com", historyID: "read-state-2",
+      messages: [Self.message(id: "read-state-message", unread: false)])
+    let ingestor = GmailInboxIngestor(
+      client: GmailInboxClient(
+        currentInbox: { unread },
+        inboxChanges: { _, _ in read }
+      ), now: { Date(timeIntervalSince1970: 10) }
+    )
+
+    let first = try await ingestor.ingest(into: database)
+    let pieceID = try #require(first.contentPieces.first?.id)
+    var artifacts = try await database.read { db in
+      try Artifact.where { $0.contentPieceID.eq(pieceID) }.fetchAll(db)
+    }
+    #expect(artifacts.first?.providerIsUnread == true)
+    try await database.write { db in
+      try Artifact.insert {
+        Artifact.Draft(Artifact(
+          id: UUID(), transport: .gmail,
+          providerID: "gmail:jon@example.com:message:read-state-second",
+          acquiredAt: Date(timeIntervalSince1970: 11), providerIsUnread: false,
+          contentPieceID: pieceID
+        ))
+      }.execute(db)
+    }
+    let queue = try await database.read { db in try TodayReadingQueueRequest().fetch(db).rows }
+    #expect(queue.first(where: { $0.id == pieceID })?.isUnread == true)
+
+    _ = try await ingestor.ingest(into: database)
+    artifacts = try await database.read { db in
+      try Artifact.where { $0.contentPieceID.eq(pieceID) }.fetchAll(db)
+    }
+    #expect(artifacts.first?.providerIsUnread == false)
+    let today = try await database.read { db in try TodayRequest().fetch(db).rows }
+    #expect(today.first(where: { $0.id == pieceID })?.isUnread == false)
+  }
+
+  @Test("legacy Today unread refresh runs once and records completion")
+  func legacyUnreadRefreshRunsOnce() async throws {
+    let snapshot = GmailInboxSnapshot(
+      accountID: "jon@example.com", historyID: "refresh-1",
+      messages: [
+        Self.message(id: "refresh-message", unread: false),
+        Self.message(id: "not-today-refresh-message", unread: false),
+      ])
+    let calls = Mutex<[[String]]>([])
+    let initialIngestor = GmailInboxIngestor(
+      client: GmailInboxClient(currentInbox: { snapshot }),
+      now: { Date(timeIntervalSince1970: 20) }
+    )
+    _ = try await initialIngestor.ingest(into: database)
+    let pieceIDsByMessage: [String: ContentPiece.ID] = try await database.read { db in
+      Dictionary(uniqueKeysWithValues: try Artifact.all.fetchAll(db).compactMap { artifact in
+        guard let pieceID = artifact.contentPieceID, let providerID = artifact.providerID else { return nil }
+        return (providerID, pieceID)
+      })
+    }
+    let pieceID = try #require(pieceIDsByMessage["gmail:jon@example.com:message:refresh-message"])
+    let notTodayID = try #require(pieceIDsByMessage["gmail:jon@example.com:message:not-today-refresh-message"])
+    // Keep a separate row outside Today while the target remains visible.
+    try await database.write { db in
+      try TodayAttentionOperations.clear(notTodayID, at: Date(timeIntervalSince1970: 19), in: db)
+    }
+    try await database.write { db in
+      let targetIDs: [ContentPiece.ID?] = [pieceID, notTodayID]
+      try Artifact.where { $0.contentPieceID.in(targetIDs) }
+        .update { $0.providerIsUnread = #bind(nil as Bool?) }.execute(db)
+    }
+    let refreshIngestor = GmailInboxIngestor(
+      client: GmailInboxClient(
+        currentInbox: { snapshot },
+        inboxChanges: { _, _ in
+          GmailInboxSnapshot(accountID: "jon@example.com", historyID: "refresh-2", messages: [])
+        },
+        refreshUnreadStates: { ids in
+          calls.withLock { $0.append(ids) }
+          return Dictionary(uniqueKeysWithValues: ids.map { ($0, true) })
+        }
+      ), now: { Date(timeIntervalSince1970: 20) }
+    )
+
+    _ = try await refreshIngestor.ingest(into: database)
+    _ = try await refreshIngestor.ingest(into: database)
+    #expect(calls.withLock { $0.count } == 1)
+    #expect(calls.withLock { $0.first } == ["refresh-message"])
+    let cursor = try await database.read { db in try GmailSyncState.all.fetchAll(db).first }
+    #expect(cursor?.readStateRefreshCompletedAt == Date(timeIntervalSince1970: 20))
+    let today = try await database.read { db in try TodayRequest().fetch(db).rows }
+    #expect(today.first(where: { $0.id == pieceID })?.isUnread == true)
+  }
+
+  @Test("Reader marks read on open, retries quiet failures, and marks read mail unread")
+  @MainActor
+  func readStateServiceMutatesMirrorQuietly() async throws {
+    let ingestor = GmailInboxIngestor(
+      client: GmailInboxClient(currentInbox: {
+        GmailInboxSnapshot(
+          accountID: "jon@example.com",
+          messages: [Self.message(id: "service-unread", unread: true)]
+        )
+      }), now: { Date(timeIntervalSince1970: 30) }
+    )
+    let report = try await ingestor.ingest(into: database)
+    let pieceID = try #require(report.contentPieces.first?.id)
+    try await database.write { db in
+      try Artifact.insert {
+        Artifact.Draft(Artifact(
+          id: UUID(), transport: .gmail,
+          providerID: "gmail:jon@example.com:message:service-unread-second",
+          acquiredAt: Date(timeIntervalSince1970: 31), providerIsUnread: true, contentPieceID: pieceID
+        ))
+      }.execute(db)
+    }
+    let calls = Mutex<[String]>([])
+    let readClient = GmailReadStateClient(
+      markRead: { messageID in calls.withLock { $0.append("read:\(messageID)") } },
+      markUnread: { messageID in calls.withLock { $0.append("unread:\(messageID)") } }
+    )
+    let model = withDependencies { $0.gmailReadStateClient = readClient } operation: {
+      ContentPieceReaderModel(contentPieceID: pieceID)
+    }
+    try await model.$content.load()
+
+    let membershipBefore = try await database.read { db in
+      (try TodayRequest().fetch(db).rows.map(\.id), try TodayReadingQueueRequest().fetch(db).rows.map(\.id))
+    }
+
+    await model.markReadOnOpenIfNeeded()
+    #expect(Set(calls.withLock { $0 }) == ["read:service-unread", "read:service-unread-second"])
+    var artifacts = try await database.read { db in
+      try Artifact.where { $0.contentPieceID.eq(pieceID) }.fetchAll(db)
+    }
+    #expect(artifacts.allSatisfy { $0.providerIsUnread == false })
+    await model.markReadOnOpenIfNeeded()
+    #expect(calls.withLock { $0 }.count == 2)
+
+    try await database.write { db in
+      try Artifact.where { $0.contentPieceID.eq(pieceID) }
+        .update { $0.providerIsUnread = #bind(false) }.execute(db)
+    }
+    await model.markUnread()
+    #expect(Set(calls.withLock { $0 }.filter { $0.hasPrefix("unread:") }) == [
+      "unread:service-unread", "unread:service-unread-second",
+    ])
+    artifacts = try await database.read { db in
+      try Artifact.where { $0.contentPieceID.eq(pieceID) }.fetchAll(db)
+    }
+    #expect(artifacts.allSatisfy { $0.providerIsUnread == true })
+    let membershipAfter = try await database.read { db in
+      (try TodayRequest().fetch(db).rows.map(\.id), try TodayReadingQueueRequest().fetch(db).rows.map(\.id))
+    }
+    #expect(membershipAfter.0 == membershipBefore.0)
+    #expect(membershipAfter.1 == membershipBefore.1)
+
+    let failingService = GmailReadStateService(client: GmailReadStateClient(
+      markRead: { _ in throw TestReadStateError.offline }, markUnread: { _ in }
+    ))
+    await failingService.markReadOnOpen(contentPieceID: pieceID, in: database)
+    artifacts = try await database.read { db in
+      try Artifact.where { $0.contentPieceID.eq(pieceID) }.fetchAll(db)
+    }
+    #expect(artifacts.allSatisfy { $0.providerIsUnread == true })
+
+    let rssID = UUID()
+    try await database.write { db in
+      try ContentPiece.insert {
+        ContentPiece.Draft(ContentPiece(
+          id: rssID, kind: .article, title: "RSS", publisher: "Feed", createdAt: .distantPast))
+      }.execute(db)
+    }
+    let rssModel = withDependencies { $0.gmailReadStateClient = readClient } operation: {
+      ContentPieceReaderModel(contentPieceID: rssID)
+    }
+    try await rssModel.$content.load()
+    #expect(!rssModel.isUnread)
+    await rssModel.markReadOnOpenIfNeeded()
+    #expect(calls.withLock { $0 }.filter { $0.hasPrefix("read:") }.count == 2)
+  }
+
+  @Test("partial legacy refresh updates readable messages and leaves deleted messages unknown")
+  func partialLegacyUnreadRefreshCompletesWithMissingMessage() async throws {
+    let snapshot = GmailInboxSnapshot(
+      accountID: "jon@example.com", historyID: "partial-refresh-1",
+      messages: [Self.message(id: "readable-refresh", unread: false),
+        Self.message(id: "deleted-refresh", unread: false)])
+    let initial = try await GmailInboxIngestor(
+      client: GmailInboxClient(currentInbox: { snapshot }), now: { Date(timeIntervalSince1970: 21) }
+    ).ingest(into: database)
+    try await database.write { db in
+      let pieceIDs: [ContentPiece.ID?] = initial.contentPieces.map { $0.id }
+      try Artifact.where { $0.contentPieceID.in(pieceIDs) }
+        .update { $0.providerIsUnread = #bind(nil as Bool?) }.execute(db)
+    }
+    let ingestor = GmailInboxIngestor(
+      client: GmailInboxClient(
+        currentInbox: { snapshot },
+        inboxChanges: { _, _ in
+          GmailInboxSnapshot(accountID: "jon@example.com", historyID: "partial-refresh-2", messages: [])
+        },
+        refreshUnreadStates: { _ in ["readable-refresh": true] }
+      ), now: { Date(timeIntervalSince1970: 22) }
+    )
+
+    _ = try await ingestor.ingest(into: database)
+    let artifacts = try await database.read { db in try Artifact.all.fetchAll(db) }
+    #expect(artifacts.first(where: { $0.providerID?.hasSuffix(":message:readable-refresh") == true })?
+      .providerIsUnread == true)
+    #expect(artifacts.first(where: { $0.providerID?.hasSuffix(":message:deleted-refresh") == true })?
+      .providerIsUnread == nil)
+    let cursor = try await database.read { db in try GmailSyncState.all.fetchAll(db).first }
+    #expect(cursor?.readStateRefreshCompletedAt == Date(timeIntervalSince1970: 22))
+  }
+
   @Test("Missing body is an honest teaser while classification headers remain readable")
   func bodylessMessageRetainsProvenance() async throws {
     let message = GmailInboxMessage(
@@ -299,6 +518,19 @@ struct GmailIngestionTests {
       ]
     )
   }
+
+  private static func message(id: String, unread: Bool) -> GmailInboxMessage {
+    GmailInboxMessage(
+      id: id, threadID: "thread-\(id)",
+      headers: [
+        GmailInboxHeader(name: "From", value: "Sender <sender@example.com>"),
+        GmailInboxHeader(name: "Subject", value: "Read state \(id)"),
+      ],
+      bodyPlainText: "An email body.", labelIDs: unread ? ["INBOX", "UNREAD"] : ["INBOX"]
+    )
+  }
+
+  private enum TestReadStateError: Error { case offline }
 
   private var sampleSnapshot: GmailInboxSnapshot {
     GmailInboxSnapshot(

@@ -16,6 +16,7 @@ public struct TodayRequest: FetchKeyRequest {
     public let treatmentSummary: String?
     public let grabBagItemsJSON: String?
     public let treatment: EmailTreatment
+    public let isUnread: Bool
     public let role: ContentRole
     public let publishedAt: Date?
     public let acquiredAt: Date
@@ -63,8 +64,12 @@ public struct TodayRequest: FetchKeyRequest {
     let detailsByContentPieceID = Dictionary(
       uniqueKeysWithValues: try EmailTreatmentDetails.all.fetchAll(db).map { ($0.contentPieceID, $0) })
     var acquiredAtByContentPieceID: [ContentPiece.ID: Date] = [:]
+    var unreadContentPieceIDs = Set<ContentPiece.ID>()
     for artifact in gmailArtifacts {
       guard let contentPieceID = artifact.contentPieceID else { continue }
+      if artifact.transport == .gmail, artifact.providerIsUnread == true {
+        unreadContentPieceIDs.insert(contentPieceID)
+      }
       if let existing = acquiredAtByContentPieceID[contentPieceID] {
         acquiredAtByContentPieceID[contentPieceID] = max(existing, artifact.acquiredAt)
       } else {
@@ -88,7 +93,8 @@ public struct TodayRequest: FetchKeyRequest {
         summary: piece.summary,
         treatmentSummary: detailsByContentPieceID[piece.id]?.offerSummary,
         grabBagItemsJSON: detailsByContentPieceID[piece.id]?.grabBagItems,
-        treatment: treatment, role: role, publishedAt: piece.publishedAt, acquiredAt: acquiredAt)
+        treatment: treatment, isUnread: unreadContentPieceIDs.contains(piece.id),
+        role: role, publishedAt: piece.publishedAt, acquiredAt: acquiredAt)
     }
     value.rows.sort {
       if $0.arrivedAt != $1.arrivedAt { return $0.arrivedAt > $1.arrivedAt }

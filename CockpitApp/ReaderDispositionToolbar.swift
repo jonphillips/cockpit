@@ -94,6 +94,12 @@ private extension ReaderDispositionToolbar {
       }
 
       if model.isGmailSource {
+        if !model.isUnread {
+          Button("Mark as Unread", systemImage: "envelope.badge") {
+            Task { await model.markUnread() }
+          }
+          Divider()
+        }
         MoveToSectionMenu(
           currentRole: model.currentRoutingRule?.role ?? model.resolvedContentRole ?? .forYou,
           isTransactional: model.currentTreatment == .transactional,

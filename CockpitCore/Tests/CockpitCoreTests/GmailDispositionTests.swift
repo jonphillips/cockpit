@@ -101,6 +101,10 @@ struct GmailDispositionTests {
   @Test("Clear resolves Cockpit attention and never writes a provider disposition (carried from S4)")
   func clearWritesNoDisposition() async throws {
     let pieceID = try await seedGmailMessage(id: "message-clear")
+    try await database.write { db in
+      try Artifact.where { $0.contentPieceID.eq(pieceID) }
+        .update { $0.providerIsUnread = #bind(true as Bool?) }.execute(db)
+    }
 
     try await database.write { db in
       try TodayAttentionOperations.clear(pieceID, at: .distantPast, in: db)
@@ -111,9 +115,48 @@ struct GmailDispositionTests {
     // The Gmail Artifact is untouched: Clear is attention-only, not a provider mutation.
     let stillPresent = try await database.read { db in
       try Artifact.where { $0.contentPieceID.eq(pieceID) && $0.transport.eq(StreamTransport.gmail) }
-        .fetchCount(db)
+        .fetchOne(db)
     }
-    expectNoDifference(stillPresent, 1)
+    #expect(stillPresent?.providerIsUnread == true)
+  }
+
+  @Test("Archive, Trash, and Edition Dismiss leave the Gmail unread mirror untouched")
+  func dispositionsDoNotChangeUnreadMirror() async throws {
+    let archiveID = try await seedGmailMessage(id: "message-unread-archive")
+    let trashID = try await seedGmailMessage(id: "message-unread-trash")
+    let dismissID = try await seedGmailMessage(id: "message-unread-dismiss")
+    try await database.write { db in
+      for pieceID in [archiveID, trashID, dismissID] {
+        try Artifact.where { $0.contentPieceID.eq(pieceID) }
+          .update { $0.providerIsUnread = #bind(true as Bool?) }.execute(db)
+      }
+    }
+
+    let service = GmailDispositionService(client: CallLog().client, now: { .distantPast })
+    _ = try await service.apply(.archive, toContentPieceID: archiveID, in: database)
+    _ = try await service.apply(.trash, toContentPieceID: trashID, in: database)
+
+    let date = Date(timeIntervalSince1970: 100)
+    let editionID = EditionDay.editionID(for: date)
+    let entryID = UUID(6001)
+    try await database.write { db in
+      try Edition.insert {
+        Edition.Draft(Edition(id: editionID, date: EditionDay.start(of: date), state: .open))
+      }.execute(db)
+      try EditionEntry.insert {
+        EditionEntry.Draft(EditionEntry(
+          id: entryID, editionID: editionID, contentPieceID: dismissID, section: .forYou,
+          rank: 1, entryState: .admitted, firstAdmittedEditionID: editionID))
+      }.execute(db)
+    }
+    await EditionModel().dismiss(entryID)
+
+    let unreadStates = try await database.read { db in
+      try [archiveID, trashID, dismissID].map { pieceID in
+        try Artifact.where { $0.contentPieceID.eq(pieceID) }.fetchOne(db)?.providerIsUnread
+      }
+    }
+    expectNoDifference(unreadStates, [true, true, true])
   }
 
   @MainActor

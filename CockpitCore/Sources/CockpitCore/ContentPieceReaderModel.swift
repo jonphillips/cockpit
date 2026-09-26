@@ -16,6 +16,7 @@ public final class ContentPieceReaderModel {
   @ObservationIgnored @Dependency(\.frontierPreferenceStore) private var preferenceStore
   @ObservationIgnored @Dependency(\.emailZoomPreferenceStore) var emailZoomPreferenceStore
   @ObservationIgnored @Dependency(\.gmailDispositionClient) var dispositionClient
+  @ObservationIgnored @Dependency(\.gmailReadStateClient) var readStateClient
   @ObservationIgnored @Dependency(\.findReferralHandoffClient) var findReferralClient
   @ObservationIgnored @Dependency(\.uuid) var uuid
   @ObservationIgnored @Fetch public var content = ContentPieceReaderRequest.Value()

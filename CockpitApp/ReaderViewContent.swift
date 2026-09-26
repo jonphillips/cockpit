@@ -116,6 +116,7 @@ extension ReaderView {
   func readerAppeared() async {
     await readerModel.loadEmailZoomPreference()
     try? await readerModel.$content.load()
+    await readerModel.markReadOnOpenIfNeeded()
     try? await readerModel.$readerTeaching.load()
     try? await readerModel.$matchedPersonalKnowledge.load()
     try? await readerModel.$pendingFindContent.load()

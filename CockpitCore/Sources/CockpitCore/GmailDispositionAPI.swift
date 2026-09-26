@@ -28,6 +28,16 @@ struct GmailDispositionAPI {
     try await send(path: "messages/\(messageID)/untrash", body: nil)
   }
 
+  /// Removes Gmail's provider read-state label for this message only.
+  func markRead(messageID: String) async throws {
+    try await modify(messageID: messageID, add: [], remove: ["UNREAD"])
+  }
+
+  /// Re-adds Gmail's provider read-state label for this message only.
+  func markUnread(messageID: String) async throws {
+    try await modify(messageID: messageID, add: ["UNREAD"], remove: [])
+  }
+
   private func modify(messageID: String, add: [String], remove: [String]) async throws {
     let body = try JSONSerialization.data(
       withJSONObject: ["addLabelIds": add, "removeLabelIds": remove])

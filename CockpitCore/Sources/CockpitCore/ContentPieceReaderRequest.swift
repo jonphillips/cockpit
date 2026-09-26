@@ -38,6 +38,7 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
     public let isSubstantivePrimary: Bool?
     public let bodyCompleteness: BodyCompleteness?
     public let emailTreatment: EmailTreatment?
+    public let isUnread: Bool
     /// The newest non-empty original source body held by an Artifact. This is intentionally
     /// device-local and is only presented as HTML for email ContentPieces.
     public let rawSourceText: String?
@@ -49,7 +50,7 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
     public let laterAddedAt: Date?
     public let libraryAddedAt: Date?
 
-    init(base: BaseRow, rawSourceText: String?, receivedAt: Date) {
+    init(base: BaseRow, rawSourceText: String?, receivedAt: Date, isUnread: Bool) {
       id = base.id
       kind = base.kind
       title = base.title
@@ -61,6 +62,7 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
       isSubstantivePrimary = base.isSubstantivePrimary
       bodyCompleteness = base.bodyCompleteness
       emailTreatment = base.emailTreatment
+      self.isUnread = isUnread
       self.rawSourceText = rawSourceText
       localNormalizedText = base.localNormalizedText
       localAvailabilityMode = base.localAvailabilityMode
@@ -118,7 +120,9 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
       artifactAcquiredAt: artifacts.map(\.acquiredAt).max(),
       createdAt: base.createdAt
     )
-    value.row = Row(base: base, rawSourceText: rawSourceText, receivedAt: receivedAt)
+    value.row = Row(
+      base: base, rawSourceText: rawSourceText, receivedAt: receivedAt,
+      isUnread: artifacts.contains { $0.transport == .gmail && $0.providerIsUnread == true })
     return value
   }
 }

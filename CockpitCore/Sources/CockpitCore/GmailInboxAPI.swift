@@ -8,7 +8,7 @@ struct GmailInboxAPI {
   /// Gmail bills each `messages.get` at 20 quota units against a 6,000 unit/user/minute ceiling.
   /// Fetching every Inbox message at once trips HTTP 429, so per-message reads run through a
   /// bounded window rather than an unbounded fan-out.
-  private static let maxConcurrentMessageReads = 6
+  static let maxConcurrentMessageReads = 6
 
   func currentInbox() async throws -> GmailInboxSnapshot {
     async let profile: GmailProfile = get(path: "profile")
@@ -178,7 +178,7 @@ extension GmailInboxAPI {
     )
   }
 
-  private func get<Response: Decodable>(path: String, query: [URLQueryItem] = []) async throws -> Response {
+  func get<Response: Decodable>(path: String, query: [URLQueryItem] = []) async throws -> Response {
     var components = URLComponents(string: "https://gmail.googleapis.com/gmail/v1/users/me/\(path)")!
     components.queryItems = query
     var request = URLRequest(url: components.url!)
@@ -240,7 +240,7 @@ private struct GmailBody: Decodable { let data: String? }
 
 /// Preserves the Gmail error body so a 403 rate-limit (`usageLimits`) is retried and distinguished
 /// from a configuration/scope 403, and so the surfaced message names the real reason.
-private struct GmailInboxError: LocalizedError {
+struct GmailInboxError: LocalizedError {
   let status: Int
   let reason: String?
   let message: String?
