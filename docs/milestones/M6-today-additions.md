@@ -22,8 +22,8 @@ S-t3, but S-t3 is what gives it volume.
 to the Today/email design process (house rule: arrange → behavior → foundation → per-surface
 adoption), not to these slices.
 
-- [x] S-t2 — Read state: mirror Gmail's `UNREAD`, bold unread rows, mark read on open, Mark as Unread
 - [x] S-t1 — Tech section: a content role below Daily news
+- [x] S-t2 — Read state: mirror Gmail's `UNREAD`, bold unread rows, mark read on open, Mark as Unread
 - [ ] S-t3 — Promotions intake: new Promotions mail lands in Offers, with no backfill and no source list
 - [x] S-t4 — Daily links: an icon column beside Today, managed in Settings
 - [x] S-t5 — Offer hero image: pick the lead image from held email HTML
@@ -306,6 +306,9 @@ with no model call and nothing new stored.
   4. Otherwise `nil`.
   Keep the logo list as one named constant. It's a drift guard, not a classifier, so don't grow it
   past obvious chrome.
+  *Amended at review, 2026-09-26:* as written, step 2 lets one small declared-width image (a 200px
+  header not named "logo") block every undeclared-width hero, so the picker returns `nil`. S-t5
+  shipped the rule as written (PR 90). S-t6 changes step 3, see its Build list.
 - **Model accessor.** `OfferHeroImageOperations.url(for: ContentPiece.ID, in: db)` reads the piece's
   most recent Gmail Artifact's `rawSourceText` (the same Artifact choice `EmailTreatmentProcessor`
   makes) and runs the picker. Compute on demand. No column, no cache table.
@@ -348,6 +351,10 @@ visual pass later).
   muted), newest first, each with sender, received date, subject, offer summary
   (`EmailTreatmentDetails.offerSummary`), its `PendingFind` (name, descriptor, kind, state), and
   `isUnread` (S-t2). Hero URLs come from S-t5, computed in the model, not in the view.
+- **Hero picker, step 3.** In `EmailHeroImage.candidate`, replace step 3 with "otherwise, return
+  the first remaining image with **no declared width**", so step 4 (`nil`) applies only when every
+  remaining image declares a width under 300px. This is the S-t5 review amendment, landing with the
+  first slice that shows heroes.
 - **Today.** `TodayModel` exposes `offerDoors: [OfferDoor]`, one per role with at least one offer
   piece, ordered by `ContentRole.sortOrder`, each with a count, up to 4 hero URLs, and a kept count.
   `TodayLandingView` renders an "Offers to review" band **after** the role sections (the mockup's
@@ -380,6 +387,9 @@ visual pass later).
 **Prove (core).**
 - `OfferPieces.isOffer` matches `extractionTreatment` for every role and treatment combination (one
   table test), and the processor still behaves as before.
+- Hero picker: a 180px declared-width image followed by an undeclared-width image returns the
+  undeclared one (flip the second assertion in `EmailHeroImageTests.declaredWidthPriority`). When
+  every image declares a width under 300px, it still returns `nil`.
 - `OfferReviewRequest` includes only offer pieces in Today, per role, newest first, and excludes
   cleared, disposed, and muted pieces.
 - `TodayReadingQueueRequest` no longer contains offer pieces, and does still contain a Wine-role
@@ -407,7 +417,7 @@ disposition policies from review mode. Add any model call.
 Trash all 4, and all four emails are in Gmail Trash with the kept Find in Finds. Undo brings all four
 back. The door is gone from Today, and the reading queue has no offers.
 
-**Sequencing.** Touches `EmailTreatmentProcessor.swift`, `PendingFind.swift`, new
+**Sequencing.** Touches `EmailTreatmentProcessor.swift`, `PendingFind.swift`, `EmailHeroImage.swift`, new
 `OfferReview*.swift` in `CockpitCore`, `TodayModel.swift`, `TodayReadingQueueRequest.swift`,
 `TodayLandingView.swift`, `TodaySurfaceRows.swift`, and new `OfferReviewView.swift`. Build after S-t2,
 S-t4, and S-t5. Branch: `m6/s-t6-offer-review-mode`.
