@@ -6,6 +6,7 @@ struct SettingsView: View {
   let model: ShellModel
   let followingModel: FollowingModel
   let pendingFindModel: PendingFindListModel
+  let dailyLinkModel: DailyLinkModel
   @State private var gmailAuthorizationProbe = GmailAuthorizationProbe()
   @State private var dispositionPolicyModel = GmailDispositionPolicyModel()
 
@@ -28,6 +29,12 @@ struct SettingsView: View {
           }
           NavigationLink(value: SettingsRoute.subfeedRouting) {
             Label("Sub-feed routing", systemImage: "arrow.triangle.branch")
+          }
+        }
+
+        Section {
+          NavigationLink(value: SettingsRoute.dailyLinks) {
+            Label("Daily links", systemImage: "link")
           }
         }
 
@@ -80,6 +87,8 @@ struct SettingsView: View {
           AISettingsView()
         case .pendingFinds:
           PendingFindListView(model: pendingFindModel)
+        case .dailyLinks:
+          DailyLinksView(model: dailyLinkModel)
         case let .reader(contentPieceID):
           ReaderView(
             contentPieceID: contentPieceID,

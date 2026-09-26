@@ -168,6 +168,7 @@ enum CockpitMigrations {
     registerCurationRouting(in: &migrator)
     registerSenderTreatmentRoutingMigration(in: &migrator)
     registerFindHandoff(in: &migrator)
+    registerDailyLinks(in: &migrator)
     return migrator
   }
 }
