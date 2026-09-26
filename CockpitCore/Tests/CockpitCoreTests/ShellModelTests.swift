@@ -39,6 +39,25 @@ struct ShellModelTests {
     expectNoDifference(model.settingsPath, [])
   }
 
+  @Test("A conditional pop removes the route only while it is still on top")
+  func conditionalSettingsPop() {
+    let model = ShellModel()
+    let reader = SettingsRoute.reader(contentPieceID: UUID(7))
+
+    model.pushSettings(.pendingFinds)
+    model.pushSettings(reader)
+    model.popSettings(ifShowing: reader)
+    expectNoDifference(model.settingsPath, [.pendingFinds])
+
+    // Jon already tapped Back before the disposition finished: the Finds list stays.
+    model.popSettings(ifShowing: reader)
+    expectNoDifference(model.settingsPath, [.pendingFinds])
+
+    model.pushSettings(.reader(contentPieceID: UUID(8)))
+    model.popSettings(ifShowing: reader)
+    expectNoDifference(model.settingsPath, [.pendingFinds, .reader(contentPieceID: UUID(8))])
+  }
+
   @Test("An empty Edition starts with no materialized rows")
   func absentEditionHasNoRows() {
     let model = EditionModel()

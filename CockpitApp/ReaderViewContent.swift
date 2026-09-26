@@ -29,7 +29,7 @@ extension ReaderView {
               Task {
                 guard await readerModel.confirmPendingFind() else { return }
                 if let queueContext { await queueContext.trash() }
-                else { await readerModel.trashSource() }
+                else { await trashReaderSource() }
               }
             },
             dismiss: { Task { await readerModel.dismissPendingFind() } }
@@ -138,7 +138,7 @@ extension ReaderView {
   func sendReaderFindToYesChef() async {
     guard await readerModel.sendToYesChefFromReader() else { return }
     if let queueContext { await queueContext.trash() }
-    else { await readerModel.trashSource() }
+    else { await trashReaderSource() }
   }
 
   func saveForLaterButtonTapped() async {
@@ -167,6 +167,6 @@ extension ReaderView {
 
   func sendReplyAndArchive() async {
     if let queueContext { await queueContext.archive() }
-    else { await readerModel.archiveSource() }
+    else { await archiveReaderSource() }
   }
 }

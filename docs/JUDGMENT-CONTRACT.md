@@ -106,6 +106,8 @@ The editorial object is:
 
 `finds` is populated from Phase 1. Extraction shares this call, so the marginal cost is near zero, and the orphan-Find population starts accumulating on day one rather than in month five. Handoff to a specialist app remains Phase 6; V1 Phase 1 only persists PendingFinds and lists them.
 
+A Find is a thing a specialist app could admit, never an idea (DECISIONS §3, clarified 2026-09-25). Software and hardware tools count as products. Techniques, capabilities, patterns, practices, arguments, insights, trends, and tips do not; `finds` is empty for a piece whose value is its ideas. Every prompt that proposes Finds, including the email offer treatment, states this definition in the same words. Deterministic code backs it up: at persist, it declines a proposal whose normalized `kind` is on a short list of idea kinds. That is a guard against drift, not a classifier, and it never touches Finds already persisted.
+
 `bodyCompleteness` is normally derived deterministically at ingest and is included in the type pass
 so the rationale can acknowledge an incomplete source. If ingest could not resolve it, the type pass
 may provide one of `full`, `truncated`, or `teaser` as a fallback; deterministic ingest evidence is
