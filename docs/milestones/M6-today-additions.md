@@ -6,13 +6,17 @@
 > `m6/s-tN-short-slug`, one PR each, tick the box here in the PR that completes it.
 
 **Decisions behind these slices.** DECISIONS §27 (Promotions, new mail only, no source list), §28
-(Gmail read state shown and set on open), §29 (Daily links). S-t1 needs no ledger entry: Tech is one
-more content role under Gate 4's D-B scheme.
+(Gmail read state shown and set on open), §29 (Daily links), §30 (offer review mode, added the same
+day against `docs/mockups/M6-offer-review-mode.html`). S-t1 needs no ledger entry: Tech is one more
+content role under Gate 4's D-B scheme.
 
 **Dependency shape.** S-t1 floats and is the smallest. **S-t2 → S-t3**: both touch `GmailInboxAPI`,
 `GmailIngestion`, and `GmailArtifactProvenance`, so build them in that order. S-t3 also waits for
 S-r13 to merge, because S-r13 gives the offer prompt the Find definition that every Promotions offer
-will run through. S-t4 floats: it's app-side plus one new table.
+will run through. S-t4 floats: it's app-side plus one new table. **S-t5 → S-t6** (offer review mode):
+S-t5 is a core-only hero-image picker, and S-t6 builds the door and the mode on it. S-t6 comes after
+S-t2 (it marks opened offers read) and after S-t4 (both edit `TodayLandingView`). It doesn't need
+S-t3, but S-t3 is what gives it volume.
 
 **Styling.** Build every slice in default system styling. The visual pass for these surfaces belongs
 to the Today/email design process (house rule: arrange → behavior → foundation → per-surface
@@ -22,6 +26,8 @@ adoption), not to these slices.
 - [ ] S-t2 — Read state: mirror Gmail's `UNREAD`, bold unread rows, mark read on open, Mark as Unread
 - [ ] S-t3 — Promotions intake: new Promotions mail lands in Offers, with no backfill and no source list
 - [ ] S-t4 — Daily links: an icon column beside Today, managed in Settings
+- [ ] S-t5 — Offer hero image: pick the lead image from held email HTML
+- [ ] S-t6 — Offer review mode: a door per offer role, a card grid, Keep, Trash all, one Undo
 
 ## Standing rules for every slice
 
@@ -36,6 +42,8 @@ adoption), not to these slices.
   a clean commit.
 - Read state is provider state, never attention (§28). Nothing in these slices changes Today
   membership, Clear/Dismiss, Edition, or judgment input.
+- S-t6 is the one exception to "membership unchanged": per §30, offer pieces leave the reading queue.
+  They stay in Today (the door), and Today projection membership is unchanged.
 
 ---
 
@@ -274,3 +282,132 @@ of the day, and it's back the next morning.
 **Sequencing.** Touches a new migration, new `DailyLink*.swift` files in `CockpitCore`,
 `TodayLandingView.swift`, `TodayView.swift` (compact toolbar), `SettingsView.swift`, and a new Settings
 view. Floats. Branch: `m6/s-t4-daily-links`.
+
+---
+
+### S-t5 — Offer hero image: pick the lead image from held email HTML
+
+**Why.** DECISIONS §30. Jon decides on an offer by its picture: the bottle, the product. Cockpit holds
+each email's original HTML (`Artifact.rawSourceText`), so it can pick the lead image by fixed rules,
+with no model call and nothing new stored.
+
+**Build.**
+- **Move the tracking-pixel predicate into core.** `TodayOriginalReaderWebView.isTrackingPixel` (and
+  its `dimension` helper) move into `CockpitCore` as an internal `EmailImageSignals` used by both the
+  Reader sanitizer and the new picker. The Reader's behavior stays byte-for-byte the same.
+- **Picker.** `EmailHeroImage.candidate(inHTML:) -> URL?`, a pure function over SwiftSoup:
+  1. Consider `<img>` in document order. Drop anything that isn't `https`, anything the tracking
+     predicate matches, and anything logo- or spacer-shaped (`logo`, `spacer`, `icon`, `badge`,
+     `social`, `facebook`, `instagram`, `twitter`, `pinterest`, `app-store`, `google-play` in `src`,
+     `alt`, `class`, or `id`, case-insensitive).
+  2. If any remaining image declares a width (attribute or inline `width:` style), return the first
+     whose declared width is at least 300px.
+  3. If none declares a width, return the first remaining image.
+  4. Otherwise `nil`.
+  Keep the logo list as one named constant. It's a drift guard, not a classifier, so don't grow it
+  past obvious chrome.
+- **Model accessor.** `OfferHeroImageOperations.url(for: ContentPiece.ID, in: db)` reads the piece's
+  most recent Gmail Artifact's `rawSourceText` (the same Artifact choice `EmailTreatmentProcessor`
+  makes) and runs the picker. Compute on demand. No column, no cache table.
+
+**Prove (core).**
+- Fixtures (add small HTML strings; reuse real shapes from the eval corpus where one fits):
+  - a 1×1 pixel before a 600px hero → the hero;
+  - a 120px logo before an undeclared-width hero → the hero;
+  - `http://` hero → skipped;
+  - only social icons → `nil`;
+  - a hidden (`display:none`) image → skipped;
+  - no `<img>` → `nil`.
+- The Reader sanitizer's output is unchanged for an existing fixture (a regression guard for the move).
+
+**Do not.** Fetch or measure images to learn their size. Store the URL. Call a model. Change the Reader's
+sanitizing.
+
+**Done when.** The picker returns sensible heroes for Jon's real offer emails. Report a sample of 10
+from the device database: sender, and the chosen URL or `nil`.
+
+**Sequencing.** Touches `TodayOriginalReaderWebView.swift` (the predicate moves out), new
+`EmailHeroImage.swift` / `EmailImageSignals.swift` in `CockpitCore`, and tests. Branch:
+`m6/s-t5-offer-hero-image`.
+
+---
+
+### S-t6 — Offer review mode: a door per offer role, a card grid, Keep, Trash all, one Undo
+
+**Why.** DECISIONS §30. Jon wants to review the offers of one role together, keep the Finds worth
+keeping, and trash the batch in one move. The mockup `docs/mockups/M6-offer-review-mode.html` is the
+spec and the acceptance test for structure. Styling follows the standing rule (system defaults now,
+visual pass later).
+
+**Build.**
+- **Offer pieces.** Lift `EmailTreatmentProcessor.extractionTreatment`'s rule (role `.offers`, or
+  offer treatment, and never `.grabBag`) into one shared `OfferPieces.isOffer(role:treatment:)` and use
+  it in both places.
+- **Projection.** `OfferReviewRequest` (a `FetchKeyRequest`, like `TodayRequest`) returns, per role, the
+  offer pieces currently in Today (same membership as `TodayRequest`: not cleared, not disposed, not
+  muted), newest first, each with sender, received date, subject, offer summary
+  (`EmailTreatmentDetails.offerSummary`), its `PendingFind` (name, descriptor, kind, state), and
+  `isUnread` (S-t2). Hero URLs come from S-t5, computed in the model, not in the view.
+- **Today.** `TodayModel` exposes `offerDoors: [OfferDoor]`, one per role with at least one offer
+  piece, ordered by `ContentRole.sortOrder`, each with a count, up to 4 hero URLs, and a kept count.
+  `TodayLandingView` renders an "Offers to review" band **after** the role sections (the mockup's
+  position) and removes offer pieces from the sections themselves. The existing Offers
+  publisher-rollup rendering goes away. With no doors, there's no band.
+- **Reading queue.** `TodayReadingQueueRequest` excludes offer pieces, so the rail and the queue end
+  with the last non-offer section (Gate 4 D-F amendment).
+- **Review mode.** `OfferReviewModel` (`@Observable`, in core) for one role:
+  - `keep(_:)` → `PendingFindOperations.confirm`, **without** calling
+    `GmailDispositionPolicyService.applyEnabledPolicies` (so the card stays). `unkeep(_:)` → back to
+    `.pending` through a new `PendingFindOperations.unconfirm`, allowed only from `.confirmed` (never
+    from `referred` or `handedOff`).
+  - `trashAll()` → for each piece in the batch, `GmailDispositionService.apply(.trash, …)` sequentially,
+    collecting log entries. On partial failure, the failed pieces stay in the batch and the model
+    reports "Trashed 3 of 4. 1 couldn't be trashed." Trash all never dismisses pending Finds.
+  - `lastBatch: [GmailDispositionLogEntry]` held in memory. `undoLastBatch()` calls
+    `GmailDispositionService.undo` for each entry and reports any it couldn't restore. The batch
+    replaces S-r1's `lastDisposition` banner pattern; don't add a table.
+- **View.** `OfferReviewView`, pushed or presented from the door as a full-width screen over
+  Orientation, not the reading split. It has a card grid (adaptive columns, one column in compact
+  width) and a sticky finish bar: "N Finds kept. All M emails go to Gmail Trash." plus **Not now** and
+  **Trash all M**. The hero loads through `AsyncImage` on an ephemeral `URLSession` (no cookies, no
+  cache on disk), with a role-color fallback. **Open email** presents the existing `ReaderView` in a
+  sheet, following `TodayHighlightReaderSheet`. That marks the piece read (S-t2), and if Jon disposes it
+  from the Reader, it leaves the grid on return.
+- After Trash all, the screen shows the mockup's "Wine is clear" state with the Undo banner. Back on
+  Today, that role's door is gone, and the Undo banner stays until the next disposition or until it's
+  dismissed.
+
+**Prove (core).**
+- `OfferPieces.isOffer` matches `extractionTreatment` for every role and treatment combination (one
+  table test), and the processor still behaves as before.
+- `OfferReviewRequest` includes only offer pieces in Today, per role, newest first, and excludes
+  cleared, disposed, and muted pieces.
+- `TodayReadingQueueRequest` no longer contains offer pieces, and does still contain a Wine-role
+  newsletter.
+- `keep` confirms without trashing, even with `offerWithFind` enabled. `unkeep` returns `.confirmed`
+  to `.pending` and refuses `referred`/`handedOff`.
+- `trashAll` trashes every piece, kept included, writes one log entry each, and leaves pending Finds
+  pending. With a client that fails on one message, exactly that piece remains and the report says so.
+- `undoLastBatch` untrashes every entry. Kept Finds stay `.confirmed`.
+- Offer doors: one per role with offers, ordered by `sortOrder`, gone when empty.
+
+**Do not.** Add review mode to non-offer roles. Parse, compare, or sort by price. Add fields to
+`PendingFind` or model wine or products. Dismiss unkept Finds on Trash all. Persist batches. Apply
+disposition policies from review mode. Add any model call.
+
+**Device-only risks (name them).**
+- Hero loads reveal an open to each sender when the grid appears. §25 accepts this, but the grid
+  loads several at once. Report if it's slow.
+- Gmail rate limits when a batch trashes many messages at once. The calls are sequential, but watch
+  a 10+ Promotions batch after S-t3.
+- Whether the door's position after the sections feels too buried on a busy morning. Report it; don't
+  move it in this slice.
+
+**Done when.** On device, four wine offers show behind the Wine door. Jon opens it, keeps one, taps
+Trash all 4, and all four emails are in Gmail Trash with the kept Find in Finds. Undo brings all four
+back. The door is gone from Today, and the reading queue has no offers.
+
+**Sequencing.** Touches `EmailTreatmentProcessor.swift`, `PendingFind.swift`, new
+`OfferReview*.swift` in `CockpitCore`, `TodayModel.swift`, `TodayReadingQueueRequest.swift`,
+`TodayLandingView.swift`, `TodaySurfaceRows.swift`, and new `OfferReviewView.swift`. Build after S-t2,
+S-t4, and S-t5. Branch: `m6/s-t6-offer-review-mode`.

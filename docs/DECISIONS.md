@@ -1064,6 +1064,58 @@ boundary. Slice: `docs/milestones/M6-today-additions.md` S-t4.
 
 ---
 
+## 30. Offer review mode: offers of one role reviewed together, kept Finds saved, the batch trashed at once — RESOLVED (2026-09-26, Jon)
+
+**Evidence.** Jon wants to evaluate offers in batches by kind, for example four wine offers arriving
+together. He described it as being "in wine-review mode" or "retail-offer review mode": see the
+offers separated from everything else, keep the one or two worth it, and get rid of the rest in one
+move. Today's Offers section lists rollups one row at a time, and the only Find action lives in each
+email's Reader. S-t3 is about to add every new Promotions email, so batch review is the difference
+between Offers being usable and not. Settled against the mockup `docs/mockups/M6-offer-review-mode.html`.
+
+**Decision.**
+
+- **Door.** Every offer role (Offers, and any role such as Wine or Food that holds offers) gets one door
+  on Today while it has offer pieces in Today. The door shows the role, the count, and thumbnails of
+  the offers' hero images. It sits where the Offers section sits now, after the newsletter sections, in
+  line with the tier order. With no offers left, the door disappears. An **offer piece** is one the
+  offer pass treats as an offer (the rule `EmailTreatmentProcessor` already uses: role Offers, or
+  offer treatment). Newsletters in the same role stay in their normal section.
+- **Review mode.** Tapping a door opens that role's offers, newest first, as cards. Each card has the
+  hero image, the sender and time, the subject, the proposed Find (name and descriptor), the offer
+  summary, a **Keep** button, and **Open email**.
+- **Keep** confirms the Find immediately, the same act as Save Find in the Reader. It **does not** apply
+  the `offerWithFind` policy on the spot, so the card stays in the batch until Jon finishes. Tapping
+  again un-keeps (back to pending).
+- **Trash all N** trashes **every** email in the batch, kept ones included. A kept Find retains its
+  name, details, and link, the same result as Save Find then Trash in the Reader. This is an explicit
+  per-action disposition on a set Jon can see (ADR-0002 D7), not a policy. Each message still passes
+  the D4 barrier and writes its own D6 log entry. Unkept proposals stay pending: Trash all doesn't
+  dismiss them.
+- **One Undo for the batch.** Undo restores every email in the batch to the Inbox. Kept Finds stay
+  kept. Recent Trash still lists each message individually.
+- **Not now** leaves everything as it is, and Keep choices persist because they were saved on tap.
+- **Hero image.** The first large image in the held HTML, picked by fixed rules: `https` only, never a
+  tracking pixel (the Reader's existing predicate), never logo- or spacer-shaped, and a declared width
+  of at least 300px when any image declares one. It loads remotely, as the Reader already does (§25),
+  through an ephemeral, cookieless session. Nothing is stored. With no candidate, the card shows the
+  role color.
+- **Offers leave the reading queue.** Offer pieces behind a door are no longer in the Today reading
+  queue or its section rail, because review mode is where they're read. This amends Gate 4 D-F, whose
+  "Offers roll-ups sit at the bottom as a natural stop cliff" review mode replaces.
+
+**Still out.** Review mode for non-offer roles (Jon, 2026-09-26: offer roles only for now). Parsing,
+sorting, or comparing prices. Wine or product modeling beyond the existing Find (AGENTS.md). Auto-trash
+of reviewed offers. Any new model call. Dismissing unkept Finds as part of Trash all.
+
+**Relates to:** §3 (Finds), §7 and ADR-0002 D4/D6/D7 (explicit batch disposition, per-message barrier
+and log), §24 (Offers role), §25 (remote image loads), §27 (Promotions intake feeds it), S-r6
+(confirmed-Find barrier, unchanged for policies), Gate 4 D-F (amended), `TODAY-EXPERIENCE.md` tier 4
+(its "compact aggregate with drill-in" is this door). Slices: `docs/milestones/M6-today-additions.md`
+S-t5 and S-t6.
+
+---
+
 # Deliberately deferred decisions
 
 These are **not unresolved blockers**. They should wait for implementation/use evidence.

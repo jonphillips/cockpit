@@ -227,6 +227,9 @@ Settings-buried stub.
   pass, not lists you re-enter. Once oriented, you march straight down — no clicking in and out of
   sections. Emergent property: the order decays must-read → skimmable → bulk-trash, so the queue ends
   where attention should; Offers roll-ups sit at the bottom as a natural stop cliff.
+  **Amendment (2026-09-26, Jon; DECISIONS §30):** offer pieces leave the reading queue and its
+  section rail. Each offer role gets a door on Orientation that opens a review mode for batch Keep and
+  Trash all. The queue now ends with the last non-offer section. Slice: `M6-today-additions.md` S-t6.
 
 - **D-G — Disposition is surfaced in the reading moment (makes I2/S-c visible).** The reader carries
   Save-for-later / Add-to-library / Trash actions and a standing custody line ("when you leave, the
