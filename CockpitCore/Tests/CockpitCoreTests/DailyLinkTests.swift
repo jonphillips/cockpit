@@ -1,9 +1,12 @@
 import CustomDump
 import Dependencies
 import DependenciesTestSupport
+import CoreGraphics
 import Foundation
+import ImageIO
 import SQLiteData
 import Testing
+import UniformTypeIdentifiers
 @testable import CockpitCore
 
 @Suite(
@@ -27,11 +30,11 @@ struct DailyLinkTests {
       try DailyLinkOperations.update(
         .init(id: ids[1], title: "Two revised", url: "https://revised.example", symbolName: "globe"),
         in: db)
-      try DailyLinkOperations.move(from: 0, to: 2, in: db)
+      try DailyLinkOperations.reorder(moving: [ids[0]], before: ids[2], in: db)
       #expect(try DailyLinkOperations.orderedLinks(in: db).map(\.id) == [ids[1], ids[0], ids[2]])
-      try DailyLinkOperations.move(from: 2, to: 0, in: db)
+      try DailyLinkOperations.reorder(moving: [ids[2]], before: ids[1], in: db)
       #expect(try DailyLinkOperations.orderedLinks(in: db).map(\.id) == [ids[2], ids[1], ids[0]])
-      try DailyLinkOperations.move(from: 0, to: 3, in: db)
+      try DailyLinkOperations.reorder(moving: [ids[2]], before: nil, in: db)
     }
     var links = try await database.read { db in try DailyLinkOperations.orderedLinks(in: db) }
     #expect(links.map(\.id) == [ids[1], ids[0], ids[2]])
@@ -89,5 +92,93 @@ struct DailyLinkTests {
     #expect(link?.sortOrder == 0)
     #expect(link?.createdAt == createdAt)
     #expect(link?.lastVisitedAt == Date(timeIntervalSince1970: 456))
+  }
+
+  @Test("Reordering keeps moved links together, ignores unknown ids, and appends on a moved anchor")
+  func reorderedEdges() {
+    let links = (0..<4).map { index in
+      DailyLink(
+        id: UUID(12_010 + index), title: "\(index)", url: "https://\(index).example",
+        sortOrder: index, createdAt: .distantPast)
+    }
+    let ids = links.map(\.id)
+    #expect(
+      DailyLinkOperations.reordered(links, moving: [ids[3], ids[1]], before: ids[0]).map(\.id)
+        == [ids[1], ids[3], ids[0], ids[2]])
+    #expect(
+      DailyLinkOperations.reordered(links, moving: [ids[1]], before: ids[1]).map(\.id)
+        == [ids[0], ids[2], ids[3], ids[1]])
+    #expect(
+      DailyLinkOperations.reordered(links, moving: [UUID(99_999)], before: ids[0]).map(\.id) == ids)
+  }
+
+  @Test("Thumbnails normalize any photo to a small square JPEG")
+  func normalizesThumbnail() throws {
+    let wide = try Self.png(width: 1_200, height: 600)
+    let thumbnail = try DailyLinkThumbnail.make(from: wide)
+    let source = try #require(CGImageSourceCreateWithData(thumbnail as CFData, nil))
+    #expect(CGImageSourceGetType(source) as String? == UTType.jpeg.identifier)
+    let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+    #expect(image.width == DailyLinkThumbnail.pixelSize)
+    #expect(image.height == DailyLinkThumbnail.pixelSize)
+    #expect(thumbnail.count < DailyLinkThumbnail.maximumBytes)
+
+    let small = try DailyLinkThumbnail.make(from: Self.png(width: 40, height: 90))
+    let smallImage = try #require(
+      CGImageSourceCreateWithData(small as CFData, nil).flatMap {
+        CGImageSourceCreateImageAtIndex($0, 0, nil)
+      })
+    #expect(smallImage.width == 40)
+    #expect(smallImage.height == 40)
+
+    #expect(throws: DailyLinkThumbnail.Failure.unreadableImage) {
+      try DailyLinkThumbnail.make(from: Data("not an image".utf8))
+    }
+  }
+
+  @Test("Thumbnails save, replace, and clear with the link; oversized data is rejected")
+  func thumbnailLifecycle() async throws {
+    let id = UUID(12_020)
+    let first = try DailyLinkThumbnail.make(from: Self.png(width: 300, height: 300))
+    try await database.write { db in
+      try DailyLinkOperations.add(
+        .init(title: "News", url: "https://apple.news/Tabc", thumbnail: first),
+        id: id, at: .distantPast, in: db)
+    }
+    var link = try await database.read { db in try DailyLink.find(id).fetchOne(db) }
+    #expect(link?.thumbnail == first)
+
+    let draft = try #require(link.map(DailyLinkDraft.init(editing:)))
+    #expect(draft.thumbnail == first)
+
+    var clearing = draft
+    clearing.thumbnail = nil
+    let cleared = clearing
+    try await database.write { db in try DailyLinkOperations.update(cleared, in: db) }
+    link = try await database.read { db in try DailyLink.find(id).fetchOne(db) }
+    #expect(link?.thumbnail == nil)
+
+    var oversizing = draft
+    oversizing.thumbnail = Data(count: DailyLinkThumbnail.maximumBytes + 1)
+    let oversized = oversizing
+    await #expect(throws: DailyLinkOperations.Failure.thumbnailTooLarge) {
+      try await database.write { db in try DailyLinkOperations.update(oversized, in: db) }
+    }
+  }
+
+  private static func png(width: Int, height: Int) throws -> Data {
+    let context = try #require(
+      CGContext(
+        data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+    context.setFillColor(CGColor(red: 0.2, green: 0.5, blue: 0.8, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    let image = try #require(context.makeImage())
+    let data = NSMutableData()
+    let destination = try #require(
+      CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil))
+    CGImageDestinationAddImage(destination, image, nil)
+    #expect(CGImageDestinationFinalize(destination))
+    return data as Data
   }
 }

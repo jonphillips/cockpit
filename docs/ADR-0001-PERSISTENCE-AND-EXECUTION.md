@@ -99,7 +99,8 @@ Cockpit owns its container, schema, and `makeSyncEngine`. Syncable: Streams, Int
 ContentPieces, Editions, EditionEntries, memberships, PersonalKnowledgeClaims and their explicit
 Reader-teaching provenance, PendingFinds, DispositionPolicies, DailyLinks. DailyLinks (M6 S-t4)
 are user-authored Today shortcuts. `lastVisitedAt` travels with the row, so a visit on one device
-dims the link on the others. The table isn't in `makeSyncEngine` yet. Add it there before the
+dims the link on the others. So does the optional `thumbnail` BLOB, a Jon-picked square JPEG capped
+at 100 KB in `DailyLinkOperations`, which keeps the record well under CloudKit's limit. The table isn't in `makeSyncEngine` yet. Add it there before the
 CloudKit sync gate is turned on. Its schema already fits (random UUID key, no uniqueness
 constraints).
 

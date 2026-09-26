@@ -1,6 +1,5 @@
 import Dependencies
 import Foundation
-import Observation
 import SQLiteData
 
 /// A user-authored shortcut on Today. Visits are a one-day checklist signal only.
@@ -13,10 +12,12 @@ public struct DailyLink: Codable, Equatable, Identifiable, Sendable {
   public var sortOrder: Int
   public var lastVisitedAt: Date?
   public var createdAt: Date
+  /// A square JPEG from `DailyLinkThumbnail.make`. When present it stands in for `symbolName`.
+  public var thumbnail: Data?
 
   public init(
     id: UUID, title: String, url: String, symbolName: String = "link", sortOrder: Int,
-    lastVisitedAt: Date? = nil, createdAt: Date
+    lastVisitedAt: Date? = nil, createdAt: Date, thumbnail: Data? = nil
   ) {
     self.id = id
     self.title = title
@@ -25,6 +26,7 @@ public struct DailyLink: Codable, Equatable, Identifiable, Sendable {
     self.sortOrder = sortOrder
     self.lastVisitedAt = lastVisitedAt
     self.createdAt = createdAt
+    self.thumbnail = thumbnail
   }
 
   public func isVisited(on date: Date, calendar: Calendar = .current) -> Bool {
@@ -38,12 +40,23 @@ public struct DailyLinkDraft: Equatable, Sendable {
   public var title: String
   public var url: String
   public var symbolName: String
+  public var thumbnail: Data?
 
-  public init(id: UUID? = nil, title: String = "", url: String = "", symbolName: String = "link") {
+  public init(
+    id: UUID? = nil, title: String = "", url: String = "", symbolName: String = "link",
+    thumbnail: Data? = nil
+  ) {
     self.id = id
     self.title = title
     self.url = url
     self.symbolName = symbolName
+    self.thumbnail = thumbnail
+  }
+
+  public init(editing link: DailyLink) {
+    self.init(
+      id: link.id, title: link.title, url: link.url, symbolName: link.symbolName,
+      thumbnail: link.thumbnail)
   }
 }
 
@@ -61,12 +74,14 @@ public enum DailyLinkOperations {
     case invalidURL
     case emptyTitle
     case missingLink
+    case thumbnailTooLarge
 
     public var errorDescription: String? {
       switch self {
       case .invalidURL: "Enter a valid http or https link with a host."
       case .emptyTitle: "Enter a title for this link."
       case .missingLink: "This daily link no longer exists."
+      case .thumbnailTooLarge: "That thumbnail is too large. Choose the photo again."
       }
     }
   }
@@ -84,6 +99,7 @@ public enum DailyLinkOperations {
     let title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !title.isEmpty else { throw Failure.emptyTitle }
     let url = try validatedURL(draft.url)
+    let thumbnail = try validatedThumbnail(draft.thumbnail)
     let existing = try orderedLinks(in: db)
     try DailyLink.insert {
       DailyLink.Draft(
@@ -93,7 +109,8 @@ public enum DailyLinkOperations {
         symbolName: validSymbol(draft.symbolName),
         sortOrder: existing.count,
         lastVisitedAt: nil,
-        createdAt: date
+        createdAt: date,
+        thumbnail: thumbnail
       )
     }.execute(db)
   }
@@ -105,10 +122,12 @@ public enum DailyLinkOperations {
     let title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !title.isEmpty else { throw Failure.emptyTitle }
     let url = try validatedURL(draft.url)
+    let thumbnail = try validatedThumbnail(draft.thumbnail)
     try DailyLink.find(id).update {
       $0.title = #bind(title)
       $0.url = #bind(url)
       $0.symbolName = #bind(validSymbol(draft.symbolName))
+      $0.thumbnail = #bind(thumbnail)
     }.execute(db)
   }
 
@@ -117,13 +136,22 @@ public enum DailyLinkOperations {
     try rewriteOrder(orderedLinks(in: db).filter { $0.id != id }, in: db)
   }
 
-  public static func move(from source: Int, to destination: Int, in db: Database) throws {
-    var links = try orderedLinks(in: db)
-    guard links.indices.contains(source), destination >= 0, destination <= links.count else { return }
-    let link = links.remove(at: source)
-    let insertionIndex = destination > source ? destination - 1 : destination
-    links.insert(link, at: min(insertionIndex, links.count))
-    try rewriteOrder(links, in: db)
+  /// Moves `ids` (in their current relative order) to sit before `anchor`, or at the end when
+  /// `anchor` is nil or is itself being moved. Unknown ids are ignored.
+  public static func reorder(moving ids: [UUID], before anchor: UUID?, in db: Database) throws {
+    let links = try orderedLinks(in: db)
+    try rewriteOrder(reordered(links, moving: ids, before: anchor), in: db)
+  }
+
+  public static func reordered(
+    _ links: [DailyLink], moving ids: [UUID], before anchor: UUID?
+  ) -> [DailyLink] {
+    let moving = Set(ids)
+    var remaining = links.filter { !moving.contains($0.id) }
+    let moved = links.filter { moving.contains($0.id) }
+    let index = anchor.flatMap { id in remaining.firstIndex { $0.id == id } } ?? remaining.endIndex
+    remaining.insert(contentsOf: moved, at: index)
+    return remaining
   }
 
   public static func recordVisit(_ id: UUID, at date: Date, in db: Database) throws {
@@ -144,6 +172,12 @@ public enum DailyLinkOperations {
     }
   }
 
+  private static func validatedThumbnail(_ data: Data?) throws -> Data? {
+    guard let data, !data.isEmpty else { return nil }
+    guard data.count <= DailyLinkThumbnail.maximumBytes else { throw Failure.thumbnailTooLarge }
+    return data
+  }
+
   private static func validSymbol(_ value: String) -> String {
     DailyLinkIcon.symbols.contains(value) ? value : DailyLinkIcon.defaultSymbol
   }
@@ -161,77 +195,5 @@ public struct DailyLinkRequest: FetchKeyRequest {
     var value = Value()
     value.links = try DailyLink.order { ($0.sortOrder, $0.createdAt, $0.id) }.fetchAll(db)
     return value
-  }
-}
-
-@MainActor
-@Observable
-public final class DailyLinkModel {
-  @ObservationIgnored @Dependency(\.defaultDatabase) private var database
-  @ObservationIgnored @Dependency(\.uuid) private var uuid
-  @ObservationIgnored @Dependency(\.date.now) private var now
-  @ObservationIgnored @Fetch(DailyLinkRequest()) public var content = DailyLinkRequest.Value()
-  public var errorMessage: String?
-
-  public init() {}
-
-  public var links: [DailyLink] { content.links }
-
-  public func save(_ draft: DailyLinkDraft) async -> Bool {
-    do {
-      let id = draft.id == nil ? uuid() : nil
-      let date = now
-      try await database.write { db in
-        if let id {
-          try DailyLinkOperations.add(draft, id: id, at: date, in: db)
-        } else {
-          try DailyLinkOperations.update(draft, in: db)
-        }
-      }
-      try await $content.load()
-      errorMessage = nil
-      return true
-    } catch is CancellationError {
-      return false
-    } catch {
-      errorMessage = error.localizedDescription
-      return false
-    }
-  }
-
-  public func delete(_ id: UUID) async {
-    do {
-      try await database.write { db in try DailyLinkOperations.delete(id, in: db) }
-      try await $content.load()
-      errorMessage = nil
-    } catch is CancellationError {
-    } catch {
-      errorMessage = error.localizedDescription
-    }
-  }
-
-  public func move(from source: Int, to destination: Int) async {
-    do {
-      try await database.write { db in
-        try DailyLinkOperations.move(from: source, to: destination, in: db)
-      }
-      try await $content.load()
-      errorMessage = nil
-    } catch is CancellationError {
-    } catch {
-      errorMessage = error.localizedDescription
-    }
-  }
-
-  public func recordVisit(_ id: UUID) async {
-    do {
-      let date = now
-      try await database.write { db in try DailyLinkOperations.recordVisit(id, at: date, in: db) }
-      try await $content.load()
-      errorMessage = nil
-    } catch is CancellationError {
-    } catch {
-      errorMessage = error.localizedDescription
-    }
   }
 }

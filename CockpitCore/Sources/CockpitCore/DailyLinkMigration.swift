@@ -15,5 +15,10 @@ extension CockpitMigrations {
         ) STRICT
         """).execute(db)
     }
+    migrator.registerMigration("Daily link thumbnails") { db in
+      try #sql("""
+        ALTER TABLE "dailyLinks" ADD COLUMN "thumbnail" BLOB
+        """).execute(db)
+    }
   }
 }
