@@ -10,16 +10,18 @@ public struct GmailSyncState: Equatable, Identifiable, Sendable {
   public let historyID: String
   public let updatedAt: Date
   public let readStateRefreshCompletedAt: Date?
+  public let promotionsSince: Date?
 
   public var id: String { accountID }
 
   public init(
     accountID: String, historyID: String, updatedAt: Date,
-    readStateRefreshCompletedAt: Date? = nil
+    readStateRefreshCompletedAt: Date? = nil, promotionsSince: Date? = nil
   ) {
     self.accountID = accountID
     self.historyID = historyID
     self.updatedAt = updatedAt
     self.readStateRefreshCompletedAt = readStateRefreshCompletedAt
+    self.promotionsSince = promotionsSince
   }
 }
