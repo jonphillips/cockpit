@@ -22,7 +22,7 @@ S-t3, but S-t3 is what gives it volume.
 to the Today/email design process (house rule: arrange → behavior → foundation → per-surface
 adoption), not to these slices.
 
-- [ ] S-t1 — Tech section: a content role below Daily news
+- [x] S-t1 — Tech section: a content role below Daily news
 - [ ] S-t2 — Read state: mirror Gmail's `UNREAD`, bold unread rows, mark read on open, Mark as Unread
 - [ ] S-t3 — Promotions intake: new Promotions mail lands in Offers, with no backfill and no source list
 - [ ] S-t4 — Daily links: an icon column beside Today, managed in Settings
