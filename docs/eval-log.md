@@ -355,3 +355,56 @@ deferred model swap.
 - **Quota under a real paced backfill (D2).** 79 Primary messages read through the six-wide fetch window, all committed, zero per-message failures, no 429/`userRateLimitExceeded`. ~1,580 units against the 6,000/min/user ceiling — the pacing holds on the real account; the ceiling was not approached at real backfill scale, which is expected because Primary is capped at 100. Sufficient for V1.
 
 The fourth open item (Trash 30-day `untrash` recovery, D6) is not S6's — it rides M5 S7, when Trash first exists. With the three above recorded, `ADR-0002` moves Draft → **Accepted**.
+
+## M6 S-r13 — Find definition
+
+2026-09-26 — **The Find definition clears ideas and non-things from Finds, and Feed Me and Bon
+Appetit hold.** Model `claude-sonnet-5` (Claude Sonnet 5), full 357-fixture frozen corpus, batch 30,
+empty Personal Knowledge, Mac over the API. The runs were paired in one session on this branch's
+harness. **Before:** the shared definition was removed from both judgment prompts, restoring
+`m4-s1-editorial-v1` / `m3-s5-v1`. **After:** `m6-s-r13-editorial-v1` / `m6-s-r13-control-v1`. The
+type prompt (`m4-s1-type-v1`) is unchanged in both. The offer prompt runs on device, so this eval
+doesn't cover it. Cost about $4.1 per run; `failClosed` 0/0 in both.
+
+| metric (split, the production path) | before | after |
+| --- | --- | --- |
+| agreement | 0.514 | 0.525 |
+| essential-false-quiet | 0.068 | **0.034** |
+| false-surface | 0.128 | 0.154 |
+| substantive-primary accuracy | 0.672 | 0.667 |
+| mean pieces admitted | 153 | 159 |
+| cost / composition | $0.212 | $0.211 |
+
+Single-pass control, before → after: agreement 0.545 → 0.542, false-quiet 0.051 → 0.034,
+false-surface 0.205 → 0.154, accuracy 0.562 → 0.573.
+
+Find proposals by kind (split), counted before the persist guard:
+
+| | before | after |
+| --- | --- | --- |
+| idea kinds (guard list) | technique 4 | **none** |
+| other non-things | story 5, news 2, article 1, analysis 1, policy 1, job 1 | **none** |
+| things | recipe 28, restaurant 4, opening 2, bakery 1, product 1, tool 1, show 1, platform 1, guide 1 | recipe 22, book 9, restaurant 6, product 4, tool 3, bakery 2, show 2, venue 1, guide 1 |
+| Feed Me | restaurant 4, news 2, bakery 1, policy 1, show 1 | restaurant 4, book 2, bakery 1, show 1, venue 1 |
+| Bon Appetit | recipe 8, product 1 | recipe 11, product 1 |
+| Benedict Evans | analysis 1 ("How will OpenAI compete?") | product 1 (OpenAI Deep Research) |
+| Techmeme | story 1, article 1 (news items) | none |
+
+Reading it:
+
+- **Done-criterion met for the prompt.** Idea-kind proposals went 4 → 0. The prompt also removed the
+  non-things the guard never listed, such as `story`, `news`, `article` and `analysis`, 11 → 0. This
+  is the evidence that the definition does the work and the guard stays a backstop.
+- **Things hold.** Feed Me keeps its restaurants and gains books and a venue, dropping news and
+  policy. Bon Appetit recipes rose 8 → 11. Benedict Evans now yields a product (software counts)
+  instead of an essay. Techmeme yields nothing, which is right for a news digest.
+- **Books are new (0 → 9).** The definition names books, so expect book Finds in the list.
+- **Total recipes fell 28 → 22 outside Bon Appetit.** This tally doesn't say which pieces, so it
+  can't tell lost recipes from mislabelled ones. Watch the Finds list for a missing recipe.
+- **No metric regresses beyond run-to-run noise.** False-quiet halved. Split false-surface rose
+  0.128 → 0.154 with admission up 153 → 159. Earlier bare split runs have read false-surface from
+  0.077 to 0.179, and S-r13 doesn't touch admission. Substantive-primary accuracy moved 0.005 with
+  the type prompt unchanged, which gives the noise floor for this pair.
+- **The before run failed the harness's split-vs-control false-quiet assertion** (0.068 against
+  0.051) on the unchanged prompt. That's the known small-count swing (DECISIONS §22.2), not S-r13.
+  The after run passed it (0.034 each).

@@ -83,6 +83,29 @@ struct JudgmentEngineTests {
     #expect(editorialPrompt.contains("already-classified type metadata"))
   }
 
+  @Test("both editorial prompts share the Find definition")
+  func bothEditorialPromptsUseFindDefinition() throws {
+    let candidate = candidate(id: UUID(99))
+    let editorial = try JudgmentEditorialPrompt.make(
+      candidates: [.init(
+        candidate: candidate,
+        classification: .init(
+          isSubstantivePrimary: true, subjects: [], summary: "", bodyCompleteness: .full
+        )
+      )],
+      personalKnowledge: .init(text: "", includedClaimIDs: [], isFullSet: true),
+      currentContext: "", targetSize: 20)
+    let control = try JudgmentSinglePassControlPrompt.make(
+      candidates: [candidate],
+      personalKnowledge: .init(text: "", includedClaimIDs: [], isFullSet: true),
+      currentContext: "", targetSize: 20)
+
+    #expect(editorial.contains(FindDefinition.promptText))
+    #expect(control.contains(FindDefinition.promptText))
+    #expect(editorial.contains(JudgmentEngine.editorialPromptVersion))
+    #expect(control.contains(JudgmentEngine.singlePassControlPromptVersion))
+  }
+
   @Test("type classification is batched while the editorial package stays whole")
   func batchesTypePassWithoutShardingEditorialPass() async {
     let candidates = (1...31).map { candidate(id: UUID($0)) }
@@ -530,6 +553,9 @@ struct JudgmentEvalLiveTests {
       singlePassLatencyMaxSeconds=\(String(format: "%.3f", control.maxLatency)) \
       splitLatencyMaxSeconds=\(String(format: "%.3f", split.maxLatency)) \
       failClosed(single/split)=\(control.failClosedCount)/\(splitFailClosed.count) \
+      findKinds(single/split)=\(Self.findKindTally(control))/\(Self.findKindTally(split)) \
+      findKindsByPublisher(single/split)=\(Self.publisherFindKindTally(control, fixtures: fixtures.fixtures))/\(Self.publisherFindKindTally(split, fixtures: fixtures.fixtures)) \
+      findSamples(Benedict Evans/Techmeme, split)=\(Self.findSamples(for: "Benedict Evans", run: split, fixtures: fixtures.fixtures)) | \(Self.findSamples(for: "Techmeme", run: split, fixtures: fixtures.fixtures)) \
       model=\(JudgmentModel.displayName) singlePassPromptVersion=\(JudgmentEngine.singlePassControlPromptVersion) \
       typePromptVersion=\(JudgmentEngine.typePromptVersion) editorialPromptVersion=\(JudgmentEngine.editorialPromptVersion)
       """)
@@ -781,6 +807,47 @@ struct JudgmentEvalLiveTests {
       .map { "\($0.value.count)×\"\($0.key)\"" }
       .sorted()
       .joined(separator: ", ")
+  }
+
+  private static func findKindTally(_ run: CorpusRun) -> String {
+    let kinds = run.outcomesByID.values.flatMap { $0.finds ?? [] }
+      .reduce(into: [String: Int]()) { counts, find in
+        counts[find.kind.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), default: 0] += 1
+      }
+    guard !kinds.isEmpty else { return "none" }
+    return kinds.sorted { $0.key < $1.key }.map { "\($0.key):\($0.value)" }.joined(separator: ",")
+  }
+
+  private static func publisherFindKindTally(
+    _ run: CorpusRun, fixtures: [JudgmentFixture]
+  ) -> String {
+    let publishers = ["Feed Me", "Bon Appetit", "Benedict Evans", "Techmeme"]
+    return publishers.map { publisher in
+      let finds = fixtures
+        .filter { $0.publisher == publisher }
+        .flatMap { run.outcomesByID[$0.id]?.finds ?? [] }
+      let kinds = finds.reduce(into: [String: Int]()) { counts, find in
+        counts[find.kind.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), default: 0] += 1
+      }
+      let tally = kinds.isEmpty
+        ? "none"
+        : kinds.sorted { $0.key < $1.key }.map { "\($0.key):\($0.value)" }.joined(separator: ",")
+      return "\(publisher)[\(tally)]"
+    }.joined(separator: "; ")
+  }
+
+  private static func findSamples(
+    for publisher: String, run: CorpusRun, fixtures: [JudgmentFixture]
+  ) -> String {
+    let proposals = fixtures
+      .filter { $0.publisher == publisher }
+      .flatMap { fixture -> [(title: String, find: JudgmentFind)] in
+        (run.outcomesByID[fixture.id]?.finds ?? []).map { (fixture.title, $0) }
+      }
+      .prefix(6)
+    guard !proposals.isEmpty else { return "none" }
+    return proposals.map { "\($0.title) → \($0.find.kind): \($0.find.name)" }
+      .joined(separator: " | ")
   }
 
   private static func report(

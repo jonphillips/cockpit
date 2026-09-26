@@ -7,10 +7,10 @@ import LLMClientKit
 public struct JudgmentEngine: Sendable {
   /// The stored Edition version identifies its editorial decision. The type pass has its own
   /// version because it is a distinct, PK-free prompt and can later move to a cheaper model.
-  public static let editorialPromptVersion = "m4-s1-editorial-v1"
+  public static let editorialPromptVersion = "m6-s-r13-editorial-v1"
   public static let typePromptVersion = "m4-s1-type-v1"
   public static let promptVersion = editorialPromptVersion
-  public static let singlePassControlPromptVersion = "m3-s5-v1"
+  public static let singlePassControlPromptVersion = "m6-s-r13-control-v1"
 
   /// How many follow-up calls each pass will make to recover candidates silently omitted from a
   /// batch. A bounded retry repairs per-piece omissions and failed type batches.

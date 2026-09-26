@@ -155,6 +155,68 @@ struct S5Tests {
     #expect(row.descriptor == "A small neighborhood restaurant.")
   }
 
+  @Test("idea-kind proposals are skipped while concrete things stay persistable")
+  func skipsIdeaFindKinds() async throws {
+    let streamID = UUID(5210)
+    let pieceID = UUID(5211)
+    let declinedOnlyPieceID = UUID(5212)
+    try await seedStream(id: streamID)
+    try await seedPiece(id: pieceID, streamID: streamID, completeness: .full)
+    try await seedPiece(id: declinedOnlyPieceID, streamID: streamID, completeness: .full)
+    let declinedKinds = [
+      "technique", "Techniques", " capability ", "Capabilities", "pattern", "patterns",
+      "practice", "practices", "approach", "approaches", "method", "methods", "concept",
+      "concepts", "idea", "ideas", "insight", "insights", "argument", "arguments", "trend",
+      "trends", "tip", "tips", "lesson", "lessons",
+    ]
+    let retainedKinds = ["restaurant", "recipe", "tool", "framework", "book", "product"]
+    let proposals = (declinedKinds + retainedKinds).map { kind in
+      JudgmentFind(
+        kind: kind, name: "Example \(kind)", descriptor: "Description",
+        rationale: "Evidence in the source.", sourceURL: nil, hints: [:])
+    }
+
+    try await database.write { db in
+      try PendingFindOperations.persist(proposals, for: pieceID, in: db)
+      try PendingFindOperations.persist(
+        Array(proposals.prefix(declinedKinds.count)), for: declinedOnlyPieceID, in: db)
+    }
+
+    let saved = try await database.read { db in
+      (
+        try PendingFind.where { $0.contentPieceID.eq(pieceID) }.fetchAll(db),
+        try PendingFind.where { $0.contentPieceID.eq(declinedOnlyPieceID) }.fetchAll(db)
+      )
+    }
+    #expect(saved.0.map(\.kind).sorted() == retainedKinds.sorted())
+    #expect(saved.1.isEmpty)
+  }
+
+  @Test("declined idea proposals neither create nor update an existing row")
+  func declinedProposalDoesNotTouchExistingFind() async throws {
+    let streamID = UUID(5220)
+    let pieceID = UUID(5221)
+    try await seedStream(id: streamID)
+    try await seedPiece(id: pieceID, streamID: streamID, completeness: .full)
+    let proposal = JudgmentFind(
+      kind: " technique ", name: "A method", descriptor: "new", rationale: "new rationale",
+      sourceURL: nil, hints: [:])
+    let existingID = PendingFindOperations.id(
+      kind: proposal.kind, name: proposal.name, sourceURL: proposal.sourceURL, for: pieceID)
+    let existing = PendingFind(
+      id: existingID, contentPieceID: pieceID, kind: proposal.kind, name: proposal.name,
+      descriptor: "original", rationale: "original rationale", state: .dismissed)
+    try await database.write { db in
+      try PendingFind.insert { PendingFind.Draft(existing) }.execute(db)
+      try PendingFindOperations.persist([proposal], for: pieceID, in: db)
+    }
+
+    let saved = try await database.read { db in
+      try PendingFind.find(existingID).fetchOne(db)
+    }
+    #expect(saved == existing)
+  }
+
   private func seedStream(id: UUID) async throws {
     let areaID = UUID(5199)
     try await database.write { db in

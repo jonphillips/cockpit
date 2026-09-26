@@ -101,7 +101,7 @@ private struct EmailTreatmentCandidate: Codable, Sendable {
 }
 
 private enum EmailTreatmentOutput: Sendable {
-  case offer(contentPieceID: ContentPiece.ID, summary: String, find: JudgmentFind)
+  case offer(contentPieceID: ContentPiece.ID, summary: String, find: JudgmentFind?)
 
   var contentPieceID: ContentPiece.ID {
     switch self {
@@ -116,12 +116,15 @@ private enum EmailTreatmentOutput: Sendable {
   }
 
   var find: JudgmentFind? {
-    guard case let .offer(_, _, find) = self else { return nil }
-    return find
+    switch self {
+    case let .offer(_, _, find): find
+    }
   }
 }
 
 private enum EmailTreatmentPrompt {
+  static let offerPromptVersion = "m6-s-r13-offer-v2"
+
   static let system = """
   You organize one curated Gmail message at a time. Produce only the requested structured result.
   Do not rank it against any other message, decide whether it belongs in Today, infer personal
@@ -135,11 +138,14 @@ private enum EmailTreatmentPrompt {
     switch candidate.treatment {
     case .offer:
       return """
+      Prompt version: \(offerPromptVersion)
+
       Summarize this domain offer in one factual sentence, then extract exactly one useful Pending
       Find candidate. The Find is descriptive/provenance context for a future specialist app, not
       a purchase recommendation or canonical product record. Use only evidence in this message.
-      Use the short singular noun `recipe` as kind for recipe candidates. This is only a routing hint;
-      do not parse, validate, split, or structure a recipe.
+      Find definition: \(FindDefinition.promptText)
+      Use a concise thing kind such as `wine`, `product`, `stay`, or `event`. This is only a routing
+      hint; do not create a canonical product record.
       Return a JSON object with summary and find. Find has kind, name, descriptor, rationale, and
       optional sourceURL. Omit sourceURL when the message does not contain the exact URL.
 
@@ -186,9 +192,11 @@ private enum EmailTreatmentResponseDecoder {
     switch candidate.treatment {
     case .offer:
       let response = try JSONDecoder().decode(OfferResponse.self, from: data)
-      guard let summary = oneLine(response.summary), valid(response.find) else {
-        throw EmailTreatmentDecodingError.invalidOffer
+      guard let summary = oneLine(response.summary) else { throw EmailTreatmentDecodingError.invalidOffer }
+      guard !blank(response.find), !RecipeCandidateKind.matches(response.find.kind) else {
+        return .offer(contentPieceID: candidate.id, summary: summary, find: nil)
       }
+      guard valid(response.find) else { throw EmailTreatmentDecodingError.invalidOffer }
       let sourceURL = response.find.sourceURL?.trimmedNonEmpty.flatMap { url in
         candidate.text.contains(url) ? url : nil
       }
@@ -216,6 +224,14 @@ private enum EmailTreatmentResponseDecoder {
       && find.name.trimmedNonEmpty != nil
       && find.descriptor.trimmedNonEmpty != nil
       && find.rationale.trimmedNonEmpty != nil
+  }
+
+  private static func blank(_ find: OfferFind) -> Bool {
+    find.kind.trimmedNonEmpty == nil
+      && find.name.trimmedNonEmpty == nil
+      && find.descriptor.trimmedNonEmpty == nil
+      && find.rationale.trimmedNonEmpty == nil
+      && find.sourceURL?.trimmedNonEmpty == nil
   }
 }
 

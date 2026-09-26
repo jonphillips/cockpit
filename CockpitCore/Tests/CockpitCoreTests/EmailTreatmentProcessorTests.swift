@@ -20,8 +20,10 @@ struct EmailTreatmentProcessorTests {
     let pieceID = UUID(8_001)
     try await seed(pieceID, treatment: .offer, text: "A wine allocation of 2023 Example Estate Pinot Noir. https://example.com/pinot")
     let requestCount = Mutex(0)
+    let capturedPrompt = Mutex<String?>(nil)
     let processor = EmailTreatmentProcessor(modelClient: StubModelClient { request in
       requestCount.withLock { $0 += 1 }
+      capturedPrompt.withLock { $0 = request.messages.last?.text }
       #expect(request.messages.last?.text.contains(pieceID.uuidString) == true)
       #expect(request.tier == .onDevice)
       return ModelResponse(text: #"""
@@ -32,6 +34,9 @@ struct EmailTreatmentProcessorTests {
     let details = try await processor.process(emailContentPieceIDs: [pieceID], in: database)
 
     #expect(requestCount.withLock { $0 } == 1)
+    #expect(capturedPrompt.withLock { $0?.contains(FindDefinition.promptText) } == true)
+    #expect(capturedPrompt.withLock { $0?.contains("m6-s-r13-offer-v2") } == true)
+    #expect(capturedPrompt.withLock { $0?.localizedCaseInsensitiveContains("recipe") } == false)
     #expect(details.first?.offerSummary == "Example Estate offers its 2023 Pinot Noir allocation.")
     let persisted = try await database.read { db in
       (
@@ -50,6 +55,75 @@ struct EmailTreatmentProcessorTests {
     let model = TodayModel()
     try await model.$content.load()
     #expect(model.content.rows.first(where: { $0.id == pieceID })?.treatmentSummary == persisted.0?.offerSummary)
+  }
+
+  @Test("An idea-kind offer keeps its summary but does not persist a Find")
+  func ideaKindOfferKeepsSummaryWithoutFind() async throws {
+    let pieceID = UUID(8_011)
+    try await seed(pieceID, treatment: .offer, text: "A course on a useful technique")
+    let processor = EmailTreatmentProcessor(modelClient: StubModelClient { _ in
+      ModelResponse(text: #"{"summary":"A course teaches one useful technique.","find":{"kind":" technique ","name":"A useful technique","descriptor":"A course about a technique.","rationale":"It may be useful."}}"#)
+    })
+
+    let details = try await processor.process(emailContentPieceIDs: [pieceID], in: database)
+    let persisted = try await database.read { db in
+      (
+        try EmailTreatmentDetails.find(pieceID).fetchOne(db),
+        try PendingFind.where { $0.contentPieceID.eq(pieceID) }.fetchAll(db)
+      )
+    }
+    #expect(details.first?.offerSummary == "A course teaches one useful technique.")
+    #expect(persisted.0?.offerSummary == "A course teaches one useful technique.")
+    #expect(persisted.1.isEmpty)
+  }
+
+  @Test("A blank offer Find preserves its summary and is not extracted again")
+  func blankOfferFindKeepsSummary() async throws {
+    let pieceID = UUID(8_012)
+    try await seed(pieceID, treatment: .offer, text: "A course about useful ideas")
+    let requestCount = Mutex(0)
+    let processor = EmailTreatmentProcessor(modelClient: StubModelClient { _ in
+      requestCount.withLock { $0 += 1 }
+      return ModelResponse(text: #"{"summary":"The course teaches useful ideas.","find":{"kind":" ","name":"","descriptor":"  ","rationale":""}}"#)
+    })
+
+    _ = try await processor.process(emailContentPieceIDs: [pieceID], in: database)
+    _ = try await processor.process(emailContentPieceIDs: [pieceID], in: database)
+    let persisted = try await database.read { db in
+      (
+        try EmailTreatmentDetails.find(pieceID).fetchOne(db),
+        try PendingFind.where { $0.contentPieceID.eq(pieceID) }.fetchAll(db)
+      )
+    }
+    #expect(requestCount.withLock { $0 } == 1)
+    #expect(persisted.0?.offerSummary == "The course teaches useful ideas.")
+    #expect(persisted.1.isEmpty)
+  }
+
+  @Test("Recipe-kind offer Finds are declined while summaries persist")
+  func recipeOfferFindsAreDeclined() async throws {
+    let lowerCasePieceID = UUID(8_013)
+    let mixedCasePieceID = UUID(8_014)
+    try await seed(lowerCasePieceID, treatment: .offer, text: "A dinosaur exhibit offer")
+    try await seed(mixedCasePieceID, treatment: .offer, text: "A science event offer")
+    let processor = EmailTreatmentProcessor(modelClient: StubModelClient { request in
+      let prompt = request.messages.last?.text ?? ""
+      let kind = prompt.contains(lowerCasePieceID.uuidString) ? "recipe" : " Recipe "
+      let payload = #"{ "summary": "A useful offer summary.", "find": { "kind": "\#(kind)", "name": "An offer", "descriptor": "An offer description.", "rationale": "The message describes it." } }"#
+      return ModelResponse(text: payload)
+    })
+
+    _ = try await processor.process(emailContentPieceIDs: [lowerCasePieceID, mixedCasePieceID], in: database)
+    let persisted = try await database.read { db in
+      try [lowerCasePieceID, mixedCasePieceID].map { pieceID in
+        (
+          try EmailTreatmentDetails.find(pieceID).fetchOne(db),
+          try PendingFind.where { $0.contentPieceID.eq(pieceID) }.fetchAll(db)
+        )
+      }
+    }
+    #expect(persisted.allSatisfy { $0.0?.offerSummary == "A useful offer summary." })
+    #expect(persisted.allSatisfy { $0.1.isEmpty })
   }
 
   @Test("A Feed Me grab-bag links to its manual Stream and stays whole")

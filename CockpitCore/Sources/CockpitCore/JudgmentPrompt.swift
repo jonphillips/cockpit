@@ -1,6 +1,15 @@
 import Foundation
 import LLMClientKit
 
+enum FindDefinition {
+  static let promptText = """
+  A Find is a thing a specialist app could admit: a place, product, dish, bottle, book, event, or
+  stay. Software and hardware tools are products. Ideas are never Finds: not a technique,
+  capability, pattern, practice, argument, insight, trend, or tip. When a piece's value is its
+  ideas, return no Finds.
+  """
+}
+
 /// The mechanical, PK-free half of judgment. Its API intentionally has no Personal Knowledge or
 /// Current Context argument, making it impossible for an editorial preference to leak into the
 /// primary-vs-accessory type decision.
@@ -92,6 +101,7 @@ enum JudgmentEditorialPrompt {
       drove admission or rank, choose exactly one Claim ID from the projection and return it as
       matchedPersonalKnowledgeClaimID. The rationale must name that claim in the reader's terms;
       otherwise return null for matchedPersonalKnowledgeClaimID.
+      Find definition: \(FindDefinition.promptText)
       Return exactly one editorial judgment object for every candidate ID, including non-admitted
       pieces. Keep Find kind a short singular noun; use the exact kind `recipe` for recipe candidates
       so Cockpit can offer the user-initiated Yes Chef referral. This is only a routing hint; do not
@@ -173,7 +183,8 @@ enum JudgmentSinglePassControlPrompt {
       preserve the supplied value. Use truncated for a real body cut off by a paywall and teaser
       when only an introduction or no body is held.
       Subjects are three to eight short lowercase topical strings. Keep summaries under 70 words,
-      rationales under 40 words, and finds empty when no concrete useful thing is present. Keep Find
+      rationales under 40 words, and finds empty when no concrete useful thing is present.
+      Find definition: \(FindDefinition.promptText) Keep Find
       kind a short singular noun; use the exact kind `recipe` for recipe candidates so Cockpit can
       offer the user-initiated Yes Chef referral. This is only a routing hint; do not parse, validate,
       split, or structure the recipe.
