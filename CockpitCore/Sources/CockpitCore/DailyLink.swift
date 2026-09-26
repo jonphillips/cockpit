@@ -121,7 +121,8 @@ public enum DailyLinkOperations {
     var links = try orderedLinks(in: db)
     guard links.indices.contains(source), destination >= 0, destination <= links.count else { return }
     let link = links.remove(at: source)
-    links.insert(link, at: min(destination, links.count))
+    let insertionIndex = destination > source ? destination - 1 : destination
+    links.insert(link, at: min(insertionIndex, links.count))
     try rewriteOrder(links, in: db)
   }
 

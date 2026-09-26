@@ -11,11 +11,7 @@ struct DailyLinksColumn: View {
         ForEach(model.links) { link in
           let visited = link.isVisited(on: context.date)
           Button {
-            guard let url = URL(string: link.url) else { return }
-            openURL(url) { accepted in
-              guard accepted else { return }
-              Task { await model.recordVisit(link.id) }
-            }
+            open(link)
           } label: {
             VStack(spacing: 2) {
               Image(systemName: link.symbolName)
@@ -36,11 +32,22 @@ struct DailyLinksColumn: View {
           .opacity(visited ? 0.55 : 1)
           .accessibilityLabel(link.title)
           .help(link.title)
+          .contextMenu {
+            Button("Open \(link.title)", systemImage: link.symbolName) { open(link) }
+          }
         }
         Spacer(minLength: 0)
       }
       .padding(.top, 62)
       .frame(width: 56)
+    }
+  }
+
+  private func open(_ link: DailyLink) {
+    guard let url = URL(string: link.url) else { return }
+    openURL(url) { accepted in
+      guard accepted else { return }
+      Task { await model.recordVisit(link.id) }
     }
   }
 }

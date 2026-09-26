@@ -27,10 +27,14 @@ struct DailyLinkTests {
       try DailyLinkOperations.update(
         .init(id: ids[1], title: "Two revised", url: "https://revised.example", symbolName: "globe"),
         in: db)
+      try DailyLinkOperations.move(from: 0, to: 2, in: db)
+      #expect(try DailyLinkOperations.orderedLinks(in: db).map(\.id) == [ids[1], ids[0], ids[2]])
+      try DailyLinkOperations.move(from: 2, to: 0, in: db)
+      #expect(try DailyLinkOperations.orderedLinks(in: db).map(\.id) == [ids[2], ids[1], ids[0]])
       try DailyLinkOperations.move(from: 0, to: 3, in: db)
     }
     var links = try await database.read { db in try DailyLinkOperations.orderedLinks(in: db) }
-    #expect(links.map(\.id) == [ids[1], ids[2], ids[0]])
+    #expect(links.map(\.id) == [ids[1], ids[0], ids[2]])
     #expect(links.map(\.sortOrder) == [0, 1, 2])
     #expect(links[0].title == "Two revised")
     #expect(links[0].url == "https://revised.example")
