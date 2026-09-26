@@ -847,6 +847,25 @@ disposition safety. The reader original-HTML pane (§25) stays M6.
 **Relates to:** §24 (extends the fifth-rung amendment and the override-status note above), §7 / ADR-0002
 (finance disposition safety at S8), §18 (still deterministic, organize-not-judge).
 
+**Gate 4 ratification (2026-09-25, Jon) — §24's remit is email; RSS stays a filter.** The Gate 4 model
+review closed the two questions it had left open (`docs/milestones/M6-gate4-email-stream-separation.md`,
+open questions #1 and #3). Recorded in ADR-0002 D11.
+
+- **Reachable-first applies to curated email only. RSS keeps the Edition's judged treatment.** Jon
+  already reads his RSS in a dedicated reader, and Cockpit is not to become one. The only value RSS has
+  inside Cockpit is filtering, so RSS Streams stay in the uncurated tail: judged, admitted or declined,
+  and ranked within `targetSize`. Essential RSS Streams keep §15 in full (the anti-forget guarantee
+  *and* their existing promotion). "The promotion effect dissolves for curated streams" (Guardrails,
+  above; §21) is therefore read as curated **email** Streams. §24's line holds by intent, not by
+  transport: email in Cockpit is input Jon chose and wants organized; RSS in Cockpit is input he wants
+  screened. If that ever changes for a particular Stream (an email firehose he wants screened, or an
+  RSS Stream he wants listed), it's a per-Stream posture decision to make then, not a transport rule.
+- **Always-read Streams need no stronger surface.** Yglesias, Puck and Sepinwall listed in Opinion
+  (the "always read" group), with the pointer-only Highlights row above, are enough. There is no
+  pinned or "always at the top" setting. The deferred "promote-into-the-package for email Streams"
+  item (`M6-decisions-and-sequencing.md`) has no trigger: Jon has used reachable-first and does not
+  want it.
+
 ---
 
 ## 25. The email Reader renders the original HTML in-app; reader-mode text is a non-starter — RESOLVED (build targeted M6)

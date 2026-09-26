@@ -204,7 +204,8 @@ outcomes:
 
 Contract first, then the two repos in parallel, then the join. Gate 5's **gate review trails Gate 4**
 (a Find's provenance/custody story rests on the ContentPiece/Stream separation being settled —
-`M6-decisions-and-sequencing.md`), so S-join must not ratify ahead of Gate 4.
+`M6-decisions-and-sequencing.md`), so S-join must not ratify ahead of Gate 4. **Gate 4 closed
+2026-09-25 (ADR-0002 D11), so S-join may ratify.**
 
 0. **S0 — Ratify the transport + freeze the wire format. ✅ Done 2026-09-24 (this plan's PR).** Jon
    ratified Option A. The §9 exception is recorded in `docs/APP-FAMILY-INTERACTION.md`, and this doc's
@@ -339,7 +340,7 @@ Contract first, then the two repos in parallel, then the join. Gate 5's **gate r
        staging. Decide at S-join whether to take it or accept the window.
      - **Stale strand row after "Waiting for Yes Chef".** The warning stays until Cockpit's next
        active-phase refresh. Cosmetic. Check that it reads sensibly on device.
-   - Ratify the boundary. **Do not run ahead of Gate 4's close.**
+   - Ratify the boundary. (Gate 4 closed 2026-09-25, so nothing blocks this.)
 
 S-c1 and S-y3 build in parallel against the fixtures. Neither needs the other to pass its own tests. Only
 S-join needs both.
@@ -351,7 +352,7 @@ S-join needs both.
   fixtures are byte-identical across the two repos.
 - [x] S-c2 — Cockpit PR #83 (263 core tests, strict lint, unsigned iOS build pass).
 - [x] S-c3 — cockpit#85 (architect-reviewed 2026-09-25; 273 core tests re-run locally). Jon-declared send from the Reader; gates S-join.
-- [ ] S-join — Jon's device round trip, after S-c3; trails Gate 4's close.
+- [ ] S-join — Jon's device round trip; unblocked (S-c3 merged in cockpit#85, Gate 4 closed 2026-09-25).
 - [ ] S-c4 — Food-role recipe extraction (on-device); follow-up after S-join.
 
 ## First checks for the executor

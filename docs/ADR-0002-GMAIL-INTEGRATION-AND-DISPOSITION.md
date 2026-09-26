@@ -267,6 +267,32 @@ It is once per message, idempotent against an existing Trash log entry, fully re
 permits `untrash`, and leaves ContentPiece custody plus any Find, Later, or Library result untouched
 (D8). Removing the declaration row stops future automatic Trash; it does not undo prior dispositions.
 
+---
+
+## D11 — Curated Gmail is organized, never judged; RSS stays the judged tail (Gate 4, 2026-09-25).
+
+Ratifies Gate 4 (`docs/milestones/M6-gate4-email-stream-separation.md`) after the S-d0 build (PRs #60–#63),
+Jon's S-d device evaluation, and the reader dogfood slices (S-r1 … S-r11).
+
+**Gmail never enters Edition judgment.** Curation role comes from routing, not from a model:
+`CurationRouting` resolves each Gmail-backed ContentPiece to a content role (List-ID / sender locator,
+editable in Settings → Sub-feed routing). Followed-Stream and Today-triage Gmail pieces are both
+excluded from the Edition planner (`editionExcludedContentPieceIDs`) and appear in Today's role
+sections in arrival order. Nothing curated is suppressed, declined or ranked by a model (DECISIONS §24).
+
+**RSS is unchanged.** RSS Streams remain the uncurated tail: judged, admitted or declined, ranked
+within `targetSize`, and Essential RSS keeps both halves of §15. This is Jon's intent, not a transport
+shortcut. He reads RSS elsewhere, and Cockpit's job for RSS is only to filter it (DECISIONS §24, Gate 4
+ratification).
+
+**The layers are separate.** Transport, Artifact, ContentPiece, Stream Handling, source disposition
+(D4–D6, D9, D10) and Edition state vary independently:
+- a Gmail disposition never touches ContentPiece custody, Later, Library or a Find (D8, D9);
+- routing a sub-feed to a different section changes only its Today placement.
+
+**Always-read Streams get no special surface.** Listing in their section, plus the pointer-only
+Highlights row, is the treatment. No pinned or promoted setting exists or is planned.
+
 ## Open items — settled at ratification (M5 S6)
 
 The three Gate-3 items that gated ratification were observed on the real account on 2026-09-19

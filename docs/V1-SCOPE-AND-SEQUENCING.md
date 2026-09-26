@@ -336,6 +336,9 @@ This is a critical architecture test because it proves Transport, Artifact, Cont
 
 Stop before Finds/handoffs. If the model is fighting actual email + RSS behavior, fix it while Cockpit is still pre-production.
 
+**Closed 2026-09-25.** Curated Gmail is organized, never judged, and RSS stays the judged tail. See
+ADR-0002 D11 and DECISIONS §24 (Gate 4 ratification).
+
 ### Phase 6 — First specialist handoff
 
 Find extraction and Pending Finds already exist from Phase 1. This phase adds the receiver.

@@ -40,7 +40,7 @@ A deferred list fails when a by-design "never" gets re-litigated as a "not yet."
 
 | Item | Why deferred | Revisit when |
 | --- | --- | --- |
-| **Promote-into-the-package** for email Streams | reachable-first is the default to observe; promote is *additive* and is authority-on-the-keep-side | Gate 4 closed **and** real use shows reachable-first is insufficient |
+| **Promote-into-the-package** for email Streams | reachable-first is the default to observe; promote is *additive* and is authority-on-the-keep-side | Gate 4 closed **and** real use shows reachable-first is insufficient. **Gate 4 closed 2026-09-25; Jon doesn't want it (DECISIONS §24, Gate 4 ratification). No trigger.** |
 | **Auto-routing** of Finds to receivers | first handoff is user-initiated (agency); auto-routing is authority-flavored | after Gate 5 proves the manual boundary |
 | **A second Find receiver / any generalized HandoffKit** | APP-FAMILY §7/§9 — one receiver end-to-end first | after Gate 5; a 2nd receiver is the earliest credible evidence for shared handoff infra |
 | **Auto-Library policy (Phase 7)** | prospective keep-policy = authority on the keep side | after Library + custody trustworthy, i.e. after Gates 4 **and** 5. **Must NOT reuse `isSubstantivePrimary` as keep-criterion (DECISIONS §18)** — that conflates "attention today" with "keep forever" |

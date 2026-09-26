@@ -88,14 +88,16 @@ scaffold, so the gate's architecture ratification must not wait on the placement
 
 ## Open model questions (settled at the Gate 4 review, not pre-decided here)
 
-1. **Does reachable-first apply to *all* followed Streams (RSS included) now, or only the new Gmail
-   ones?** §24 "dissolved the promotion effect for curated streams" in general — which may change the
+1. **✅ Resolved 2026-09-25 (Jon): Gmail only; RSS stays the judged tail.** See DECISIONS §24 (Gate 4
+   ratification) and ADR-0002 D11. Original question: **Does reachable-first apply to *all* followed
+   Streams (RSS included) now, or only the new Gmail ones?** §24 "dissolved the promotion effect for curated streams" in general — which may change the
    *existing* RSS tail-promotion behavior, not just add a Gmail path. This is the central model-review
    question. Do not pre-decide it in S-a; surface it for the review.
 2. **Where does a followed-Gmail-Stream piece live relative to Today?** Reachable-first implies reachable
    *via the Stream*, not present in the daily Primary triage — confirm it leaves Today's triage rather
    than appearing in both.
-3. **The always-read case.** Yglesias/Puck/Sepinwall are "always read" — does reachable-first serve that,
+3. **✅ Resolved 2026-09-25 (Jon): listing is enough; no "always at the top" setting.** Original
+   question: **The always-read case.** Yglesias/Puck/Sepinwall are "always read" — does reachable-first serve that,
    or do always-read Streams want a stronger surface than merely reachable? (Answer on device; if it
    pulls hard toward promotion, that reopens I5 — but as an additive keep-side policy *after* the gate,
    never inside it.)
@@ -356,7 +358,13 @@ and remembers; disposition surfaced; matches the mockup.
 
 **Done when.** A user can move a sub-feed between sections or mute it from Settings.
 
-### S-d — Model review + device eval (the original S-d; now unblocked)
+### S-d — Model review + device eval (the original S-d) — ✅ closed 2026-09-25
+
+**Gate 4 is closed.** Jon's device evaluation plus the S-r1 … S-r11 dogfood slices confirmed the
+reachable-first feel. Jon settled open question #1 (Gmail only; RSS stays the judged tail) and #3 (no
+stronger surface for always-read). Ratified in DECISIONS §24 (Gate 4 ratification) and ADR-0002 D11.
+Original brief:
+
 
 Real Yglesias/Puck/WaPo/Feed Me through S-d0b/c on device; confirm reachable-first **feel** (I5) and
 the always-read case (open question #3); **decide open question #1** (does reachable-first dissolve the
