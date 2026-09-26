@@ -400,6 +400,9 @@ visual pass later).
   every image declares a width under 300px, it still returns `nil`.
 - `OfferReviewRequest` includes only offer pieces in Today, per role, newest first, and excludes
   cleared, disposed, and muted pieces.
+- Hero picker: a 180px declared-width image followed by an undeclared-width image returns the
+  undeclared one (flip the second assertion in `EmailHeroImageTests.declaredWidthPriority`). Only
+  declared-width images under 300px still returns `nil`.
 - `TodayReadingQueueRequest` no longer contains offer pieces, and does still contain a Wine-role
   newsletter.
 - `keep` confirms without trashing, even with `offerWithFind` enabled. `unkeep` returns `.confirmed`
