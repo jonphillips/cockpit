@@ -169,6 +169,7 @@ enum CockpitMigrations {
     registerSenderTreatmentRoutingMigration(in: &migrator)
     registerFindHandoff(in: &migrator)
     registerGmailReadState(in: &migrator)
+    registerDailyLinks(in: &migrator)
     return migrator
   }
 }

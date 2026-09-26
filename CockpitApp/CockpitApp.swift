@@ -35,6 +35,7 @@ private struct CockpitRootView: View {
   @State private var followingModel = FollowingModel()
   @State private var editionModel = EditionModel()
   @State private var todayModel = TodayModel()
+  @State private var dailyLinkModel = DailyLinkModel()
   @State private var pendingFindModel = PendingFindListModel()
   @State private var inboxIngest = GmailInboxIngestModel()
   @Environment(\.scenePhase) private var scenePhase
@@ -43,7 +44,9 @@ private struct CockpitRootView: View {
     @Bindable var shellModel = shellModel
     TabView(selection: $shellModel.selection) {
       Tab("Today", systemImage: "sun.max", value: .today) {
-        TodayView(model: todayModel, tailModel: editionModel, inboxIngest: inboxIngest)
+        TodayView(
+          model: todayModel, tailModel: editionModel, inboxIngest: inboxIngest,
+          dailyLinkModel: dailyLinkModel)
       }
       Tab("Later", systemImage: "clock", value: .later) {
         ContentPieceListView(destination: .later)
@@ -52,7 +55,9 @@ private struct CockpitRootView: View {
         ContentPieceListView(destination: .library)
       }
       Tab("Settings", systemImage: "gearshape", value: .settings) {
-        SettingsView(model: shellModel, followingModel: followingModel, pendingFindModel: pendingFindModel)
+        SettingsView(
+          model: shellModel, followingModel: followingModel, pendingFindModel: pendingFindModel,
+          dailyLinkModel: dailyLinkModel)
       }
     }
     .tabViewStyle(.sidebarAdaptable)

@@ -7,6 +7,7 @@ extension ContentRole {
     case .forYou: .accentColor
     case .transactional: .indigo
     case .dailyNews: .blue
+    case .tech: .cyan
     case .opinion: .orange
     case .grabBag: .teal
     case .arts: .purple
@@ -21,6 +22,7 @@ extension ContentRole {
     case .forYou: "person.crop.circle"
     case .transactional: "creditcard"
     case .dailyNews: "newspaper"
+    case .tech: "cpu"
     case .opinion: "quote.bubble"
     case .grabBag: "square.grid.2x2"
     case .arts: "paintpalette"

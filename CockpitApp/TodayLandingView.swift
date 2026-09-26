@@ -4,50 +4,60 @@ import SwiftUI
 struct TodayLandingView: View {
   @Bindable var model: TodayModel
   @Bindable var tailModel: EditionModel
+  @Bindable var dailyLinkModel: DailyLinkModel
   @Binding var isConfirmingRecompose: Bool
   let readerNamespace: Namespace.ID
   let readableContentPieceIDs: Set<ContentPiece.ID>
   let didChangeEdition: () -> Void
   let openReader: (ContentPiece.ID) -> Void
   let openHighlight: (TodayRequest.Row) -> Void
+  @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
   var body: some View {
-    ScrollView {
-      LazyVStack(alignment: .leading, spacing: 0) {
-        orientationHeader
-        highlights
-        TodayRoleSectionListView(
-          model: model, readerNamespace: readerNamespace, openReader: openReader)
-        TailCompositionControl(
-          tailModel: tailModel,
-          isConfirmingRecompose: $isConfirmingRecompose,
-          didChangeEdition: didChangeEdition)
-        tailSection("Essentials", rows: tailRows(in: .essentials))
-        tailSection("From the Tail", rows: tailBodyRows)
-        tailSection("Essential Backlog", rows: tailRows(in: .essentialBacklog))
+    HStack(alignment: .top, spacing: 12) {
+      ScrollView {
+        LazyVStack(alignment: .leading, spacing: 0) {
+          orientationHeader
+          highlights
+          TodayRoleSectionListView(
+            model: model, readerNamespace: readerNamespace, openReader: openReader)
+          TailCompositionControl(
+            tailModel: tailModel,
+            isConfirmingRecompose: $isConfirmingRecompose,
+            didChangeEdition: didChangeEdition)
+          tailSection("Essentials", rows: tailRows(in: .essentials))
+          tailSection("From the Tail", rows: tailBodyRows)
+          tailSection("Essential Backlog", rows: tailRows(in: .essentialBacklog))
+        }
+        .padding(.horizontal)
+        .padding(.bottom)
       }
-      .padding(.horizontal)
-      .padding(.bottom)
+      if horizontalSizeClass == .regular && !dailyLinkModel.links.isEmpty {
+        DailyLinksColumn(model: dailyLinkModel)
+      }
     }
   }
 
-  private var tailRows: [CurrentEditionRequest.Row] {
+}
+
+private extension TodayLandingView {
+  var tailRows: [CurrentEditionRequest.Row] {
     tailModel.entries.filter {
       ($0.entryState == .admitted || $0.entryState == .seen)
         && readableContentPieceIDs.contains($0.contentPieceID)
     }
   }
 
-  private func tailRows(in section: JudgmentSection) -> [CurrentEditionRequest.Row] {
+  func tailRows(in section: JudgmentSection) -> [CurrentEditionRequest.Row] {
     tailRows.filter { $0.section == section }
   }
 
-  private var tailBodyRows: [CurrentEditionRequest.Row] {
+  var tailBodyRows: [CurrentEditionRequest.Row] {
     tailRows.filter { $0.section == .forYou || $0.section == .interestArea }
   }
 
   @ViewBuilder
-  private func tailSection(_ title: String, rows: [CurrentEditionRequest.Row]) -> some View {
+  func tailSection(_ title: String, rows: [CurrentEditionRequest.Row]) -> some View {
     if !rows.isEmpty {
       VStack(alignment: .leading, spacing: 8) {
         Text(title).font(.title3.weight(.semibold)).padding(.top, 24)
@@ -69,7 +79,7 @@ struct TodayLandingView: View {
   /// Tail stories are RSS/screened content, not Gmail, so their resolution is `Dismiss` (the Edition
   /// action) rather than an Archive/Trash provider mutation. Save for Later and Add to Library are the
   /// two durable homes offered alongside it.
-  private func tailRowMenu(_ row: CurrentEditionRequest.Row) -> some View {
+  func tailRowMenu(_ row: CurrentEditionRequest.Row) -> some View {
     Menu {
       Button("Dismiss", systemImage: "xmark.circle", role: .destructive) {
         Task { await tailModel.dismiss(row.id) }
@@ -87,7 +97,7 @@ struct TodayLandingView: View {
     .accessibilityLabel("Tail story actions")
   }
 
-  private var orientationHeader: some View {
+  var orientationHeader: some View {
     VStack(alignment: .leading, spacing: 6) {
       Text("This morning").font(.largeTitle.weight(.semibold))
       Text(model.orientationSummary).font(.subheadline).foregroundStyle(.secondary)
@@ -98,7 +108,7 @@ struct TodayLandingView: View {
   }
 
   @ViewBuilder
-  private var highlights: some View {
+  var highlights: some View {
     if !model.highlightRows.isEmpty {
       VStack(alignment: .leading, spacing: 8) {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
