@@ -223,6 +223,13 @@ Promotions its own cursor or cadence.
   after they're opened. If it happens, a follow-up slice decides membership for the changed IDs
   that fall outside the page by reading their labels, using the bounded minimal reads S-t2 already
   makes. Neither S-t3 nor that follow-up adds a cap or pages through the whole category.
+- *Observed on device, 2026-09-26:* S-t3 works end to end. K&L's "Insider's List" (Promotions,
+  after the epoch) landed in Offers and produced a Find, while earlier Promotions mail stayed out.
+  A catalog email is a poor fit for "one Find per offer", though. The model picked one item out of
+  32 new ones (a Canadian whisky, filed under the kind "wine"), and its rationale just repeated the
+  prompt. Watch how often digests produce Finds like this once S-t6 puts summaries and Finds on
+  cards. If it keeps happening, the fix belongs to the offer prompt (for example, return no Find for
+  multi-item catalogs), not to intake or review mode.
 
 **Done when.** On device, a promotional email that arrives after the slice ships appears in Offers
 with its summary and a proposed Find. Nothing from before the epoch appears. Primary behavior is
@@ -400,9 +407,6 @@ visual pass later).
   every image declares a width under 300px, it still returns `nil`.
 - `OfferReviewRequest` includes only offer pieces in Today, per role, newest first, and excludes
   cleared, disposed, and muted pieces.
-- Hero picker: a 180px declared-width image followed by an undeclared-width image returns the
-  undeclared one (flip the second assertion in `EmailHeroImageTests.declaredWidthPriority`). Only
-  declared-width images under 300px still returns `nil`.
 - `TodayReadingQueueRequest` no longer contains offer pieces, and does still contain a Wine-role
   newsletter.
 - `keep` confirms without trashing, even with `offerWithFind` enabled. `unkeep` returns `.confirmed`
@@ -424,9 +428,11 @@ disposition policies from review mode. Add any model call.
 - Whether the door's position after the sections feels too buried on a busy morning. Report it; don't
   move it in this slice.
 
-**Done when.** On device, four wine offers show behind the Wine door. Jon opens it, keeps one, taps
-Trash all 4, and all four emails are in Gmail Trash with the kept Find in Finds. Undo brings all four
-back. The door is gone from Today, and the reading queue has no offers.
+**Done when.** On device, four offers show behind one door. The Offers door is fine: Promotions mail
+from a sender with no rule lands there (S-t3), and a Wine-role piece counts as an offer only when
+it's classified as one. Jon opens the door, keeps one, taps Trash all 4, and all four emails are in
+Gmail Trash with the kept Find in Finds. Undo brings all four back. The door is gone from Today, and
+the reading queue has no offers.
 
 **Sequencing.** Touches `EmailTreatmentProcessor.swift`, `PendingFind.swift`, `EmailHeroImage.swift`, new
 `OfferReview*.swift` in `CockpitCore`, `TodayModel.swift`, `TodayReadingQueueRequest.swift`,
