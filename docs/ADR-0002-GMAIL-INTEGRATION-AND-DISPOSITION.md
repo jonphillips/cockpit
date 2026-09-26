@@ -91,6 +91,12 @@ the backfill pacing that reads Promotions/Social without user-visible stalls. Th
 above are no longer open — they are Google's published figures; what is open is their behavior under
 load on this account, which the M5 S6 delta-sync build measures.
 
+**Amendment (2026-09-26, DECISIONS §27): Promotions, new mail only.** Promotions is read in the same
+`historyId` delta as Primary. It isn't on its own cadence and there's no backfill. Membership becomes
+Primary ∪ `category:promotions` received after a fixed Promotions epoch, set once at the first sync
+that knows about Promotions. The added cost is one `messages.list` per sync plus 20 units per new promo.
+Social, Updates, and Forums stay as stated above. Slice: `docs/milestones/M6-today-additions.md` S-t3.
+
 ---
 
 ## D3 — Throttle, retry, and partial-failure semantics.
@@ -144,6 +150,12 @@ strongest destructive authority Cockpit takes, and Gmail's Trash lifecycle is th
 
 Requesting `Archive` for a message not in `INBOX`, or `Trash` for one already trashed, is idempotent
 and treated as success.
+
+**Amendment (2026-09-26, DECISIONS §28): read state.** Opening a Gmail piece in the Reader marks its
+message read (`messages.modify` removing `UNREAD`), and the Reader's Mark as Unread re-adds it. This is
+a non-destructive label operation Jon triggers by opening the message. It isn't a disposition: it
+doesn't go in the D6 log and it doesn't pass the D4 barrier, because Cockpit retains nothing on its
+strength. Slice: `docs/milestones/M6-today-additions.md` S-t2.
 
 ---
 

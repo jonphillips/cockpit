@@ -127,6 +127,8 @@ opens anything.
    (five wine offers) collapse into one compact aggregate with drill-in, never one large capsule each
    (Jon, 2026-09-18). Deeper grouping — rolling grouped offers into a single grouped Find — is a later
    Finds concern (Phase 6), not the surface.
+   **Realized as offer review mode (DECISIONS §30, 2026-09-26):** each offer role gets a door on
+   Today that opens a card grid with hero images, Keep, and Trash all.
 5. **Grab-bag** — listed as whole issues for scanning and reading. No automatic item extraction.
 6. **Transactional** — the low rung (M5 S3's fifth treatment): reference, not attention; present and
    countable, never suppressed, never elevated. **Ephemeral sub-case:** login/verification codes are

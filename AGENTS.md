@@ -97,7 +97,7 @@ For Personal Knowledge:
 
 ## Gmail boundary
 
-Cockpit attention state is not Gmail read/unread state.
+Cockpit attention state is not Gmail read/unread state. Cockpit mirrors Gmail's read state and marks a message read when Jon opens it (DECISIONS §28); that is still provider state, never attention.
 
 Provider disposition is explicitly one of the supported actions such as Leave in Inbox, Archive, or Trash and is independent of Stream Handling.
 

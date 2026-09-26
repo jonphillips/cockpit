@@ -1,0 +1,414 @@
+<title>Cockpit Offer Review</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap">
+<style>
+  :root{
+    --bg:#F4F2ED; --surface:#FFFFFF; --surface-2:#FBFAF7; --raised:#FFFFFF;
+    --ink:#191A1D; --muted:#6B6E76; --faint:#949BA5; --hair:#E6E3DC; --hair-2:#EFEDE7;
+    --accent:#3350C9; --accent-bg:#ECEFFB; --accent-ink:#26399B;
+    --teal:#127A63; --teal-bg:#E1F1EC; --tech:#0E7490; --tech-bg:#DDF0F5;
+    --offer:#B15A3C; --offer-bg:#F5E7E0; --wine:#7A2E3A; --wine-bg:#F4E4E6;
+    --danger:#B3261E; --danger-ink:#FFFFFF; --scrim:rgba(20,22,28,.28);
+    --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+    --sans:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif;
+    --shadow:0 1px 2px rgba(24,26,32,.04),0 6px 20px rgba(24,26,32,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --bg:#0F1116; --surface:#191C22; --surface-2:#15181E; --raised:#1E222A;
+      --ink:#ECEDEA; --muted:#A0A4AD; --faint:#737C88; --hair:#2A2E38; --hair-2:#23262E;
+      --accent:#8AA0F5; --accent-bg:#20263C; --accent-ink:#BDC8FA;
+      --teal:#5FC7AB; --teal-bg:#173029; --tech:#67C6DD; --tech-bg:#142C33;
+      --offer:#D98E72; --offer-bg:#33241C; --wine:#E28E9C; --wine-bg:#3A1F25;
+      --danger:#F2847B; --danger-ink:#2A0E0B; --scrim:rgba(0,0,0,.5);
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#0F1116; --surface:#191C22; --surface-2:#15181E; --raised:#1E222A;
+    --ink:#ECEDEA; --muted:#A0A4AD; --faint:#737C88; --hair:#2A2E38; --hair-2:#23262E;
+    --accent:#8AA0F5; --accent-bg:#20263C; --accent-ink:#BDC8FA;
+    --teal:#5FC7AB; --teal-bg:#173029; --tech:#67C6DD; --tech-bg:#142C33;
+    --offer:#D98E72; --offer-bg:#33241C; --wine:#E28E9C; --wine-bg:#3A1F25;
+    --danger:#F2847B; --danger-ink:#2A0E0B; --scrim:rgba(0,0,0,.5);
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;
+    -webkit-font-smoothing:antialiased;padding-inline:16px;padding-block:20px 48px}
+  button{font-family:inherit;color:inherit}
+  button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .page{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+
+  .intro{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+  .intro h1{font-family:var(--serif);font-weight:600;font-size:26px;letter-spacing:-.4px;margin:0;text-wrap:balance}
+  .intro p{margin:4px 0 0;color:var(--muted);font-size:14px;max-width:62ch}
+  .pill{border:.5px solid var(--hair);background:var(--surface);color:var(--muted);border-radius:999px;
+    padding:7px 14px;font-size:12.5px;cursor:pointer}
+
+  /* device */
+  .device{background:var(--surface-2);border:.5px solid var(--hair);border-radius:22px;box-shadow:var(--shadow);
+    overflow:hidden;height:760px;display:grid;grid-template-columns:72px minmax(0,1fr);position:relative}
+  .rail{background:var(--surface);border-right:.5px solid var(--hair);display:flex;flex-direction:column;
+    align-items:center;gap:6px;padding:18px 0}
+  .brand{width:38px;height:38px;border-radius:11px;background:var(--accent);color:#fff;font-weight:700;
+    display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+  .navb{width:52px;height:50px;border-radius:13px;border:none;background:transparent;color:var(--muted);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;cursor:default}
+  .navb svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .navb.on{background:var(--accent-bg);color:var(--accent-ink)}
+  .navb.last{margin-top:auto}
+  .stage{position:relative;overflow:hidden;min-width:0}
+  .view{position:absolute;inset:0;overflow-y:auto}
+
+  /* TODAY */
+  .today{display:grid;grid-template-columns:minmax(0,1fr) 60px}
+  .today-main{padding:24px 26px 40px;min-width:0}
+  .t-head h2{font-size:29px;line-height:1.05;margin:0;letter-spacing:-.7px;font-weight:600}
+  .t-head p{color:var(--muted);font-size:14px;margin:6px 0 0}
+  .eyebrow{font-size:11px;letter-spacing:.9px;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .band{margin-top:26px;display:flex;flex-direction:column;gap:10px}
+  .doors{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+  .door{background:var(--raised);border:.5px solid var(--hair);border-radius:16px;box-shadow:var(--shadow);
+    padding:14px;display:flex;flex-direction:column;gap:12px;text-align:left;cursor:pointer;width:100%}
+  .door:hover{border-color:var(--faint)}
+  .door-top{display:flex;align-items:center;gap:10px}
+  .door-ico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .door-ico svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8}
+  .door h3{margin:0;font-size:16px;font-weight:600;letter-spacing:-.2px}
+  .door .sub{font-size:12.5px;color:var(--muted)}
+  .door .go{margin-left:auto;font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px}
+  .thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .thumbs .th{aspect-ratio:4/3;border-radius:8px;overflow:hidden;max-width:100%}
+  .thumbs .th svg{display:block;width:100%;height:100%}
+
+  .sections{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:22px;align-items:start}
+  .sec{background:var(--surface);border:.5px solid var(--hair);border-radius:14px;padding:12px 10px 6px}
+  .sec-h{display:flex;align-items:center;gap:8px;margin:0 6px 6px}
+  .dot{width:9px;height:9px;border-radius:3px}
+  .sec-h h4{margin:0;font-size:14.5px;font-weight:600}
+  .sec-h .n{margin-left:auto;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums}
+  .row{padding:8px 6px;border-top:.5px solid var(--hair-2)}
+  .row:first-of-type{border-top:none}
+  .row .ti{font-size:14px;line-height:1.3;font-weight:400}
+  .row.unread .ti{font-weight:650}
+  .row .me{font-size:12px;color:var(--muted);margin-top:1px}
+
+  .links{border-left:.5px solid var(--hair);background:var(--surface);display:flex;flex-direction:column;
+    align-items:center;gap:8px;padding:24px 0}
+  .lk{width:40px;height:40px;border-radius:11px;border:.5px solid var(--hair);background:var(--surface-2);
+    display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer;color:var(--ink)}
+  .lk svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .lk.seen{color:var(--faint);opacity:.6}
+  .lk.seen::after{content:"";position:absolute;right:-3px;bottom:-3px;width:13px;height:13px;border-radius:99px;
+    background:var(--teal) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 6.2l2 2 4-4.4' fill='none' stroke='white' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center/11px no-repeat}
+  .links .lbl{font-size:9.5px;color:var(--faint);letter-spacing:.6px;text-transform:uppercase;writing-mode:vertical-rl;margin-top:6px}
+
+  /* REVIEW */
+  .review{display:flex;flex-direction:column}
+  .r-bar{position:sticky;top:0;z-index:3;background:var(--surface-2);border-bottom:.5px solid var(--hair);
+    padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .back{border:none;background:none;color:var(--accent);font-size:14.5px;display:flex;align-items:center;gap:4px;cursor:pointer;padding:4px 0}
+  .back svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+  .r-title{display:flex;align-items:center;gap:10px;min-width:0}
+  .r-title h2{margin:0;font-size:19px;font-weight:600;letter-spacing:-.3px}
+  .r-title .sub{font-size:12.5px;color:var(--muted)}
+  .grid{padding:18px 22px 120px;display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px;align-items:start}
+  .card{background:var(--raised);border:.5px solid var(--hair);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;
+    transition:border-color .15s, box-shadow .15s, opacity .25s, transform .25s}
+  .card.kept{border-color:var(--teal);box-shadow:0 0 0 1.5px var(--teal)}
+  .card.gone{opacity:0;transform:scale(.97)}
+  .hero{aspect-ratio:16/10;max-width:100%;position:relative;cursor:pointer;border:none;padding:0;display:block;width:100%;background:none}
+  .hero svg{display:block;width:100%;height:100%}
+  .hero .from{position:absolute;left:10px;bottom:10px;background:rgba(15,17,22,.62);color:#fff;font-size:11.5px;
+    padding:3px 9px;border-radius:999px;backdrop-filter:blur(6px)}
+  .kept-flag{position:absolute;top:10px;right:10px;background:var(--teal);color:#fff;font-size:11px;font-weight:600;
+    padding:3px 9px;border-radius:999px;display:flex;align-items:center;gap:4px}
+  .c-body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:9px}
+  .subj{font-family:var(--serif);font-weight:600;font-size:16.5px;line-height:1.25;letter-spacing:-.2px;margin:0;text-wrap:balance}
+  .find{background:var(--surface-2);border:.5px solid var(--hair-2);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+  .find .k{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase}
+  .find .nm{font-size:14px;font-weight:600;line-height:1.3}
+  .find .ds{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .summ{font-size:13px;color:var(--muted);line-height:1.45;margin:0}
+  .acts{display:flex;gap:8px;margin-top:2px}
+  .btn{border:.5px solid var(--hair);background:var(--surface);border-radius:10px;padding:8px 12px;font-size:13.5px;
+    font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9}
+  .btn.keep{flex:1;justify-content:center}
+  .btn.keep[aria-pressed="true"]{background:var(--teal-bg);color:var(--teal);border-color:transparent}
+  .btn.keep[aria-pressed="true"] svg{fill:currentColor}
+  .btn.ghost{color:var(--muted)}
+
+  .finish{position:absolute;left:0;right:0;bottom:0;z-index:4;background:var(--surface);border-top:.5px solid var(--hair);
+    padding:12px 22px calc(12px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .finish .st{font-size:13.5px;color:var(--muted);flex:1;min-width:200px}
+  .finish .st b{color:var(--ink);font-weight:600}
+  .btn.danger{background:var(--danger);color:var(--danger-ink);border-color:transparent;padding:10px 16px}
+
+  .empty{padding:70px 22px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+  .empty .ok{width:52px;height:52px;border-radius:99px;background:var(--teal-bg);color:var(--teal);display:flex;align-items:center;justify-content:center}
+  .empty .ok svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:2}
+  .empty h3{margin:4px 0 0;font-size:20px;font-weight:600}
+  .empty p{margin:0;color:var(--muted);max-width:44ch}
+
+  /* email drawer */
+  .scrim{position:absolute;inset:0;background:var(--scrim);z-index:6}
+  .drawer{position:absolute;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--surface);z-index:7;
+    border-left:.5px solid var(--hair);display:flex;flex-direction:column;box-shadow:var(--shadow)}
+  .d-bar{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:.5px solid var(--hair)}
+  .d-bar .who{font-size:13px;color:var(--muted);flex:1;min-width:0}
+  .d-body{overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px}
+  .d-body .hero{cursor:default;border-radius:12px;overflow:hidden}
+  .d-body h3{font-family:var(--serif);font-size:22px;line-height:1.2;margin:0;font-weight:600;text-wrap:balance}
+  .d-body p{margin:0;font-size:15px;line-height:1.55}
+  .shop{align-self:flex-start;background:var(--ink);color:var(--bg);border-radius:8px;padding:10px 18px;font-weight:600;font-size:14px}
+
+  .toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:8;background:var(--ink);color:var(--bg);
+    border-radius:12px;padding:10px 12px 10px 16px;display:flex;align-items:center;gap:14px;font-size:13.5px;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+  .review ~ .toast, .finish ~ .toast{bottom:86px}
+  .toast button{background:none;border:none;color:var(--accent-bg);font-weight:700;cursor:pointer;font-size:13.5px}
+
+  /* notes */
+  .notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+  .note{background:var(--surface);border:.5px solid var(--hair);border-radius:14px;padding:14px 16px}
+  .note h5{margin:0 0 6px;font-size:13px;font-weight:650}
+  .note p{margin:0;font-size:13px;color:var(--muted);line-height:1.5}
+  
+  @media (max-width:760px){
+    .device{grid-template-columns:minmax(0,1fr);height:820px;border-radius:18px}
+    .rail{display:none}
+    .today{grid-template-columns:minmax(0,1fr)}
+    .links{display:none}
+    .today-main{padding:18px 16px 32px}
+    .grid{padding:14px 14px 150px}
+    .r-bar{padding:12px 14px}
+    .finish{padding-inline:14px}
+  }
+  @media (prefers-reduced-motion: reduce){ .card{transition:none} }
+</style>
+
+<div class="page">
+  <div class="intro">
+    <div>
+      <h1>Offer review mode</h1>
+      <p>Mockup for the Today/email design pass. Offers from the same role gather behind one door on Today. Tap it to review them side by side, keep the Finds you want, and trash the batch.</p>
+    </div>
+    <button class="pill" id="theme" type="button">Switch theme</button>
+  </div>
+
+  <div class="device" id="device">
+    <nav class="rail" aria-label="Cockpit">
+      <div class="brand">C</div>
+      <button class="navb on" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Today</button>
+      <button class="navb" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Later</button>
+      <button class="navb" type="button"><svg viewBox="0 0 24 24"><path d="M5 4v16M10 4v16M15 5l4 15"/></svg>Library</button>
+      <button class="navb last" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</button>
+    </nav>
+    <div class="stage" id="stage"></div>
+  </div>
+
+  <div class="notes">
+    <div class="note"><h5>The door</h5><p>A door appears on Today only while a role has offers you haven't reviewed, so Today stays finite. Review mode is for offer roles only: Wine, Food offers, and Offers (retail). Newsletters in those roles stay in their normal sections.</p></div>
+    <div class="note"><h5>Which door an offer goes behind</h5><p>Content role, set by routing rules. Promotions mail defaults to Offers (S-t3). Move a wine merchant to Wine once with Move to Section, and its offers come through the Wine door from then on.</p></div>
+    <div class="note"><h5>Hero image</h5><p>The first large image in the email Cockpit already holds, picked by fixed rules: skip logos, spacer and tracking images, and anything narrower than about 300px. It loads remotely the same way the Reader does (DECISIONS §25). If there's no candidate, the card falls back to the role color.</p></div>
+    <div class="note"><h5>Keep</h5><p>Tapping Keep saves the Find right away, the same act as Save Find in the Reader. So leaving with Not now doesn't lose what you kept. Tap again to un-keep.</p></div>
+    <div class="note"><h5>Trash all (decided 2026-09-26)</h5><p>Trash all trashes every email in the batch, kept ones included. A kept Find keeps its name, details and link, which matches Save Find then Trash in the Reader today.</p></div>
+    <div class="note"><h5>Undo (decided 2026-09-26)</h5><p>One Undo restores the whole batch: every email goes back to the Inbox, and kept Finds stay kept. Each email still goes through the existing Undo log, and Recent Trash lists them individually.</p></div>
+    <div class="note"><h5>Where the doors sit</h5><p>Where the Offers section sits today, after the newsletter sections, following Today's tier order. A door disappears once its role has no offers left in Today. Offers behind a door leave the reading queue and the section rail, because review mode is where you read them.</p></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const root=document.documentElement;
+  document.getElementById('theme').addEventListener('click',()=>{
+    const dark = root.dataset.theme ? root.dataset.theme==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+  });
+
+  /* ---------- hero art (stand-ins for the email's own lead image) ---------- */
+  function bottle(x,h,glass,label){
+    const top=150-h, neck=x+9;
+    return `<rect x="${neck}" y="${top}" width="10" height="${h*0.32}" rx="3" fill="${glass}"/>
+      <rect x="${neck-1}" y="${top-8}" width="12" height="10" rx="2" fill="${label}" opacity=".85"/>
+      <path d="M${x} ${top+h*0.42} q0 -${h*0.1} 14 -${h*0.12} q14 ${h*0.02} 14 ${h*0.12} V150 H${x}Z" fill="${glass}"/>
+      <rect x="${x+3}" y="${top+h*0.58}" width="22" height="${h*0.24}" rx="2" fill="${label}"/>`;
+  }
+  function wineArt(bg,glass,label,n){
+    const xs=n===3?[70,112,154]:n===2?[92,134]:[113];
+    const hs=n===3?[92,104,88]:n===2?[100,92]:[106];
+    return `<svg viewBox="0 0 256 160" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <rect width="256" height="160" fill="${bg}"/><rect y="118" width="256" height="42" fill="#000" opacity=".12"/>
+      <ellipse cx="128" cy="150" rx="90" ry="6" fill="#000" opacity=".15"/>
+      ${xs.map((x,i)=>bottle(x,hs[i],glass,label)).join('')}</svg>`;
+  }
+  const glyphs={
+    sweater:'<path d="M98 52l18-10h24l18 10 26 18-12 22-14-8v58H98V84l-14 8-12-22z" fill="FG"/><path d="M116 42q12 14 24 0" fill="none" stroke="BG" stroke-width="4"/>',
+    pot:'<rect x="80" y="70" width="96" height="62" rx="16" fill="FG"/><rect x="72" y="64" width="112" height="12" rx="6" fill="FG"/><rect x="118" y="52" width="20" height="10" rx="4" fill="FG"/><rect x="62" y="80" width="16" height="8" rx="4" fill="FG"/><rect x="178" y="80" width="16" height="8" rx="4" fill="FG"/>',
+    shoe:'<path d="M66 118q0-26 18-40l18 8q20 10 44 14l36 8q14 4 14 16v6H66z" fill="FG"/><rect x="62" y="124" width="138" height="10" rx="5" fill="FG" opacity=".7"/>',
+    lamp:'<path d="M108 40h40l14 34h-68z" fill="FG"/><rect x="126" y="74" width="5" height="52" fill="FG"/><path d="M128 100l30-16" stroke="FG" stroke-width="5"/><rect x="100" y="126" width="56" height="8" rx="4" fill="FG"/>',
+    notebook:'<rect x="92" y="44" width="62" height="86" rx="5" fill="FG" transform="rotate(-8 123 87)"/><rect x="108" y="40" width="62" height="86" rx="5" fill="FG" opacity=".8"/><rect x="118" y="40" width="4" height="86" fill="BG" opacity=".5"/>',
+    jeans:'<path d="M100 36h56l6 104h-24l-10-70-10 70h-24z" fill="FG"/><rect x="100" y="36" width="56" height="10" fill="BG" opacity=".3"/>'
+  };
+  function productArt(bg,fg,kind){
+    return `<svg viewBox="0 0 256 160" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <rect width="256" height="160" fill="${bg}"/><circle cx="128" cy="86" r="62" fill="#fff" opacity=".22"/>
+      ${glyphs[kind].replaceAll('FG',fg).replaceAll('BG',bg)}</svg>`;
+  }
+
+  /* ---------- sample offers (illustrative, fictional merchants) ---------- */
+  const roles={
+    wine:{name:'Wine',tint:'var(--wine)',tintBg:'var(--wine-bg)',findKind:'Wine',
+      icon:'<path d="M8 3h8l-.5 5a3.5 3.5 0 0 1-7 0z"/><path d="M12 11.5V20M8.5 20h7"/>',
+      offers:[
+        {id:'w1',from:'Cellar Street Wines',when:'6:12 AM',subj:'Gigondas that drinks like Châteauneuf, at half the price',
+          find:'Domaine Les Aubes Gigondas 2019',ds:'$34 · 750 ml  ·  $29 each in a 6-pack',
+          summ:'Southern Rhône Grenache blend. Six-pack price runs through Sunday. Ships once overnight temps drop below 80°F.',
+          art:()=>wineArt('#6E2433','#1D2B22','#E9DCC2',3)},
+        {id:'w2',from:'Rhône Road Imports',when:'7:40 AM',subj:'Last call: 2021 Crozes-Hermitage, 40 cases left',
+          find:'Maison Verrier Crozes-Hermitage 2021',ds:'$26 · 750 ml  ·  $22 each by the case',
+          summ:'Northern Rhône Syrah, final allocation. Free shipping on 12 bottles.',
+          art:()=>wineArt('#C9B48C','#2B1A1E','#F4EEE2',2)},
+        {id:'w3',from:'Harbor Wine Co.',when:'8:05 AM',subj:'Weekend flash: Sancerre under $30',
+          find:'Clos du Pèlerin Sancerre 2022',ds:'$28 · 750 ml  ·  was $36, limit 12',
+          summ:'Loire Sauvignon Blanc. Flash price ends Sunday at midnight.',
+          art:()=>wineArt('#9DB8B0','#C8C98A','#FFFFFF',1)},
+        {id:'w4',from:"The Vintner's Ledger",when:'Yesterday',subj:'Our fall Barolo pre-arrival is open',
+          find:'Cascina Moretta Barolo 2020',ds:'$58 · 750 ml  ·  pre-arrival, ships Feb 2027',
+          summ:'Pay now, bottles land in February. Allocation capped at 6 per customer.',
+          art:()=>wineArt('#2E2A38','#3B1420','#D8C9A3',3)}
+      ]},
+    retail:{name:'Offers',tint:'var(--offer)',tintBg:'var(--offer-bg)',findKind:'Product',
+      icon:'<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+      offers:[
+        {id:'r1',from:'Field & Fold',when:'5:50 AM',subj:'30% off merino, this weekend only',
+          find:'Merino crewneck sweater',ds:'$84  ·  was $120',summ:'Fall colors restocked. Discount applies at checkout through Sunday.',
+          art:()=>productArt('#D9C7B0','#5B4636','sweater')},
+        {id:'r2',from:'Kettle Supply',when:'6:30 AM',subj:'The 5.5 qt Dutch oven is back',
+          find:'5.5 qt enameled Dutch oven',ds:'$189  ·  back in stock',summ:'Restock of the size that sold out in spring. Free shipping over $150.',
+          art:()=>productArt('#E4D6C8','#A33B2B','pot')},
+        {id:'r3',from:'North Trail Outfitters',when:'7:02 AM',subj:'Trail runners, end of season',
+          find:'Trail running shoe',ds:'$98  ·  was $140',summ:'End-of-season pricing on last year’s colorways. Final sale.',
+          art:()=>productArt('#BFD0C4','#2F4A3A','shoe')},
+        {id:'r4',from:'Lumen Home',when:'8:18 AM',subj:'A reading lamp for the long nights',
+          find:'Brass swing-arm reading lamp',ds:'$145',summ:'New arrival. No discount; the email is an announcement.',
+          art:()=>productArt('#2F3340','#D9B46A','lamp')},
+        {id:'r5',from:'Paper Harbor',when:'Yesterday',subj:'Fall notebooks are in',
+          find:'A5 dot-grid notebook, 3-pack',ds:'$36',summ:'Seasonal covers. 15% off with the code in the email.',
+          art:()=>productArt('#E9E1CF','#3C5A7A','notebook')},
+        {id:'r6',from:'Crisp Denim',when:'Yesterday',subj:'Selvedge straight fit, restocked',
+          find:'Selvedge straight-fit jean',ds:'$148',summ:'Restock across waist sizes 30–36.',
+          art:()=>productArt('#C6CEDB','#23324D','jeans')}
+      ]}
+  };
+
+  const state={view:'today',role:null,kept:new Set(['w1']),done:{},drawer:null,toast:null,snapshot:null};
+  const stage=document.getElementById('stage');
+  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const ico=(p,cls='')=>`<svg viewBox="0 0 24 24" class="${cls}">${p}</svg>`;
+  const STAR='<path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/>';
+  const CHECK='<path d="M5 12.5l4.5 4.5L19 7.5"/>';
+
+  function render(){
+    stage.innerHTML = state.view==='today' ? todayHTML() : reviewHTML();
+    if(state.drawer) stage.insertAdjacentHTML('beforeend',drawerHTML());
+    if(state.toast) stage.insertAdjacentHTML('beforeend',`<div class="toast" role="status"><span>${state.toast}</span><button type="button" data-act="undo">Undo</button><button type="button" data-act="dismiss" aria-label="Dismiss" style="opacity:.7">✕</button></div>`);
+  }
+
+  function todayHTML(){
+    const door=key=>{
+      const r=roles[key], n=r.offers.length;
+      if(state.done[key]) return '';
+      const kept=r.offers.filter(o=>state.kept.has(o.id)).length;
+      return `<button class="door" type="button" data-act="open" data-role="${key}">
+        <div class="door-top"><div class="door-ico" style="background:${r.tintBg};color:${r.tint}">${ico(r.icon)}</div>
+          <div><h3>${r.name}</h3><div class="sub">${n} offers${kept?` · ${kept} kept`:''}</div></div>
+          <span class="go" style="background:${r.tintBg};color:${r.tint}">Review</span></div>
+        <div class="thumbs">${r.offers.slice(0,4).map(o=>`<div class="th">${o.art()}</div>`).join('')}</div></button>`;
+    };
+    const open=['wine','retail'].filter(k=>!state.done[k]);
+    const doors=open.length?`      <div class="band"><div class="eyebrow">Offers to review</div><div class="doors">${open.map(door).join('')}</div></div>`:'';
+    const row=(t,m,u)=>`<div class="row${u?' unread':''}"><div class="ti">${t}</div><div class="me">${m}</div></div>`;
+    const links=[['Apple News: The Atlantic','<path d="M4 5h13v14H6a2 2 0 0 1-2-2z"/><path d="M17 8h3v9a2 2 0 0 1-2 2M7 9h7M7 12h7M7 15h4"/>',true],
+      ['Apple News: Bon Appétit','<path d="M4 5h13v14H6a2 2 0 0 1-2-2z"/><path d="M17 8h3v9a2 2 0 0 1-2 2M7 9h7M7 12h7M7 15h4"/>',false],
+      ['Weather','<path d="M7 18a4 4 0 0 1-.5-8A5.5 5.5 0 0 1 17 9a3.5 3.5 0 0 1 0 9z"/>',false],
+      ['Markets','<path d="M4 18l5-6 4 3 7-8"/><path d="M15 7h5v5"/>',false]];
+    return `<div class="view today"><div class="today-main">
+      <div class="t-head"><h2>Today</h2><p>Saturday, September 26 · 14 new since yesterday</p></div>
+      <div class="sections">
+        <div class="sec"><div class="sec-h"><span class="dot" style="background:var(--accent)"></span><h4>For you</h4><span class="n">3</span></div>
+          ${row('Dinner Thursday? We can do 7:30','Sam Ortega · 7:14 AM',true)}${row('Your appointment is confirmed for Oct 2','Service desk · Yesterday',false)}${row('Photos from the lake weekend','Dana · Yesterday',true)}</div>
+        <div class="sec"><div class="sec-h"><span class="dot" style="background:#3B6FB6"></span><h4>Daily news</h4><span class="n">2</span></div>
+          ${row('The Morning: what changed overnight','Morning briefing · 5:02 AM',true)}${row('Evening edition: the week in review','Evening briefing · Yesterday',false)}</div>
+        <div class="sec"><div class="sec-h"><span class="dot" style="background:var(--tech)"></span><h4>Tech</h4><span class="n">2</span></div>
+          ${row('Why on-device models changed the roadmap','Platform Notes · 6:40 AM',true)}${row('Build Weekly #212','Build Weekly · Yesterday',false)}</div>
+      </div>
+${doors}</div>
+      <aside class="links" aria-label="Daily links">${links.map(([t,p,s])=>`<button class="lk${s?' seen':''}" type="button" title="${t}" aria-label="${t}${s?', visited today':''}" data-act="link">${ico(p)}</button>`).join('')}<span class="lbl">Daily links</span></aside>
+    </div>`;
+  }
+
+  function reviewHTML(){
+    const r=roles[state.role], done=state.done[state.role];
+    const bar=`<div class="r-bar"><button class="back" type="button" data-act="back">${ico('<path d="M15 5l-7 7 7 7"/>')}Today</button>
+      <div class="r-title"><div class="door-ico" style="background:${r.tintBg};color:${r.tint}">${ico(r.icon)}</div>
+      <div><h2>${r.name} review</h2><div class="sub">${done?'Done':r.offers.length+' offers · newest first'}</div></div></div></div>`;
+    if(done) return `<div class="view review">${bar}<div class="empty"><div class="ok">${ico(CHECK)}</div>
+      <h3>${r.name} is clear</h3><p>${done.kept?`${done.kept} Find${done.kept===1?'':'s'} kept in Finds with ${done.kept===1?'its':'their'} links. `:''}${done.trashed} emails moved to Gmail Trash.</p>
+      <button class="btn" type="button" data-act="back">Back to Today</button></div></div>`;
+    const kept=r.offers.filter(o=>state.kept.has(o.id));
+    const cards=r.offers.map(o=>{
+      const k=state.kept.has(o.id);
+      return `<article class="card${k?' kept':''}" data-id="${o.id}">
+        <button class="hero" type="button" data-act="email" data-id="${o.id}" aria-label="Open email from ${esc(o.from)}">${o.art()}
+          <span class="from">${esc(o.from)} · ${o.when}</span>${k?`<span class="kept-flag">${ico(STAR).replace('<svg','<svg width="11" height="11" style="fill:#fff;stroke:#fff"')}Kept</span>`:''}</button>
+        <div class="c-body"><h3 class="subj">${esc(o.subj)}</h3>
+          <div class="find"><span class="k" style="color:${r.tint}">${r.findKind} Find</span><span class="nm">${esc(o.find)}</span><span class="ds">${esc(o.ds)}</span></div>
+          <p class="summ">${esc(o.summ)}</p>
+          <div class="acts"><button class="btn keep" type="button" aria-pressed="${k}" data-act="keep" data-id="${o.id}">${ico(STAR)}${k?'Kept':'Keep'}</button>
+            <button class="btn ghost" type="button" data-act="email" data-id="${o.id}">Open email</button></div></div></article>`;
+    }).join('');
+    const n=r.offers.length;
+    const st = kept.length ? `<b>${kept.length} Find${kept.length===1?'':'s'} kept.</b> All ${n} emails go to Gmail Trash.` : `<b>Nothing kept.</b> All ${n} emails go to Gmail Trash.`;
+    return `<div class="view review">${bar}<div class="grid">${cards}</div></div>
+      <div class="finish"><div class="st">${st}</div><button class="btn ghost" type="button" data-act="back">Not now</button>
+        <button class="btn danger" type="button" data-act="trash">${ico('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>')}Trash all ${n}</button></div>`;
+  }
+
+  function drawerHTML(){
+    const r=roles[state.role], o=r.offers.find(x=>x.id===state.drawer);
+    return `<div class="scrim" data-act="close"></div><aside class="drawer" aria-label="Email">
+      <div class="d-bar"><div class="who">${esc(o.from)} · ${o.when}</div><button class="btn" type="button" data-act="close">Done</button></div>
+      <div class="d-body"><div class="hero">${o.art()}</div><h3>${esc(o.subj)}</h3>
+        <p>${esc(o.summ)}</p><p style="color:var(--muted)">The original HTML email renders here, the same way the Reader shows it today. This panel is a stand-in.</p>
+        <span class="shop">Shop now</span></div></aside>`;
+  }
+
+  stage.addEventListener('click',e=>{
+    const t=e.target.closest('[data-act]'); if(!t) return;
+    const act=t.dataset.act;
+    if(act==='open'){state.role=t.dataset.role;state.view='review';}
+    else if(act==='back'){state.view='today';state.drawer=null;}
+    else if(act==='keep'){const id=t.dataset.id;state.kept.has(id)?state.kept.delete(id):state.kept.add(id);}
+    else if(act==='email'){state.drawer=t.dataset.id;}
+    else if(act==='close'){state.drawer=null;}
+    else if(act==='link'){t.classList.add('seen');return;}
+    else if(act==='trash'){
+      const r=roles[state.role];
+      stage.querySelectorAll('.card').forEach(c=>c.classList.add('gone'));
+      const kept=r.offers.filter(o=>state.kept.has(o.id)).length;
+      state.snapshot=state.role;
+      state.done[state.role]={kept,trashed:r.offers.length};
+      state.toast=`Trashed ${r.offers.length} ${r.name.toLowerCase()} emails${kept?` · ${kept} Find${kept===1?'':'s'} kept`:''}`;
+      setTimeout(render, matchMedia('(prefers-reduced-motion: reduce)').matches?0:220);
+      return;
+    }
+    else if(act==='undo'){ if(state.snapshot) delete state.done[state.snapshot]; state.snapshot=null; state.toast=null; }
+    else if(act==='dismiss'){ state.toast=null; state.snapshot=null; }
+    render();
+  });
+  render();
+})();
+</script>
