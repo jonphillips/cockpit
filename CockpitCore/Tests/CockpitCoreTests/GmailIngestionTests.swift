@@ -338,6 +338,59 @@ struct GmailIngestionTests {
     )
   }
 
+  @Test("Promotions membership is epoch-scoped and joins Primary only for changed messages")
+  func promotionsMembershipUsesFixedEpoch() {
+    let epoch = Date(timeIntervalSince1970: 1_790_000_000)
+    let query = Dictionary(uniqueKeysWithValues: GmailInboxAPI.promotionsQuery(since: epoch).map {
+      ($0.name, $0.value ?? "")
+    })
+    #expect(query["labelIds"] == "INBOX")
+    #expect(query["q"] == "category:promotions after:1790000000")
+    #expect(query["maxResults"] == "500")
+
+    let changed = ["primary", "new-promo", "old-promo", "archived"]
+    let membership = GmailInboxAPI.changedInboxMembership(
+      changedIDs: changed,
+      primaryInboxIDs: ["primary"],
+      promotionsInboxIDs: ["new-promo"]
+    )
+    expectNoDifference(membership, ["primary": .primary, "new-promo": .promotions])
+    expectNoDifference(
+      GmailInboxAPI.departedChangedIDs(changedIDs: changed, inboxMessageIDs: Set(membership.keys)),
+      ["old-promo", "archived"]
+    )
+  }
+
+  @Test("Promotions epoch is set by a clean first sync and never moves")
+  func promotionsEpochIsFixed() async throws {
+    let times = Mutex([Date(timeIntervalSince1970: 1_790_000_010), Date(timeIntervalSince1970: 1_790_000_020)])
+    let epochs = Mutex<[Date]>([])
+    let client = GmailInboxClient(
+      currentInbox: {
+        GmailInboxSnapshot(accountID: "jon@example.com", historyID: "p1", messages: [])
+      },
+      inboxChanges: { _, _ in
+        GmailInboxSnapshot(accountID: "jon@example.com", historyID: "p2", messages: [])
+      },
+      inboxChangesIncludingPromotions: { _, _, epoch in
+        epochs.withLock { $0.append(epoch) }
+        return GmailInboxSnapshot(accountID: "jon@example.com", historyID: "p2", messages: [])
+      }
+    )
+    let ingestor = GmailInboxIngestor(client: client, now: {
+      times.withLock { $0.removeFirst() }
+    })
+
+    _ = try await ingestor.ingest(into: database)
+    let first = try await database.read { db in try GmailSyncState.all.fetchAll(db).first }
+    #expect(first?.promotionsSince == Date(timeIntervalSince1970: 1_790_000_010))
+
+    _ = try await ingestor.ingest(into: database)
+    let second = try await database.read { db in try GmailSyncState.all.fetchAll(db).first }
+    #expect(epochs.withLock { $0 } == [Date(timeIntervalSince1970: 1_790_000_010)])
+    #expect(second?.promotionsSince == first?.promotionsSince)
+  }
+
   @Test("A message trashed in Gmail is reconciled out of Today on the next delta sync")
   func departedMessageIsClearedFromToday() async throws {
     let client = GmailInboxClient(

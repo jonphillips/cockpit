@@ -27,16 +27,13 @@ public struct GmailInboxIngestor {
   @discardableResult
   public func ingest(into database: any DatabaseWriter) async throws -> GmailInboxIngestReport {
     try Task.checkCancellation()
+    let syncStartedAt = now()
     let savedCursor = try await database.read { db in
       try GmailSyncState.all.fetchAll(db).first
     }
-    let snapshot: GmailInboxSnapshot
-    if let savedCursor {
-      snapshot = try await client.inboxChanges(savedCursor.accountID, savedCursor.historyID)
-    } else {
-      snapshot = try await client.currentInbox()
-    }
-    let acquiredAt = now()
+    let snapshot = try await Self.fetchSnapshot(
+      using: client, cursor: savedCursor, startedAt: syncStartedAt)
+    let acquiredAt = syncStartedAt
     let namespace = identityNamespace
     var pieces: [ContentPiece] = []
     var failures = snapshot.failures
@@ -83,7 +80,9 @@ public struct GmailInboxIngestor {
 
     try await Self.advanceCursorIfClean(
       snapshot: snapshot, failures: failures, at: acquiredAt,
-      readStateRefreshCompletedAt: refreshedAt, database: database)
+      readStateRefreshCompletedAt: refreshedAt,
+      promotionsSince: savedCursor?.promotionsSince ?? syncStartedAt,
+      database: database)
 
     let reportSnapshot = GmailInboxSnapshot(
       accountID: snapshot.accountID,
@@ -113,6 +112,7 @@ extension GmailInboxIngestor {
   private static func advanceCursorIfClean(
     snapshot: GmailInboxSnapshot, failures: [GmailInboxMessageFailure], at date: Date,
     readStateRefreshCompletedAt: Date?,
+    promotionsSince: Date,
     database: any DatabaseWriter
   ) async throws {
     guard failures.isEmpty, let historyID = snapshot.historyID else { return }
@@ -122,7 +122,8 @@ extension GmailInboxIngestor {
         GmailSyncState.Draft(
           GmailSyncState(
             accountID: accountID, historyID: historyID, updatedAt: date,
-            readStateRefreshCompletedAt: readStateRefreshCompletedAt)
+            readStateRefreshCompletedAt: readStateRefreshCompletedAt,
+            promotionsSince: promotionsSince)
         )
       }.execute(db)
     }
@@ -221,44 +222,9 @@ extension GmailInboxIngestor {
     }
     try NormalizedTextOperations.supplyLibraryTextIfMissing(for: piece.id, in: db)
 
-    let provenance = GmailArtifactProvenance.make(accountID: accountID, message: message)
-    let matchedStreamID = try GmailStreamResolver.streamID(
-      for: provenance, sender: message.sender, in: db)
-    if let artifact = try Artifact.where({ $0.providerID.eq(providerID) }).fetchOne(db) {
-      // Provider IDs are account-scoped (`gmail:<account>:message:<id>`), so they identify one
-      // Artifact regardless of whether this new deterministic lookup now finds its Stream.
-      try Artifact.find(artifact.id).update { row in
-        row.providerIsUnread = #bind(message.labelIDs.contains("UNREAD"))
-        if artifact.streamID == nil, let matchedStreamID {
-          row.streamID = #bind(matchedStreamID)
-        }
-      }.execute(db)
-    } else {
-      let provenanceJSON = String(data: try JSONEncoder().encode(provenance), encoding: .utf8)
-      try Artifact.insert {
-        Artifact.Draft(
-          Artifact(
-            id: artifactID,
-            streamID: matchedStreamID,
-            transport: .gmail,
-            providerID: providerID,
-            acquiredAt: acquiredAt,
-            rawSourceText: message.sourceText,
-            providerProvenance: provenanceJSON,
-            providerIsUnread: message.labelIDs.contains("UNREAD"),
-            contentPieceID: piece.id
-          )
-        )
-      }.execute(db)
-    }
+    try Self.recordArtifact(
+      message: message, artifactID: artifactID, providerID: providerID, accountID: accountID,
+      pieceID: piece.id, acquiredAt: acquiredAt, in: db)
     return piece
-  }
-
-  static func stableProviderID(accountID: String, messageID: String) -> String {
-    "gmail:\(canonicalAccountID(accountID)):message:\(messageID)"
-  }
-
-  static func canonicalAccountID(_ accountID: String) -> String {
-    accountID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
   }
 }

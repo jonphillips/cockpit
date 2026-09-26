@@ -422,6 +422,51 @@ struct CurationRoutingTests {
     })
   }
 
+  @Test("Promotions defaults to Offers without appearing as a discovered source")
+  func promotionsDefaultToOffers() async throws {
+    let promotionsID = UUID(9_801)
+    let primaryID = UUID(9_802)
+    let routedID = UUID(9_803)
+    let promotionsLocator = "promos.example.com"
+    let primaryLocator = "primary.example.com"
+    let routedLocator = "routed-promo.example.com"
+
+    try await database.write { db in
+      for (pieceID, locator, category) in [
+        (promotionsID, promotionsLocator, GmailInboxCategory.promotions),
+        (primaryID, primaryLocator, GmailInboxCategory.primary),
+        (routedID, routedLocator, GmailInboxCategory.promotions),
+      ] {
+        let provenance = GmailArtifactProvenance(
+          accountID: "jon@example.com", messageID: pieceID.uuidString, threadID: "thread",
+          rfcMessageID: nil, listUnsubscribe: nil, listID: "Offers <\(locator)>",
+          precedence: "bulk", senderAddress: "offers@\(locator)", sendingDomain: locator,
+          dkimDomain: nil, toRecipientCount: 1, ccRecipientCount: 0,
+          inboxCategory: category)
+        let json = String(data: try JSONEncoder().encode(provenance), encoding: .utf8)
+        try ContentPiece.insert {
+          ContentPiece.Draft(ContentPiece(
+            id: pieceID, kind: .email, title: locator, publisher: locator,
+            emailTreatment: .newsletter, createdAt: .distantPast))
+        }.execute(db)
+        try Artifact.insert {
+          Artifact.Draft(Artifact(
+            id: UUID(), transport: .gmail, providerID: "gmail:\(pieceID.uuidString)",
+            acquiredAt: .distantPast, providerProvenance: json, contentPieceID: pieceID))
+        }.execute(db)
+      }
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: routedLocator, role: .wine), in: db)
+    }
+
+    let snapshot = try await database.read { db in try CurationRouting.snapshot(in: db) }
+    #expect(snapshot.role(for: promotionsID) == .offers)
+    #expect(snapshot.role(for: primaryID) == .forYou)
+    #expect(snapshot.role(for: routedID) == .wine)
+    #expect(!snapshot.discoveredLocators.contains(where: { $0.locator == promotionsLocator }))
+    #expect(snapshot.discoveredLocators.contains(where: { $0.locator == primaryLocator }))
+  }
+
   @Test("Transactional-only locators are routed, while mixed locators remain discoverable")
   func transactionalLocatorsDoNotAppearAsUnrouted() async throws {
     let transactionalOnlyID = UUID(9_801)

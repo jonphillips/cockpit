@@ -31,7 +31,9 @@ struct GmailInboxAPI {
   /// `category:primary` disagree exactly for that mail — a divergence that made the delta silently drop
   /// Primary messages the backfill would have kept. Asking Gmail the one authoritative question keeps
   /// the two reads in lockstep.
-  func inboxChanges(accountID: String, since historyID: String) async throws -> GmailInboxSnapshot {
+  func inboxChanges(
+    accountID: String, since historyID: String, promotionsSince: Date? = nil
+  ) async throws -> GmailInboxSnapshot {
     async let profile: GmailProfile = get(path: "profile")
     let history = try await listHistory(since: historyID)
     let resolvedProfile = try await profile
@@ -40,9 +42,18 @@ struct GmailInboxAPI {
     else { throw GmailInboxError.accountChanged }
 
     let primaryInboxIDs = try await primaryInboxMessageIDs()
-    let targetIDs = Self.primaryChangedIDs(
-      changedIDs: history.messageIDs, primaryInboxIDs: primaryInboxIDs)
-    let reads = try await fetchMessages(ids: targetIDs)
+    let promotionsInboxIDs: Set<String>
+    if let promotionsSince {
+      promotionsInboxIDs = try await promotionsInboxMessageIDs(since: promotionsSince)
+    } else {
+      promotionsInboxIDs = []
+    }
+    let membership = Self.changedInboxMembership(
+      changedIDs: history.messageIDs, primaryInboxIDs: primaryInboxIDs,
+      promotionsInboxIDs: promotionsInboxIDs)
+    let targetIDs = history.messageIDs.filter { membership[$0] != nil }
+    let reads = try await fetchMessages(ids: targetIDs, categories: membership)
+    let heldIDs = Set(primaryInboxIDs).union(promotionsInboxIDs)
     return GmailInboxSnapshot(
       accountID: resolvedProfile.emailAddress,
       historyID: resolvedProfile.historyID,
@@ -50,8 +61,21 @@ struct GmailInboxAPI {
       messages: reads.messages,
       failures: reads.failures,
       departedMessageIDs: Self.departedChangedIDs(
-        changedIDs: history.messageIDs, primaryInboxIDs: primaryInboxIDs)
+        changedIDs: history.messageIDs, inboxMessageIDs: heldIDs)
     )
+  }
+
+  /// Changed messages currently held by the Primary or epoch-scoped Promotions membership. If
+  /// Gmail ever returns an id in both searches, Primary is the more specific attention category.
+  static func changedInboxMembership(
+    changedIDs: [String], primaryInboxIDs: Set<String>, promotionsInboxIDs: Set<String>
+  ) -> [String: GmailInboxCategory] {
+    var result: [String: GmailInboxCategory] = [:]
+    for id in changedIDs {
+      if primaryInboxIDs.contains(id) { result[id] = .primary }
+      else if promotionsInboxIDs.contains(id) { result[id] = .promotions }
+    }
+    return result
   }
 
   /// The intersection at the heart of the delta: keep only changed messages that are currently in the
@@ -68,12 +92,18 @@ struct GmailInboxAPI {
   static func departedChangedIDs(changedIDs: [String], primaryInboxIDs: Set<String>) -> [String] {
     changedIDs.filter { !primaryInboxIDs.contains($0) }
   }
+
+  static func departedChangedIDs(changedIDs: [String], inboxMessageIDs: Set<String>) -> [String] {
+    changedIDs.filter { !inboxMessageIDs.contains($0) }
+  }
 }
 
 extension GmailInboxAPI {
   /// Reads each message with at most `maxConcurrentMessageReads` requests in flight, refilling the
   /// window as each completes. Order is not preserved; ingestion derives identity per message.
-  private func fetchMessages(ids: [String]) async throws -> GmailMessageReads {
+  private func fetchMessages(
+    ids: [String], categories: [String: GmailInboxCategory] = [:]
+  ) async throws -> GmailMessageReads {
     try Task.checkCancellation()
     var result = GmailMessageReads()
     result.messages.reserveCapacity(ids.count)
@@ -81,7 +111,7 @@ extension GmailInboxAPI {
       var iterator = ids.makeIterator()
       for _ in 0..<Self.maxConcurrentMessageReads {
         guard let id = iterator.next() else { break }
-        group.addTask { await readMessage(id: id) }
+        group.addTask { await readMessage(id: id, category: categories[id] ?? .primary) }
       }
       while let fetched = await group.next() {
         switch fetched {
@@ -89,7 +119,7 @@ extension GmailInboxAPI {
         case let .failure(failure): result.failures.append(failure)
         }
         if let id = iterator.next() {
-          group.addTask { await readMessage(id: id) }
+          group.addTask { await readMessage(id: id, category: categories[id] ?? .primary) }
         }
       }
     }
@@ -97,9 +127,9 @@ extension GmailInboxAPI {
     return result
   }
 
-  private func readMessage(id: String) async -> GmailMessageReadResult {
+  private func readMessage(id: String, category: GmailInboxCategory) async -> GmailMessageReadResult {
     do {
-      return .success(try await message(id: id))
+      return .success(try await message(id: id, category: category))
     } catch is CancellationError {
       return .failure(GmailInboxMessageFailure(messageID: id, description: "Read cancelled."))
     } catch {
@@ -143,6 +173,23 @@ extension GmailInboxAPI {
     return Set(page.messages?.map(\.id) ?? [])
   }
 
+  /// One bounded page covers any changed message. `after:` uses Unix seconds rather than a
+  /// date-only query, whose timezone interpretation is ambiguous.
+  private func promotionsInboxMessageIDs(since date: Date) async throws -> Set<String> {
+    let query = Self.promotionsQuery(since: date)
+    let page: GmailMessageList = try await get(path: "messages", query: query)
+    return Set(page.messages?.map(\.id) ?? [])
+  }
+
+  static func promotionsQuery(since date: Date) -> [URLQueryItem] {
+    let epochSeconds = Int(date.timeIntervalSince1970.rounded(.down))
+    return [
+      URLQueryItem(name: "labelIds", value: "INBOX"),
+      URLQueryItem(name: "q", value: "category:promotions after:\(epochSeconds)"),
+      URLQueryItem(name: "maxResults", value: "500"),
+    ]
+  }
+
   private func listHistory(since historyID: String) async throws -> (messageIDs: [String], pageCount: Int) {
     var messageIDs: [String] = []
     var seenMessageIDs = Set<String>()
@@ -166,7 +213,7 @@ extension GmailInboxAPI {
     return (messageIDs, pageCount)
   }
 
-  private func message(id: String) async throws -> GmailInboxMessage {
+  private func message(id: String, category: GmailInboxCategory = .primary) async throws -> GmailInboxMessage {
     let response: GmailMessageResponse = try await get(
       path: "messages/\(id)", query: [URLQueryItem(name: "format", value: "full")]
     )
@@ -174,7 +221,8 @@ extension GmailInboxAPI {
       id: response.id, threadID: response.threadID, headers: response.payload.headers,
       bodyHTML: response.payload.text(matching: "text/html"),
       bodyPlainText: response.payload.text(matching: "text/plain"),
-      labelIDs: response.labelIDs
+      labelIDs: response.labelIDs,
+      inboxCategory: category
     )
   }
 
@@ -206,100 +254,5 @@ extension GmailInboxAPI {
       return .seconds(seconds)
     }
     return .seconds(Double(1 << attempt))
-  }
-}
-
-private struct GmailProfile: Decodable {
-  let emailAddress: String
-  let historyID: String?
-  enum CodingKeys: String, CodingKey { case emailAddress; case historyID = "historyId" }
-}
-private struct GmailMessageList: Decodable { let messages: [GmailMessageReference]?; let nextPageToken: String? }
-struct GmailMessageReference: Decodable { let id: String }
-private struct GmailMessageResponse: Decodable {
-  let id: String
-  let threadID: String
-  let labelIDs: [String]
-  let payload: GmailPayload
-  enum CodingKeys: String, CodingKey { case id; case threadID = "threadId"; case labelIDs = "labelIds"; case payload }
-}
-private struct GmailPayload: Decodable {
-  let mimeType: String?
-  let headers: [GmailInboxHeader]
-  let body: GmailBody?
-  let parts: [GmailPayload]?
-
-  func text(matching expectedMIMEType: String) -> String? {
-    if mimeType?.caseInsensitiveCompare(expectedMIMEType) == .orderedSame,
-      let encoded = body?.data, let data = Data(base64URLEncoded: encoded),
-      let text = String(data: data, encoding: .utf8), !text.isEmpty { return text }
-    return parts?.lazy.compactMap { $0.text(matching: expectedMIMEType) }.first
-  }
-}
-private struct GmailBody: Decodable { let data: String? }
-
-/// Preserves the Gmail error body so a 403 rate-limit (`usageLimits`) is retried and distinguished
-/// from a configuration/scope 403, and so the surfaced message names the real reason.
-struct GmailInboxError: LocalizedError {
-  let status: Int
-  let reason: String?
-  let message: String?
-
-  init(status: Int, reason: String?, message: String?) {
-    self.status = status
-    self.reason = reason
-    self.message = message
-  }
-
-  init(status: Int, body: Data) {
-    let decoded = try? JSONDecoder().decode(GmailAPIErrorEnvelope.self, from: body)
-    self.init(status: status, reason: decoded?.error.errors?.first?.reason, message: decoded?.error.message)
-  }
-
-  static let noResponse = GmailInboxError(status: -1, reason: nil, message: "Gmail returned no HTTP response.")
-  static let accountChanged = GmailInboxError(
-    status: -2, reason: nil,
-    message: "The authorized Gmail account does not match this device's saved sync cursor."
-  )
-
-  /// Gmail signals per-user throttling as 429, 503, or a 403 in the `usageLimits` domain.
-  var isRetryable: Bool {
-    switch status {
-    case 429, 503: return true
-    case 403: return reason == "rateLimitExceeded" || reason == "userRateLimitExceeded"
-    default: return false
-    }
-  }
-
-  var errorDescription: String? {
-    let detail = [reason, message].compactMap { $0?.trimmedNonEmpty }.joined(separator: " — ")
-    return detail.isEmpty ? "Gmail returned HTTP \(status)." : "Gmail returned HTTP \(status): \(detail)"
-  }
-}
-
-private struct GmailMessageReads: Sendable {
-  var messages: [GmailInboxMessage] = []
-  var failures: [GmailInboxMessageFailure] = []
-}
-
-private enum GmailMessageReadResult: Sendable {
-  case success(GmailInboxMessage)
-  case failure(GmailInboxMessageFailure)
-}
-
-private struct GmailAPIErrorEnvelope: Decodable {
-  struct APIError: Decodable {
-    struct Item: Decodable { let reason: String? }
-    let message: String?
-    let errors: [Item]?
-  }
-  let error: APIError
-}
-
-private extension Data {
-  init?(base64URLEncoded value: String) {
-    let padding = String(repeating: "=", count: (4 - value.count % 4) % 4)
-    self.init(base64Encoded: value.replacingOccurrences(of: "-", with: "+")
-      .replacingOccurrences(of: "_", with: "/") + padding)
   }
 }

@@ -23,7 +23,10 @@ func routeDecision(
     .sorted(by: routeCandidatePrecedes)
     .compactMap({ matchingRule(for: $0.locator, in: rules) })
     .first
-  else { return .unconfigured }
+  else {
+    return candidates.contains(where: { $0.inboxCategory == .promotions })
+      ? .role(.offers) : .unconfigured
+  }
   return rule.isRouted ? .role(rule.role) : .muted
 }
 
@@ -80,6 +83,7 @@ func discoveredGmailLocators(
       contentPiece.emailTreatment != .transactional,
       candidates.allSatisfy({ matchingRule(for: $0.locator, in: rules) == nil }),
       let candidate = candidates.sorted(by: routeCandidatePrecedes).first,
+      !candidates.contains(where: { $0.inboxCategory == .promotions }),
       let artifact = artifactsByID[candidate.artifactID]
     else { continue }
 
