@@ -18,6 +18,8 @@ public struct GmailArtifactProvenance: Codable, Equatable, Sendable {
   public let dkimDomain: String?
   public let toRecipientCount: Int
   public let ccRecipientCount: Int
+  /// Legacy rows decode as `nil`, which is interpreted as Primary.
+  public var inboxCategory: GmailInboxCategory? = nil
 
   static func make(accountID: String, message: GmailInboxMessage) -> Self {
     Self(
@@ -32,7 +34,8 @@ public struct GmailArtifactProvenance: Codable, Equatable, Sendable {
       sendingDomain: GmailHeaderParser.sendingDomain(from: message.header(named: "From")),
       dkimDomain: GmailHeaderParser.dkimDomain(from: message.header(named: "DKIM-Signature")),
       toRecipientCount: GmailHeaderParser.recipientCount(in: message.header(named: "To")),
-      ccRecipientCount: GmailHeaderParser.recipientCount(in: message.header(named: "Cc"))
+      ccRecipientCount: GmailHeaderParser.recipientCount(in: message.header(named: "Cc")),
+      inboxCategory: message.inboxCategory
     )
   }
 

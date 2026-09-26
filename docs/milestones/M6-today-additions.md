@@ -24,7 +24,7 @@ adoption), not to these slices.
 
 - [x] S-t1 — Tech section: a content role below Daily news
 - [x] S-t2 — Read state: mirror Gmail's `UNREAD`, bold unread rows, mark read on open, Mark as Unread
-- [ ] S-t3 — Promotions intake: new Promotions mail lands in Offers, with no backfill and no source list
+- [x] S-t3 — Promotions intake: new Promotions mail lands in Offers, with no backfill and no source list
 - [x] S-t4 — Daily links: an icon column beside Today, managed in Settings
 - [x] S-t5 — Offer hero image: pick the lead image from held email HTML
 - [ ] S-t6 — Offer review mode: a door per offer role, a card grid, Keep, Trash all, one Undo
@@ -215,6 +215,14 @@ Promotions its own cursor or cadence.
   hold mail back silently.
 - If Jon drags a message between Gmail tabs, `inboxCategory` follows it on the next re-read.
   Routing follows, unless an explicit rule is in place.
+- *Added at review, 2026-09-26:* the Promotions membership check reads one page (the newest 500).
+  A changed ID outside that page counts as departed, so it's cleared from Today. Primary rarely
+  holds 500, but Promotions since the epoch will once unarchived promos pile up. Opening an older
+  offer then marks it read (S-t2), the history event lists it as changed, and it drops out of
+  Today. S-t6's Trash all reduces the pile but doesn't remove the risk. Watch for offers vanishing
+  after they're opened. If it happens, a follow-up slice decides membership for the changed IDs
+  that fall outside the page by reading their labels, using the bounded minimal reads S-t2 already
+  makes. Neither S-t3 nor that follow-up adds a cap or pages through the whole category.
 
 **Done when.** On device, a promotional email that arrives after the slice ships appears in Offers
 with its summary and a proposed Find. Nothing from before the epoch appears. Primary behavior is

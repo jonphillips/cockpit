@@ -57,6 +57,55 @@ struct EmailTreatmentProcessorTests {
     #expect(model.content.rows.first(where: { $0.id == pieceID })?.treatmentSummary == persisted.0?.offerSummary)
   }
 
+  @Test("A newly ingested Promotions message is summarized as an Offer with one Pending Find")
+  func promotionsIngestRunsOfferPipeline() async throws {
+    let cursorDate = Date(timeIntervalSince1970: 1_790_000_000)
+    try await database.write { db in
+      try GmailSyncState.upsert {
+        GmailSyncState.Draft(GmailSyncState(
+          accountID: "jon@example.com", historyID: "promotions-h1", updatedAt: cursorDate,
+          promotionsSince: cursorDate))
+      }.execute(db)
+    }
+    let pieceMessage = GmailInboxMessage(
+      id: "promotions-offer", threadID: "promotions-thread", headers: [
+        GmailInboxHeader(name: "From", value: "Example Estate <offers@example.com>"),
+        GmailInboxHeader(name: "Subject", value: "2023 Pinot Noir allocation"),
+        GmailInboxHeader(name: "List-ID", value: "Offers <offers.example.com>"),
+        GmailInboxHeader(name: "Precedence", value: "bulk"),
+      ], bodyPlainText: "A 2023 Pinot Noir allocation. https://example.com/pinot",
+      inboxCategory: .promotions)
+    let client = GmailInboxClient(
+      currentInbox: { throw URLError(.unsupportedURL) },
+      inboxChanges: { _, _, _ in
+        GmailInboxSnapshot(accountID: "jon@example.com", historyID: "promotions-h2", messages: [pieceMessage])
+      })
+    let processor = EmailTreatmentProcessor(modelClient: StubModelClient { request in
+      #expect(request.tier == .onDevice)
+      return ModelResponse(text: #"{"summary":"A 2023 Pinot Noir allocation is available.","find":{"kind":"wine","name":"2023 Pinot Noir","descriptor":"An offered bottle of Pinot Noir.","rationale":"The message describes a specific wine offer.","sourceURL":"https://example.com/pinot"}}"#)
+    })
+    let report = try await GmailInboxIngestor(
+      client: client, now: { Date(timeIntervalSince1970: 1_790_000_010) },
+      treatmentProcessor: processor
+    ).ingest(into: database)
+    let pieceID = try #require(report.contentPieces.first?.id)
+
+    let saved = try await database.read { db in
+      (
+        try EmailTreatmentDetails.find(pieceID).fetchOne(db),
+        try PendingFind.where { $0.contentPieceID.eq(pieceID) }.fetchOne(db),
+        try TodayRequest().fetch(db).rows.first(where: { $0.id == pieceID }),
+        try CurationRouting.snapshot(in: db).editionExcludedContentPieceIDs.contains(pieceID)
+      )
+    }
+    #expect(saved.0?.offerSummary == "A 2023 Pinot Noir allocation is available.")
+    #expect(saved.1?.kind == "wine")
+    #expect(saved.1?.name == "2023 Pinot Noir")
+    #expect(saved.2?.role == .offers)
+    #expect(saved.2?.treatmentSummary == saved.0?.offerSummary)
+    #expect(saved.3)
+  }
+
   @Test("An idea-kind offer keeps its summary but does not persist a Find")
   func ideaKindOfferKeepsSummaryWithoutFind() async throws {
     let pieceID = UUID(8_011)

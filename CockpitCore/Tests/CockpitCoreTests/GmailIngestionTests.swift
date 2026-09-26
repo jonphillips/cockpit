@@ -60,6 +60,7 @@ struct GmailIngestionTests {
       expectNoDifference(provenance.accountID, "jon@example.com")
       expectNoDifference(provenance.messageID, "message-1")
       expectNoDifference(provenance.threadID, "thread-1")
+      expectNoDifference(provenance.inboxCategory, .primary)
       expectNoDifference(provenance.rfcMessageID, "<rfc-1@example.com>")
       expectNoDifference(provenance.listUnsubscribe, "<https://example.com/unsubscribe>")
       expectNoDifference(provenance.listID, "Letters <letters.example.com>")
@@ -82,7 +83,7 @@ struct GmailIngestionTests {
     let ingestor = GmailInboxIngestor(
       client: GmailInboxClient(
         currentInbox: { unread },
-        inboxChanges: { _, _ in read }
+        inboxChanges: { _, _, _ in read }
       ), now: { Date(timeIntervalSince1970: 10) }
     )
 
@@ -148,7 +149,7 @@ struct GmailIngestionTests {
     let refreshIngestor = GmailInboxIngestor(
       client: GmailInboxClient(
         currentInbox: { snapshot },
-        inboxChanges: { _, _ in
+        inboxChanges: { _, _, _ in
           GmailInboxSnapshot(accountID: "jon@example.com", historyID: "refresh-2", messages: [])
         },
         refreshUnreadStates: { ids in
@@ -273,7 +274,7 @@ struct GmailIngestionTests {
     let ingestor = GmailInboxIngestor(
       client: GmailInboxClient(
         currentInbox: { snapshot },
-        inboxChanges: { _, _ in
+        inboxChanges: { _, _, _ in
           GmailInboxSnapshot(accountID: "jon@example.com", historyID: "partial-refresh-2", messages: [])
         },
         refreshUnreadStates: { _ in ["readable-refresh": true] }
@@ -318,24 +319,131 @@ struct GmailIngestionTests {
     expectNoDifference(provenance.ccRecipientCount, 0)
   }
 
-  @Test("Delta keeps changed messages by Primary membership, not by category label")
-  func deltaSelectsByPrimaryMembership() {
-    // "updates-in-primary" is a message Gmail tagged CATEGORY_UPDATES but folds into the Primary tab
-    // (the account has no Updates tab). The old label-exclusion heuristic dropped it; selecting by
-    // `category:primary` membership keeps it. A message that just left Primary is dropped though it
-    // still appears as a change, and order is preserved.
-    let changed = ["updates-in-primary", "personal", "archived-left-primary", "promo-not-primary"]
+  @Test("Delta keeps changed messages by Primary or epoch-scoped Promotions membership")
+  func deltaSelectsByInboxMembership() {
+    // Gmail may label a message CATEGORY_UPDATES while folding it into Primary. Membership uses
+    // category:primary, and Promotions is admitted only by its independent fixed-epoch search.
+    let changed = ["updates-in-primary", "personal", "new-promo", "old-promo", "archived"]
     let primary: Set<String> = ["personal", "updates-in-primary"]
+    let promotions: Set<String> = ["new-promo"]
+    let membership = GmailInboxAPI.changedInboxMembership(
+      changedIDs: changed, primaryInboxIDs: primary, promotionsInboxIDs: promotions)
+    expectNoDifference(membership, [
+      "updates-in-primary": .primary, "personal": .primary, "new-promo": .promotions,
+    ])
+    // An old promo or an archived message is outside both sets and becomes a no-op departure.
     expectNoDifference(
-      GmailInboxAPI.primaryChangedIDs(changedIDs: changed, primaryInboxIDs: primary),
-      ["updates-in-primary", "personal"]
+      GmailInboxAPI.departedChangedIDs(changedIDs: changed, heldInboxIDs: primary.union(promotions)),
+      ["old-promo", "archived"]
     )
-    // The complement is the departure set: changed messages no longer in Primary (archived/trashed in
-    // Gmail). Order is preserved, and messages still in Primary are never treated as departed.
+  }
+
+  @Test("Promotions membership is epoch-scoped and joins Primary only for changed messages")
+  func promotionsMembershipUsesFixedEpoch() {
+    let epoch = Date(timeIntervalSince1970: 1_790_000_000)
+    let query = Dictionary(uniqueKeysWithValues: GmailInboxAPI.promotionsQuery(since: epoch).map {
+      ($0.name, $0.value ?? "")
+    })
+    #expect(query["labelIds"] == "INBOX")
+    #expect(query["q"] == "category:promotions after:1790000000")
+    #expect(query["maxResults"] == "500")
+
+    let changed = ["primary", "new-promo", "old-promo", "archived"]
+    let membership = GmailInboxAPI.changedInboxMembership(
+      changedIDs: changed,
+      primaryInboxIDs: ["primary"],
+      promotionsInboxIDs: ["new-promo"]
+    )
+    expectNoDifference(membership, ["primary": .primary, "new-promo": .promotions])
     expectNoDifference(
-      GmailInboxAPI.departedChangedIDs(changedIDs: changed, primaryInboxIDs: primary),
-      ["archived-left-primary", "promo-not-primary"]
+      GmailInboxAPI.departedChangedIDs(changedIDs: changed, heldInboxIDs: Set(membership.keys)),
+      ["old-promo", "archived"]
     )
+  }
+
+  @Test("A first sync sets the Promotions epoch on the backfill path and the next delta uses it")
+  func firstSyncSetsPromotionsEpoch() async throws {
+    let times = Mutex([Date(timeIntervalSince1970: 1_790_000_010), Date(timeIntervalSince1970: 1_790_000_020)])
+    let epochs = Mutex<[Date]>([])
+    let client = GmailInboxClient(
+      currentInbox: {
+        GmailInboxSnapshot(accountID: "jon@example.com", historyID: "fresh-h1", messages: [])
+      },
+      inboxChanges: { _, _, epoch in
+        epochs.withLock { $0.append(epoch) }
+        return GmailInboxSnapshot(accountID: "jon@example.com", historyID: "fresh-h2", messages: [])
+      }
+    )
+    let ingestor = GmailInboxIngestor(client: client, now: {
+      times.withLock { $0.removeFirst() }
+    })
+
+    // The backfill reads Primary only through `currentInbox`, so no Promotions epoch is passed.
+    _ = try await ingestor.ingest(into: database)
+    let first = try await database.read { db in try GmailSyncState.all.fetchAll(db).first }
+    #expect(first?.promotionsSince == Date(timeIntervalSince1970: 1_790_000_010))
+    #expect(epochs.withLock { $0 }.isEmpty)
+
+    _ = try await ingestor.ingest(into: database)
+    let second = try await database.read { db in try GmailSyncState.all.fetchAll(db).first }
+    #expect(epochs.withLock { $0 } == [Date(timeIntervalSince1970: 1_790_000_010)])
+    #expect(second?.promotionsSince == first?.promotionsSince)
+  }
+
+  @Test("Legacy cursors acquire one Promotions epoch and provenance tracks delta membership")
+  func legacyCursorAcquiresPromotionsEpoch() async throws {
+    let cursorDate = Date(timeIntervalSince1970: 1_790_000_000)
+    try await database.write { db in
+      try GmailSyncState.upsert {
+        GmailSyncState.Draft(GmailSyncState(
+          accountID: "jon@example.com", historyID: "legacy-h1", updatedAt: cursorDate))
+      }.execute(db)
+    }
+
+    let times = Mutex([Date(timeIntervalSince1970: 1_790_000_010), Date(timeIntervalSince1970: 1_790_000_020)])
+    let epochs = Mutex<[Date]>([])
+    let readCount = Mutex(0)
+    let client = GmailInboxClient(
+      currentInbox: { throw GmailInboxError.noResponse },
+      inboxChanges: { _, _, epoch in
+        epochs.withLock { $0.append(epoch) }
+        let category = readCount.withLock { count in
+          defer { count += 1 }
+          return count == 0 ? GmailInboxCategory.promotions : .primary
+        }
+        return GmailInboxSnapshot(
+          accountID: "jon@example.com", historyID: "legacy-h2",
+          messages: [Self.simpleMessage(
+            id: "epoch-promo", threadID: "epoch-thread", subject: "Offer", category: category)])
+      }
+    )
+    let ingestor = GmailInboxIngestor(client: client, now: {
+      times.withLock { $0.removeFirst() }
+    })
+
+    let firstReport = try await ingestor.ingest(into: database)
+    let first = try await database.read { db in try GmailSyncState.all.fetchAll(db).first }
+    #expect(first?.promotionsSince == Date(timeIntervalSince1970: 1_790_000_010))
+    let pieceID = try #require(firstReport.contentPieces.first?.id)
+    let firstProvenance = try await provenance(for: pieceID)
+    #expect(firstProvenance?.inboxCategory == .promotions)
+
+    _ = try await ingestor.ingest(into: database)
+    let second = try await database.read { db in try GmailSyncState.all.fetchAll(db).first }
+    #expect(epochs.withLock { $0 } == [
+      Date(timeIntervalSince1970: 1_790_000_010), Date(timeIntervalSince1970: 1_790_000_010),
+    ])
+    #expect(second?.promotionsSince == first?.promotionsSince)
+    #expect((try await provenance(for: pieceID))?.inboxCategory == .primary)
+  }
+
+  private func provenance(for pieceID: ContentPiece.ID) async throws -> GmailArtifactProvenance? {
+    try await database.read { db in
+      guard let text = try Artifact.where({ $0.contentPieceID.eq(pieceID) })
+        .fetchOne(db)?.providerProvenance
+      else { return nil }
+      return try JSONDecoder().decode(GmailArtifactProvenance.self, from: Data(text.utf8))
+    }
   }
 
   @Test("A message trashed in Gmail is reconciled out of Today on the next delta sync")
@@ -347,7 +455,7 @@ struct GmailIngestionTests {
           messages: [Self.simpleMessage(id: "message-1", threadID: "thread-1", subject: "Morning")]
         )
       },
-      inboxChanges: { _, _ in
+      inboxChanges: { _, _, _ in
         // The delta observed message-1 change (it left Primary in Gmail) and carried no new mail.
         GmailInboxSnapshot(
           accountID: "jon@example.com", historyID: "h2",
@@ -387,7 +495,7 @@ struct GmailIngestionTests {
           messages: [Self.simpleMessage(id: "message-1", threadID: "thread-1", subject: "Morning")]
         )
       },
-      inboxChanges: { _, _ in
+      inboxChanges: { _, _, _ in
         // Cockpit's Archive removed INBOX in Gmail, so the next delta reports message-1 as departed —
         // exactly like an external archive. Reconciliation must tell the two apart.
         GmailInboxSnapshot(
@@ -439,7 +547,7 @@ struct GmailIngestionTests {
           messages: [Self.simpleMessage(id: "message-1", threadID: "thread-1", subject: "First")]
         )
       },
-      inboxChanges: { accountID, historyID in
+      inboxChanges: { accountID, historyID, _ in
         deltaArgs.withLock { $0.append("\(accountID)@\(historyID)") }
         return GmailInboxSnapshot(
           accountID: "jon@example.com", historyID: "h2",
@@ -475,7 +583,7 @@ struct GmailIngestionTests {
           messages: [Self.simpleMessage(id: "message-1", threadID: "thread-1", subject: "Clean")]
         )
       },
-      inboxChanges: { _, historyID in
+      inboxChanges: { _, historyID, _ in
         deltaArgs.withLock { $0.append(historyID) }
         return GmailInboxSnapshot(
           accountID: "jon@example.com", historyID: "h2",
@@ -509,13 +617,16 @@ struct GmailIngestionTests {
     expectNoDifference(deltaArgs.withLock { $0 }, ["h1", "h1"])
   }
 
-  private static func simpleMessage(id: String, threadID: String, subject: String) -> GmailInboxMessage {
+  private static func simpleMessage(
+    id: String, threadID: String, subject: String,
+    category: GmailInboxCategory = .primary
+  ) -> GmailInboxMessage {
     GmailInboxMessage(
       id: id, threadID: threadID,
       headers: [
         GmailInboxHeader(name: "From", value: "Sender <sender@example.com>"),
         GmailInboxHeader(name: "Subject", value: subject),
-      ]
+      ], inboxCategory: category
     )
   }
 

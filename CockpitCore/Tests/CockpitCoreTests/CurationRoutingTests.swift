@@ -422,6 +422,106 @@ struct CurationRoutingTests {
     })
   }
 
+  @Test("Promotions defaults to Offers without appearing as a discovered source")
+  func promotionsDefaultToOffers() async throws {
+    let promotionsID = UUID(9_801)
+    let primaryID = UUID(9_802)
+    let routedID = UUID(9_803)
+    let promotionsLocator = "promos.example.com"
+    let primaryLocator = "primary.example.com"
+    let routedLocator = "routed-promo.example.com"
+
+    try await database.write { db in
+      for (pieceID, locator, category) in [
+        (promotionsID, promotionsLocator, GmailInboxCategory.promotions),
+        (primaryID, primaryLocator, GmailInboxCategory.primary),
+        (routedID, routedLocator, GmailInboxCategory.promotions),
+      ] {
+        let provenance = GmailArtifactProvenance(
+          accountID: "jon@example.com", messageID: pieceID.uuidString, threadID: "thread",
+          rfcMessageID: nil, listUnsubscribe: nil, listID: "Offers <\(locator)>",
+          precedence: "bulk", senderAddress: "offers@\(locator)", sendingDomain: locator,
+          dkimDomain: nil, toRecipientCount: 1, ccRecipientCount: 0,
+          inboxCategory: category)
+        let json = String(data: try JSONEncoder().encode(provenance), encoding: .utf8)
+        try ContentPiece.insert {
+          ContentPiece.Draft(ContentPiece(
+            id: pieceID, kind: .email, title: locator, publisher: locator,
+            emailTreatment: .newsletter, createdAt: .distantPast))
+        }.execute(db)
+        try Artifact.insert {
+          Artifact.Draft(Artifact(
+            id: UUID(), transport: .gmail, providerID: "gmail:\(pieceID.uuidString)",
+            acquiredAt: .distantPast, providerProvenance: json, contentPieceID: pieceID))
+        }.execute(db)
+      }
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: routedLocator, role: .wine), in: db)
+    }
+
+    let snapshot = try await database.read { db in try CurationRouting.snapshot(in: db) }
+    #expect(snapshot.role(for: promotionsID) == .offers)
+    #expect(snapshot.role(for: primaryID) == .forYou)
+    #expect(snapshot.role(for: routedID) == .wine)
+    #expect(!snapshot.discoveredLocators.contains(where: { $0.locator == promotionsLocator }))
+    #expect(snapshot.discoveredLocators.contains(where: { $0.locator == primaryLocator }))
+  }
+
+  @Test("Followed Streams, explicit mutes, and transactional treatment outrank Promotions default")
+  func promotionsRespectHigherRoutingPriority() async throws {
+    let followedID = UUID(9_811)
+    let mutedID = UUID(9_812)
+    let transactionalID = UUID(9_813)
+    let streamID = UUID(9_814)
+    let locators = ["followed.example.com", "muted.example.com", "finance.example.com"]
+    let stream = Stream(
+      id: streamID, name: "Followed newsletter", publisher: "Publisher", transport: .gmail,
+      locator: "publisher.example.com", followState: .active)
+
+    try await database.write { db in
+      try Stream.insert { Stream.Draft(stream) }.execute(db)
+      for (pieceID, locator, treatment) in [
+        (followedID, locators[0], EmailTreatment.newsletter),
+        (mutedID, locators[1], EmailTreatment.newsletter),
+        (transactionalID, locators[2], EmailTreatment.transactional),
+      ] {
+        let provenance = GmailArtifactProvenance(
+          accountID: "jon@example.com", messageID: pieceID.uuidString, threadID: "thread",
+          rfcMessageID: nil, listUnsubscribe: nil, listID: "List <\(locator)>",
+          precedence: "bulk", senderAddress: "sender@\(locator)", sendingDomain: locator,
+          dkimDomain: nil, toRecipientCount: 1, ccRecipientCount: 0,
+          inboxCategory: .promotions)
+        let provenanceJSON = String(data: try JSONEncoder().encode(provenance), encoding: .utf8)
+        try ContentPiece.insert {
+          ContentPiece.Draft(ContentPiece(
+            id: pieceID, kind: .email, title: locator, publisher: locator,
+            emailTreatment: treatment, createdAt: .distantPast))
+        }.execute(db)
+        try Artifact.insert {
+          Artifact.Draft(Artifact(
+            id: UUID(), streamID: pieceID == followedID ? streamID : nil,
+            transport: .gmail, acquiredAt: .distantPast,
+            providerProvenance: provenanceJSON, contentPieceID: pieceID))
+        }.execute(db)
+      }
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: locators[1], role: .offers, isMuted: true), in: db)
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: locators[2], role: .wine), in: db)
+    }
+
+    let result = try await database.read { db in
+      (
+        try CurationRouting.snapshot(in: db),
+        try CurationRouting.resolution(for: followedID, in: db).role
+      )
+    }
+    #expect(result.0.role(for: followedID) == .forYou)
+    #expect(result.1 == .forYou)
+    #expect(result.0.mutedContentPieceIDs.contains(mutedID))
+    #expect(result.0.role(for: transactionalID) == .transactional)
+  }
+
   @Test("Transactional-only locators are routed, while mixed locators remain discoverable")
   func transactionalLocatorsDoNotAppearAsUnrouted() async throws {
     let transactionalOnlyID = UUID(9_801)
