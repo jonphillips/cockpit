@@ -97,7 +97,11 @@ See `docs/IMPLEMENTATION-CONTRACT.md` §6. Text is not a payload and is not gove
 
 Cockpit owns its container, schema, and `makeSyncEngine`. Syncable: Streams, InterestAreas,
 ContentPieces, Editions, EditionEntries, memberships, PersonalKnowledgeClaims and their explicit
-Reader-teaching provenance, PendingFinds, DispositionPolicies.
+Reader-teaching provenance, PendingFinds, DispositionPolicies, DailyLinks. DailyLinks (M6 S-t4)
+are user-authored Today shortcuts. `lastVisitedAt` travels with the row, so a visit on one device
+dims the link on the others. The table isn't in `makeSyncEngine` yet. Add it there before the
+CloudKit sync gate is turned on. Its schema already fits (random UUID key, no uniqueness
+constraints).
 
 Not synced: Artifacts and raw source text (device-local evidence; regenerable), `StreamPollState` (per-device acquisition health — `health`, `lastReceivedAt`, and failure evidence — regenerable by the next poll), `normalizedText` for non-Library pieces, `LocalAvailability` (per-device by definition), `TodayAttention` (the device-local resolution marker for an Inbox observation; it does not alter Gmail), payload bytes pending the CloudKit Asset spike.
 
