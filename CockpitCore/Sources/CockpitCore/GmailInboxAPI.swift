@@ -22,9 +22,9 @@ struct GmailInboxAPI {
   }
 
   /// Returns the changed Primary and epoch-scoped Promotions messages from Gmail's history feed.
-  /// The profile request
-  /// verifies the persisted account before Cockpit touches its local state; the returned profile
-  /// history ID is the committed cursor only after every message is persisted by the ingestor.
+  /// The profile request verifies the persisted account before Cockpit touches its local state; the
+  /// returned profile history ID is the committed cursor only after every message is persisted by
+  /// the ingestor.
   ///
   /// Primary membership is resolved by the *same* `category:primary` query the bounded backfill uses,
   /// not a per-message label heuristic. Gmail folds whichever category tabs the account has disabled

@@ -361,6 +361,35 @@ struct GmailIngestionTests {
     )
   }
 
+  @Test("A first sync sets the Promotions epoch on the backfill path and the next delta uses it")
+  func firstSyncSetsPromotionsEpoch() async throws {
+    let times = Mutex([Date(timeIntervalSince1970: 1_790_000_010), Date(timeIntervalSince1970: 1_790_000_020)])
+    let epochs = Mutex<[Date]>([])
+    let client = GmailInboxClient(
+      currentInbox: {
+        GmailInboxSnapshot(accountID: "jon@example.com", historyID: "fresh-h1", messages: [])
+      },
+      inboxChanges: { _, _, epoch in
+        epochs.withLock { $0.append(epoch) }
+        return GmailInboxSnapshot(accountID: "jon@example.com", historyID: "fresh-h2", messages: [])
+      }
+    )
+    let ingestor = GmailInboxIngestor(client: client, now: {
+      times.withLock { $0.removeFirst() }
+    })
+
+    // The backfill reads Primary only through `currentInbox`, so no Promotions epoch is passed.
+    _ = try await ingestor.ingest(into: database)
+    let first = try await database.read { db in try GmailSyncState.all.fetchAll(db).first }
+    #expect(first?.promotionsSince == Date(timeIntervalSince1970: 1_790_000_010))
+    #expect(epochs.withLock { $0 }.isEmpty)
+
+    _ = try await ingestor.ingest(into: database)
+    let second = try await database.read { db in try GmailSyncState.all.fetchAll(db).first }
+    #expect(epochs.withLock { $0 } == [Date(timeIntervalSince1970: 1_790_000_010)])
+    #expect(second?.promotionsSince == first?.promotionsSince)
+  }
+
   @Test("Legacy cursors acquire one Promotions epoch and provenance tracks delta membership")
   func legacyCursorAcquiresPromotionsEpoch() async throws {
     let cursorDate = Date(timeIntervalSince1970: 1_790_000_000)
