@@ -364,8 +364,8 @@ visual pass later).
     collecting log entries. On partial failure, the failed pieces stay in the batch and the model
     reports "Trashed 3 of 4. 1 couldn't be trashed." Trash all never dismisses pending Finds.
   - `lastBatch: [GmailDispositionLogEntry]` held in memory. `undoLastBatch()` calls
-    `GmailDispositionService.undo` for each entry and reports any it couldn't restore. The batch
-    replaces S-r1's `lastDisposition` banner pattern; don't add a table.
+    `GmailDispositionService.undo` for each entry and reports any it couldn't restore. This follows S-r1's `lastDisposition`
+    banner pattern, extended to a batch; don't add a table.
 - **View.** `OfferReviewView`, pushed or presented from the door as a full-width screen over
   Orientation, not the reading split. It has a card grid (adaptive columns, one column in compact
   width) and a sticky finish bar: "N Finds kept. All M emails go to Gmail Trash." plus **Not now** and
