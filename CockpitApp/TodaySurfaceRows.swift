@@ -146,7 +146,7 @@ struct TodayRoleSectionListView: View {
         ForEach(section.rows) { row in
           emailRow(row)
         }
-      case .forYou, .transactional, .dailyNews, .opinion, .arts, .food, .wine:
+      case .forYou, .transactional, .dailyNews, .tech, .opinion, .arts, .food, .wine:
         ForEach(section.rows) { row in
           emailRow(row)
         }
