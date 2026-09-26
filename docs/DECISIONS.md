@@ -191,6 +191,9 @@ Trip-aware bulk preparation and Stream-wide offline rules are future affordances
 
 Cockpit owns its own attention state. Gmail read/unread remains separate provider state.
 
+**Amended by §28 (2026-09-26):** Cockpit now mirrors Gmail's read state and marks a message read when
+Jon opens it in the Reader. Read state is still not attention state.
+
 `Clear` is a Cockpit attention action. The upstream Gmail disposition is resolved independently as:
 
 - **Leave in Inbox**
@@ -946,6 +949,118 @@ reply on newsletter roles. Any of these needs its own decision.
 
 **Relates to:** ADR-0002 D7 (out-of-V1 list now points here), V1-SCOPE out-of-scope list, AGENTS.md Gmail
 boundary. Slice: `docs/milestones/M6-reader-dogfood-slices.md` S-r5.
+
+---
+
+## 27. Gmail's Promotions tab: read new mail only, with no source list, into Offers — RESOLVED (2026-09-26, Jon)
+
+**Evidence.** The offers Jon wants to sift for Finds arrive in Gmail's Promotions tab, which Cockpit
+has never read. Every Gmail read is scoped to `category:primary` (ADR-0002 D2). The offer pipeline
+behind the read already works: the Offers role, the on-device offer summary, its one proposed Find,
+and the S-r6 barrier. Only the intake is missing. Jon keeps his promotional senders under tight
+control upstream by unsubscribing, the traffic is modest, and he doesn't want to maintain a second
+source list inside Cockpit.
+
+**Decision.** Cockpit reads Gmail's Promotions tab next to Primary, **new mail only**.
+
+- **Scope.** Inbox mail in `category:promotions` that was received after a fixed **Promotions epoch**:
+  the moment of the first sync that knows about Promotions. The existing ~16k Promotions messages are
+  not backfilled. Nothing older than the epoch ever enters, even when a later label change (Jon reads
+  or archives an old promo in Gmail) puts it into the history feed. The epoch never moves once it is
+  set.
+- **No source list.** Every Promotions message after the epoch is read. Jon's unsubscribing is the
+  curation. Cockpit adds no allowlist, blocklist, or opt-in step.
+- **Placement.** A Promotions message with no explicit routing rule lands in **Offers**, not For you.
+  Every existing routing input still wins over that default: a followed Stream, a List-ID or sender
+  rule, a mute, and the transactional classification. A promo sender can be moved to Food or Wine, or
+  muted, with the controls that exist today. Mute is the "stop showing me this sender" tool.
+- **Same sync, same cursor.** Promotions rides the Primary `historyId` delta. The history feed is
+  already account-wide, so the only change is membership: Primary ∪ Promotions-since-epoch. The added
+  quota cost is one `messages.list` per sync plus one `messages.get` (20 units) per new promo. This
+  amends ADR-0002 D2's "own budget and cadence" for Promotions only. Forward-only reading at this
+  volume doesn't need its own cadence.
+- **Disposition unchanged.** Nothing is automatic. Archive and Trash stay per-action, and an offer's
+  Trash stays behind S-r6's confirmed-Find barrier. An auto-trash policy for promos would be a new
+  explicit policy under §7 / ADR-0002 D7, not part of this entry.
+
+**Still out.** Social, Updates, and Forums. Any Promotions backfill. A separate Promotions cadence or
+budget. A promo sender list, allowlist, or opt-in.
+
+**Re-open when** Promotions makes Offers noisy enough that Jon mutes senders faster than he
+unsubscribes, or it measurably slows the delta sync. The fix then is a sender allowlist or its own
+cadence, and not before.
+
+**Relates to:** ADR-0002 D2 (amended), §7, §24 (Offers role), the M6 deferred ledger's "Promotions/Social
+at scale" row (Promotions now scheduled; Social stays deferred). Slice:
+`docs/milestones/M6-today-additions.md` S-t3.
+
+---
+
+## 28. Gmail read state: shown in Cockpit, and set to read when Jon opens a message — RESOLVED (2026-09-26, Jon)
+
+**Evidence.** Jon wants to see at a glance which messages he has read, the standard mail-client
+de-bold. §7 left read/unread as separate provider state, and Cockpit has never shown or set it. It
+reads each message's labels and then discards `UNREAD`. Showing Gmail's state alone isn't enough.
+Without write-back, anything Jon reads in Cockpit stays bold in both Gmail and Cockpit.
+
+**Decision.**
+
+- **Show it.** Cockpit mirrors Gmail's `UNREAD` label for each Gmail message and renders unread rows
+  in bold in Today's sections and the reading queue. A ContentPiece is unread when any of its Gmail
+  Artifacts is unread. The normal delta sync refreshes the mirror (a label change is already a
+  history event that re-reads the message), so a message read in Mail.app de-bolds on the next sync.
+- **Set it on open.** Opening a Gmail piece in Cockpit's Reader marks it read in Gmail with
+  `messages.modify` removing `UNREAD` (5 units, under the `gmail.modify` scope Cockpit already has).
+  The call is only made when the mirror says unread. It counts as an open when the Reader shows the
+  piece, including when the queue auto-advances to it after a disposition, the way Mail behaves.
+- **Reversible.** The Reader offers **Mark as Unread**, which re-adds `UNREAD`.
+- **Still not attention state.** Clear, Dismiss, Archive, and Trash don't mark anything read, and
+  marking read doesn't clear, dismiss, or remove anything from Today. Read state never feeds judgment,
+  ranking, Personal Knowledge, disposition policy, or Today membership. Non-Gmail pieces (RSS) have no
+  read state, and Cockpit doesn't invent one.
+- **Failure is quiet.** The write is best-effort: on failure the row stays bold and the next open
+  tries again. There's no retry queue and no error banner.
+
+**Amends §7**, whose first paragraph now reads with this entry: Cockpit owns its own attention state.
+Gmail read/unread is still provider state, which Cockpit now mirrors and sets when Jon opens a message.
+
+**Relates to:** §7, ADR-0002 D1 (the message is the unit, so only the piece's own messages are marked,
+never the whole thread) and D5 (a fourth, non-destructive label operation), `TODAY-EXPERIENCE.md` and
+`EMAIL-INTELLIGENCE-MODEL.md` ("read/unread is not canonical attention state" still holds). Slice:
+`docs/milestones/M6-today-additions.md` S-t2.
+
+---
+
+## 29. Daily links: a short list of places to visit each day, beside Today — RESOLVED (2026-09-26, Jon)
+
+**Evidence.** Jon has a few places he means to visit every day, including at least two Apple News
+channels. Apple News has no reader-side API: the Apple News API is publisher-only, and there's no
+public access to followed channels, history, or article lists, or to News+ content. A channel's
+share link (`https://apple.news/…`, from Share → Copy Link in News) does open that channel in the
+News app. A link is the whole integration available.
+
+**Decision.** Cockpit keeps a short, **Jon-authored, ordered list of Daily links**. It appears as a
+narrow icon column on the trailing edge of Today's landing surface in regular width, and as a toolbar
+menu in compact width.
+
+- A Daily link is a title, a URL (`http`/`https`, which covers `apple.news`), an icon chosen from a
+  small curated set of SF Symbols, an order, and a last-visited time. Jon manages the list in
+  **Settings → Daily links**: add, edit, reorder, delete.
+- Tapping a link opens it through the system: `apple.news` links go to News, web links go to Safari.
+  The tap records a visit. The icon dims for the rest of the local calendar day and comes back the
+  next day. That is the whole attention model: a daily checklist, not a feed.
+- **Boundaries.** A Daily link is not a Stream, a ContentPiece, a Find, or a Later or Library item.
+  Cockpit never fetches, scrapes, previews, or judges a link's destination, and visits never become
+  Personal Knowledge or judgment input. There are no folders, tags, or import: it isn't a bookmark
+  manager. If Jon wants a source's stories inside Cockpit, the answer is to follow its RSS feed as a
+  Stream.
+
+**Why a new table is justified (AGENTS.md persistence discipline).** It has user-authored identity,
+an explicit order, a daily visited lifecycle, and one query (the ordered list with visited-today).
+None of the existing nouns fits without bending it.
+
+**Relates to:** §24 (Today stays orientation; this is orientation, not curation), the AGENTS.md AI
+boundary. Slice: `docs/milestones/M6-today-additions.md` S-t4.
 
 ---
 
