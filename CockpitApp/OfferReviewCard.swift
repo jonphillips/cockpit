@@ -1,6 +1,6 @@
 import CockpitCore
+import Foundation
 import SwiftUI
-import UIKit
 
 struct OfferReviewCard: View {
   let row: OfferReviewRequest.Row
@@ -26,7 +26,9 @@ struct OfferReviewCard: View {
       }
       .buttonStyle(.plain)
 
-      Text(row.subject).font(.headline).fixedSize(horizontal: false, vertical: true)
+      Text(row.subject)
+        .font(.headline.weight(row.isUnread ? .semibold : .regular))
+        .fixedSize(horizontal: false, vertical: true)
       if let find = row.pendingFind {
         VStack(alignment: .leading, spacing: 3) {
           Text(find.kind.uppercased()).font(.caption2.weight(.bold)).foregroundStyle(role.color)
@@ -52,9 +54,7 @@ struct OfferReviewCard: View {
         }
       }
       HStack {
-        Text(row.arrivedAt, format: .dateTime.month().day())
-        Spacer()
-        if row.isUnread { Label("Unread", systemImage: "circle.fill") }
+        Text(row.arrivedAt, format: .dateTime.month().day().hour().minute())
       }
       .font(.caption2)
       .foregroundStyle(.tertiary)
@@ -68,34 +68,27 @@ struct OfferReviewCard: View {
 struct OfferRemoteHero: View {
   let url: URL?
   let color: Color
-  @State private var image: UIImage?
 
   var body: some View {
-    Group {
-      if let image {
-        Image(uiImage: image).resizable().scaledToFill()
+    AsyncImage(url: url) { phase in
+      if let image = phase.image {
+        image.resizable().scaledToFill()
       } else {
         Rectangle().fill(color.opacity(0.18))
           .overlay(Image(systemName: "tag").font(.largeTitle).foregroundStyle(color))
       }
     }
+    .asyncImageURLSession(OfferHeroImageSession.shared)
     .clipped()
-    .task(id: url) { await loadImage() }
   }
+}
 
-  private func loadImage() async {
-    guard let url else { image = nil; return }
+private enum OfferHeroImageSession {
+  static let shared: URLSession = {
     let configuration = URLSessionConfiguration.ephemeral
-    configuration.urlCache = nil
     configuration.httpCookieStorage = nil
-    configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-    let session = URLSession(configuration: configuration)
-    defer { session.invalidateAndCancel() }
-    do {
-      let (data, _) = try await session.data(from: url)
-      image = UIImage(data: data)
-    } catch {
-      image = nil
-    }
-  }
+    configuration.httpShouldSetCookies = false
+    configuration.urlCache = URLCache(memoryCapacity: 16 * 1024 * 1024, diskCapacity: 0, diskPath: nil)
+    return URLSession(configuration: configuration)
+  }()
 }

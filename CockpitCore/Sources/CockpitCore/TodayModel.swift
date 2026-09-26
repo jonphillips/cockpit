@@ -44,7 +44,7 @@ public final class TodayModel {
   @ObservationIgnored @Dependency(\.gmailDispositionClient) var dispositionClient
   @ObservationIgnored @Dependency(\.modelClient) private var modelClient
   @ObservationIgnored @Fetch(TodayRequest()) public var content = .init()
-  @ObservationIgnored @Fetch(OfferReviewRequest()) public var offers = OfferReviewRequest.Value()
+  @ObservationIgnored @Fetch(OfferReviewRequest(heroLimit: 4)) public var offers = OfferReviewRequest.Value()
   public var recentTrashes = RecentTrashRequest.Value()
   public var lastOfferBatch: [GmailDispositionLogEntry] = []
   public var offerUndoMessage: String?
@@ -188,18 +188,7 @@ extension TodayModel {
   public func undoLastOfferBatch() async {
     guard !lastOfferBatch.isEmpty else { return }
     let batch = lastOfferBatch
-    let service = dispositionService
-    var failed: [GmailDispositionLogEntry] = []
-    for (index, entry) in batch.enumerated() {
-      do {
-        try await service.undo(entry, in: database)
-      } catch is CancellationError {
-        failed.append(contentsOf: batch[index...])
-        break
-      } catch {
-        failed.append(entry)
-      }
-    }
+    let failed = await dispositionService.undo(batch, in: database)
     lastOfferBatch = failed
     offerUndoMessage = failed.isEmpty ? nil : "Restored \(batch.count - failed.count) of \(batch.count). \(failed.count) couldn't be restored."
     try? await $content.load()

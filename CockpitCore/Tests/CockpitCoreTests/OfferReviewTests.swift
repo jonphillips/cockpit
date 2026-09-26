@@ -37,11 +37,15 @@ struct OfferReviewTests {
     let muted = UUID(30_004)
     let disposed = UUID(30_005)
     let wineNewsletter = UUID(30_006)
-    try await seed(older, messageID: "older", role: .offers, treatment: .offer, receivedAt: 10)
+    try await seed(
+      older, messageID: "older", role: .offers, treatment: .offer, receivedAt: 10,
+      heroHTML: #"<img src="https://img.example/older.jpg" width="640">"#)
     try await seed(
       newer, messageID: "newer", role: .offers, treatment: .offer, receivedAt: 20,
-      unread: true, findID: UUID(30_007))
-    try await seed(cleared, messageID: "cleared", role: .offers, treatment: .offer, receivedAt: 30)
+      unread: true, findID: UUID(30_007), heroHTML: #"<img src="https://img.example/newer.jpg" width="640">"#)
+    try await seed(
+      cleared, messageID: "cleared", role: .offers, treatment: .offer, receivedAt: 30,
+      heroHTML: #"<img src="https://img.example/older.jpg" width="640">"#)
     try await seed(muted, messageID: "muted", role: .offers, treatment: .offer, receivedAt: 40)
     try await seed(disposed, messageID: "disposed", role: .offers, treatment: .offer, receivedAt: 50)
     try await seed(wineNewsletter, messageID: "wine-news", role: .wine, treatment: .newsletter, receivedAt: 60)
@@ -51,6 +55,16 @@ struct OfferReviewTests {
       }.execute(db)
       try StreamOperations.saveRoutingRule(
         ContentRoleRoutingRule(locator: "mail-muted@example.com", role: .offers, isMuted: true), in: db)
+      try PendingFind.insert {
+        PendingFind.Draft(PendingFind(
+          id: UUID(30_008), contentPieceID: newer, kind: "wine", name: "Confirmed find",
+          descriptor: "Confirmed.", rationale: "Confirmed.", state: .confirmed))
+      }.execute(db)
+      try PendingFind.insert {
+        PendingFind.Draft(PendingFind(
+          id: UUID(30_009), contentPieceID: older, kind: "wine", name: "Dismissed find",
+          descriptor: "Dismissed.", rationale: "Dismissed.", state: .dismissed))
+      }.execute(db)
       _ = try GmailDispositionOperations.recordApplied(
         id: UUID(30_050), providerID: "gmail:jon@example.com:message:disposed", operation: .trash,
         at: .distantPast, in: db)
@@ -60,19 +74,33 @@ struct OfferReviewTests {
     #expect(rows.map(\.id) == [newer, older])
     #expect(rows.first?.sender == "Sender")
     #expect(rows.first?.isUnread == true)
-    #expect(rows.first?.pendingFind?.name == "Find newer")
+    #expect(rows.first?.pendingFind?.name == "Confirmed find")
+    #expect(rows.last?.pendingFind == nil)
     #expect(rows.first?.summary == "An offer summary.")
+    let doorRows = try await database.read { db in
+      try OfferReviewRequest(role: .offers, heroLimit: 1).fetch(db).rows
+    }
+    #expect(doorRows.count == 2)
+    #expect(doorRows.first?.heroURL == URL(string: "https://img.example/newer.jpg"))
+    #expect(doorRows.last?.heroURL == nil)
+    let reviewRows = try await database.read { db in
+      try OfferReviewRequest(role: .offers, heroLimit: nil).fetch(db).rows
+    }
+    #expect(reviewRows.allSatisfy { $0.heroURL != nil })
     let queueRows = try await database.read { db in try TodayReadingQueueRequest().fetch(db).rows }
     #expect(queueRows.map(\.id).contains(wineNewsletter))
     #expect(!queueRows.contains { $0.id == newer || $0.id == older })
   }
 
-  @Test("Keep and unkeep only move pending and confirmed Finds, without applying disposition")
+  @Test("Keep and unkeep only move pending and confirmed Finds, without applying disposition policy")
   func keepAndUnkeep() async throws {
     let pieceID = UUID(30_101)
     let findID = UUID(30_102)
     try await seed(pieceID, messageID: "keep", role: .offers, treatment: .offer, receivedAt: 1, findID: findID)
     let calls = OfferCallLog()
+    try await database.write { db in
+      try GmailDispositionPolicyOperations.establish(.offerWithFind, at: .distantPast, in: db)
+    }
     await withDependencies { $0.gmailDispositionClient = calls.client } operation: {
       let model = OfferReviewModel(role: .offers)
       await model.reload()
@@ -105,7 +133,7 @@ struct OfferReviewTests {
       second, messageID: "batch-b", role: .offers, treatment: .offer, receivedAt: 1,
       findID: pendingFind)
     let calls = OfferCallLog()
-    await withDependencies { $0.gmailDispositionClient = calls.client } operation: {
+    try await withDependencies { $0.gmailDispositionClient = calls.client } operation: {
       let model = OfferReviewModel(role: .offers)
       await model.reload()
       await model.keep(keptFind)
@@ -113,10 +141,40 @@ struct OfferReviewTests {
       #expect(model.rows.isEmpty)
       #expect(model.lastBatch.count == 2)
       #expect(model.isClear)
+      let today = TodayModel()
+      try await today.$offers.load()
+      #expect(today.offerDoors.isEmpty)
       await model.undoLastBatch()
       #expect(model.rows.count == 2)
       #expect(model.rows.first(where: { $0.pendingFind?.id == keptFind })?.pendingFind?.state == .confirmed)
       #expect(model.rows.first(where: { $0.pendingFind?.id == pendingFind })?.pendingFind?.state == .pending)
+    }
+    #expect(calls.calls.filter { $0.hasPrefix("trash:") }.count == 2)
+    #expect(calls.calls.filter { $0.hasPrefix("untrash:") }.count == 2)
+  }
+
+  @Test("Today Undo restores the offer review batch and brings its door back")
+  func todayUndoRestoresOfferBatch() async throws {
+    let first = UUID(30_251), second = UUID(30_252)
+    try await seed(first, messageID: "today-batch-a", role: .offers, treatment: .offer, receivedAt: 2)
+    try await seed(second, messageID: "today-batch-b", role: .offers, treatment: .offer, receivedAt: 1)
+    let calls = OfferCallLog()
+    try await withDependencies { $0.gmailDispositionClient = calls.client } operation: {
+      let review = OfferReviewModel(role: .offers)
+      await review.reload()
+      await review.trashAll()
+      #expect(review.lastBatch.count == 2)
+
+      let today = TodayModel()
+      today.rememberOfferBatch(review.lastBatch)
+      try await today.$offers.load()
+      #expect(today.offerDoors.isEmpty)
+      await today.undoLastOfferBatch()
+
+      #expect(today.lastOfferBatch.isEmpty)
+      #expect(today.offerUndoMessage == nil)
+      #expect(today.offerDoors.map(\.count) == [2])
+      #expect(Set(today.offers.rows.map(\.id)) == Set([first, second]))
     }
     #expect(calls.calls.filter { $0.hasPrefix("trash:") }.count == 2)
     #expect(calls.calls.filter { $0.hasPrefix("untrash:") }.count == 2)
@@ -150,7 +208,8 @@ struct OfferReviewTests {
     treatment: EmailTreatment,
     receivedAt: TimeInterval,
     unread: Bool = false,
-    findID: PendingFind.ID? = nil
+    findID: PendingFind.ID? = nil,
+    heroHTML: String? = nil
   ) async throws -> ContentPiece.ID {
     try await database.write { db in
       try ContentPiece.insert {
@@ -163,7 +222,7 @@ struct OfferReviewTests {
         Artifact.Draft(Artifact(
           id: UUID(), transport: .gmail,
           providerID: "gmail:jon@example.com:message:\(messageID)",
-          acquiredAt: Date(timeIntervalSince1970: receivedAt),
+          acquiredAt: Date(timeIntervalSince1970: receivedAt), rawSourceText: heroHTML,
           providerProvenance: "{\"accountID\":\"jon@example.com\",\"messageID\":\"\(messageID)\",\"threadID\":\"thread-\(messageID)\",\"senderAddress\":\"mail-\(messageID)@example.com\",\"toRecipientCount\":1,\"ccRecipientCount\":0}",
           providerIsUnread: unread, contentPieceID: id))
       }.execute(db)

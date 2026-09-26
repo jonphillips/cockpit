@@ -33,7 +33,9 @@ public final class OfferReviewModel {
 
   public func reload() async {
     do {
-      content = try await database.read { db in try OfferReviewRequest(role: role).fetch(db) }
+      content = try await database.read { db in
+        try OfferReviewRequest(role: role, heroLimit: nil).fetch(db)
+      }
       errorMessage = nil
     } catch is CancellationError {
     } catch {
@@ -92,18 +94,7 @@ public final class OfferReviewModel {
   public func undoLastBatch() async {
     guard !lastBatch.isEmpty else { return }
     let batch = lastBatch
-    let service = dispositionService
-    var failed: [GmailDispositionLogEntry] = []
-    for (index, entry) in batch.enumerated() {
-      do {
-        try await service.undo(entry, in: database)
-      } catch is CancellationError {
-        failed.append(contentsOf: batch[index...])
-        break
-      } catch {
-        failed.append(entry)
-      }
-    }
+    let failed = await dispositionService.undo(batch, in: database)
     lastBatch = failed
     didChangeBatch(failed)
     await reload()

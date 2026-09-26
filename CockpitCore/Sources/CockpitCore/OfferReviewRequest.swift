@@ -4,7 +4,6 @@ import SQLiteData
 /// Today-membership projection for offer review. Provider mutations and Cockpit attention remain
 /// separate: the request reuses Today's projection, then enriches those rows for the review cards.
 public struct OfferReviewRequest: FetchKeyRequest {
-  @Selection
   public struct Row: Equatable, Identifiable, Sendable {
     public let id: ContentPiece.ID
     public let role: ContentRole
@@ -24,19 +23,36 @@ public struct OfferReviewRequest: FetchKeyRequest {
   }
 
   public let role: ContentRole?
+  /// Bounds hero extraction on Today while preserving every offer row and count. `nil` loads a
+  /// hero for every row, which is used when one role's review grid is open.
+  public let heroLimit: Int?
 
-  public init(role: ContentRole? = nil) {
+  public init(role: ContentRole? = nil, heroLimit: Int? = nil) {
     self.role = role
+    self.heroLimit = heroLimit
   }
 
   public func fetch(_ db: Database) throws -> Value {
-    let todayRows = try TodayRequest().fetch(db).rows
-    let pendingFinds = try PendingFind.all.fetchAll(db)
+    let todayRows = try TodayRequest().fetch(db).rows.filter {
+      OfferPieces.isOffer(role: $0.role, treatment: $0.treatment)
+        && (role == nil || role == $0.role)
+    }
+    let pieceIDs = todayRows.map(\.id)
+    let pendingFinds = try pieceIDs.isEmpty
+      ? []
+      : PendingFind.where { $0.contentPieceID.in(pieceIDs) }.fetchAll(db)
     let findsByPiece = Dictionary(grouping: pendingFinds, by: \.contentPieceID)
-    let rows = try todayRows.compactMap { row -> Row? in
-      guard OfferPieces.isOffer(role: row.role, treatment: row.treatment),
-        role == nil || role == row.role
-      else { return nil }
+    var heroCounts: [ContentRole: Int] = [:]
+    let rows = try todayRows.map { row -> Row in
+      let selectedFind = findsByPiece[row.id]?.filter { $0.state != .dismissed }
+        .sorted(by: Self.findPriority).first
+      let heroURL: URL?
+      if heroLimit.map({ (heroCounts[row.role] ?? 0) >= $0 }) == true {
+        heroURL = nil
+      } else {
+        heroURL = try OfferHeroImageOperations.url(for: row.id, in: db)
+        if heroURL != nil { heroCounts[row.role, default: 0] += 1 }
+      }
       return Row(
         id: row.id,
         role: row.role,
@@ -44,11 +60,26 @@ public struct OfferReviewRequest: FetchKeyRequest {
         sender: row.sender,
         arrivedAt: row.arrivedAt,
         summary: row.treatmentSummary,
-        pendingFind: findsByPiece[row.id]?.sorted { $0.id.uuidString < $1.id.uuidString }.first,
+        pendingFind: selectedFind,
         isUnread: row.isUnread,
-        heroURL: try OfferHeroImageOperations.url(for: row.id, in: db)
+        heroURL: heroURL
       )
     }
     return Value(rows: rows)
+  }
+
+  private static func findPriority(_ lhs: PendingFind, _ rhs: PendingFind) -> Bool {
+    func priority(_ state: PendingFindState) -> Int {
+      switch state {
+      case .confirmed: 0
+      case .pending: 1
+      default: 2
+      }
+    }
+    let leftPriority = priority(lhs.state)
+    let rightPriority = priority(rhs.state)
+    return leftPriority == rightPriority
+      ? lhs.id.uuidString < rhs.id.uuidString
+      : leftPriority < rightPriority
   }
 }

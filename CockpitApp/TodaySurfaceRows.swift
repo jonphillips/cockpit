@@ -141,13 +141,11 @@ struct TodayRoleSectionListView: View {
       .padding(.top, 18)
 
       switch section.role {
-      case .offers:
-        EmptyView()
       case .grabBag:
         ForEach(section.rows) { row in
           emailRow(row)
         }
-      case .forYou, .transactional, .dailyNews, .tech, .opinion, .arts, .food, .wine:
+      case .forYou, .transactional, .dailyNews, .tech, .opinion, .arts, .food, .wine, .offers:
         ForEach(section.rows) { row in
           emailRow(row)
         }
