@@ -101,9 +101,8 @@ extension TodayReadingQueueModel {
     let nextSelection = ReadingQueueSelection.neighbour(of: selectedContentPieceID, in: rows)
     guard await applySeriesTrashOnLeave(selectedContentPieceID) else { return }
 
-    // Setting selection after the trash can fire ProcessView's selection-change hook. Consume that
-    // duplicate leave callback instead of attempting the series policy twice.
-    skipSeriesTrashOnLeaveIDs.insert(selectedContentPieceID)
+    // If ProcessView observes this offscreen selection change, its callback sees that the disposed
+    // row is already absent and becomes a no-op.
     self.selectedContentPieceID = nextSelection
   }
 
