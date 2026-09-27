@@ -201,7 +201,7 @@ private struct ProcessQueueDetail: View {
           originalWebViewStore: originalWebViewStore
         )
         .id(row.id)
-        .task(id: row.id) {
+        .onAppear {
           if isActive { model.markPresented(row.id) }
         }
         .onChange(of: isActive) { _, active in
