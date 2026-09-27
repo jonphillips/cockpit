@@ -19,7 +19,7 @@ Jon's device pass is the gate.
 **S-v3 needs S-v1 and S-v2. S-v4 needs S-v1 and S-v2**, and floats against S-v3. Both S-v3 and S-v4 touch
 `TodayView.swift`, so whichever lands second rebases.
 
-- [ ] S-v1 — Foundation: asset catalog and `AccentColor`, `Theme` tokens, type roles, bundled Newsreader
+- [x] S-v1 — Foundation: asset catalog and `AccentColor`, `Theme` tokens, type roles, bundled Newsreader
 - [ ] S-v2 — Process tab and quick look: the structural move, in default styling
 - [ ] S-v3 — Today visual adoption: masthead, columns, section labels, rows
 - [ ] S-v4 — Reader, quick look, and Process visual adoption: the letter, the newsletter strip and footer, the queue

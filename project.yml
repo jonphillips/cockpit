@@ -45,6 +45,8 @@ targets:
     platform: iOS
     sources:
       - CockpitApp
+    resources:
+      - path: CockpitApp/Fonts
     entitlements:
       path: CockpitApp/Cockpit.entitlements
       properties:
@@ -64,6 +66,12 @@ targets:
         GIDClientID: 305782585157-80plee5p6augqkg5l5ps60bft7fe8r29.apps.googleusercontent.com
         UILaunchScreen: {}
         UIBackgroundModes: [remote-notification]
+        UIAppFonts:
+          - Newsreader-Regular.ttf
+          - Newsreader-Italic.ttf
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
     dependencies:
       - package: CockpitCore
         product: CockpitCore
