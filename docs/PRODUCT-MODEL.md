@@ -21,7 +21,7 @@ The current shell is:
 
 ```text
 Today
-Edition
+Process
 Later
 Library
 Settings
@@ -33,11 +33,21 @@ Settings
 
 Today owns morning orientation, personal/consequential email attention, a small Worth Seeing set, compact derived awareness, and inspectable quiet handling.
 
+### Process
+
+> **Take me through it, in order.**
+
+Process is the one ordered queue across Today's sections, as its own tab (DECISIONS §31). Today is the
+overview and Process is where Jon works straight down the queue. The two share it, so clearing an item
+in either removes it from both.
+
 ### Edition
 
 > **I have some time. What is worth reading, watching, exploring, or considering?**
 
-Edition is a finite rolling personalized newspaper assembled from followed Streams.
+Edition is a finite rolling personalized newspaper assembled from followed Streams. It is a domain
+entity, not a destination: since DECISIONS §24 it is the barely-curated tail, rendered as sections on
+Today, and its entries enter the Process queue (§1, amended by §31).
 
 ### Later
 

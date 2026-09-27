@@ -209,6 +209,11 @@ Settings-buried stub.
   navigational sampler, never an insertion into the Edition package. Invariant for the surface: **a
   Highlights card must always resolve to an item already in a section; the moment it surfaces something
   not otherwise present, it is promotion again and violates I5.**
+  **Amendment (2026-09-27, DECISIONS §31):** the Highlights row is dropped. Every Today headline now
+  opens a quick-look sheet, which is what a Highlight did, and the dense Morning Edition columns show
+  the morning without a sampler. With no Highlights, the I5 surface invariant holds trivially: Today
+  shows only section items. If the row ever returns, the invariant returns with it. Slice:
+  `M6-morning-edition.md` S-v2.
 
 - **D-E — Interaction model: list/detail split, not full-screen + half-sheet.** Today's full-screen
   Today with a half-sheet sliding *over* each piece is replaced by a two-state model:
@@ -221,6 +226,12 @@ Settings-buried stub.
   **Dogfood amendment (2026-09-24, Jon):** Highlights cards are the one exception. A Highlight is a
   sampler, so it opens the Reader in a sheet over Orientation instead of entering Reading. Section rows
   and the tail still open the split. Slice: `M6-reader-dogfood-slices.md` S-r11.
+  **Amendment (2026-09-27, DECISIONS §31):** the two states become two tabs. **Today** (Orientation) and
+  **Process** (Reading) are system tabs, so each keeps its own place, and Today no longer swaps itself
+  out for the split. The Highlights-sheet exception becomes the rule: every Today headline opens a
+  large quick-look sheet, and "Process from here" switches to Process at that item. The draggable
+  divider and its remembered width are dropped (Jon, 2026-09-27). The split view uses the system's
+  column width, following §31's native-chrome rule. Slice: `M6-morning-edition.md` S-v2.
 
 - **D-F — Reading is ONE ordered queue across all sections, not per-section lists.** Categorization
   runs twice: to **orient** (grouping shows the shape of the morning) and to **order** (one linear
@@ -232,6 +243,11 @@ Settings-buried stub.
   **Amendment (2026-09-26, Jon; DECISIONS §30):** offer pieces leave the reading queue and its
   section rail. Each offer role gets a door on Orientation that opens a review mode for batch Keep and
   Trash all. The queue now ends with the last non-offer section. Slice: `M6-today-additions.md` S-t6.
+  **Amendment (2026-09-27, Jon; DECISIONS §31):** the queue lives in the **Process tab**, and Today and
+  Process share it: a disposition in either removes the item from both, under the "disappear, with
+  Undo" rule. The S-r11 section rail is dropped. Sections are small-caps headers in the list, and Today
+  is where you see the shape of the morning. Order, membership, and the offer exclusion are unchanged.
+  Slice: `M6-morning-edition.md` S-v2.
 
 - **D-G — Disposition is surfaced in the reading moment (makes I2/S-c visible).** The reader carries
   Save-for-later / Add-to-library / Trash actions and a standing custody line ("when you leave, the

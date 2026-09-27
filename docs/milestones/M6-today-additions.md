@@ -1,4 +1,4 @@
-# M6 — Today additions (S-t1 … S-t4)
+# M6 — Today additions (S-t1 … S-t7)
 
 > **Build order, architect-recorded 2026-09-26 from Jon's product notes.** Four additions to the Today
 > surface and its Gmail intake. They don't reopen any Gate 4 decision (D-A–D-G) or anything in the
@@ -18,6 +18,9 @@ S-t5 is a core-only hero-image picker, and S-t6 builds the door and the mode on 
 S-t2 (it marks opened offers read) and after S-t4 (both edit `TodayLandingView`). It doesn't need
 S-t3, but S-t3 is what gives it volume.
 
+**S-t7 (added 2026-09-27)** fixes a layout defect found on device in S-t6's card grid. It floats, and
+lands before `M6-morning-edition.md` S-v3 restyles the offer doors.
+
 **Styling.** Build every slice in default system styling. The visual pass for these surfaces belongs
 to the Today/email design process (house rule: arrange → behavior → foundation → per-surface
 adoption), not to these slices.
@@ -28,6 +31,7 @@ adoption), not to these slices.
 - [x] S-t4 — Daily links: an icon column beside Today, managed in Settings
 - [x] S-t5 — Offer hero image: pick the lead image from held email HTML
 - [x] S-t6 — Offer review mode: a door per offer role, a card grid, Keep, Trash all, one Undo
+- [ ] S-t7 — Offer hero sizing: a fixed 16:10 box the image fills, so cards stay inside their column
 
 ## Standing rules for every slice
 
@@ -438,3 +442,47 @@ the reading queue has no offers.
 `OfferReview*.swift` in `CockpitCore`, `TodayModel.swift`, `TodayReadingQueueRequest.swift`,
 `TodayLandingView.swift`, `TodaySurfaceRows.swift`, and new `OfferReviewView.swift`. Build after S-t2,
 S-t4, and S-t5. Branch: `m6/s-t6-offer-review-mode`.
+
+---
+
+### S-t7 — Offer hero sizing: a fixed 16:10 box the image fills, so cards stay inside their column
+
+**Why.** Found on Jon's iPad, 2026-09-27. In review mode, cards grow past their grid column and
+overlap their neighbours: a wide banner hero (a clothing brand's wordmark, a newspaper masthead) makes
+its card several columns wide, and a tall hero pushes the rest of the grid down. The mockup
+(`docs/mockups/M6-offer-review-mode.html`, `.hero{aspect-ratio:16/10}` with `slice` art) intends a
+fixed 16:10 frame that the image fills and center-crops.
+
+**Cause.** `OfferRemoteHero` renders `image.resizable().scaledToFill()`. A fill-scaled image reports a
+size *larger* than the one it was offered, and `.clipped()` only trims drawing, not layout. The
+oversized width flows through `.frame(maxWidth: .infinity).aspectRatio(16 / 10, contentMode: .fit)` in
+`OfferReviewCard` into the card, and the adaptive `GridItem` can't hold it. The Today door thumbnails
+use the same view with `4 / 3` and have the same bug.
+
+**Build.**
+- Size the box, not the image. In `OfferReviewCard`, the hero becomes a layout-neutral container with
+  the ratio, and the image goes in an overlay, which can't influence its parent's size:
+  `Color.clear.aspectRatio(16 / 10, contentMode: .fit).overlay { OfferRemoteHero(…) }.clipped()`
+  (or `Rectangle().fill(role color fallback)` as the container, if that reads cleaner). Keep the sender
+  capsule overlaid bottom-leading and the 12pt corner clip.
+- Apply the same shape to the door thumbnails in `TodayLandingView` (4:3). S-v3 restyles the doors
+  as rows, but fix the geometry now so the shared view is correct wherever it's used.
+- `OfferRemoteHero` stays a pure "fill whatever you're given" view. Put the ratio at the call site,
+  and document that on the type.
+- Center crop, as the mockup does. Don't letterbox (`.fit`) or add a top alignment.
+
+**Prove.** This is layout only, with no core change. The unsigned build passes. Don't add a snapshot
+harness for it.
+
+**Do not.** Measure or fetch images to learn their size. Change the hero picker (`EmailHeroImage`).
+Change the grid's column minimums. Restyle the cards (that's the visual pass).
+
+**Device-only risks (name them).** The grid with Jon's real mix of banner, tall-promo, and missing
+heroes, in both orientations and in Split View.
+
+**Done when.** On device, every card in review mode sits inside its column at the same hero height in
+each row. Wide banners and tall promos are center-cropped, not stretched, and nothing overlaps. The
+Today door thumbnails hold 4:3.
+
+**Sequencing.** Touches `OfferReviewCard.swift` and `TodayLandingView.swift`. Floats, and is small.
+Build it before S-v3, which rewrites the door rendering. Branch: `m6/s-t7-offer-hero-sizing`.

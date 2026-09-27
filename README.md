@@ -12,17 +12,19 @@ The current user-facing shell is normative:
 
 ```text
 Today
-Edition
+Process
 Later
 Library
 Settings
 ```
 
 - **Today** — what happened, what deserves attention, and what especially should register.
-- **Edition** — a finite rolling personalized newspaper assembled from followed Streams, materialized once per day.
+- **Process** — the one ordered reading queue across Today's sections, worked straight down; Today and Process share it (DECISIONS §31).
 - **Later** — explicit deferred attention; nothing enters automatically and nothing silently expires.
 - **Library** — durable retained **ContentPieces** for reference, retrieval, and enrichment.
 - **Settings** — Following, Interest Areas, Personal Knowledge / You, integrations, and app settings.
+
+Edition, the finite rolling newspaper materialized once per day, is a domain entity rather than a destination: since DECISIONS §24 it is the screened tail, shown as sections on Today.
 
 `Following` is the friendly management label. `Stream` is the precise domain noun.
 

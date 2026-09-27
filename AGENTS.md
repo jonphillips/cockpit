@@ -34,10 +34,17 @@ The user-facing shell is:
 
 ```text
 Today
+Process
 Later
 Library
 Settings
 ```
+
+Today is the overview and triage; tapping a headline opens a quick-look sheet. Process is the one
+ordered reading queue as its own tab, shared with Today, so a disposition in either removes the item
+from both. Edition is a domain entity (the screened tail, shown as sections on Today), not a
+destination. Navigation chrome is the system's with only the tint changed; see DECISIONS §31 and
+`docs/milestones/M6-morning-edition.md`.
 
 Do not reintroduce `Content` as the destination name. `Content` is a broader subsystem/domain term.
 

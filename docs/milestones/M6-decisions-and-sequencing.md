@@ -30,6 +30,10 @@ in parallel (extraction exists; receiver work is mostly in `jon-platform`), but 
 trails Gate 4 because a Find's provenance/custody story rests on the ContentPiece/Stream separation
 being settled.
 
+**Design track (added 2026-09-27).** The Morning Edition design work (DECISIONS §31) runs beside the
+gates and isn't one of them: `M6-morning-edition.md`, S-v1 … S-v4. It is foundation, then structure,
+then per-surface visual adoption, and it opens no model or persistence question.
+
 ---
 
 ## The ledger — three buckets, kept distinct on purpose
@@ -46,6 +50,9 @@ A deferred list fails when a by-design "never" gets re-litigated as a "not yet."
 | **Auto-Library policy (Phase 7)** | prospective keep-policy = authority on the keep side | after Library + custody trustworthy, i.e. after Gates 4 **and** 5. **Must NOT reuse `isSubstantivePrimary` as keep-criterion (DECISIONS §18)** — that conflates "attention today" with "keep forever" |
 | **Promotions/Social at scale (#5)** | value (retail/wine Finds) only lands once a receiver exists; it's operational/quota hardening, no gate, own budget/cadence (ADR-0002 D2) | after Gate 5 (Finds need a home); tests whether the D2 quota budget holds at 16k/14k, not just 79 Primary. **Promotions scheduled 2026-09-26** as new-mail-only with no backfill and no source list (DECISIONS §27, `M6-today-additions.md` S-t3). The 16k backlog is never read. **Social stays here.** |
 | **S1 follow-ups** | out of the S1 slice on purpose | see `M6-S1-series-trash-after-reading.md`: propose-and-confirm nudge; per-message "keep before it trashes"; subject-template series-key fallback; global on/off + Settings management. **Plus review nit:** `RecentTrashRequest` is unbounded — add a `.limit`/window |
+| **"Asks for a reply" on-device pass** (the Morning Edition letter chip, asks strip with dates, masthead count) | a new per-message judgment on For you mail; §31 builds the layout to work without it | a DECISIONS entry **and** a JUDGMENT-CONTRACT clause are written. On-device model only and never a frontier call (§24, 2026-09-23 amendment), behind a Settings switch, judged for a week before it's on |
+| **Attachment chips on letters** (§31's evidence: a mentioned attachment wasn't shown) | new reader surface; MIME attachment names are deterministic and need no model, but nobody has decided the surface | Jon asks for it after the S-v4 device pass |
+| **iPhone composition** for Today and Process | §31 leaves it undecided; the mockup suggests Today as one column and Process as a pushed list | the iPad S-v slices pass their device pass |
 | **Yes Chef → Cockpit Current Context** (inbound projection) | separate direction from the Find handoff (APP-FAMILY §1/§2) | when a concrete Cockpit use for cooking context appears |
 
 ### B. Contingent — triggered by a measurement, not a date; do not schedule
