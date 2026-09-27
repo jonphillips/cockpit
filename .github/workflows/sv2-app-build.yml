@@ -1,0 +1,36 @@
+name: S-v2 App Build
+
+on:
+  push:
+    branches:
+      - m6/s-v2-process-tab
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out jon-platform
+        env:
+          JON_PLATFORM_PAT: ${{ secrets.JON_PLATFORM_PAT }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 \
+            "https://x-access-token:${JON_PLATFORM_PAT}@github.com/jonphillips/jon-platform.git" \
+            "$GITHUB_WORKSPACE/../jon-platform"
+      - name: Install XcodeGen
+        run: |
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+      - name: Generate project
+        run: xcodegen generate
+      - name: Build unsigned app
+        run: |
+          xcodebuild \
+            -scheme Cockpit \
+            -destination 'generic/platform=iOS' \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            build
