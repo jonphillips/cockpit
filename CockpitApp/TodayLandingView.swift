@@ -26,6 +26,7 @@ struct TodayLandingView: View {
             openQuickLook: openQuickLook
           )
           offerReviewDoors
+          tailCompositionStatus
           tailSection("Essentials", rows: tailRows(in: .essentials))
           tailSection("From the Tail", rows: tailBodyRows)
           tailSection("Essential Backlog", rows: tailRows(in: .essentialBacklog))
@@ -159,11 +160,31 @@ private extension TodayLandingView {
 
   func dismissTail(_ row: CurrentEditionRequest.Row) {
     Task {
+      let queueRow = queueModel.rows.first(where: { $0.id == row.contentPieceID })
       await tailModel.dismiss(row.id)
       guard tailModel.errorMessage == nil else { return }
-      await queueModel.recordDismissed(row.contentPieceID)
+      if let queueRow { await queueModel.recordDismissed(queueRow) }
       await didChangeQueue()
     }
+  }
+
+  @ViewBuilder
+  var tailCompositionStatus: some View {
+    if tailModel.isComposing {
+      HStack(spacing: 8) {
+        ProgressView()
+        Text(composingPhase?.title ?? "Composing today’s Edition…")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.top, 18)
+    }
+  }
+
+  var composingPhase: EditionCompositionPhase? {
+    guard case let .composing(phase) = tailModel.compositionState else { return nil }
+    return phase
   }
 
   var orientationHeader: some View {
