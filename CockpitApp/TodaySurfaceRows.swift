@@ -155,10 +155,11 @@ struct TodayRoleSectionListView: View {
 
   private func clear(_ row: TodayRequest.Row) {
     Task {
-      let queueRow = queueModel.rows.first(where: { $0.id == row.id })
-      await model.clear(row)
-      guard model.errorMessage == nil else { return }
-      if let queueRow { await queueModel.recordCleared(queueRow) }
+      if let queueRow = queueModel.rows.first(where: { $0.id == row.id }) {
+        await queueModel.clear(queueRow)
+      } else {
+        await model.clear(row)
+      }
       await didChangeQueue()
     }
   }
