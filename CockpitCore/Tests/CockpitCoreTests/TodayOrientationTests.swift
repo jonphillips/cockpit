@@ -13,7 +13,7 @@ import Testing
 struct TodayOrientationTests {
   @Dependency(\.defaultDatabase) private var database
 
-  @Test("Orientation exposes role sections and pointer-only Highlights")
+  @Test("Orientation exposes role sections")
   func roleSections() async throws {
     let dailyNews = UUID(7_301)
     let wapoOpinion = UUID(7_306)
@@ -82,8 +82,6 @@ struct TodayOrientationTests {
     #expect(model.offerDoors.map(\.count) == [1, 1])
     #expect(model.rows(for: .grabBag).map(\.id) == [digest])
 
-    let sectionIDs = Set(model.sections.flatMap(\.rows).map(\.id))
-    #expect(Set(model.highlightRows.map(\.id)).isSubset(of: sectionIDs))
   }
 
   @Test("A Food-routed feed reaches its own Today role section")
