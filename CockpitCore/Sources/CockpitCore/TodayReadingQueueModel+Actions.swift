@@ -104,6 +104,7 @@ extension TodayReadingQueueModel {
   @discardableResult
   public func applySeriesTrashOnQuickLookLeave(_ contentPieceID: ContentPiece.ID) async -> Bool {
     resetDoneTrackingIfNeeded(at: now)
+    presentedProcessContentPieceIDs.remove(contentPieceID)
     return await applySeriesTrash(contentPieceID)
   }
 
