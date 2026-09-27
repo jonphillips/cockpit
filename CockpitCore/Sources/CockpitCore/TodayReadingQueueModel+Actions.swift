@@ -45,6 +45,26 @@ extension TodayReadingQueueModel {
     await applyDisposition(.trash, to: row.id)
   }
 
+  public func clear(_ row: TodayReadingQueueRequest.Row) async {
+    resetDoneTrackingIfNeeded(at: now)
+    let shouldAdvance = selectedContentPieceID == row.id
+    let nextSelection = shouldAdvance ? ReadingQueueSelection.neighbour(of: row.id, in: rows) : nil
+    let date = now
+    do {
+      try await database.write { db in
+        try TodayAttentionOperations.clear(row.id, at: date, in: db)
+      }
+      recordDone(row)
+      presentedProcessContentPieceIDs.remove(row.id)
+      if shouldAdvance { selectedContentPieceID = nextSelection }
+      await reload()
+      errorMessage = nil
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
   public func undoLastDisposition() async {
     guard let lastDisposition else { return }
     await undoDisposition(contentPieceID: lastDisposition.contentPieceID)
@@ -100,10 +120,6 @@ extension TodayReadingQueueModel {
   }
 
   public func recordDismissed(_ row: TodayReadingQueueRequest.Row) async {
-    await recordRemoved(row)
-  }
-
-  public func recordCleared(_ row: TodayReadingQueueRequest.Row) async {
     await recordRemoved(row)
   }
 
