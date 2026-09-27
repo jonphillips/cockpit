@@ -72,12 +72,6 @@ public final class TodayModel {
     }
   }
 
-  /// Highlights are a navigational sampler only. Every row is selected from an existing section;
-  /// this property never creates a second promoted collection or admits anything into Today.
-  public var highlightRows: [TodayRequest.Row] {
-    sections.compactMap(\.rows.first)
-  }
-
   /// One review door per role with a Today offer, in the same deterministic order as role sections.
   public var offerDoors: [OfferDoor] {
     ContentRole.allCases.sorted { $0.sortOrder < $1.sortOrder }.compactMap { role in
@@ -101,6 +95,20 @@ public final class TodayModel {
       return "\(count) \(role.displayName.lowercased())"
     }
     return summaries.isEmpty ? "Nothing curated yet." : summaries.joined(separator: " · ")
+  }
+
+  /// Adds a Today piece to Later without changing its provider disposition or Today attention.
+  public func saveForLater(_ row: TodayRequest.Row) async {
+    let date = now
+    do {
+      try await database.write { db in
+        try DestinationOperations.saveForLater(row.id, at: date, in: db)
+      }
+      errorMessage = nil
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
   }
 
   public func clear(_ row: TodayRequest.Row) async {
