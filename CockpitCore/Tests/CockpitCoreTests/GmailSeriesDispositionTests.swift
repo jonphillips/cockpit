@@ -443,6 +443,8 @@ struct GmailSeriesDispositionTests {
   func clearCountsAsDone() async throws {
     let pieceID = try await seed(
       id: "clear-counts-done", treatment: .personal, sender: "friend@example.com")
+    _ = try await seed(
+      id: "clear-counts-neighbour", treatment: .personal, sender: "other@example.com")
     let today = TodayModel()
     let queue = TodayReadingQueueModel()
     try await today.$content.load()
