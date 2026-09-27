@@ -36,7 +36,7 @@ public final class TodayReadingQueueModel {
   @ObservationIgnored @Dependency(\.date.now) var now
   @ObservationIgnored @Dependency(\.gmailDispositionClient) var dispositionClient
   @ObservationIgnored @Fetch(TodayReadingQueueRequest()) public var content = .init()
-  @ObservationIgnored var skipSeriesTrashOnLeaveIDs: Set<ContentPiece.ID> = []
+  @ObservationIgnored var presentedProcessContentPieceIDs: Set<ContentPiece.ID> = []
   var doneByID: [ContentPiece.ID: ContentRole] = [:]
   var doneTrackingDay: Date?
 
