@@ -64,6 +64,9 @@ targets:
         GIDClientID: 305782585157-80plee5p6augqkg5l5ps60bft7fe8r29.apps.googleusercontent.com
         UILaunchScreen: {}
         UIBackgroundModes: [remote-notification]
+        UIAppFonts:
+          - Newsreader-Regular.ttf
+          - Newsreader-Italic.ttf
     dependencies:
       - package: CockpitCore
         product: CockpitCore
@@ -89,6 +92,7 @@ targets:
         product: GoogleSignInSwift
     settings:
       base:
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         PRODUCT_BUNDLE_IDENTIFIER: com.jonphillips.cockpit
         CODE_SIGN_ENTITLEMENTS: CockpitApp/Cockpit.entitlements
         TARGETED_DEVICE_FAMILY: "2"
