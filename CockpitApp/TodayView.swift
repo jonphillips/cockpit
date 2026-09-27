@@ -97,7 +97,7 @@ private extension TodayView {
   @ViewBuilder
   var bottomBanner: some View {
     if !model.lastOfferBatch.isEmpty || model.offerUndoMessage != nil
-      || model.errorMessage != nil || tailModel.errorMessage != nil
+      || model.errorMessage != nil || queueModel.errorMessage != nil || tailModel.errorMessage != nil
     {
       VStack(spacing: 8) {
         if !model.lastOfferBatch.isEmpty {
@@ -120,12 +120,13 @@ private extension TodayView {
             Button("Dismiss") { model.dismissOfferUndo() }
           }
         }
-        if let error = model.errorMessage ?? tailModel.errorMessage {
+        if let error = model.errorMessage ?? queueModel.errorMessage ?? tailModel.errorMessage {
           HStack {
             Text(error)
             Spacer()
             Button("Dismiss") {
               model.errorMessage = nil
+              queueModel.errorMessage = nil
               tailModel.errorMessage = nil
             }
           }
