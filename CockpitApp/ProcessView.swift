@@ -183,7 +183,7 @@ private struct ProcessQueueDetail: View {
             tailModel: tailModel,
             clearSelection: { advancePast(row) },
             didDismiss: {
-              await model.recordDismissed(row.id)
+              await model.recordDismissed(row)
               await didChangeQueue()
             }
           ),
