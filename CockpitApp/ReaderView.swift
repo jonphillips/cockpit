@@ -15,7 +15,7 @@ struct ReaderView: View {
   @State var correctingClaim: PersonalKnowledgeRequest.Row?
   @State var offlineSheet: OfflineAvailabilitySheet?
   @State var replySheet: ReaderReplySheet?
-  @FocusState var isTeachingReasonFocused: Bool
+  @State var isShowingTeaching = false
 
   var readerModel: ContentPieceReaderModel { model }
 
@@ -31,24 +31,26 @@ struct ReaderView: View {
       VStack {
         Button("Larger Text") { adjustEmailText(by: 1) }
           .keyboardShortcut("+", modifiers: .command)
-          .disabled(!isHTMLReaderBody || !model.isEmailZoomPreferenceLoaded || isTeachingReasonFocused)
+          .disabled(!isHTMLReaderBody || !model.isEmailZoomPreferenceLoaded)
         Button("Larger Text") { adjustEmailText(by: 1) }
           .keyboardShortcut("=", modifiers: .command)
-          .disabled(!isHTMLReaderBody || !model.isEmailZoomPreferenceLoaded || isTeachingReasonFocused)
+          .disabled(!isHTMLReaderBody || !model.isEmailZoomPreferenceLoaded)
         Button("Smaller Text") { adjustEmailText(by: -1) }
           .keyboardShortcut("-", modifiers: .command)
-          .disabled(!isHTMLReaderBody || !model.isEmailZoomPreferenceLoaded || isTeachingReasonFocused)
+          .disabled(!isHTMLReaderBody || !model.isEmailZoomPreferenceLoaded)
         Button("Fit Text") { model.resetEmailTextSize() }
           .keyboardShortcut("0", modifiers: .command)
-          .disabled(!isHTMLReaderBody || !model.isEmailZoomPreferenceLoaded || isTeachingReasonFocused)
+          .disabled(!isHTMLReaderBody || !model.isEmailZoomPreferenceLoaded)
       }
       .frame(width: 1, height: 1)
       .opacity(0)
       .accessibilityHidden(true)
     }
     .task { await readerAppeared() }
-    .sheet(item: $model.teachingStage) { stage in
-      ReaderTeachingView(model: model, stage: stage)
+    .sheet(isPresented: $isShowingTeaching, onDismiss: {
+      model.cancelTeaching()
+    }) {
+      ReaderTeachingView(model: model)
     }
     .sheet(item: $correctingClaim) { claim in
       ReaderPersonalKnowledgeCorrectionView(claim: claim)
@@ -61,17 +63,6 @@ struct ReaderView: View {
     }
     .sheet(item: $replySheet) { sheet in
       ReaderReplyView(model: sheet.model, sendAndArchive: sendReplyAndArchive)
-    }
-    .safeAreaInset(edge: .bottom, spacing: 0) {
-      if model.row != nil {
-        VStack(spacing: 0) {
-          Divider()
-          ReaderTeachingField(model: model, isFocused: $isTeachingReasonFocused)
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-        }
-        .background(.regularMaterial)
-      }
     }
     .safeAreaInset(edge: .bottom) {
       if let error = model.errorMessage ?? editionContext?.model.errorMessage {
@@ -99,10 +90,11 @@ private extension ReaderView {
       queueContext: queueContext,
       openReply: openReply,
       openMail: openMail,
+      openTeaching: { isShowingTeaching = true },
       sendToYesChef: sendReaderFindToYesChef,
       archiveSource: archiveReaderSource,
       trashSource: trashReaderSource,
-      isTeachingReasonFocused: isTeachingReasonFocused,
+      isTextEntrySheetPresented: isShowingTeaching || replySheet != nil,
       dismissEdition: dismissEditionButtonTapped,
       saveForLater: saveForLaterButtonTapped,
       addToLibrary: addToLibraryButtonTapped,
@@ -196,6 +188,7 @@ struct EditionReaderContext {
   /// The parent list owns split-view selection. Clearing it after a terminal tail action prevents
   /// a regular-width detail column from re-rendering the resolved row as a plain Reader.
   let clearSelection: @MainActor () -> Void
+  let didDismiss: (@MainActor () async -> Void)?
 }
 
 struct ReaderQueueContext {

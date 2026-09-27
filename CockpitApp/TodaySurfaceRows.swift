@@ -1,69 +1,6 @@
 import CockpitCore
 import SwiftUI
 
-// This file keeps the small Today row family together.
-// swiftlint:disable file_length type_body_length
-
-struct TailCompositionControl: View {
-  let tailModel: EditionModel
-  @Binding var isConfirmingRecompose: Bool
-  let didChangeEdition: () -> Void
-
-  var body: some View {
-    Button {
-      if tailModel.edition == nil {
-        Task {
-          await tailModel.composeIfNeeded()
-          didChangeEdition()
-        }
-      } else {
-        isConfirmingRecompose = true
-      }
-    } label: {
-      HStack(spacing: 14) {
-        ZStack {
-          RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .fill(Color.accentColor)
-          if tailModel.isComposing {
-            ProgressView().tint(.white)
-          } else {
-            Image(systemName: tailModel.edition == nil ? "sparkles" : "arrow.clockwise")
-              .font(.title3)
-              .foregroundStyle(.white)
-          }
-        }
-        .frame(width: 40, height: 40)
-
-        VStack(alignment: .leading, spacing: 2) {
-          Text(tailModel.isComposing ? composingPhase?.title ?? "Composing today’s Edition…" :
-            tailModel.edition == nil ? "Compose today’s Edition" : "Recompose today’s Edition")
-            .font(.headline)
-          Text(tailModel.isComposing ? composingPhase?.detail ?? "Working on the editorial tail." :
-            tailModel.edition == nil
-              ? "A finite package from the streams you follow"
-              : "\(tailModel.entries.count) pieces gathered for today")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
-
-        Spacer()
-        Image(systemName: "chevron.right")
-          .font(.caption.weight(.semibold))
-          .foregroundStyle(.secondary)
-      }
-      .padding(16)
-      .background(Color.accentColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 16))
-    }
-    .buttonStyle(.plain)
-    .disabled(tailModel.isComposing)
-  }
-
-  private var composingPhase: EditionCompositionPhase? {
-    guard case let .composing(phase) = tailModel.compositionState else { return nil }
-    return phase
-  }
-}
-
 struct TailRowView: View {
   let row: CurrentEditionRequest.Row
 
@@ -79,7 +16,7 @@ struct TailRowView: View {
       }
     }
     .accessibilityElement(children: .combine)
-    .accessibilityHint("Open in Reader.")
+    .accessibilityHint("Open quick look.")
   }
 }
 
@@ -113,14 +50,16 @@ struct TodayRowView: View {
       }
     }
     .accessibilityElement(children: .combine)
-    .accessibilityHint("Open in Reader.")
+    .accessibilityHint("Open quick look.")
   }
 }
 
 struct TodayRoleSectionListView: View {
   @Bindable var model: TodayModel
+  @Bindable var queueModel: TodayReadingQueueModel
   let readerNamespace: Namespace.ID
-  let openReader: (ContentPiece.ID) -> Void
+  let didChangeQueue: @MainActor () async -> Void
+  let openQuickLook: (ContentPiece.ID) -> Void
 
   var body: some View {
     ForEach(model.sections) { section in
@@ -140,29 +79,16 @@ struct TodayRoleSectionListView: View {
       }
       .padding(.top, 18)
 
-      switch section.role {
-      case .grabBag:
-        ForEach(section.rows) { row in
-          emailRow(row)
-        }
-      case .forYou, .transactional, .dailyNews, .tech, .opinion, .arts, .food, .wine, .offers:
-        ForEach(section.rows) { row in
-          emailRow(row)
-        }
+      ForEach(section.rows) { row in
+        emailRow(row)
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
   }
 
-  private func receivedDate(_ date: Date) -> some View {
-    Text(date, format: .dateTime.month().day().hour().minute())
-      .font(.caption)
-      .foregroundStyle(.tertiary)
-  }
-
   private func emailRow(_ row: TodayRequest.Row) -> some View {
     HStack(alignment: .top, spacing: 8) {
-      Button { openReader(row.id) } label: {
+      Button { openQuickLook(row.id) } label: {
         TodayRowView(row: row)
           .frame(maxWidth: .infinity, alignment: .leading)
           .matchedTransitionSource(id: row.id, in: readerNamespace)
@@ -170,27 +96,75 @@ struct TodayRoleSectionListView: View {
       .buttonStyle(.plain)
 
       Menu {
-        MoveToSectionMenu(
-          currentRole: row.role, isTransactional: row.treatment == .transactional
-        ) { role in
-          Task { await model.moveToSection(row.id, to: role) }
-        }
-        Divider()
-        GmailDispositionButtons(
-          archive: { Task { await model.archive(row) } },
-          trash: { Task { await model.trash(row) } },
-          undo: { Task { await model.undoDisposition(row) } }
-        )
-        Divider()
-        Button("Clear", systemImage: "checkmark.circle", role: .destructive) {
-          Task { await model.clear(row) }
-        }
+        emailActions(row)
       } label: {
         Image(systemName: "ellipsis.circle").foregroundStyle(.secondary).padding(.top, 8)
       }
+      .accessibilityLabel("Message actions")
     }
     .padding(.vertical, 2)
+    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+      Button("Later", systemImage: "clock") { saveForLater(row) }
+    }
+    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+      Button("Trash", systemImage: "trash", role: .destructive) { trash(row) }
+      Button("Archive", systemImage: "archivebox") { archive(row) }
+    }
+    .contextMenu { emailActions(row) }
+  }
+
+  @ViewBuilder
+  private func emailActions(_ row: TodayRequest.Row) -> some View {
+    MoveToSectionMenu(
+      currentRole: row.role, isTransactional: row.treatment == .transactional
+    ) { role in
+      Task {
+        await model.moveToSection(row.id, to: role)
+        await didChangeQueue()
+      }
+    }
+    Divider()
+    Button("Archive", systemImage: "archivebox") { archive(row) }
+    Button("Save for Later", systemImage: "clock") { saveForLater(row) }
+    Button("Trash", systemImage: "trash", role: .destructive) { trash(row) }
+    Divider()
+    Button("Clear", systemImage: "checkmark.circle", role: .destructive) { clear(row) }
+  }
+
+  private func archive(_ row: TodayRequest.Row) {
+    Task {
+      if let queueRow = queueModel.rows.first(where: { $0.id == row.id }) {
+        await queueModel.archive(queueRow)
+      } else {
+        await model.archive(row)
+      }
+      await didChangeQueue()
+    }
+  }
+
+  private func trash(_ row: TodayRequest.Row) {
+    Task {
+      if let queueRow = queueModel.rows.first(where: { $0.id == row.id }) {
+        await queueModel.trash(queueRow)
+      } else {
+        await model.trash(row)
+      }
+      await didChangeQueue()
+    }
+  }
+
+  private func clear(_ row: TodayRequest.Row) {
+    Task {
+      if let queueRow = queueModel.rows.first(where: { $0.id == row.id }) {
+        await queueModel.clear(queueRow)
+      } else {
+        await model.clear(row)
+      }
+      await didChangeQueue()
+    }
+  }
+
+  private func saveForLater(_ row: TodayRequest.Row) {
+    Task { await model.saveForLater(row) }
   }
 }
-
-// swiftlint:enable file_length type_body_length

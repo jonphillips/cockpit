@@ -1,20 +1,24 @@
 import CockpitCore
 import SwiftUI
 
-struct TodayHighlightReaderSheet: View {
+struct TodayQuickLookSheet: View {
   @Environment(\.dismiss) private var dismiss
-  let row: TodayRequest.Row
-  let queueRow: TodayReadingQueueRequest.Row
-  let model: TodayModel
-  let tailModel: EditionModel
+  let row: TodayReadingQueueRequest.Row
+  @Bindable var model: TodayReadingQueueModel
+  @Bindable var tailModel: EditionModel
   let originalWebViewStore: TodayOriginalWebViewStore
+  let processFromHere: @MainActor () -> Void
 
   var body: some View {
     NavigationStack {
       ReaderView(
         contentPieceID: row.id,
         editionContext: makeEditionReaderContext(
-          row: queueRow, tailModel: tailModel, clearSelection: { dismiss() }),
+          row: row,
+          tailModel: tailModel,
+          clearSelection: { dismiss() },
+          didDismiss: { await model.recordDismissed(row) }
+        ),
         queueContext: ReaderQueueContext(
           archive: {
             await model.archive(row)
@@ -25,12 +29,21 @@ struct TodayHighlightReaderSheet: View {
             dismiss()
           }
         ),
-        isReachableStreamPiece: queueRow.isFollowedStreamPiece,
+        isReachableStreamPiece: row.isFollowedStreamPiece,
         originalWebViewStore: originalWebViewStore
       )
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
-          Button("Done", systemImage: "checkmark") { dismiss() }
+          Button("Done") { dismiss() }
+        }
+
+        if model.rows.contains(where: { $0.id == row.id }) {
+          ToolbarItem(placement: .topBarTrailing) {
+            Button("Process from here", systemImage: "list.bullet.rectangle") {
+              processFromHere()
+              dismiss()
+            }
+          }
         }
       }
     }
@@ -40,7 +53,8 @@ struct TodayHighlightReaderSheet: View {
 func makeEditionReaderContext(
   row: TodayReadingQueueRequest.Row,
   tailModel: EditionModel,
-  clearSelection: @escaping @MainActor () -> Void
+  clearSelection: @escaping @MainActor () -> Void,
+  didDismiss: (@MainActor () async -> Void)? = nil
 ) -> EditionReaderContext? {
   guard let entryID = row.editionEntryID else { return nil }
   return EditionReaderContext(
@@ -48,6 +62,7 @@ func makeEditionReaderContext(
     entryID: entryID,
     rationale: row.editionRationale,
     matchedPersonalKnowledgeClaimID: row.matchedPersonalKnowledgeClaimID,
-    clearSelection: clearSelection
+    clearSelection: clearSelection,
+    didDismiss: didDismiss
   )
 }

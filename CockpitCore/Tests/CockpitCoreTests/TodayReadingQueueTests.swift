@@ -5,18 +5,6 @@ import Testing
 
 @Suite("Today reading queue")
 struct TodayReadingQueueTests {
-  @Test("reading list width is clamped to the usable divider range")
-  func dividerWidthClamping() {
-    #expect(ReadingPaneWidth.clamped(100) == ReadingPaneWidth.minimum)
-    #expect(ReadingPaneWidth.clamped(ReadingPaneWidth.defaultValue) == ReadingPaneWidth.defaultValue)
-    #expect(ReadingPaneWidth.clamped(900) == ReadingPaneWidth.maximum)
-    #expect(ReadingPaneWidth.draggedWidth(start: 268, translation: -20, current: 268) == nil)
-    #expect(ReadingPaneWidth.draggedWidth(start: 560, translation: 20, current: 560) == nil)
-    #expect(ReadingPaneWidth.draggedWidth(start: 344, translation: 40, current: 344) == 384)
-    #expect(ReadingPaneWidth.draggedWidth(start: 344, translation: 40, current: 384) == nil)
-    #expect(ReadingPaneWidth.draggedWidth(start: 344, translation: 500, current: 400) == 560)
-  }
-
   @MainActor
   @Test("selected role follows the selected row and is nil without a selection")
   func selectedRole() {

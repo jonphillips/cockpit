@@ -1,18 +1,19 @@
 import CockpitCore
 import SwiftUI
 
-/// Reader actions live in one trailing toolbar group. Gmail disposition remains queue-aware while
-/// Later/Library Readers fall back to the ContentPieceReaderModel's source operations.
+/// Reader actions stay in system toolbar chrome. The leading action is the one primary act for the
+/// current piece; the remaining disposition, destination, text, teaching, and overflow actions follow.
 struct ReaderDispositionToolbar: ToolbarContent {
   let model: ContentPieceReaderModel
   let editionContext: EditionReaderContext?
   var queueContext: ReaderQueueContext? = nil
   var openReply: () -> Void = {}
   var openMail: () -> Void = {}
+  var openTeaching: () -> Void = {}
   var sendToYesChef: () async -> Void = {}
   var archiveSource: () async -> Void = {}
   var trashSource: () async -> Void = {}
-  let isTeachingReasonFocused: Bool
+  let isTextEntrySheetPresented: Bool
   let dismissEdition: () async -> Void
   let saveForLater: () async -> Void
   let addToLibrary: () async -> Void
@@ -30,60 +31,100 @@ struct ReaderDispositionToolbar: ToolbarContent {
   let resetEmailText: () -> Void
 
   var body: some ToolbarContent {
-    ToolbarItemGroup(placement: .topBarTrailing) {
-      if model.isReplyAvailable {
-        Button("Reply", systemImage: "arrowshape.turn.up.left", action: openReply)
-      }
-
-      if model.mailMessageURL != nil {
-        Button("Open in Mail", systemImage: "envelope", action: openMail)
-      }
-
+    ToolbarItem(placement: .topBarLeading) {
       if editionContext != nil {
         Button("Dismiss", systemImage: "xmark.circle") {
           Task { await dismissEdition() }
         }
+        .buttonStyle(.borderedProminent)
+      } else if model.isReplyAvailable {
+        Button("Reply", systemImage: "arrowshape.turn.up.left", action: openReply)
+          .buttonStyle(.borderedProminent)
+      } else if model.isGmailSource {
+        if isTextEntrySheetPresented {
+          Button("Archive", systemImage: "archivebox") {
+            Task { await archive() }
+          }
+          .buttonStyle(.borderedProminent)
+        } else {
+          Button("Archive", systemImage: "archivebox") {
+            Task { await archive() }
+          }
+          .buttonStyle(.borderedProminent)
+          .keyboardShortcut(.delete, modifiers: [])
+        }
       }
     }
 
-    if model.isGmailSource {
-      ToolbarItemGroup(placement: .topBarTrailing) {
-        archiveButton
+    ToolbarItemGroup(placement: .topBarTrailing) {
+      Button("Later", systemImage: "clock") {
+        Task { await saveForLater() }
+      }
+      Button("Library", systemImage: "books.vertical") {
+        Task { await addToLibrary() }
+      }
+
+      if model.isGmailSource && model.isReplyAvailable {
+        if isTextEntrySheetPresented {
+          Button("Archive", systemImage: "archivebox") {
+            Task { await archive() }
+          }
+        } else {
+          Button("Archive", systemImage: "archivebox") {
+            Task { await archive() }
+          }
+          .keyboardShortcut(.delete, modifiers: [])
+        }
+      }
+
+      if model.isGmailSource {
         Button("Trash", systemImage: "trash", role: .destructive) {
           Task { await trash() }
         }
       }
-      .visibilityPriority(.high)
+    }
+    .visibilityPriority(.high)
+
+    if showsEmailTextSize {
+      ToolbarItem(placement: .topBarTrailing) {
+        textSizeMenu
+      }
     }
 
-    ToolbarItem(placement: .topBarTrailing) { moreActions }
+    if model.row != nil {
+      ToolbarItem(placement: .topBarTrailing) {
+        Button("Teach Cockpit", systemImage: "lightbulb", action: openTeaching)
+      }
+    }
+
+    ToolbarItem(placement: .topBarTrailing) {
+      moreActions
+    }
   }
 }
 
 private extension ReaderDispositionToolbar {
+  var textSizeMenu: some View {
+    Menu {
+      Button("Smaller", systemImage: "textformat.size.smaller", action: smallerEmailText)
+        .disabled(!canDecreaseEmailZoom)
+      Button("Larger", systemImage: "textformat.size.larger", action: largerEmailText)
+        .disabled(!canIncreaseEmailZoom)
+      Divider()
+      Button("Fit", systemImage: "arrow.left.and.right", action: resetEmailText)
+        .disabled(emailZoomStep == 0)
+    } label: {
+      Label("Text Size · \(Int((emailZoom * 100).rounded()))%", systemImage: "textformat.size")
+    }
+  }
+
   @ViewBuilder
   var moreActions: some View {
     Menu {
-      if showsEmailTextSize {
-        Menu("Text Size · \(Int((emailZoom * 100).rounded()))%", systemImage: "textformat.size") {
-          Button("Smaller", systemImage: "textformat.size.smaller", action: smallerEmailText)
-            .disabled(!canDecreaseEmailZoom)
-          Button("Larger", systemImage: "textformat.size.larger", action: largerEmailText)
-            .disabled(!canIncreaseEmailZoom)
-          Divider()
-          Button("Fit", systemImage: "arrow.left.and.right", action: resetEmailText)
-            .disabled(emailZoomStep == 0)
-        }
+      if model.mailMessageURL != nil {
+        Button("Open in Mail", systemImage: "envelope", action: openMail)
         Divider()
       }
-
-      Button("Save for Later", systemImage: "clock") {
-        Task { await saveForLater() }
-      }
-      Button("Add to Library", systemImage: "books.vertical") {
-        Task { await addToLibrary() }
-      }
-      Divider()
 
       if let title = model.yesChefReaderActionTitle {
         Button(title, systemImage: "arrow.up.forward.app") {
@@ -135,22 +176,6 @@ private extension ReaderDispositionToolbar {
       Image(systemName: "ellipsis.circle")
     }
     .accessibilityLabel("More Reader actions")
-  }
-
-  @ViewBuilder
-  private var archiveButton: some View {
-    if isTeachingReasonFocused {
-      Button("Archive", systemImage: "archivebox") {
-        Task { await archive() }
-      }
-      .buttonStyle(.borderedProminent)
-    } else {
-      Button("Archive", systemImage: "archivebox") {
-        Task { await archive() }
-      }
-      .buttonStyle(.borderedProminent)
-      .keyboardShortcut(.delete, modifiers: [])
-    }
   }
 
   private func archive() async {

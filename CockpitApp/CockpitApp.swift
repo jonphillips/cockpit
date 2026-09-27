@@ -35,6 +35,7 @@ private struct CockpitRootView: View {
   @State private var followingModel = FollowingModel()
   @State private var editionModel = EditionModel()
   @State private var todayModel = TodayModel()
+  @State private var readingQueueModel = TodayReadingQueueModel()
   @State private var dailyLinkModel = DailyLinkModel()
   @State private var pendingFindModel = PendingFindListModel()
   @State private var inboxIngest = GmailInboxIngestModel()
@@ -45,8 +46,22 @@ private struct CockpitRootView: View {
     TabView(selection: $shellModel.selection) {
       Tab("Today", systemImage: "sun.max", value: .today) {
         TodayView(
-          model: todayModel, tailModel: editionModel, inboxIngest: inboxIngest,
-          dailyLinkModel: dailyLinkModel)
+          model: todayModel,
+          queueModel: readingQueueModel,
+          tailModel: editionModel,
+          inboxIngest: inboxIngest,
+          dailyLinkModel: dailyLinkModel,
+          shellModel: shellModel,
+          didChangeQueue: reloadTodayAndQueue
+        )
+      }
+      Tab("Process", systemImage: "list.bullet.rectangle", value: .process) {
+        ProcessView(
+          model: readingQueueModel,
+          tailModel: editionModel,
+          isActive: shellModel.selection == .process,
+          didChangeQueue: reloadTodayAndQueue
+        )
       }
       Tab("Later", systemImage: "clock", value: .later) {
         ContentPieceListView(destination: .later)
@@ -61,15 +76,38 @@ private struct CockpitRootView: View {
       }
     }
     .tabViewStyle(.sidebarAdaptable)
+    .task {
+      shellModel.connectProcessSelection { contentPieceID in
+        if let contentPieceID {
+          readingQueueModel.selectedContentPieceID = contentPieceID
+        }
+      }
+      await readingQueueModel.reload()
+    }
     .task { await followingModel.acquireOnLaunchOrRefresh() }
     .task { _ = await inboxIngest.autoSyncIfNeeded() }
     .task { await pendingFindModel.refreshHandoffState() }
+    .onChange(of: shellModel.selection) { oldSelection, newSelection in
+      guard oldSelection == .process, newSelection != .process else { return }
+      Task {
+        await readingQueueModel.leaveProcess()
+        await reloadTodayAndQueue()
+      }
+    }
     .onChange(of: scenePhase) { _, phase in
       guard phase == .active else { return }
       Task {
         await pendingFindModel.refreshHandoffState()
         _ = await inboxIngest.autoSyncIfNeeded()
+        await readingQueueModel.reload()
       }
     }
+  }
+
+  @MainActor
+  private func reloadTodayAndQueue() async {
+    try? await todayModel.$content.load()
+    try? await todayModel.$offers.load()
+    await readingQueueModel.reload()
   }
 }

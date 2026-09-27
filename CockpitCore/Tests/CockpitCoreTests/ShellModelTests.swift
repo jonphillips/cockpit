@@ -21,6 +21,25 @@ struct ShellModelTests {
     }
   }
 
+  @Test("Process selects the destination, targets an ID, and preserves selection for nil")
+  func processRouting() {
+    let model = ShellModel()
+    let first = UUID(4_201)
+    var selectedID: ContentPiece.ID?
+
+    model.connectProcessSelection { contentPieceID in
+      if let contentPieceID { selectedID = contentPieceID }
+    }
+
+    model.process(from: first)
+    expectNoDifference(model.selection, .process)
+    expectNoDifference(selectedID, first)
+
+    model.process(from: nil)
+    expectNoDifference(model.selection, .process)
+    expectNoDifference(selectedID, first)
+  }
+
   @Test("Settings routes push, pop, and preserve a Personal Knowledge claim payload")
   func settingsRoutes() {
     let model = ShellModel()

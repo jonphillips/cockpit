@@ -3,7 +3,7 @@ import Foundation
 import Observation
 import SQLiteData
 
-/// Owns the one ordered reading queue used by Today’s split reader. It owns source disposition
+/// Owns the one ordered reading queue shared by Today and Process. It owns source disposition
 /// actions, but never lets those actions rewrite Stream membership or Edition state.
 @MainActor
 @Observable
@@ -32,11 +32,14 @@ public final class TodayReadingQueueModel {
     }
   }
 
-  @ObservationIgnored @Dependency(\.defaultDatabase) private var database
-  @ObservationIgnored @Dependency(\.date.now) private var now
-  @ObservationIgnored @Dependency(\.gmailDispositionClient) private var dispositionClient
+  @ObservationIgnored @Dependency(\.defaultDatabase) var database
+  @ObservationIgnored @Dependency(\.date.now) var now
+  @ObservationIgnored @Dependency(\.gmailDispositionClient) var dispositionClient
   @ObservationIgnored @Fetch(TodayReadingQueueRequest()) public var content = .init()
-  @ObservationIgnored private var skipSeriesTrashOnLeaveIDs: Set<ContentPiece.ID> = []
+  @ObservationIgnored var presentedProcessContentPieceIDs: Set<ContentPiece.ID> = []
+  var doneByID: [ContentPiece.ID: ContentRole] = [:]
+  var doneTrackingDay: Date?
+
   public var selectedContentPieceID: ContentPiece.ID?
   public var errorMessage: String?
   public var lastDisposition: LastDisposition?
@@ -47,6 +50,28 @@ public final class TodayReadingQueueModel {
 
   public var selectedRole: ContentRole? {
     Self.selectedRole(for: selectedContentPieceID, in: sections)
+  }
+
+  public var doneCount: Int { doneByID.count }
+
+  public var doneRoles: [ContentRole] {
+    let completedRoles = Set(doneByID.values).filter { role in
+      !rows.contains { $0.role == role }
+    }
+    return ContentRole.allCases
+      .sorted { $0.sortOrder < $1.sortOrder }
+      .filter { completedRoles.contains($0) }
+  }
+
+  public var position: (index: Int, total: Int)? {
+    guard let selectedContentPieceID,
+      let selectedIndex = rows.firstIndex(where: { $0.id == selectedContentPieceID })
+    else { return nil }
+
+    return (
+      index: doneByID.count + selectedIndex + 1,
+      total: doneByID.count + rows.count
+    )
   }
 
   public static func selectedRole(
@@ -64,6 +89,7 @@ public final class TodayReadingQueueModel {
   }
 
   public func reload() async {
+    resetDoneTrackingIfNeeded(at: now)
     do {
       try await $content.load()
       errorMessage = nil
@@ -73,86 +99,21 @@ public final class TodayReadingQueueModel {
     }
   }
 
-  public func archive(_ row: TodayReadingQueueRequest.Row) async {
-    await applyDisposition(.archive, to: row.id)
+  /// Internal so deterministic core tests can prove the local-day rollover without waiting on wall
+  /// clock time. Production callers reach it through reload and disposition entry points.
+  func resetDoneTrackingIfNeeded(at date: Date) {
+    let day = Calendar.autoupdatingCurrent.startOfDay(for: date)
+    guard doneTrackingDay != day else { return }
+    doneTrackingDay = day
+    doneByID.removeAll()
   }
 
-  public func trash(_ row: TodayReadingQueueRequest.Row) async {
-    await applyDisposition(.trash, to: row.id)
+  func recordDone(_ row: TodayReadingQueueRequest.Row) {
+    doneByID[row.id] = row.role
   }
 
-  public func undoLastDisposition() async {
-    guard let lastDisposition else { return }
-    await undoDisposition(contentPieceID: lastDisposition.contentPieceID)
-  }
-
-  private func undoDisposition(contentPieceID: ContentPiece.ID) async {
-    do {
-      guard let entry = try await database.read({ db in
-        try GmailDispositionOperations.activeDisposition(forContentPieceID: contentPieceID, in: db)
-      }) else { return }
-      try await dispositionService.undo(entry, in: database)
-      await reload()
-      if let movedAwayFrom = selectedContentPieceID, movedAwayFrom != contentPieceID {
-        skipSeriesTrashOnLeaveIDs.insert(movedAwayFrom)
-      }
-      selectedContentPieceID = contentPieceID
-      lastDisposition = nil
-    } catch is CancellationError {
-    } catch {
-      errorMessage = error.localizedDescription
-    }
-  }
-
-  /// Applies the explicit M6 S1 series policy when a followed-stream issue leaves the Reader.
-  public func applySeriesTrashOnLeave(_ contentPieceID: ContentPiece.ID) async {
-    guard skipSeriesTrashOnLeaveIDs.remove(contentPieceID) == nil else { return }
-    let title = rows.first(where: { $0.id == contentPieceID })?.title
-    do {
-      let didTrash = try await GmailSeriesDispositionOperations.applyTrashOnLeave(
-        contentPieceID: contentPieceID, in: database, using: dispositionService)
-      guard didTrash else { return }
-      if let title {
-        lastDisposition = LastDisposition(contentPieceID: contentPieceID, title: title, disposition: .trash)
-      }
-      await reload()
-      errorMessage = nil
-    } catch is CancellationError {
-    } catch {
-      errorMessage = error.localizedDescription
-    }
-  }
-
-  private func applyDisposition(_ disposition: GmailSourceDisposition, to id: ContentPiece.ID) async {
-    guard let row = rows.first(where: { $0.id == id }), row.isGmailSource else { return }
-    let shouldAdvance = selectedContentPieceID == id
-    let nextSelection = shouldAdvance ? ReadingQueueSelection.neighbour(of: id, in: rows) : nil
-    do {
-      _ = try await dispositionService.apply(disposition, toContentPieceID: id, in: database)
-      lastDisposition = LastDisposition(contentPieceID: row.id, title: row.title, disposition: disposition)
-      if shouldAdvance { selectedContentPieceID = nextSelection }
-      await reload()
-      errorMessage = nil
-    } catch is CancellationError {
-    } catch {
-      errorMessage = error.localizedDescription
-    }
-  }
-
-  private var dispositionService: GmailDispositionService {
+  var dispositionService: GmailDispositionService {
     let date = now
     return GmailDispositionService(client: dispositionClient, now: { date })
-  }
-}
-
-public enum ReadingQueueSelection {
-  /// The queue is already in reading order: advance, then fall back to the previous row.
-  public static func neighbour(
-    of id: ContentPiece.ID, in rows: [TodayReadingQueueRequest.Row]
-  ) -> ContentPiece.ID? {
-    guard let index = rows.firstIndex(where: { $0.id == id }) else { return nil }
-    if rows.indices.contains(index + 1) { return rows[index + 1].id }
-    if index > rows.startIndex { return rows[index - 1].id }
-    return nil
   }
 }

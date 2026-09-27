@@ -3,14 +3,13 @@ import SwiftUI
 
 struct TodayLandingView: View {
   @Bindable var model: TodayModel
+  @Bindable var queueModel: TodayReadingQueueModel
   @Bindable var tailModel: EditionModel
   @Bindable var dailyLinkModel: DailyLinkModel
-  @Binding var isConfirmingRecompose: Bool
   let readerNamespace: Namespace.ID
   let readableContentPieceIDs: Set<ContentPiece.ID>
-  let didChangeEdition: () -> Void
-  let openReader: (ContentPiece.ID) -> Void
-  let openHighlight: (TodayRequest.Row) -> Void
+  let didChangeQueue: @MainActor () async -> Void
+  let openQuickLook: (ContentPiece.ID) -> Void
   let openOfferReview: (ContentRole) -> Void
   @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -19,14 +18,15 @@ struct TodayLandingView: View {
       ScrollView {
         LazyVStack(alignment: .leading, spacing: 0) {
           orientationHeader
-          highlights
           TodayRoleSectionListView(
-            model: model, readerNamespace: readerNamespace, openReader: openReader)
+            model: model,
+            queueModel: queueModel,
+            readerNamespace: readerNamespace,
+            didChangeQueue: didChangeQueue,
+            openQuickLook: openQuickLook
+          )
           offerReviewDoors
-          TailCompositionControl(
-            tailModel: tailModel,
-            isConfirmingRecompose: $isConfirmingRecompose,
-            didChangeEdition: didChangeEdition)
+          tailCompositionStatus
           tailSection("Essentials", rows: tailRows(in: .essentials))
           tailSection("From the Tail", rows: tailBodyRows)
           tailSection("Essential Backlog", rows: tailRows(in: .essentialBacklog))
@@ -39,7 +39,6 @@ struct TodayLandingView: View {
       }
     }
   }
-
 }
 
 private extension TodayLandingView {
@@ -72,9 +71,9 @@ private extension TodayLandingView {
                   HStack(spacing: 6) {
                     ForEach(Array(door.heroURLs.enumerated()), id: \.offset) { _, url in
                       OfferRemoteHero(url: url, color: door.role.color)
-                      .frame(maxWidth: .infinity)
-                      .aspectRatio(4 / 3, contentMode: .fit)
-                      .clipShape(RoundedRectangle(cornerRadius: 7))
+                        .frame(maxWidth: .infinity)
+                        .aspectRatio(4 / 3, contentMode: .fit)
+                        .clipShape(RoundedRectangle(cornerRadius: 7))
                     }
                   }
                 }
@@ -114,7 +113,7 @@ private extension TodayLandingView {
         Text(title).font(.title3.weight(.semibold)).padding(.top, 24)
         ForEach(rows) { row in
           HStack(alignment: .top, spacing: 8) {
-            Button { openReader(row.contentPieceID) } label: {
+            Button { openQuickLook(row.contentPieceID) } label: {
               TailRowView(row: row)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .matchedTransitionSource(id: row.contentPieceID, in: readerNamespace)
@@ -122,30 +121,70 @@ private extension TodayLandingView {
             .buttonStyle(.plain)
             tailRowMenu(row)
           }
+          .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button("Dismiss", systemImage: "xmark.circle", role: .destructive) {
+              dismissTail(row)
+            }
+          }
+          .contextMenu { tailActions(row) }
         }
       }
     }
   }
 
-  /// Tail stories are RSS/screened content, not Gmail, so their resolution is `Dismiss` (the Edition
-  /// action) rather than an Archive/Trash provider mutation. Save for Later and Add to Library are the
-  /// two durable homes offered alongside it.
   func tailRowMenu(_ row: CurrentEditionRequest.Row) -> some View {
     Menu {
-      Button("Dismiss", systemImage: "xmark.circle", role: .destructive) {
-        Task { await tailModel.dismiss(row.id) }
-      }
-      Divider()
-      Button("Save for Later", systemImage: "clock") {
-        Task { await tailModel.saveForLater(row.id) }
-      }
-      Button("Add to Library", systemImage: "books.vertical") {
-        Task { await tailModel.addToLibrary(row.id) }
-      }
+      tailActions(row)
     } label: {
       Image(systemName: "ellipsis.circle").foregroundStyle(.secondary).padding(.top, 4)
     }
     .accessibilityLabel("Tail story actions")
+  }
+
+  @ViewBuilder
+  func tailActions(_ row: CurrentEditionRequest.Row) -> some View {
+    Button("Dismiss", systemImage: "xmark.circle", role: .destructive) {
+      dismissTail(row)
+    }
+    Divider()
+    Button("Save for Later", systemImage: "clock") {
+      Task {
+        await tailModel.saveForLater(row.id)
+        if tailModel.errorMessage == nil { await didChangeQueue() }
+      }
+    }
+    Button("Add to Library", systemImage: "books.vertical") {
+      Task { await tailModel.addToLibrary(row.id) }
+    }
+  }
+
+  func dismissTail(_ row: CurrentEditionRequest.Row) {
+    Task {
+      let queueRow = queueModel.rows.first(where: { $0.id == row.contentPieceID })
+      await tailModel.dismiss(row.id)
+      guard tailModel.errorMessage == nil else { return }
+      if let queueRow { await queueModel.recordDismissed(queueRow) }
+      await didChangeQueue()
+    }
+  }
+
+  @ViewBuilder
+  var tailCompositionStatus: some View {
+    if tailModel.isComposing {
+      HStack(spacing: 8) {
+        ProgressView()
+        Text(composingPhase?.title ?? "Composing today’s Edition…")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.top, 18)
+    }
+  }
+
+  var composingPhase: EditionCompositionPhase? {
+    guard case let .composing(phase) = tailModel.compositionState else { return nil }
+    return phase
   }
 
   var orientationHeader: some View {
@@ -156,38 +195,5 @@ private extension TodayLandingView {
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(.top, 12)
     .padding(.bottom, 8)
-  }
-
-  @ViewBuilder
-  var highlights: some View {
-    if !model.highlightRows.isEmpty {
-      VStack(alignment: .leading, spacing: 8) {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-          Text("Highlights").font(.headline)
-          Text("A quick way in").font(.caption).foregroundStyle(.tertiary)
-        }
-        ScrollView(.horizontal, showsIndicators: false) {
-          HStack(alignment: .top, spacing: 10) {
-            ForEach(model.highlightRows) { row in
-              Button { openHighlight(row) } label: {
-                VStack(alignment: .leading, spacing: 5) {
-                  Text(row.role.displayName.uppercased())
-                    .font(.caption2.weight(.bold)).foregroundStyle(.secondary)
-                  Text(row.title).font(.headline).multilineTextAlignment(.leading).lineLimit(3)
-                  Text(row.publisher).font(.caption).foregroundStyle(.secondary)
-                }
-                .frame(width: 210, alignment: .leading)
-                .padding(12)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
-                .matchedTransitionSource(id: row.id, in: readerNamespace)
-              }
-              .buttonStyle(.plain)
-            }
-          }
-          .padding(.vertical, 2)
-        }
-      }
-      .padding(.vertical, 12)
-    }
   }
 }
