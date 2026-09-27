@@ -17,7 +17,7 @@ struct TodayQuickLookSheet: View {
           row: row,
           tailModel: tailModel,
           clearSelection: { dismiss() },
-          didDismiss: { await model.recordDismissed(row.id) }
+          didDismiss: { await model.recordDismissed(row) }
         ),
         queueContext: ReaderQueueContext(
           archive: {
@@ -40,8 +40,8 @@ struct TodayQuickLookSheet: View {
         if model.rows.contains(where: { $0.id == row.id }) {
           ToolbarItem(placement: .topBarTrailing) {
             Button("Process from here", systemImage: "list.bullet.rectangle") {
-              dismiss()
               processFromHere()
+              dismiss()
             }
           }
         }
