@@ -1,6 +1,11 @@
 import Foundation
 
 extension TodayReadingQueueModel {
+  public func markPresented(_ contentPieceID: ContentPiece.ID) {
+    guard rows.contains(where: { $0.id == contentPieceID }) else { return }
+    presentedProcessContentPieceIDs.insert(contentPieceID)
+  }
+
   public func selectPrevious() {
     guard !rows.isEmpty else {
       selectedContentPieceID = nil
@@ -55,7 +60,7 @@ extension TodayReadingQueueModel {
       doneByID.removeValue(forKey: contentPieceID)
       await reload()
       if let movedAwayFrom = selectedContentPieceID, movedAwayFrom != contentPieceID {
-        skipSeriesTrashOnLeaveIDs.insert(movedAwayFrom)
+        presentedProcessContentPieceIDs.remove(movedAwayFrom)
       }
       selectedContentPieceID = contentPieceID
       if lastDisposition?.contentPieceID == contentPieceID {
@@ -67,11 +72,54 @@ extension TodayReadingQueueModel {
     }
   }
 
-  /// Applies the explicit M6 S1 series policy when a followed-stream issue leaves the Reader.
+  /// Process series-trash applies only after the row was actually presented while Process was active.
   @discardableResult
   public func applySeriesTrashOnLeave(_ contentPieceID: ContentPiece.ID) async -> Bool {
     resetDoneTrackingIfNeeded(at: now)
-    guard skipSeriesTrashOnLeaveIDs.remove(contentPieceID) == nil else { return false }
+    guard presentedProcessContentPieceIDs.remove(contentPieceID) != nil else { return false }
+    return await applySeriesTrash(contentPieceID)
+  }
+
+  /// A quick-look row was explicitly presented even though it is not part of Process presentation state.
+  @discardableResult
+  public func applySeriesTrashOnQuickLookLeave(_ contentPieceID: ContentPiece.ID) async -> Bool {
+    resetDoneTrackingIfNeeded(at: now)
+    return await applySeriesTrash(contentPieceID)
+  }
+
+  /// Applies the Process-tab leave boundary. A declared series may trash the selected piece; when it
+  /// does, selection advances to the neighbour that was visible before the queue changed.
+  public func leaveProcess() async {
+    guard let selectedContentPieceID,
+      rows.contains(where: { $0.id == selectedContentPieceID })
+    else { return }
+
+    let nextSelection = ReadingQueueSelection.neighbour(of: selectedContentPieceID, in: rows)
+    guard await applySeriesTrashOnLeave(selectedContentPieceID) else { return }
+    self.selectedContentPieceID = nextSelection
+  }
+
+  public func recordDismissed(_ row: TodayReadingQueueRequest.Row) async {
+    await recordRemoved(row)
+  }
+
+  public func recordCleared(_ row: TodayReadingQueueRequest.Row) async {
+    await recordRemoved(row)
+  }
+
+  private func recordRemoved(_ row: TodayReadingQueueRequest.Row) async {
+    resetDoneTrackingIfNeeded(at: now)
+    let shouldAdvance = selectedContentPieceID == row.id
+    let nextSelection = shouldAdvance
+      ? ReadingQueueSelection.neighbour(of: row.id, in: rows)
+      : nil
+    recordDone(row)
+    presentedProcessContentPieceIDs.remove(row.id)
+    if shouldAdvance { selectedContentPieceID = nextSelection }
+    await reload()
+  }
+
+  private func applySeriesTrash(_ contentPieceID: ContentPiece.ID) async -> Bool {
     guard let row = rows.first(where: { $0.id == contentPieceID }) else { return false }
     do {
       let didTrash = try await GmailSeriesDispositionOperations.applyTrashOnLeave(
@@ -91,35 +139,6 @@ extension TodayReadingQueueModel {
     }
   }
 
-  /// Applies the Process-tab leave boundary. A declared series may trash the selected piece; when it
-  /// does, selection advances to the neighbour that was visible before the queue changed.
-  public func leaveProcess() async {
-    guard let selectedContentPieceID,
-      rows.contains(where: { $0.id == selectedContentPieceID })
-    else { return }
-
-    let nextSelection = ReadingQueueSelection.neighbour(of: selectedContentPieceID, in: rows)
-    guard await applySeriesTrashOnLeave(selectedContentPieceID) else { return }
-
-    // If ProcessView observes this offscreen selection change, its callback sees that the disposed
-    // row is already absent and becomes a no-op.
-    self.selectedContentPieceID = nextSelection
-  }
-
-  /// Records a successful Edition Dismiss in the same in-memory progress ledger as Gmail
-  /// dispositions. EditionModel still owns the canonical state transition.
-  public func recordDismissed(_ contentPieceID: ContentPiece.ID) async {
-    resetDoneTrackingIfNeeded(at: now)
-    guard let row = rows.first(where: { $0.id == contentPieceID }) else { return }
-    let shouldAdvance = selectedContentPieceID == contentPieceID
-    let nextSelection = shouldAdvance
-      ? ReadingQueueSelection.neighbour(of: contentPieceID, in: rows)
-      : nil
-    recordDone(row)
-    if shouldAdvance { selectedContentPieceID = nextSelection }
-    await reload()
-  }
-
   private func applyDisposition(_ disposition: GmailSourceDisposition, to id: ContentPiece.ID) async {
     resetDoneTrackingIfNeeded(at: now)
     guard let row = rows.first(where: { $0.id == id }), row.isGmailSource else { return }
@@ -128,6 +147,7 @@ extension TodayReadingQueueModel {
     do {
       _ = try await dispositionService.apply(disposition, toContentPieceID: id, in: database)
       recordDone(row)
+      presentedProcessContentPieceIDs.remove(id)
       lastDisposition = LastDisposition(
         contentPieceID: row.id, title: row.title, disposition: disposition)
       if shouldAdvance { selectedContentPieceID = nextSelection }
