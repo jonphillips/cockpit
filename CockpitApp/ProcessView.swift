@@ -5,6 +5,7 @@ import SwiftUI
 struct ProcessView: View {
   @Bindable var model: TodayReadingQueueModel
   @Bindable var tailModel: EditionModel
+  let isActive: Bool
   let didChangeQueue: @MainActor () async -> Void
 
   var body: some View {
@@ -14,6 +15,7 @@ struct ProcessView: View {
       ProcessQueueDetail(
         model: model,
         tailModel: tailModel,
+        isActive: isActive,
         didChangeQueue: didChangeQueue
       )
     }
@@ -165,6 +167,7 @@ private struct ProcessQueueSidebar: View {
 private struct ProcessQueueDetail: View {
   @Bindable var model: TodayReadingQueueModel
   @Bindable var tailModel: EditionModel
+  let isActive: Bool
   let didChangeQueue: @MainActor () async -> Void
   @State private var originalWebViewStore = TodayOriginalWebViewStore()
 
@@ -198,6 +201,12 @@ private struct ProcessQueueDetail: View {
           originalWebViewStore: originalWebViewStore
         )
         .id(row.id)
+        .task(id: row.id) {
+          if isActive { model.markPresented(row.id) }
+        }
+        .onChange(of: isActive) { _, active in
+          if active { model.markPresented(row.id) }
+        }
       } else {
         ContentUnavailableView(
           "Select a Piece", systemImage: "doc.text",
