@@ -47,6 +47,10 @@ Jon's device pass is the gate.
   real names or messages.
 - iPhone composition isn't designed (§31). On compact width, take the system's default collapse
   (split view → stack, the multi-column Today → one column) and nothing more.
+- **Swipe actions outside a `List` need a container (SDK 27).** A row's `swipeActions` does nothing
+  in a `ScrollView` or stack unless the scroll view carries `.swipeActionsContainer()`. Today's rows
+  are in a `ScrollView`, so its swipes never worked before S-v3 (found in the S-v3 review, PR #106).
+  Any surface that moves rows out of a `List` adds the container in the same change.
 
 ---
 
@@ -244,25 +248,36 @@ The structure is proven by S-v2, so this is styling and arrangement only.
 - **Daily links move into the masthead** (amends §29's trailing icon column; decided at spec). Show
   them trailing, as compact chips: the existing `DailyLinkGlyph` (symbol or Photos thumbnail) plus the
   title, with the visited check in `accent`. The same tap does `openURL` + `recordVisit`. Delete the
-  trailing `DailyLinksColumn`. The compact-width toolbar `Menu` is unchanged. If the chips don't fit on
+  trailing `DailyLinksColumn`. The chips are **regular width only**. Compact width keeps the unchanged
+  toolbar `Menu` and shows no chips, so the links never appear twice. If the chips don't fit on
   one line, the ones that don't fit go into a trailing overflow `Menu`.
 - **Index line.** One line of section names with counts (`meta`), in role order, ending with Offers
   and its count. A 1pt `Rule` sits under it. It's orientation, not a badge to clear.
 - **Columns.** Sections flow into **three columns** in `ContentRole.sortOrder` (first column about 1.3×
-  the width of the others, with 1pt `Rule` separators). Keep sections whole. Fill columns greedily by
-  row count so heights balance. Put this assignment in a pure function in core
-  (`TodayColumnLayout.columns(for sections: [(role, rowCount)], count: 3)`) and test it. The mockup's
+  the width of the others, with 1pt `Rule` separators that run the full height). Keep sections whole.
+  **Flow, not masonry** (clarified in the S-v3 review, PR #106): the columns are consecutive runs of
+  the ordered sections, as in the mockup (sections 0–2 | 3 | 4–6), so reading left to right, top to
+  bottom gives `sortOrder`, the same order compact width shows. Choose the split points so the
+  tallest column (by row count) is as short as possible, breaking ties by the smaller spread; with
+  about a dozen sections, trying every split is fine. Don't place each section in the shortest
+  column, which interleaves the order. Return only non-empty columns, and size the view's width
+  ratios to the number returned (1.3 for the first, 1 for the rest), so a quiet day with one section
+  uses the full width. Put this assignment in a pure function in core
+  (`TodayColumnLayout.columns(for sections:, count: 3)`) and test it. The mockup's
   order of Food, Wine, Grab-bag doesn't override `sortOrder`.
 - **Section labels.** `SectionLabel` (S-v1) with the count. No cards, no materials, no rounded
   backgrounds on sections.
 - **Rows.** `HeadlineRow`: headline in `headline` (up to two lines), source in `byline`, time in `meta`.
   **Unread is the dot only.** Remove the bold-unread weight from S-t2's rows (amends §28's
-  presentation; decided at spec). The transactional due-date flag stays as an `accentSoft` chip after
-  the headline where one exists. **Fix the dot's placement first** (carried from the S-v1 review, PR
+  presentation; decided at spec). There is **no due-date chip**: an earlier draft kept a
+  "transactional due-date flag", but no due-date field exists in core (`treatmentSummary` is the offer
+  summary), so nothing renders there (corrected in the S-v3 review, PR #106). A due date would be
+  extraction, and belongs in the ledger in `M6-decisions-and-sequencing.md`. Per the mockup, a
+  section's first row, and the row after the lead, have no top rule. **Fix the dot's placement first** (carried from the S-v1 review, PR
   #103). In S-v1's `HeadlineRow` the dot is an `HStack` sibling of the title, so a two-line headline
   wraps under the title rather than under the dot, and the circle sits on the baseline instead of being
   centered on the x-height. The mockup sets it inline. Make it part of the headline text, for example
-  by concatenating `Text(Image(systemName: "circle.fill"))` scaled down and tinted `accent`, so it wraps
+  by interpolating `Text(Image(systemName: "circle.fill"))` into the headline `Text`, scaled down and tinted `accent`, so it wraps
   and aligns with the headline.
 - **Lead story.** The first For you row gets the lead treatment: `leadHeadline`, byline with day, and
   its existing `summary` as a `lede` line. The mockup's quoted ask and "Asks for a reply" chip are
@@ -282,9 +297,11 @@ The structure is proven by S-v2, so this is styling and arrangement only.
 - Background is `Paper`. Light and dark both follow the system appearance.
 
 **Prove (core).**
-- `TodayColumnLayout`: sections stay whole and in `sortOrder` across columns. Column heights (by row
-  count) are balanced within one section's size. One section gives one column. An empty input gives
-  empty columns.
+- `TodayColumnLayout`: sections stay whole, and the columns read in order, so flattening the columns
+  gives the input in `sortOrder`. Column heights (by row count) are balanced within one section's
+  size. For three or more sections the best in-order split always meets this bound, which a
+  brute-force check over 20,000 random days confirmed in the S-v3 review. One section gives exactly
+  one column (`[[s]]`). An empty input gives no columns.
 - The Today projection still has the same membership and order as before S-v3. This slice changes
   presentation only, so assert that the existing section tests pass unchanged.
 
@@ -293,7 +310,9 @@ Build the ask chip or the asks count. Change membership or ordering. Add search.
 
 **Device-only risks (name them).** Density: about 20 items visible on an 11" iPad in landscape without
 scrolling. Masthead chip overflow with Jon's real Daily links. The column balance with a heavy Opinion
-day. Dark-mode rule and ink contrast.
+day. Dark-mode rule and ink contrast. The inline unread dot's size and offset on the larger
+`leadHeadline` and at large Dynamic Type sizes, since it's a fixed size today (carried from the S-v3
+review, PR #106).
 
 **Done when.** Today matches `docs/mockups/morning-edition.html` on device, in light and dark, apart
 from the elements the standing rules exclude (ask chip, asks count, search). The Tail sections and the
