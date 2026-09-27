@@ -108,11 +108,10 @@ accent's hex value anywhere but the color set. Add a shared theme package or a j
 Load fonts from the network.
 
 **Device-only risks (name them).**
-- Whether iOS applies Newsreader's `opsz` axis automatically by point size. If 30pt titles look like
-  enlarged text cuts (or 14.5pt rows like shrunk display cuts), report it. The fallback is static
-  instances, decided at review.
 - Mixed chip text (`accentInk` on `accentSoft`) contrast in both appearances. §31 notes this as the
   thing to recheck whenever the accent changes.
+- CoreText confirmed that Newsreader's `opsz` axis follows the requested point size (14.5pt, 16pt,
+  and 40pt); no static instances are needed. An on-device visual check is still welcome.
 
 **Done when.** The app builds with the global accent coming from `AccentColor`, so the system tint
 turns amber everywhere with no code change. On device or in Xcode previews, the `SectionLabel` and
