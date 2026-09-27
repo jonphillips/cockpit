@@ -447,7 +447,7 @@ struct GmailSeriesDispositionTests {
     let queue = TodayReadingQueueModel()
     try await today.$content.load()
     try await queue.$content.load()
-    let todayRow = try #require(today.content.rows.first { $0.id == pieceID })
+    _ = try #require(today.content.rows.first { $0.id == pieceID })
     let queueRow = try #require(queue.rows.first { $0.id == pieceID })
     let totalBefore = queue.rows.count
     queue.selectedContentPieceID = pieceID
