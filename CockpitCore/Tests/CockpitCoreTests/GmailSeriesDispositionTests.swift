@@ -452,8 +452,8 @@ struct GmailSeriesDispositionTests {
     let totalBefore = queue.rows.count
     queue.selectedContentPieceID = pieceID
 
-    await today.clear(todayRow)
-    await queue.recordCleared(queueRow)
+    await queue.clear(queueRow)
+    try await today.$content.load()
 
     #expect(!today.content.rows.contains { $0.id == pieceID })
     #expect(!queue.rows.contains { $0.id == pieceID })
