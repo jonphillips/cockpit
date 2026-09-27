@@ -13,6 +13,7 @@ struct ReaderDispositionToolbar: ToolbarContent {
   var sendToYesChef: () async -> Void = {}
   var archiveSource: () async -> Void = {}
   var trashSource: () async -> Void = {}
+  let isTextEntrySheetPresented: Bool
   let dismissEdition: () async -> Void
   let saveForLater: () async -> Void
   let addToLibrary: () async -> Void
@@ -40,11 +41,18 @@ struct ReaderDispositionToolbar: ToolbarContent {
         Button("Reply", systemImage: "arrowshape.turn.up.left", action: openReply)
           .buttonStyle(.borderedProminent)
       } else if model.isGmailSource {
-        Button("Archive", systemImage: "archivebox") {
-          Task { await archive() }
+        if isTextEntrySheetPresented {
+          Button("Archive", systemImage: "archivebox") {
+            Task { await archive() }
+          }
+          .buttonStyle(.borderedProminent)
+        } else {
+          Button("Archive", systemImage: "archivebox") {
+            Task { await archive() }
+          }
+          .buttonStyle(.borderedProminent)
+          .keyboardShortcut(.delete, modifiers: [])
         }
-        .buttonStyle(.borderedProminent)
-        .keyboardShortcut(.delete, modifiers: [])
       }
     }
 
@@ -57,10 +65,16 @@ struct ReaderDispositionToolbar: ToolbarContent {
       }
 
       if model.isGmailSource && model.isReplyAvailable {
-        Button("Archive", systemImage: "archivebox") {
-          Task { await archive() }
+        if isTextEntrySheetPresented {
+          Button("Archive", systemImage: "archivebox") {
+            Task { await archive() }
+          }
+        } else {
+          Button("Archive", systemImage: "archivebox") {
+            Task { await archive() }
+          }
+          .keyboardShortcut(.delete, modifiers: [])
         }
-        .keyboardShortcut(.delete, modifiers: [])
       }
 
       if model.isGmailSource {
