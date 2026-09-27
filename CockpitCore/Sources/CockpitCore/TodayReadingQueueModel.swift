@@ -37,8 +37,8 @@ public final class TodayReadingQueueModel {
   @ObservationIgnored @Dependency(\.gmailDispositionClient) private var dispositionClient
   @ObservationIgnored @Fetch(TodayReadingQueueRequest()) public var content = .init()
   @ObservationIgnored private var skipSeriesTrashOnLeaveIDs: Set<ContentPiece.ID> = []
-  @ObservationIgnored private var doneByID: [ContentPiece.ID: ContentRole] = [:]
-  @ObservationIgnored private var doneTrackingDay: Date?
+  private var doneByID: [ContentPiece.ID: ContentRole] = [:]
+  private var doneTrackingDay: Date?
 
   public var selectedContentPieceID: ContentPiece.ID?
   public var errorMessage: String?
@@ -52,13 +52,9 @@ public final class TodayReadingQueueModel {
     Self.selectedRole(for: selectedContentPieceID, in: sections)
   }
 
-  public var doneCount: Int {
-    resetDoneTrackingIfNeeded(at: now)
-    return doneByID.count
-  }
+  public var doneCount: Int { doneByID.count }
 
   public var doneRoles: [ContentRole] {
-    resetDoneTrackingIfNeeded(at: now)
     let completedRoles = Set(doneByID.values).filter { role in
       !rows.contains { $0.role == role }
     }
@@ -68,7 +64,6 @@ public final class TodayReadingQueueModel {
   }
 
   public var position: (index: Int, total: Int)? {
-    resetDoneTrackingIfNeeded(at: now)
     guard let selectedContentPieceID,
       let selectedIndex = rows.firstIndex(where: { $0.id == selectedContentPieceID })
     else { return nil }
