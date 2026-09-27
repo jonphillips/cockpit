@@ -55,6 +55,7 @@ struct TodayView: View {
         tailModel: tailModel,
         originalWebViewStore: quickLookWebViewStore,
         processFromHere: {
+          dismissedQuickLookID = nil
           shellModel.process(from: row.id)
         }
       )
@@ -148,6 +149,20 @@ private extension TodayView {
       }
     }
 
+    if let disposition = queueModel.lastDisposition {
+      ToolbarItem(placement: .topBarTrailing) {
+        Button("Undo", systemImage: "arrow.uturn.backward") {
+          Task {
+            await queueModel.undoLastDisposition()
+            await didChangeQueue()
+          }
+        }
+        .accessibilityLabel(
+          "Undo \(disposition.disposition == .archive ? "archive" : "trash") of \(disposition.title)"
+        )
+      }
+    }
+
     ToolbarItem(placement: .topBarTrailing) {
       Button {
         if queueModel.selectedContentPieceID == nil {
@@ -222,7 +237,7 @@ private extension TodayView {
     guard let contentPieceID = dismissedQuickLookID else { return }
     dismissedQuickLookID = nil
     Task {
-      await queueModel.applySeriesTrashOnLeave(contentPieceID)
+      await queueModel.applySeriesTrashOnQuickLookLeave(contentPieceID)
       await didChangeQueue()
     }
   }
