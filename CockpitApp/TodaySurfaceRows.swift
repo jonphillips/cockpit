@@ -105,7 +105,6 @@ struct TodayRoleSectionListView: View {
     .padding(.vertical, 2)
     .swipeActions(edge: .leading, allowsFullSwipe: false) {
       Button("Later", systemImage: "clock") { saveForLater(row) }
-        .tint(.secondary)
     }
     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
       Button("Trash", systemImage: "trash", role: .destructive) { trash(row) }
