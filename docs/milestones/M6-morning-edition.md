@@ -20,7 +20,7 @@ Jon's device pass is the gate.
 `TodayView.swift`, so whichever lands second rebases.
 
 - [x] S-v1 — Foundation: asset catalog and `AccentColor`, `Theme` tokens, type roles, bundled Newsreader
-- [ ] S-v2 — Process tab and quick look: the structural move, in default styling
+- [x] S-v2 — Process tab and quick look: the structural move, in default styling
 - [ ] S-v3 — Today visual adoption: masthead, columns, section labels, rows
 - [ ] S-v4 — Reader, quick look, and Process visual adoption: the letter, the newsletter strip and footer, the queue
 
