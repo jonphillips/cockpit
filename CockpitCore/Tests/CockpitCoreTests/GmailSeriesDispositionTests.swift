@@ -268,6 +268,135 @@ struct GmailSeriesDispositionTests {
     #expect(log.calls.last?.hasPrefix("reAddInbox:") == true)
   }
 
+  @MainActor
+  @Test("Today and Process share one disposition projection and Undo restores both")
+  func todayAndProcessShareDispositionState() async throws {
+    let pieceID = try await seed(
+      id: "shared-projection", treatment: .personal, sender: "friend@example.com")
+    let log = CallLog()
+
+    try await withDependencies {
+      $0.gmailDispositionClient = log.client
+    } operation: {
+      let today = TodayModel()
+      let queue = TodayReadingQueueModel()
+      try await today.$content.load()
+      try await queue.$content.load()
+
+      let todayRow = try #require(today.content.rows.first { $0.id == pieceID })
+      let queueRow = try #require(queue.rows.first { $0.id == pieceID })
+
+      await queue.archive(queueRow)
+      try await today.$content.load()
+      #expect(!today.content.rows.contains { $0.id == pieceID })
+
+      await queue.undoLastDisposition()
+      try await today.$content.load()
+      #expect(today.content.rows.contains { $0.id == pieceID })
+      #expect(queue.rows.contains { $0.id == pieceID })
+
+      await today.archive(todayRow)
+      await queue.reload()
+      #expect(!queue.rows.contains { $0.id == pieceID })
+
+      await today.undoDisposition(todayRow)
+      await queue.reload()
+      #expect(today.content.rows.contains { $0.id == pieceID })
+      #expect(queue.rows.contains { $0.id == pieceID })
+    }
+  }
+
+  @MainActor
+  @Test("Leaving Process trashes a declared series and advances, but preserves undeclared selection")
+  func leaveProcessAppliesSeriesPolicy() async throws {
+    let declaredID = try await seed(
+      id: "process-leave-declared", treatment: .newsletter, sender: "morning@example.com",
+      listID: "morning.example.com")
+    let undeclaredID = try await seed(
+      id: "process-leave-undeclared", treatment: .personal, sender: "friend@example.com")
+    try await database.write { db in
+      try GmailSeriesDispositionOperations.declare(
+        seriesKey: "morning.example.com", at: .distantPast, in: db)
+    }
+
+    let log = CallLog()
+    try await withDependencies {
+      $0.gmailDispositionClient = log.client
+    } operation: {
+      let model = TodayReadingQueueModel()
+      try await model.$content.load()
+
+      model.selectedContentPieceID = declaredID
+      let expectedNeighbour = ReadingQueueSelection.neighbour(of: declaredID, in: model.rows)
+      await model.leaveProcess()
+
+      #expect(!model.rows.contains { $0.id == declaredID })
+      expectNoDifference(model.selectedContentPieceID, expectedNeighbour)
+
+      model.selectedContentPieceID = undeclaredID
+      await model.leaveProcess()
+      #expect(model.rows.contains { $0.id == undeclaredID })
+      expectNoDifference(model.selectedContentPieceID, undeclaredID)
+    }
+    expectNoDifference(log.calls, ["trash:process-leave-declared"])
+  }
+
+  @MainActor
+  @Test("Queue position tracks dispositions, completed roles, Undo, and local-day rollover")
+  func queueProgress() async throws {
+    _ = try await seed(id: "progress-for-you-a", treatment: .personal, sender: "a@example.com")
+    _ = try await seed(id: "progress-for-you-b", treatment: .personal, sender: "b@example.com")
+    for suffix in ["a", "b", "c"] {
+      _ = try await seed(
+        id: "progress-daily-\(suffix)", treatment: .newsletter,
+        sender: "daily@example.com", listID: "daily.example.com")
+    }
+    try await database.write { db in
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: "daily.example.com", role: .dailyNews), in: db)
+    }
+
+    let log = CallLog()
+    try await withDependencies {
+      $0.gmailDispositionClient = log.client
+    } operation: {
+      let model = TodayReadingQueueModel()
+      try await model.$content.load()
+      model.resetDoneTrackingIfNeeded(at: Date(timeIntervalSince1970: 10_000))
+
+      let forYouRows = model.rows.filter {
+        $0.title.hasPrefix("Subject progress-for-you-")
+      }
+      let dailyRows = model.rows.filter {
+        $0.title.hasPrefix("Subject progress-daily-")
+      }
+      expectNoDifference(forYouRows.count, 2)
+      expectNoDifference(dailyRows.count, 3)
+
+      model.selectedContentPieceID = dailyRows.first?.id
+      for row in forYouRows {
+        await model.archive(row)
+      }
+
+      expectNoDifference(model.doneCount, 2)
+      expectNoDifference(model.doneRoles, [.forYou])
+      expectNoDifference(model.position?.index, 3)
+      expectNoDifference(model.position?.total, 5)
+
+      await model.undoLastDisposition()
+      expectNoDifference(model.doneCount, 1)
+      expectNoDifference(model.doneRoles, [])
+      expectNoDifference(model.position?.index, 2)
+      expectNoDifference(model.position?.total, 5)
+
+      model.resetDoneTrackingIfNeeded(at: Date(timeIntervalSince1970: 100_000))
+      expectNoDifference(model.doneCount, 0)
+      expectNoDifference(model.doneRoles, [])
+      expectNoDifference(model.position?.index, 1)
+      expectNoDifference(model.position?.total, 4)
+    }
+  }
+
   @Test("An active archive prevents series trash-on-leave")
   func archivePreventsSeriesTrashOnLeave() async throws {
     let pieceID = try await seed(
