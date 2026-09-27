@@ -127,20 +127,38 @@ struct TodayRoleSectionListView: View {
     Button("Archive", systemImage: "archivebox") { archive(row) }
     Button("Save for Later", systemImage: "clock") { saveForLater(row) }
     Button("Trash", systemImage: "trash", role: .destructive) { trash(row) }
+    Divider()
+    Button("Clear", systemImage: "checkmark.circle", role: .destructive) { clear(row) }
   }
 
   private func archive(_ row: TodayRequest.Row) {
     Task {
-      guard let queueRow = queueModel.rows.first(where: { $0.id == row.id }) else { return }
-      await queueModel.archive(queueRow)
+      if let queueRow = queueModel.rows.first(where: { $0.id == row.id }) {
+        await queueModel.archive(queueRow)
+      } else {
+        await model.archive(row)
+      }
       await didChangeQueue()
     }
   }
 
   private func trash(_ row: TodayRequest.Row) {
     Task {
-      guard let queueRow = queueModel.rows.first(where: { $0.id == row.id }) else { return }
-      await queueModel.trash(queueRow)
+      if let queueRow = queueModel.rows.first(where: { $0.id == row.id }) {
+        await queueModel.trash(queueRow)
+      } else {
+        await model.trash(row)
+      }
+      await didChangeQueue()
+    }
+  }
+
+  private func clear(_ row: TodayRequest.Row) {
+    Task {
+      let queueRow = queueModel.rows.first(where: { $0.id == row.id })
+      await model.clear(row)
+      guard model.errorMessage == nil else { return }
+      if let queueRow { await queueModel.recordCleared(queueRow) }
       await didChangeQueue()
     }
   }
