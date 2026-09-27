@@ -258,7 +258,12 @@ The structure is proven by S-v2, so this is styling and arrangement only.
 - **Rows.** `HeadlineRow`: headline in `headline` (up to two lines), source in `byline`, time in `meta`.
   **Unread is the dot only.** Remove the bold-unread weight from S-t2's rows (amends §28's
   presentation; decided at spec). The transactional due-date flag stays as an `accentSoft` chip after
-  the headline where one exists.
+  the headline where one exists. **Fix the dot's placement first** (carried from the S-v1 review, PR
+  #103). In S-v1's `HeadlineRow` the dot is an `HStack` sibling of the title, so a two-line headline
+  wraps under the title rather than under the dot, and the circle sits on the baseline instead of being
+  centered on the x-height. The mockup sets it inline. Make it part of the headline text, for example
+  by concatenating `Text(Image(systemName: "circle.fill"))` scaled down and tinted `accent`, so it wraps
+  and aligns with the headline.
 - **Lead story.** The first For you row gets the lead treatment: `leadHeadline`, byline with day, and
   its existing `summary` as a `lede` line. The mockup's quoted ask and "Asks for a reply" chip are
   **not** built (standing rules). With no For you rows, there's no lead.
