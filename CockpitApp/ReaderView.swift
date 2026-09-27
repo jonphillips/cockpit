@@ -94,6 +94,7 @@ private extension ReaderView {
       sendToYesChef: sendReaderFindToYesChef,
       archiveSource: archiveReaderSource,
       trashSource: trashReaderSource,
+      isTextEntrySheetPresented: isShowingTeaching || replySheet != nil,
       dismissEdition: dismissEditionButtonTapped,
       saveForLater: saveForLaterButtonTapped,
       addToLibrary: addToLibraryButtonTapped,
