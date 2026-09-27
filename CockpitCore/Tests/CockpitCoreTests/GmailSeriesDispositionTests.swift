@@ -94,9 +94,11 @@ struct GmailSeriesDispositionTests {
       // No leave event is sent for this piece: being declared is not itself a trigger.
       #expect(model.rows.contains { $0.id == unreadID })
 
+      model.markPresented(undeclaredID)
       await model.applySeriesTrashOnLeave(undeclaredID)
       #expect(model.rows.contains { $0.id == undeclaredID })
 
+      model.markPresented(declaredID)
       await model.applySeriesTrashOnLeave(declaredID)
       await model.applySeriesTrashOnLeave(declaredID)
       #expect(!model.rows.contains { $0.id == declaredID })
@@ -135,6 +137,7 @@ struct GmailSeriesDispositionTests {
     } operation: {
       let model = TodayReadingQueueModel()
       try await model.$content.load()
+      model.markPresented(pieceID)
       await model.applySeriesTrashOnLeave(pieceID)
 
       // D9 reconciliation must skip a Cockpit-caused departure or Undo would be stranded.
@@ -251,11 +254,13 @@ struct GmailSeriesDispositionTests {
       let advancedIndex = try #require(model.rows.firstIndex { $0.id == advancedID })
       let previous = try #require(model.rows[..<advancedIndex].last { $0.isGmailSource })
       model.selectedContentPieceID = previous.id
+      model.markPresented(previous.id)
 
       await model.archive(previous)
       expectNoDifference(model.selectedContentPieceID, advancedID)
       // This mirrors the first selection-change callback; the archived issue must not be auto-trashed.
       await model.applySeriesTrashOnLeave(previous.id)
+      model.markPresented(advancedID)
       await model.undoLastDisposition()
       expectNoDifference(model.selectedContentPieceID, previous.id)
       await model.applySeriesTrashOnLeave(advancedID)
@@ -327,6 +332,7 @@ struct GmailSeriesDispositionTests {
       try await model.$content.load()
 
       model.selectedContentPieceID = declaredID
+      model.markPresented(declaredID)
       let expectedNeighbour = ReadingQueueSelection.neighbour(of: declaredID, in: model.rows)
       await model.leaveProcess()
 
@@ -334,11 +340,125 @@ struct GmailSeriesDispositionTests {
       expectNoDifference(model.selectedContentPieceID, expectedNeighbour)
 
       model.selectedContentPieceID = undeclaredID
+      model.markPresented(undeclaredID)
       await model.leaveProcess()
       #expect(model.rows.contains { $0.id == undeclaredID })
       expectNoDifference(model.selectedContentPieceID, undeclaredID)
     }
     expectNoDifference(log.calls, ["trash:process-leave-declared"])
+  }
+
+  @MainActor
+  @Test("An off-screen Process neighbour is safe until it is actually presented")
+  func offscreenNeighbourRequiresPresentation() async throws {
+    for suffix in ["a", "b", "c"] {
+      _ = try await seed(
+        id: "presented-guard-\(suffix)", treatment: .newsletter,
+        sender: "morning@example.com", listID: "presented.example.com")
+    }
+    try await database.write { db in
+      try GmailSeriesDispositionOperations.declare(
+        seriesKey: "presented.example.com", at: .distantPast, in: db)
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: "presented.example.com", role: .dailyNews), in: db)
+    }
+
+    let log = CallLog()
+    try await withDependencies {
+      $0.gmailDispositionClient = log.client
+    } operation: {
+      let model = TodayReadingQueueModel()
+      try await model.$content.load()
+      let seriesRows = model.rows.filter { $0.title.hasPrefix("Subject presented-guard-") }
+      expectNoDifference(seriesRows.count, 3)
+      let first = try #require(seriesRows.first)
+
+      model.selectedContentPieceID = first.id
+      model.markPresented(first.id)
+      await model.leaveProcess()
+
+      let neighbourID = try #require(model.selectedContentPieceID)
+      let other = try #require(
+        model.rows.first { $0.title.hasPrefix("Subject presented-guard-") && $0.id != neighbourID }
+      )
+      model.selectedContentPieceID = other.id
+      await model.applySeriesTrashOnLeave(neighbourID)
+      #expect(model.rows.contains { $0.id == neighbourID })
+
+      model.selectedContentPieceID = neighbourID
+      model.markPresented(neighbourID)
+      model.selectedContentPieceID = other.id
+      await model.applySeriesTrashOnLeave(neighbourID)
+      #expect(!model.rows.contains { $0.id == neighbourID })
+    }
+    expectNoDifference(log.calls.count, 2)
+    #expect(log.calls.allSatisfy { $0.hasPrefix("trash:presented-guard-") })
+  }
+
+  @MainActor
+  @Test("Process from here changes selection without trashing an unseen declared-series row")
+  func processFromHerePreservesUnseenSeries() async throws {
+    for suffix in ["old", "target"] {
+      _ = try await seed(
+        id: "process-from-\(suffix)", treatment: .newsletter,
+        sender: "digest@example.com", listID: "process-from.example.com")
+    }
+    try await database.write { db in
+      try GmailSeriesDispositionOperations.declare(
+        seriesKey: "process-from.example.com", at: .distantPast, in: db)
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: "process-from.example.com", role: .dailyNews), in: db)
+    }
+
+    let log = CallLog()
+    try await withDependencies {
+      $0.gmailDispositionClient = log.client
+    } operation: {
+      let queue = TodayReadingQueueModel()
+      try await queue.$content.load()
+      let rows = queue.rows.filter { $0.title.hasPrefix("Subject process-from-") }
+      expectNoDifference(rows.count, 2)
+      let old = try #require(rows.first)
+      let target = try #require(rows.last)
+
+      queue.selectedContentPieceID = old.id
+      let shell = ShellModel()
+      shell.connectProcessSelection { contentPieceID in
+        if let contentPieceID { queue.selectedContentPieceID = contentPieceID }
+      }
+      shell.process(from: target.id)
+
+      expectNoDifference(shell.selection, .process)
+      expectNoDifference(queue.selectedContentPieceID, target.id)
+      await queue.applySeriesTrashOnLeave(old.id)
+
+      #expect(queue.rows.contains { $0.id == old.id })
+      #expect(queue.rows.contains { $0.id == target.id })
+    }
+    #expect(log.calls.isEmpty)
+  }
+
+  @MainActor
+  @Test("Clear removes Today attention and counts as queue progress")
+  func clearCountsAsDone() async throws {
+    let pieceID = try await seed(
+      id: "clear-counts-done", treatment: .personal, sender: "friend@example.com")
+    let today = TodayModel()
+    let queue = TodayReadingQueueModel()
+    try await today.$content.load()
+    try await queue.$content.load()
+    let todayRow = try #require(today.content.rows.first { $0.id == pieceID })
+    let queueRow = try #require(queue.rows.first { $0.id == pieceID })
+    let totalBefore = queue.rows.count
+    queue.selectedContentPieceID = pieceID
+
+    await today.clear(todayRow)
+    await queue.recordCleared(queueRow)
+
+    #expect(!today.content.rows.contains { $0.id == pieceID })
+    #expect(!queue.rows.contains { $0.id == pieceID })
+    expectNoDifference(queue.doneCount, 1)
+    expectNoDifference(queue.position?.total, totalBefore)
   }
 
   @MainActor
@@ -436,6 +556,7 @@ struct GmailSeriesDispositionTests {
     } operation: {
       let queueModel = TodayReadingQueueModel()
       try await queueModel.$content.load()
+      queueModel.markPresented(pieceID)
       await queueModel.applySeriesTrashOnLeave(pieceID)
     }
     #expect(log.calls.isEmpty)
