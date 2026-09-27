@@ -30,6 +30,7 @@ struct ReaderTeachingView: View {
         }
       }
     }
+    .interactiveDismissDisabled(!model.teachingReason.isEmpty)
   }
 
   private func teachingForm(model: ContentPieceReaderModel) -> some View {
