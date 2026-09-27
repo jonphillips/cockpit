@@ -115,9 +115,7 @@ extension TodayReadingQueueModel {
       rows.contains(where: { $0.id == selectedContentPieceID })
     else { return }
 
-    let nextSelection = ReadingQueueSelection.neighbour(of: selectedContentPieceID, in: rows)
-    guard await applySeriesTrashOnLeave(selectedContentPieceID) else { return }
-    self.selectedContentPieceID = nextSelection
+    await applySeriesTrashOnLeave(selectedContentPieceID)
   }
 
   public func recordDismissed(_ row: TodayReadingQueueRequest.Row) async {
@@ -136,13 +134,19 @@ extension TodayReadingQueueModel {
     await reload()
   }
 
+  /// When the trashed piece is still the queue's selection (leaving Process, or closing a quick look
+  /// on the piece Process has selected), selection advances to its neighbour so Process never returns
+  /// to an empty detail.
   private func applySeriesTrash(_ contentPieceID: ContentPiece.ID) async -> Bool {
     guard let row = rows.first(where: { $0.id == contentPieceID }) else { return false }
+    let shouldAdvance = selectedContentPieceID == contentPieceID
+    let nextSelection = shouldAdvance ? ReadingQueueSelection.neighbour(of: contentPieceID, in: rows) : nil
     do {
       let didTrash = try await GmailSeriesDispositionOperations.applyTrashOnLeave(
         contentPieceID: contentPieceID, in: database, using: dispositionService)
       guard didTrash else { return false }
       recordDone(row)
+      if shouldAdvance { selectedContentPieceID = nextSelection }
       lastDisposition = LastDisposition(
         contentPieceID: contentPieceID, title: row.title, disposition: .trash)
       await reload()

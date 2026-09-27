@@ -439,6 +439,43 @@ struct GmailSeriesDispositionTests {
   }
 
   @MainActor
+  @Test("Closing a quick look on Process's selected series row trashes it and advances selection")
+  func quickLookLeaveAdvancesProcessSelection() async throws {
+    for suffix in ["a", "b"] {
+      _ = try await seed(
+        id: "quick-look-leave-\(suffix)", treatment: .newsletter,
+        sender: "brief@example.com", listID: "quick-look.example.com")
+    }
+    try await database.write { db in
+      try GmailSeriesDispositionOperations.declare(
+        seriesKey: "quick-look.example.com", at: .distantPast, in: db)
+      try StreamOperations.saveRoutingRule(
+        ContentRoleRoutingRule(locator: "quick-look.example.com", role: .dailyNews), in: db)
+    }
+
+    let log = CallLog()
+    try await withDependencies {
+      $0.gmailDispositionClient = log.client
+    } operation: {
+      let queue = TodayReadingQueueModel()
+      try await queue.$content.load()
+      let rows = queue.rows.filter { $0.title.hasPrefix("Subject quick-look-leave-") }
+      expectNoDifference(rows.count, 2)
+      let selected = try #require(rows.first)
+      let expectedNeighbour = ReadingQueueSelection.neighbour(of: selected.id, in: queue.rows)
+
+      queue.selectedContentPieceID = selected.id
+      await queue.applySeriesTrashOnQuickLookLeave(selected.id)
+
+      #expect(!queue.rows.contains { $0.id == selected.id })
+      expectNoDifference(queue.selectedContentPieceID, expectedNeighbour)
+      #expect(queue.position != nil)
+    }
+    expectNoDifference(log.calls.count, 1)
+    #expect(log.calls.allSatisfy { $0.hasPrefix("trash:quick-look-leave-") })
+  }
+
+  @MainActor
   @Test("Clear removes Today attention and counts as queue progress")
   func clearCountsAsDone() async throws {
     let pieceID = try await seed(
