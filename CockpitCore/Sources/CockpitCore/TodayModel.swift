@@ -97,20 +97,6 @@ public final class TodayModel {
     return summaries.isEmpty ? "Nothing curated yet." : summaries.joined(separator: " · ")
   }
 
-  /// Adds a Today piece to Later without changing its provider disposition or Today attention.
-  public func saveForLater(_ row: TodayRequest.Row) async {
-    let date = now
-    do {
-      try await database.write { db in
-        try DestinationOperations.saveForLater(row.id, at: date, in: db)
-      }
-      errorMessage = nil
-    } catch is CancellationError {
-    } catch {
-      errorMessage = error.localizedDescription
-    }
-  }
-
   public func clear(_ row: TodayRequest.Row) async {
     let date = now
     do {
@@ -164,6 +150,20 @@ public final class TodayModel {
 }
 
 extension TodayModel {
+  /// Adds a Today piece to Later without changing its provider disposition or Today attention.
+  public func saveForLater(_ row: TodayRequest.Row) async {
+    let date = now
+    do {
+      try await database.write { db in
+        try DestinationOperations.saveForLater(row.id, at: date, in: db)
+      }
+      errorMessage = nil
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
   /// Archives the Gmail source behind the disposition barrier. Independent of `clear`: archiving the
   /// provider message does not resolve Today attention, and clearing does not mutate Gmail (§7).
   public func archive(_ row: TodayRequest.Row) async {
