@@ -1141,6 +1141,71 @@ S-t5 and S-t6.
 
 ---
 
+## 31. Today, Process, and the email reader: the Morning Edition design — RESOLVED (2026-09-27, Jon)
+
+**Evidence.** Device screenshots of Today and the reader (2026-09-26), both still in default styling,
+showed problems that styling alone won't fix. Today is an `isReading` switch in `TodayView`: tapping
+any row replaces the whole surface with the reader, so in Jon's words "Today is a bit of an illusion."
+The reader's way back is a custom button, the kind of chrome iPad window controls end up covering.
+Email bodies ran about 170 characters a line, the "why this matters" field looked like a reply box,
+and a mentioned attachment wasn't shown. Three visual directions were explored. Jon chose **Morning
+Edition** and rejected the dashboard direction because Cockpit is "a calm lifestyle cockpit, not a
+productivity console." Settled against the mockup `docs/mockups/morning-edition.html`, which is the
+visual spec.
+
+**Decision.**
+
+- **The shell gains Process.** Tabs are Today · Process · Later · Library · Settings. **Today** is the
+  overview: the shape of the morning, a quick look at anything, and triage. **Process** is the one
+  ordered queue (Gate 4 D-F) as its own tab, and it keeps its position when Jon switches away and back.
+  Jon picks the mode. The name is Process because "Read" has too many meanings here (Gmail read state
+  in §28, reading mode, Later).
+- **Tapping a Today headline opens a quick-look sheet.** It opens large, following §25's pane rules.
+  Closing it leaves Today exactly where it was, and "Process from here" switches to Process at that
+  item. Today's toolbar has a Process button, and its rows keep swipe and context-menu dispositions so
+  items can be cleared without opening them.
+- **One queue behind both tabs.** A disposition in either tab removes the item from both, under the
+  existing "disappear, with Undo" rule.
+- **Native chrome.** Tab bar, split view, toolbars, sheets, swipe actions and context menus are the
+  system's, left alone apart from the tint. Theme work touches only Cockpit's own content. That way
+  Cockpit moves with the OS instead of fighting it.
+- **Emails keep their design (reaffirms §25).** The original HTML renders unchanged at the per-sender
+  text size. Cockpit owns only what's around it: the background, a strip above (section, publisher,
+  date, text size) and a footer below (the custody line and the next item in the queue). The one
+  exception is mail with no design of its own, such as a letter from a person: Cockpit caps its width
+  and adds margins from outside the email, and never changes its fonts.
+- **Visual language.** Newsreader (SIL Open Font License, bundled) for Cockpit's own text, and SF for
+  bylines and controls. Sections are set off with small-caps labels and rules, not cards. The layout
+  stays dense, about 20 items on an iPad in landscape without scrolling: calm doesn't mean airy,
+  because "this app is here to corral information." No progress gauges.
+- **The accent is amber, defined once.** One `AccentColor` color set in the asset catalog, with light
+  and dark values, named as the global accent in `project.yml`, so it also drives the system tint.
+  `Theme.accent` is `Color.accentColor`, and the chip colors are mixed from it. Changing the accent
+  means changing that one color set.
+
+**Follows from the mockup; confirm on device.** The Highlights row is dropped (amends Gate 4's
+pointer-only Highlights row). Daily links move into the Today masthead (amends §29's trailing icon
+column). An unread dot is the only read-state mark (§28). Teaching becomes a toolbar button that opens
+a sheet.
+
+**Not decided here.** The "Asks for a reply" chip: the layout works without it. Detecting asks with
+the on-device model, For you mail only, needs its own entry and a JUDGMENT-CONTRACT clause, and stays
+off until then. It never involves a frontier call (§24's 2026-09-23 amendment). The iPhone composition
+is also not decided.
+
+**Status.** The decision is resolved. Downstream authoring still has to happen: §1's shell (which
+still lists Edition), the "Current shell" section of `AGENTS.md`, Gate 4 D-F (the queue moves to the
+Process tab), and `TODAY-EXPERIENCE.md`. Then comes a foundation slice (asset catalog and
+`AccentColor`, `Theme`, type roles, bundled Newsreader), followed by one visual slice per surface.
+Each surface slice is done when it matches the mockup on a device (jon-platform
+`docs/ios/ui-and-platforms.md`, "Visual craft").
+
+**Relates to:** §1 (shell), §25 (email fidelity, pane rules), §28 (read state), §29 (Daily links
+placement), §30 (offer doors unchanged), Gate 4 D-F and the Highlights row
+(`docs/milestones/M6-gate4-email-stream-separation.md`).
+
+---
+
 # Deliberately deferred decisions
 
 These are **not unresolved blockers**. They should wait for implementation/use evidence.

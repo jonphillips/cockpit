@@ -1,0 +1,509 @@
+<title>Cockpit Morning Edition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap">
+<style>
+:root{
+  --bg:#F5F6F8; --surface:#FFFFFF; --ink:#16181D; --muted:#5C6370; --faint:#8A919C;
+  --hair:#E2E5EA; --accent:#A8660F; --accent-soft:#F6EBDA; --good:#2F7D5B; --good-soft:#E3F1EA;
+  --serif:'Newsreader',Georgia,'Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#101216; --surface:#181B21; --ink:#E8EAEE; --muted:#A0A7B3; --faint:#707886;
+  --hair:#282C35; --accent:#E3A650; --accent-soft:#33291B; --good:#6CC49B; --good-soft:#18302A;
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#101216; --surface:#181B21; --ink:#E8EAEE; --muted:#A0A7B3; --faint:#707886;
+  --hair:#282C35; --accent:#E3A650; --accent-soft:#33291B; --good:#6CC49B; --good-soft:#18302A;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.page{max-width:1120px;margin:0 auto;padding-inline:clamp(16px,4vw,40px);padding-block:48px 96px;display:grid;gap:60px}
+.page h1,.page h2,.page h3{font-family:var(--serif);font-weight:500;text-wrap:balance;margin:0;letter-spacing:-.01em}
+.page h1{font-size:clamp(34px,5vw,50px);line-height:1.05}
+.page h2{font-size:clamp(26px,3.4vw,34px);line-height:1.12}
+.page h3{font-size:19px;line-height:1.25}
+p{margin:0}
+code{font-size:.9em}
+.lede{font-size:18px;color:var(--muted);max-width:66ch}
+.eyebrow{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;color:var(--accent)}
+.intro{display:grid;gap:16px}
+.back{font-size:13.5px;color:var(--muted)}
+.back a{color:var(--accent)}
+.changes{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:6px}
+.changes div{background:var(--surface);border:1px solid var(--hair);border-radius:12px;padding:14px 16px;display:grid;gap:4px;font-size:14px;color:var(--muted);align-content:start}
+.changes b{color:var(--ink);font-weight:600;font-size:14.5px}
+.changes .new{border-color:var(--accent)}
+.changes .new b::after{content:"New";margin-left:8px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:2px 6px;vertical-align:1px}
+section{display:grid;gap:22px;scroll-margin-top:24px}
+.sec-head{display:grid;gap:8px;max-width:70ch}
+.sec-head p{color:var(--muted)}
+.frames{display:grid;gap:22px}
+.frame-wrap{display:grid;gap:8px}
+.frame-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.frame-bar .cap{font-size:13px;color:var(--muted)}
+.frame-bar .cap b{color:var(--ink);font-weight:600}
+.seg{display:inline-flex;border:1px solid var(--hair);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{font:inherit;font-size:12.5px;border:0;background:transparent;color:var(--muted);padding:5px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.frame{position:relative;width:100%;max-width:100%;aspect-ratio:1180/820;overflow:hidden;border-radius:18px;border:1px solid var(--hair);box-shadow:0 1px 2px rgba(0,0,0,.04),0 12px 32px rgba(20,24,32,.08);background:#000}
+.screen{position:absolute;top:0;left:0;width:1180px;height:820px;transform-origin:0 0;transform:scale(var(--s,1));overflow:hidden}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px 28px;font-size:14px;color:var(--muted)}
+.notes p b{color:var(--ink);font-weight:600}
+.split{overflow-x:auto}
+.split table{border-collapse:collapse;width:100%;min-width:620px;background:var(--surface);border:1px solid var(--hair);border-radius:14px;overflow:hidden;font-size:14px}
+.split th,.split td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--hair);vertical-align:top}
+.split th{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;width:50%}
+.split tr:last-child td{border-bottom:0}
+.rule{font-family:var(--serif);font-size:21px;line-height:1.4;border-left:3px solid var(--accent);padding:2px 0 2px 18px;max-width:70ch}
+.tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.tier{background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:18px 18px 20px;display:grid;gap:10px;align-content:start}
+.tier .n{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.tier .who{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;padding:3px 8px;border-radius:6px;white-space:nowrap}
+.who.free{background:var(--good-soft);color:var(--good)}
+.who.dev{background:var(--accent-soft);color:var(--accent)}
+.who.off{background:var(--hair);color:var(--muted)}
+.tier p{font-size:14px;color:var(--muted)}
+.tier ul{margin:0;padding-left:18px;font-size:14px;display:grid;gap:5px}
+.flow{font-size:13px;color:var(--faint)}
+.qs{counter-reset:q;display:grid;gap:12px;max-width:74ch;margin:0;padding:0;list-style:none}
+.qs li{counter-increment:q;display:grid;grid-template-columns:28px 1fr;gap:6px}
+.qs li::before{content:counter(q);font-family:var(--serif);font-size:20px;color:var(--accent);line-height:1.3}
+.foot{font-size:13px;color:var(--faint);max-width:74ch}
+.mea{background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:16px 20px;display:grid;gap:6px;max-width:78ch}
+.mea b{font-weight:600}
+.mea p{color:var(--muted);font-size:14.5px}
+
+/* ================= mock ================= */
+.screen svg.i{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.screen *{box-sizing:border-box}
+.clip1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.clip2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.me{--p:#FFFFFF;--p2:#F3F3F0;--k:#121212;--k2:#5E5E5A;--k3:#8E8E88;--r:#E0E0DA;--a:#A5620F;--as:#FBEEDB;--ak:#7A470A;--ground:#E9E9E5;
+  --glass:rgba(255,255,255,.72);--glass-edge:rgba(0,0,0,.08);--sys:#1F1F1F;
+  background:var(--p);color:var(--k);font-family:var(--sans)}
+.me.dark{--p:#141414;--p2:#1D1D1C;--k:#ECEBE6;--k2:#A8A7A0;--k3:#75746E;--r:#2D2D2B;--a:#E3A755;--as:#2F2616;--ak:#F0C489;--ground:#0B0B0B;
+  --glass:rgba(44,44,46,.72);--glass-edge:rgba(255,255,255,.1);--sys:#F2F2F2}
+.chrome{height:56px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 16px;position:relative;z-index:2}
+.lights{display:flex;gap:8px;align-items:center}
+.lights i{width:12px;height:12px;border-radius:50%;display:block}
+.lights i:nth-child(1){background:#FF5F57}.lights i:nth-child(2){background:#FEBC2E}.lights i:nth-child(3){background:#28C840}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(20px) saturate(1.6);backdrop-filter:blur(20px) saturate(1.6);border:.5px solid var(--glass-edge);box-shadow:0 2px 10px rgba(0,0,0,.08);border-radius:999px}
+.systabs{display:flex;gap:2px;padding:4px;font-size:14.5px;color:var(--sys)}
+.systabs span{padding:6px 15px;border-radius:999px}
+.systabs .on{background:rgba(127,127,127,.16);color:var(--a);font-weight:600}
+.sysgroup{display:flex;align-items:center;padding:3px;color:var(--sys)}
+.sysgroup span{width:36px;height:34px;display:grid;place-items:center;border-radius:999px;font-size:14px;font-weight:600}
+.sysgroup span.txt{width:auto;padding:0 13px;gap:7px;display:flex;align-items:center}
+.sysgroup span.tint{background:var(--a);color:#fff}
+.left{display:flex;gap:14px;align-items:center;color:var(--sys)}
+.right{display:flex;gap:8px;justify-content:flex-end;align-items:center}
+/* Today content */
+.mast{display:flex;align-items:baseline;gap:18px;padding:2px 32px 10px;border-bottom:2px solid var(--k)}
+.day{font-family:var(--serif);font-style:italic;font-size:40px;line-height:1;letter-spacing:-.02em}
+.date{font-size:13px;color:var(--k2)}
+.date b{color:var(--ak);background:var(--as);font-weight:600;border-radius:5px;padding:2px 7px;margin-left:4px}
+.daily{margin-left:auto;display:flex;align-items:center;gap:8px;align-self:center}
+.daily .lbl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--k3);font-weight:700;margin-right:2px}
+.dl{height:30px;border-radius:8px;background:var(--p2);border:1px solid var(--r);display:flex;align-items:center;gap:6px;padding:0 9px 0 5px;font-size:12.5px;color:var(--k)}
+.dl .g{width:20px;height:20px;border-radius:5px;background:var(--p);border:1px solid var(--r);display:grid;place-items:center;font-family:var(--serif);font-size:13px;line-height:1}
+.dl .g small{font-family:var(--sans);font-size:4.6px;font-weight:800;line-height:1.05;text-align:center}
+.dl svg.i{width:13px;height:13px;color:var(--a);stroke-width:2.6}
+.index{display:flex;gap:18px;padding:7px 32px;border-bottom:1px solid var(--r);font-size:12px;color:var(--k2)}
+.index b{color:var(--k);font-weight:600;margin-left:4px;font-variant-numeric:tabular-nums}
+.cols{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);padding:0 32px;height:calc(820px - 56px - 54px - 32px)}
+.col{padding:12px 22px 0;border-left:1px solid var(--r);display:flex;flex-direction:column;gap:14px;overflow:hidden}
+.col:first-child{padding-left:0;border-left:0}
+.col:last-child{padding-right:0}
+.sh{font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:var(--k);display:flex;justify-content:space-between;border-top:1px solid var(--k);padding-top:5px}
+.sh span{color:var(--k3);font-weight:600;letter-spacing:.04em}
+.lead{padding:8px 0 9px;border-bottom:1px solid var(--r)}
+.lead h4{margin:0;font-family:var(--serif);font-weight:500;font-size:23px;line-height:1.12;letter-spacing:-.01em}
+.lead .by{font-size:12px;color:var(--k2);margin-top:4px}
+.lead q{display:block;font-family:var(--serif);font-style:italic;font-size:15.5px;line-height:1.4;margin-top:6px;quotes:none}
+.ask{display:inline-flex;gap:6px;margin-top:7px;background:var(--as);color:var(--ak);font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:5px}
+.ask i{font-style:normal;font-weight:500;opacity:.85}
+.row{display:grid;grid-template-columns:1fr auto;column-gap:10px;padding:6px 0 7px;border-top:1px solid var(--r)}
+.sec > .row:first-of-type{border-top:0}
+.row h5{margin:0;font-family:var(--serif);font-weight:500;font-size:16px;line-height:1.22}
+.row .src{font-size:11.5px;color:var(--k2);margin-top:1px}
+.row .ago{font-size:11.5px;color:var(--k3);font-variant-numeric:tabular-nums;padding-top:2px}
+.row.unread h5::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--a);margin-right:6px;vertical-align:3px}
+.flag{font-family:var(--sans);font-size:10.5px;font-weight:600;color:var(--ak);background:var(--as);border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:2px}
+.offers{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--p2);border-radius:8px;font-size:13px}
+.offers b{font-weight:600}
+.offers span{color:var(--a);font-weight:600}
+/* quick look */
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.32);z-index:5}
+.sheet{position:absolute;left:110px;right:110px;top:34px;bottom:0;background:var(--p);border-radius:22px 22px 0 0;z-index:6;box-shadow:0 -4px 40px rgba(0,0,0,.25);overflow:hidden;display:flex;flex-direction:column}
+.sheet .chrome{grid-template-columns:auto 1fr auto}
+.sheet .grab{position:absolute;top:6px;left:50%;width:40px;height:5px;margin-left:-20px;border-radius:3px;background:var(--r)}
+.sysplain{color:var(--a);font-size:15px;font-weight:600;padding:0 6px}
+.sheet .mid{justify-self:center;font-size:12px;color:var(--k3)}
+/* Process tab */
+.winbar{height:52px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 16px;background:var(--p2);border-bottom:1px solid var(--r)}
+.rd{display:grid;grid-template-columns:300px 1fr;height:calc(100% - 52px)}
+.side{background:var(--p2);border-right:1px solid var(--r);display:flex;flex-direction:column;overflow:hidden;padding-top:12px}
+.qh{padding:0 18px 8px;display:flex;justify-content:space-between;align-items:baseline}
+.qh b{font-family:var(--serif);font-style:italic;font-weight:500;font-size:24px}
+.qh span{font-size:12px;color:var(--k2);font-variant-numeric:tabular-nums}
+.qs2{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:var(--k3);padding:10px 18px 3px;display:flex;justify-content:space-between}
+.qi{padding:6px 18px 7px;display:grid;grid-template-columns:1fr auto;column-gap:8px}
+.qi b{font-family:var(--serif);font-weight:500;font-size:14.5px;line-height:1.22}
+.qi span{font-size:11px;color:var(--k2);grid-column:1}
+.qi em{font-style:normal;font-size:11px;color:var(--k3);grid-row:1;grid-column:2}
+.qi.cur{background:var(--p);box-shadow:inset 0 0 0 1px var(--r)}
+.qdone{margin:2px 18px 4px;padding:7px 10px;border-radius:7px;background:var(--p);font-size:11.5px;color:var(--k3);display:flex;gap:6px;align-items:center}
+.qdone svg.i{width:13px;height:13px;color:var(--a);stroke-width:2.4}
+.rv{overflow:hidden;display:flex;flex-direction:column;position:relative}
+.rv > .chrome, .sheet > .chrome{grid-template-columns:auto 1fr auto}
+/* Cockpit's header over a letter */
+.art{padding:4px 0 0 56px;width:calc(56px + 620px)}
+.kick{font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:var(--a)}
+.art h2{font-family:var(--serif);font-weight:500;font-size:30px;line-height:1.1;margin:6px 0 0;letter-spacing:-.015em}
+.from{font-size:13.5px;color:var(--k2);margin-top:8px;display:flex;justify-content:space-between;gap:14px}
+.from b{color:var(--k);font-weight:600}
+.asks{margin-top:14px;border-top:1px solid var(--k);border-bottom:1px solid var(--r);padding:9px 0 11px;display:grid;gap:8px}
+.asks .l{font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:700}
+.asks .l em{font-style:normal;font-weight:600;letter-spacing:.04em;text-transform:none;color:var(--k3);margin-left:6px;font-size:11px}
+.chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip{font-size:12.5px;border:1px solid var(--r);border-radius:6px;padding:4px 9px;font-variant-numeric:tabular-nums}
+.chip.att{display:inline-flex;gap:6px;align-items:center;background:var(--p2)}
+.chip.att svg.i{width:14px;height:14px}
+/* the letter's own HTML: its fonts, Cockpit only caps the width */
+.orig-letter{margin-top:16px;font-family:Arial,Helvetica,sans-serif;font-size:15.5px;line-height:1.45;color:var(--k);display:grid;gap:12px}
+.orig-letter ul{margin:0;padding-left:26px}
+.orig-letter a{color:#1a5bd6}
+.me.dark .orig-letter a{color:#7fa8ff}
+/* newsletter: the sender's design on Cockpit's ground */
+.strip{display:flex;align-items:baseline;gap:10px;padding:0 0 10px;font-size:12.5px;color:var(--k2);width:690px;margin:0 auto}
+.strip .kick{font-size:10px}
+.strip .pub{font-family:var(--serif);font-weight:600;font-size:13.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--k)}
+.strip .zoom{margin-left:auto;display:inline-flex;gap:6px;align-items:center;border:1px solid var(--r);border-radius:999px;padding:2px 10px;background:var(--p)}
+.ground{background:var(--ground);flex:1;overflow:hidden;padding-top:14px}
+.mail{width:690px;margin:0 auto;background:#fff;color:#222;font-family:Helvetica,Arial,sans-serif;font-size:17.25px;line-height:1.5;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.mail .mb{padding:8px 28px;font-size:12px;color:#777;display:flex;justify-content:space-between}
+.mail .mb u{color:#2a5db0}
+.mail .ban{background:#1d2b3a;color:#fff;padding:22px 28px;display:flex;justify-content:space-between;align-items:center}
+.mail .ban b{font-family:Georgia,serif;font-size:29px;letter-spacing:.01em}
+.mail .ban span{font-size:12px;opacity:.75;text-transform:uppercase;letter-spacing:.12em}
+.mail .hero{height:190px;background:linear-gradient(160deg,#c9d6df 0%,#9fb4c3 45%,#6f8797 100%);position:relative}
+.mail .hero::after{content:"";position:absolute;left:12%;right:12%;bottom:0;height:62%;background:linear-gradient(180deg,#e8ddc8,#cdbb9b);clip-path:polygon(0 100%,8% 30%,30% 55%,50% 10%,70% 48%,90% 25%,100% 100%)}
+.mail .cap{font-size:12.5px;color:#888;padding:6px 28px 0}
+.mail .in{padding:16px 28px 20px;display:grid;gap:14px}
+.mail h3{font-family:Georgia,serif;font-size:31px;line-height:1.18;margin:0;color:#111;font-weight:700}
+.mail .byl{font-size:13px;color:#777;text-transform:uppercase;letter-spacing:.08em}
+.mail blockquote{margin:0;padding:4px 0 4px 16px;border-left:4px solid #c8102e;font-family:Georgia,serif;font-style:italic;font-size:19px;color:#333}
+.mail .btnm{justify-self:start;background:#c8102e;color:#fff;font-weight:700;font-size:13.5px;padding:11px 20px;border-radius:3px}
+.mail .ft{background:#f3f3f3;color:#888;font-size:12px;padding:16px 28px;display:grid;gap:4px;line-height:1.5}
+.mail .ft u{color:#666}
+.endc{width:690px;margin:18px auto 0;display:grid;gap:12px}
+.custody{font-size:12.5px;color:var(--k2);background:var(--p);border:1px solid var(--r);border-radius:8px;padding:9px 12px}
+.nextc{background:var(--p);border-top:2px solid var(--k);padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:4px 16px;align-items:center}
+.nextc .l{font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:var(--k3);grid-column:1/-1}
+.nextc b{font-family:var(--serif);font-weight:500;font-size:21px;line-height:1.15}
+.nextc .s{font-size:12.5px;color:var(--k2);grid-column:1}
+.nextc .go{grid-column:2;grid-row:2/4;background:var(--a);color:#fff;border-radius:999px;padding:9px 16px;font-size:14px;font-weight:600;display:flex;gap:8px;align-items:center}
+.nextc .go small{font-weight:500;opacity:.8;font-size:12px}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></symbol>
+  <symbol id="i-reply" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 6 6v5"/></symbol>
+  <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9"/><path d="M10 13h4"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-later" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="M20 11.5 12.5 19a5 5 0 0 1-7-7L13 4.5a3.3 3.3 0 0 1 4.7 4.7L10.3 16.6a1.7 1.7 0 0 1-2.4-2.4l6.6-6.6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-side" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M9 4.5v15"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3Z"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></symbol>
+  <symbol id="i-books" viewBox="0 0 24 24"><path d="M4 4h4v16H4z"/><path d="M10 4h4v16h-4z"/><path d="m15.4 5.2 3.8-1 3 15-3.8 1z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M5 12h13"/><path d="m13 6 6 6-6 6"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M4 18 9 6l5 12"/><path d="M5.8 14h6.4"/><path d="M15 18l3-7 3 7"/><path d="M16 16h4"/></symbol>
+</svg>
+
+<main class="page">
+
+<header class="intro">
+  <div class="eyebrow">Design spec · Today, Process and the email reader · 2026-09-27</div>
+  <h1>Morning Edition</h1>
+  <p class="lede">The Morning Edition direction, with a Process tab. Today is the overview and Process is where you work through the queue, so Jon chooses the mode. Emails keep their own design: Cockpit designs everything around the message and never re-typesets the message itself. Decisions: DECISIONS §31.</p>
+  <p class="back">Three directions were explored on 2026-09-26: Morning Edition (editorial), Instrument (a dense dashboard) and Native, refined (grouped system lists). Morning Edition was chosen; Instrument was rejected as "a productivity console".</p>
+  <div class="changes">
+    <div class="new"><b>Process tab</b>Today · Process · Later · Library · Settings. Each tab keeps its own place, so leaving the queue and coming back doesn't lose your position.</div>
+    <div class="new"><b>Quick look</b>Tapping a Today headline opens a large sheet over Today. Close it and you're where you were. "Process from here" jumps into the queue.</div>
+    <div class="new"><b>Emails keep their design</b>No reading mode (DECISIONS §25). Newsletters show the original HTML at the per-sender text size.</div>
+    <div><b>System chrome, dense rows, amber</b>Standard iPadOS tab bar, toolbars and split view. About 20 items on Today without scrolling. The accent is one asset-catalog color that also drives the system tint.</div>
+  </div>
+</header>
+
+<section id="modes">
+  <div class="sec-head">
+    <div class="eyebrow">01 · Today and Process</div>
+    <h2>Two modes you choose between</h2>
+    <p>Today is the overview: see the shape of the morning, glance at anything, and clear what doesn't need reading. Process is the queue: one list in section order, and you work straight down it. Because they're system tabs, each keeps its own scroll position and selection.</p>
+  </div>
+  <div class="frames">
+    <div class="frame-wrap">
+      <div class="frame-bar"><span class="cap"><b>Today</b> · overview, with "Process" in the toolbar</span><span class="seg" data-for="t"><button type="button" aria-pressed="true" data-mode="light">Light</button><button type="button" aria-pressed="false" data-mode="dark">Dark</button></span></div>
+      <div class="frame"><div class="screen me" id="t"></div></div>
+    </div>
+    <div class="frame-wrap">
+      <div class="frame-bar"><span class="cap"><b>Quick look</b> · a headline tapped on Today</span><span class="seg" data-for="k"><button type="button" aria-pressed="true" data-mode="light">Light</button><button type="button" aria-pressed="false" data-mode="dark">Dark</button></span></div>
+      <div class="frame"><div class="screen me" id="k"></div></div>
+    </div>
+    <div class="frame-wrap">
+      <div class="frame-bar"><span class="cap"><b>Process</b> · the queue, on a letter</span><span class="seg" data-for="p"><button type="button" aria-pressed="true" data-mode="light">Light</button><button type="button" aria-pressed="false" data-mode="dark">Dark</button></span></div>
+      <div class="frame"><div class="screen me" id="p"></div></div>
+    </div>
+  </div>
+  <div class="notes">
+    <p><b>Quick look opens large, straight away.</b> It follows §25's pane rules: no half-height step, a zoom transition from the row, and the web view preloaded on tap.</p>
+    <p><b>Clear without opening.</b> Today rows keep swipe and context-menu actions (Archive, Later, Trash), so you can clear things from the overview.</p>
+    <p><b>Both tabs read the same queue.</b> Archive something in Process and it disappears from Today too, following the existing "disappear, with Undo" rule.</p>
+    <p><b>The custom back button goes away.</b> Today no longer swaps itself out for the reader (the <code>isReading</code> switch in <code>TodayView</code>). Switching tabs replaces it.</p>
+  </div>
+</section>
+
+<section id="newsletter">
+  <div class="sec-head">
+    <div class="eyebrow">02 · Newsletters</div>
+    <h2>The sender designs the page, Cockpit designs the desk</h2>
+    <p>The original HTML renders unchanged, with its images, fonts and layout, at the text size you've set for that sender. Cockpit draws the ground around it, the strip above it, and the footer below it.</p>
+  </div>
+  <div class="frames">
+    <div class="frame-wrap">
+      <div class="frame-bar"><span class="cap"><b>Process</b> · an Opinion issue at its sender's saved size</span><span class="seg" data-for="n1"><button type="button" aria-pressed="true" data-mode="light">Light</button><button type="button" aria-pressed="false" data-mode="dark">Dark</button></span></div>
+      <div class="frame"><div class="screen me" id="n1"></div></div>
+    </div>
+    <div class="frame-wrap">
+      <div class="frame-bar"><span class="cap"><b>End of the issue</b> · Cockpit's footer below the sender's</span><span class="seg" data-for="n2"><button type="button" aria-pressed="true" data-mode="light">Light</button><button type="button" aria-pressed="false" data-mode="dark">Dark</button></span></div>
+      <div class="frame"><div class="screen me" id="n2"></div></div>
+    </div>
+  </div>
+  <div class="split">
+    <table>
+      <thead><tr><th>The sender's, untouched</th><th>Cockpit's, themed</th></tr></thead>
+      <tbody>
+        <tr><td>Layout, images, fonts, colors, buttons, ads</td><td>The ground around the email, in light and dark</td></tr>
+        <tr><td>The email's own header and footer</td><td>The strip above: section, publisher, date, text size</td></tr>
+        <tr><td>Its width, scaled by your per-sender text size</td><td>The footer below: custody line, what's next in the queue</td></tr>
+        <tr><td>Light colors in dark mode, unless the email supports dark itself</td><td>The toolbar, queue and quick-look sheet around it</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="mea">
+    <b>One exception to keep in mind: letters with no design.</b>
+    <p>Mail from a person is usually bare HTML with no width of its own, which is why the current reader runs about 170 characters a line. For those, Cockpit only caps the width at a reading measure and adds side margins. The fonts, bullets and links stay exactly as sent. It's a container rule applied from outside the email, so it doesn't break §25. Designed newsletters set their own width and are never touched.</p>
+  </div>
+  <div class="notes">
+    <p><b>Text size stays per sender.</b> The existing Text Size menu remains; the strip shows the current size, and ⌘+ and ⌘− adjust it.</p>
+    <p><b>The ground frames the email.</b> In dark mode the ground goes dark and a light email reads as a sheet of paper on it, instead of a white glare filling the whole pane.</p>
+    <p><b>The footer is where Process continues.</b> Custody line, then the next item, then "Archive and continue", which is the existing archive-and-advance.</p>
+    <p><b>The body is a stand-in.</b> The text is Montaigne (public domain), and the banner, image and button are drawn to look like a typical designed newsletter.</p>
+  </div>
+</section>
+
+<section id="native">
+  <div class="sec-head">
+    <div class="eyebrow">03 · The rule</div>
+    <h2>Apple draws the frame, Cockpit draws the page, the sender draws the email</h2>
+  </div>
+  <p class="rule">If iPadOS has a control for it, use the system one with only the tint changed. Theme work touches Cockpit's own content. The email itself belongs to whoever sent it.</p>
+  <div class="split">
+    <table>
+      <thead><tr><th>System, left alone</th><th>Cockpit's, themed</th></tr></thead>
+      <tbody>
+        <tr><td><code>TabView</code>: Today, Process, Later, Library, Settings</td><td>Masthead: the day, the edition line, daily links</td></tr>
+        <tr><td><code>NavigationSplitView</code>: columns, sidebar toggle, window controls</td><td>Section labels, rules, rows, the lead-story treatment, the queue</td></tr>
+        <tr><td><code>.toolbar</code> groups; <code>.borderedProminent</code> for the leading action</td><td>The header over a letter, the "asks" strip, the strip over a newsletter</td></tr>
+        <tr><td>Sheets (quick look), swipe actions, context menus, search, Undo</td><td>Type roles (Newsreader for Cockpit's text, SF for bylines), amber, the neutrals, the ground</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h3>One accent, set in one place</h3>
+  <p class="lede" style="font-size:16px">The accent is one <code>AccentColor</code> color set in the asset catalog, with light and dark values, named as the app's global accent in <code>project.yml</code>. iPadOS uses it as the tint everywhere. <code>Theme.accent</code> is <code>Color.accentColor</code>, and the chip fill and chip text are mixed from it in code. To change the accent, change that one color set.</p>
+  <p class="foot">Cockpit has no asset catalog yet; the foundation slice adds it. If the accent ever changes, check that the mixed chip text still has enough contrast.</p>
+</section>
+
+<section id="asks">
+  <div class="sec-head">
+    <div class="eyebrow">04 · Finding letters that ask something</div>
+    <h2>No model call on retail mail</h2>
+    <p>For you is already a free filter. Only personal mail reaches the step that decides whether it asks for something. That's a handful of emails a day, and they can be judged on the device.</p>
+  </div>
+  <div class="tiers">
+    <div class="tier">
+      <div class="n"><h3>1 · Rules</h3><span class="who free">Every message · free</span></div>
+      <p>Already runs today: List-ID routing, bulk headers, the Promotions tab, the transactional check.</p>
+      <ul><li>Offers, newsletters and bills stop here.</li><li>What's left is For you: mail from a person.</li><li>Cheap extra signals: a question mark in the new text, sent directly to you, a thread you've replied in.</li></ul>
+      <p class="flow">Enough on its own to sort letters first.</p>
+    </div>
+    <div class="tier">
+      <div class="n"><h3>2 · On-device</h3><span class="who dev">For you only · free</span></div>
+      <p>Apple's on-device model answers one narrow question at ingest: does this ask Jon to answer or do something, and what? It also pulls out dates offered and attachments mentioned.</p>
+      <ul><li>Roughly 3–10 messages a day, private, no cost.</li><li>Same pattern as the on-device offer summary (Sep 23 amendment).</li><li>If the model fails, the letter still shows, just without the chip.</li></ul>
+      <p class="flow">Adds the "Asks for a reply" chip and the dates strip.</p>
+    </div>
+    <div class="tier">
+      <div class="n"><h3>3 · Frontier</h3><span class="who off">Never automatic</span></div>
+      <p>Unchanged: no automatic Gmail fetch calls a frontier model.</p>
+      <p class="flow">Not needed for this feature.</p>
+    </div>
+  </div>
+  <p class="foot">Build the layout so it works with rules alone. Put step 2 behind a Settings switch, run it for a week to judge it, then turn it on. It's a new per-message judgment, so the architect writes a DECISIONS entry and a JUDGMENT-CONTRACT clause for it.</p>
+</section>
+
+<section id="next">
+  <div class="sec-head">
+    <div class="eyebrow">05 · Next</div>
+    <h2>Still open</h2>
+  </div>
+  <ol class="qs">
+    <li><span><b>Settled Sep 27:</b> amber, set once as the asset-catalog accent. Newsreader for Cockpit's own text. The tab is called Process. Tapping on Today opens a quick-look sheet. Emails keep their design (§25).</span></li>
+    <li><span><b>Downstream docs.</b> DECISIONS §31 records the Process tab. It still has to be carried into Gate 4 D-F, the "Current shell" section of <code>AGENTS.md</code>, and <code>TODAY-EXPERIENCE.md</code>. That's the architect's to write.</span></li>
+    <li><span><b>Daily news and grab-bags.</b> These are designed emails too, so they get the same treatment as the newsletter above. Nothing special is needed unless dogfooding says otherwise.</span></li>
+    <li><span><b>iPhone.</b> Two tabs suit the phone: Today as one column, Process as a pushed list. Worth a frame once the iPad is settled.</span></li>
+    <li><span><b>This page is the spec.</b> The architect writes the foundation slice (asset catalog, Theme, type roles, bundled Newsreader) and one visual slice per surface. Each is done when it matches this mockup on a device.</span></li>
+  </ol>
+  <p class="foot">Newsletter rows come from a device screenshot on 2026-09-26. Personal and transactional mail is anonymized, because this repository is public. Rows for other sources (NYT, WaPo, Techmeme, Yglesias, Puck, Sepinwall, Feed Me) are invented to show density, as is the offer count.</p>
+</section>
+</main>
+
+<script>
+(function(){
+const ic = n => `<svg class="i" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const esc = t => t.replace(/&(?!amp;)/g,'&amp;');
+const S = [
+  {name:'For you', items:[
+    {t:'Kitchen Renovation – links & contacts', src:'Dana Whitfield · Northside Kitchen & Bath', ago:'Thu', ask:true},
+    {t:'Re: A new lead was created from your contact form', src:'Pat Morgan', ago:'Wed', u:1},
+    {t:'Early Bird Special – Order Glitch Repaired', src:'Maria Lopez · Hillside Winery', ago:'Thu'}]},
+  {name:'Transactional', items:[{t:'Your phone bill is due soon', src:'Bill Pay', ago:'Fri', flag:'Due Oct 2', u:1}]},
+  {name:'Daily news', items:[
+    {t:'The Morning: A weekend of talks, and what comes next', src:'The New York Times', ago:'6:02', u:1},
+    {t:'The 7: The most important news this Saturday', src:'The Washington Post', ago:'7:00', u:1},
+    {t:'Techmeme: Top tech news for Saturday', src:'Techmeme', ago:'8:15', u:1}]},
+  {name:'Opinion', items:[
+    {t:'On the Education of Children', src:'The Dispatch', ago:'Fri', u:1},
+    {t:'Paramount Wins(?): The Good, The Bad and The Ugly', src:'The Entertainment Strategy Guy', ago:'Thu', u:1},
+    {t:'Ellison’s Day-One Dilemmas; Grilling Ari; Trump’s Must-Flee TV', src:'Joe Adalian · Vulture', ago:'Thu'},
+    {t:'Meta’s New A.I. Agent For Losers', src:'Today in Tabs', ago:'Thu'},
+    {t:'The weekend mailbag', src:'Matthew Yglesias · Slow Boring', ago:'Fri', u:1},
+    {t:'The streaming bundle nobody asked for', src:'Puck', ago:'Fri', u:1},
+    {t:'What I watched this week', src:'Alan Sepinwall', ago:'Fri', u:1},
+    {t:'The case for a boring Federal Reserve', src:'The Washington Post · Opinion', ago:'Fri'},
+    {t:'Notes on a very long week', src:'The Dispatch', ago:'Sat', u:1}]},
+  {name:'Food', items:[
+    {t:'Here’s my favorite meatless BLT', src:'NYT Cooking', ago:'Fri', u:1},
+    {t:'Five dinners for the first cool week', src:'NYT Cooking', ago:'Sat', u:1}]},
+  {name:'Wine', items:[{t:'Vinous: The Week in Review + Next Week', src:'Vinous', ago:'Fri', u:1}]},
+  {name:'Grab-bag', items:[{t:'Feed Me: Saturday edition', src:'Emily Sundberg', ago:'Sat', u:1}]},
+];
+const total = S.reduce((n,s)=>n+s.items.length,0);
+const tabs = on => `<nav class="systabs glass">${['Today','Process','Later','Library','Settings'].map(t=>`<span class="${t===on?'on':''}">${t}</span>`).join('')}</nav>`;
+
+/* ---------- Today ---------- */
+const row = it => `<div class="row ${it.u?'unread':''}"><div><h5 class="clip2">${esc(it.t)}${it.flag?`<span class="flag">${it.flag}</span>`:''}</h5><div class="src clip1">${esc(it.src)}</div></div><span class="ago">${it.ago}</span></div>`;
+const sec = (s, body) => `<div class="sec"><div class="sh">${s.name}<span>${s.items.length}</span></div>${body || s.items.map(row).join('')}</div>`;
+const lead = `<div class="lead"><h4>Kitchen Renovation – links &amp; contacts</h4><div class="by">Dana Whitfield · Northside Kitchen &amp; Bath · Thursday</div>
+  <q>“Do you have morning availability on any of these days? If so then I can run it by Sam.”</q>
+  <div class="ask">Asks for a reply <i>· 4 mornings · 1 attachment</i></div></div>`;
+const todayHTML = `<div class="chrome">
+  <div class="left"><span class="lights"><i></i><i></i><i></i></span>${ic('side')}</div>
+  ${tabs('Today')}
+  <div class="right"><span class="sysgroup glass"><span class="txt tint">${ic('play')}Process ${total}</span></span><span class="sysgroup glass"><span>${ic('search')}</span><span>${ic('refresh')}</span><span>${ic('more')}</span></span></div></div>
+  <header class="mast"><span class="day">Saturday</span><span class="date">September 26 · ${total} to process<b>1 asks for a reply</b></span>
+    <div class="daily"><span class="lbl">Daily</span>
+      <span class="dl"><span class="g">&amp;</span>&amp;${ic('check')}</span>
+      <span class="dl"><span class="g"><small>THE<br>FREE<br>PRESS</small></span>Free Press${ic('check')}</span></div></header>
+  <div class="index">${S.map(s=>`<span>${s.name}<b>${s.items.length}</b></span>`).join('')}<span>Offers<b>14</b></span></div>
+  <div class="cols">
+    <div class="col">${sec(S[0], lead + S[0].items.slice(1).map(row).join(''))}${sec(S[1])}${sec(S[2])}</div>
+    <div class="col">${sec(S[3])}</div>
+    <div class="col">${sec(S[4])}${sec(S[5])}${sec(S[6])}
+      <div class="sec"><div class="sh">Offers<span>14</span></div><div class="offers" style="margin-top:6px"><b>14 offers from 9 senders</b><span>Review</span></div></div></div>
+  </div>`;
+document.getElementById('t').innerHTML = todayHTML;
+
+/* ---------- the letter ---------- */
+const letterHead = `<div class="kick">For you</div>
+  <h2>Kitchen Renovation – links &amp; contacts</h2>
+  <div class="from"><span><b>Dana Whitfield</b> · Northside Kitchen &amp; Bath</span><span>Thursday, 4:53 PM</span></div>
+  <div class="asks"><div class="l">Asks which morning works for an on-site meeting<em>on-device</em></div>
+    <div class="chips"><span class="chip">Tue 9/29</span><span class="chip">Fri 10/2</span><span class="chip">Mon 10/5</span><span class="chip">Tue 10/6</span><span class="chip att">${ic('clip')}Design consultation agreement</span></div></div>`;
+const letterBody = `<div class="orig-letter">
+  <p>Hello!</p>
+  <p>Thank you again for coming by the showroom yesterday!&nbsp; It was lovely to meet y’all and I look forward to brainstorming more ideas about your space!</p>
+  <p>I spoke with a contractor that I’ve worked with for the past 13 years about your project.&nbsp; His name is Sam Ortiz and he owns Ortiz Building Co..&nbsp; He has seen it all, is a great communicator and does excellent work.&nbsp; I’d like for him to come out for our first onsite meeting if that works for you?</p>
+  <p>Do you have morning availability on any of these days?&nbsp; If so then I can run it by Sam.</p>
+  <ul><li>Tuesday 9/29</li><li>Friday 10/2</li><li>Monday 10/5</li><li>Tuesday 10/6</li></ul>
+  <p>Here is a link to my <a>Houzz</a> profile so you can start gathering inspiration.&nbsp; You’ll see that I can do any type of style - we just want to match it with your home and your personal sense of design style.</p></div>`;
+
+/* ---------- quick look over Today ---------- */
+document.getElementById('k').innerHTML = todayHTML + `<div class="dim"></div>
+  <div class="sheet"><span class="grab"></span>
+    <div class="chrome"><span class="sysplain">Done</span><span class="mid">Quick look · For you</span>
+      <div class="right"><span class="sysgroup glass"><span class="txt">${ic('play')}Process from here</span></span><span class="sysgroup glass"><span class="txt tint">${ic('reply')}Reply</span></span><span class="sysgroup glass"><span>${ic('archive')}</span><span>${ic('later')}</span><span>${ic('trash')}</span><span>${ic('more')}</span></span></div></div>
+    <article class="art" style="padding-left:70px">${letterHead}${letterBody}</article>
+  </div>`;
+
+/* ---------- Process tab ---------- */
+const winbar = `<div class="winbar"><div class="left"><span class="lights"><i></i><i></i><i></i></span>${ic('side')}</div>${tabs('Process')}<span></span></div>`;
+const qi = (it,cur) => `<div class="qi ${cur?'cur':''}"><b class="clip2">${esc(it.t)}</b><em>${it.ago}</em><span class="clip1">${esc(it.src)}</span></div>`;
+const sideLetter = `<aside class="side"><div class="qh"><b>This morning</b><span>1 of ${total}</span></div>
+  ${[S[0],S[1],S[2],{name:'Opinion',items:S[3].items.slice(0,4)}].map((s,si)=>`<div class="qs2">${s.name}<span>${s.items.length}</span></div>${s.items.map((it,i)=>qi(it, si===0&&i===0)).join('')}`).join('')}</aside>`;
+const sideNews = `<aside class="side"><div class="qh"><b>This morning</b><span>8 of ${total}</span></div>
+  <div class="qdone">${ic('check')}7 done · For you, Transactional, Daily news</div>
+  <div class="qs2">Opinion<span>${S[3].items.length}</span></div>${S[3].items.slice(0,7).map((it,i)=>qi(it,i===0)).join('')}
+  <div class="qs2">Food<span>2</span></div>${S[4].items.map(it=>qi(it)).join('')}</aside>`;
+const bar = lead => `<div class="chrome">
+  <div class="left"><span class="sysgroup glass"><span>${ic('up')}</span><span>${ic('down')}</span></span></div><span></span>
+  <div class="right">${lead}<span class="sysgroup glass"><span>${ic('later')}</span><span>${ic('books')}</span><span>${ic('trash')}</span></span><span class="sysgroup glass"><span>${ic('text')}</span><span>${ic('bulb')}</span><span>${ic('more')}</span></span></div></div>`;
+const replyLead = `<span class="sysgroup glass"><span class="txt tint">${ic('reply')}Reply</span></span><span class="sysgroup glass"><span>${ic('archive')}</span></span>`;
+const archLead = `<span class="sysgroup glass"><span class="txt tint">${ic('archive')}Archive</span></span>`;
+document.getElementById('p').innerHTML = winbar + `<div class="rd">${sideLetter}<div class="rv">${bar(replyLead)}
+  <article class="art">${letterHead}${letterBody}</article></div></div>`;
+
+/* ---------- newsletter ---------- */
+const P1 = `The charge of the tutor you shall provide for your son, upon the choice of whom depends the whole success of his education, has several other great and considerable parts and duties required in so important a trust, besides that of which I am about to speak.`;
+const P2 = `For such a one, I say, I would, also, have his friends solicitous to find him out a tutor, who has rather a well-made than a well-filled head; seeking, indeed, both the one and the other, but rather of the two to prefer manners and judgment to mere learning, and that this man should exercise his charge after a new method.`;
+const P4 = `It is good to make him, like a young horse, trot before him, that he may judge of his going, and how much he is to abate of his own speed, to accommodate himself to the vigour and capacity of the other. I walk firmer and more secure up hill than down.`;
+const strip = `<div class="strip"><span class="kick">Opinion</span><span class="pub">The Dispatch</span><span>Friday, September 25</span><span class="zoom">${ic('text')}115% for this sender</span></div>`;
+document.getElementById('n1').innerHTML = winbar + `<div class="rd">${sideNews}<div class="rv">${bar(archLead)}
+  <div class="ground">${strip}<div class="mail">
+    <div class="mb"><span>Friday, September 25</span><u>View in browser</u></div>
+    <div class="ban"><b>The Dispatch</b><span>Opinion</span></div>
+    <div class="hero"></div><div class="cap">Illustration from the sender’s email</div>
+    <div class="in"><span class="byl">Friday essay</span><h3>On the Education of Children</h3><p>${P1}</p><p>${P2}</p></div>
+  </div></div></div></div>`;
+const nx = S[3].items[1];
+document.getElementById('n2').innerHTML = winbar + `<div class="rd">${sideNews}<div class="rv">${bar(archLead)}
+  <div class="ground" style="padding-top:0"><div class="mail">
+    <div class="in" style="padding-top:22px"><blockquote>“I walk firmer and more secure up hill than down.”</blockquote><p>${P4}</p><span class="btnm">SHARE THIS ESSAY</span></div>
+    <div class="ft"><span>You’re receiving this because you subscribed to Opinion.</span><span><u>Unsubscribe</u> · <u>Manage preferences</u> · <u>View in browser</u></span></div>
+  </div>
+  <div class="endc">
+    <div class="custody">Archive removes this issue from your Gmail inbox. Save it to Library to keep a copy in Cockpit.</div>
+    <div class="nextc"><span class="l">Next in Opinion · 2 of 9</span><b>${esc(nx.t)}</b><span class="s">${esc(nx.src)} · ${nx.ago}</span><span class="go">${ic('archive')}Archive and continue <small>⌘↓</small></span></div>
+  </div></div></div></div>`;
+
+const ro = new ResizeObserver(es => es.forEach(e => e.target.firstElementChild.style.setProperty('--s', e.contentRect.width/1180)));
+document.querySelectorAll('.frame').forEach(f => ro.observe(f));
+document.querySelectorAll('.seg').forEach(seg => {
+  const scr = document.getElementById(seg.dataset.for);
+  seg.addEventListener('click', ev => {
+    const b = ev.target.closest('button'); if(!b) return;
+    seg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x===b ? 'true':'false'));
+    scr.classList.toggle('dark', b.dataset.mode === 'dark');
+  });
+});
+})();
+</script>
