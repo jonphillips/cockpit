@@ -2,12 +2,13 @@ import Foundation
 import Observation
 
 /// The app-level navigation state. Feature models own their own data and detail selection; this
-/// model owns only the four primary destinations and Settings' nested routes.
+/// model owns only the five primary destinations and Settings' nested routes.
 @MainActor
 @Observable
 public final class ShellModel {
   public enum Destination: String, CaseIterable, Hashable, Sendable {
     case today
+    case process
     case later
     case library
     case settings
@@ -17,8 +18,24 @@ public final class ShellModel {
 
   public var selection: Destination = .today
   public var settingsPath: [SettingsRoute] = []
+  @ObservationIgnored private var processSelectionHandler: ((ContentPiece.ID?) -> Void)?
 
   public init() {}
+
+  /// Connects the shell's Process route to the feature-owned queue selection without moving queue
+  /// state into the shell itself.
+  public func connectProcessSelection(_ handler: @escaping (ContentPiece.ID?) -> Void) {
+    processSelectionHandler = handler
+  }
+
+  /// Opens Process at a specific piece when supplied. A nil piece deliberately preserves the
+  /// queue's current selection.
+  public func process(from contentPieceID: ContentPiece.ID?) {
+    if let contentPieceID {
+      processSelectionHandler?(contentPieceID)
+    }
+    selection = .process
+  }
 
   public func select(_ destination: Destination) {
     selection = destination
