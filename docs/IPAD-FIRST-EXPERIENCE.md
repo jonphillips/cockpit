@@ -13,13 +13,14 @@ Both device families share the same conceptual destinations:
 
 ```text
 Today
-Edition
+Process
 Later
 Library
 Settings
 ```
 
-Following lives under Settings.
+Following lives under Settings. Edition is not a destination: since DECISIONS §24 it is the screened
+tail on Today, and Process is the reading queue as its own tab (§1, amended by §31).
 
 The product model is shared; navigation/composition may be device-appropriate.
 
@@ -39,7 +40,7 @@ The iPad should be the best place for:
 - Pending Find review/handoff;
 - side-by-side or contextual detail where SwiftUI naturally supports it.
 
-The goal is a calm, information-rich lifestyle/cultural cockpit, not a desktop productivity console.
+The goal is a calm, information-rich lifestyle/cultural cockpit, not a desktop productivity console. Calm doesn't mean airy: Today aims for about 20 items on an iPad in landscape without scrolling (DECISIONS §31).
 
 ---
 
@@ -62,6 +63,8 @@ V1 does not require visual/interaction parity with iPad.
 ## 4. Sidebar/navigation
 
 On iPad, a sidebar is a natural home for the five primary destinations with Settings revealing Following, Interest Areas, Personal Knowledge / You, and integrations.
+
+Navigation chrome is the system's, left alone apart from the tint (DECISIONS §31): the adaptable tab bar/sidebar, split view, toolbars, sheets, swipe actions, and context menus. Theme work touches Cockpit's own content only, so Cockpit moves with the OS instead of fighting it.
 
 Do not add Following as a sixth peer merely because it has substantial management UI.
 
@@ -129,7 +132,7 @@ Once the loops are useful, refine iPhone around actual in-the-moment behavior ra
 - final iPad sidebar/grouping details;
 - whether Reader benefits from split-view context;
 - Edition card density/section navigation;
-- Today visual hierarchy;
+- Today visual hierarchy (answered by DECISIONS §31 and `docs/mockups/morning-edition.html`; confirmed on device);
 - exact iPhone destination navigation;
 - which management tasks should be absent/simplified on iPhone;
 - bulk offline/travel preparation affordances.

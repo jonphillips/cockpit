@@ -93,6 +93,12 @@ sub-kind only after the Gmail mutation gate opens.
 stays Jon's device pass (`AGENTS.md`). The approved first-pass mockup is
 [`docs/mockups/today-orientation-surface.html`](mockups/today-orientation-surface.html).
 
+> **Superseded in part.** The sections are now content roles (Gate 4 D-B), the promote band is
+> dissolved (D-D), and the Highlights row that replaced it is dropped too (§31). The current visual
+> spec is [`docs/mockups/morning-edition.html`](mockups/morning-edition.html) (DECISIONS §31). The five
+> jobs below still hold, except *Promote*. The tier list is kept as the M5 record, and the navigation
+> container below is current.
+
 The failure §24 indicts is the **flat inbox** — every message the same visual weight, sorted by
 accident of arrival. Today's answer is a composed **morning brief**, not a scrolling list. Product
 Law 1 ("Today is orientation/attention") is honoured only if the surface first tells Jon *how the
@@ -141,22 +147,31 @@ opens anything.
 
 ### The navigation container (normative)
 
-Today is a **full-width orientation surface**. Its only left-hand neighbour is the app-shell nav
-(`Today / Later / Library / Settings`); the brief itself occupies the full remaining width as a single
-reading column, exactly as the mockup's `grid-template-columns: 216px minmax(0, 1fr)` shows. The Reader
-opens as a **drill-in** — pushed onto Today's own stack — and returns to the brief on back. Today does
-**not** use the Later/Library master–detail split: the brief must never be placed in a
-`NavigationSplitView` sidebar with the Reader as a permanently docked detail pane, because that demotes
-orientation to a narrow rail beside an empty canvas and inverts Product Law 1. (This is stated in prose
-because the mockup encoded it only in CSS, and M5 S4's first pass reused the master–detail habit and
-shipped the brief in the sidebar slot — the container is normative, not incidental.) Whether a large
-iPad ever shows brief-and-Reader side by side is a future design decision; if taken, orientation is the
-wide *content* column and the Reader is the detail — orientation is never the sidebar.
+**Rewritten 2026-09-27 for DECISIONS §31.** The M5 rule was "Today is full width and the Reader is a
+drill-in pushed onto Today's stack". Gate 4 D-E then replaced it with an Orientation/Reading switch.
+Both are superseded by:
+
+- **Today is a tab and never swaps itself out.** It stays a full-width orientation surface, never a
+  `NavigationSplitView` sidebar with a docked Reader. Product Law 1 still governs that.
+- **Tapping a headline opens a quick-look sheet** over Today. It opens large at once, following §25's
+  pane rules (no half-height step, a zoom transition from the row, the web view preloaded on tap).
+  Closing it leaves Today exactly where it was.
+- **Process is its own tab** holding the one ordered queue (Gate 4 D-F) in a system split view. "Process
+  from here" in the quick look, or Today's Process button, switches to it. Each tab keeps its own
+  position, so there is no custom back button anywhere.
+- **Clearing happens in both places.** Today rows keep swipe and context-menu dispositions, so items can
+  be cleared without opening them. Today and Process share the queue, so a disposition in either
+  removes the item from both, with Undo.
+- **Chrome is the system's**, with only the tint changed. Cockpit designs its own content (masthead,
+  section labels, rows) and the email designs itself (§25).
+
+Build order: `docs/milestones/M6-morning-edition.md`.
 
 ### What this note does not settle
 
 Final typography, spacing, colour, and exact card geometry — those are Jon's device pass, and the
-mockup pins *arrangement*, not pixels. No new persistence or judgment call: the surface composes tags
+mockup pins *arrangement*, not pixels. (Since §31, the Morning Edition mockup pins the visual language
+too: Newsreader, small-caps labels and rules, amber in one place, dense rows.) No new persistence or judgment call: the surface composes tags
 and summaries S5(M4)/S7/S8 + S3 already produce (M5 S4 is view-layer only). The §24 organize/select
 line is not reopened — nothing here selects, declines, or suppresses curated mail.
 

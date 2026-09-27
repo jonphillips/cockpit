@@ -19,13 +19,16 @@ The current shell is:
 
 ```text
 Today
-Edition
+Process
 Later
 Library
 Settings
 ```
 
-`Edition` is the user-facing rolling newspaper. `Content` remains a broader domain/system word and must not be used as the destination name.
+**Amended 2026-09-27 by §31.** Process is the one ordered queue (Gate 4 D-F) as its own tab. Edition is
+no longer a destination: since §24 it is the barely-curated tail, materialized as before and rendered
+as the Tail sections on Today, and its entries enter the Process queue. `Edition` stays the domain noun
+for that entity. `Content` remains a broader domain/system word and must not be used as the destination name.
 
 `Following` is the user-facing management label. `Stream` is the precise domain noun. Following lives under Settings and may also be reached contextually from the Reader.
 
@@ -1043,6 +1046,11 @@ Without write-back, anything Jon reads in Cockpit stays bold in both Gmail and C
 **Amends §7**, whose first paragraph now reads with this entry: Cockpit owns its own attention state.
 Gmail read/unread is still provider state, which Cockpit now mirrors and sets when Jon opens a message.
 
+**Presentation amended 2026-09-27 (§31).** Unread rows show an amber dot before the headline and no
+longer switch to bold, because Newsreader headlines carry the hierarchy by size, not weight. The mirror,
+the set-on-open, and Mark as Unread are unchanged. Confirmed on the device pass for
+`M6-morning-edition.md` S-v3.
+
 **Relates to:** §7, ADR-0002 D1 (the message is the unit, so only the piece's own messages are marked,
 never the whole thread) and D5 (a fourth, non-destructive label operation), `TODAY-EXPERIENCE.md` and
 `EMAIL-INTELLIGENCE-MODEL.md` ("read/unread is not canonical attention state" still holds). Slice:
@@ -1079,6 +1087,11 @@ menu in compact width.
   Personal Knowledge or judgment input. There are no folders, tags, or import: it isn't a bookmark
   manager. If Jon wants a source's stories inside Cockpit, the answer is to follow its RSS feed as a
   Stream.
+
+**Placement amended 2026-09-27 (§31).** In regular width, Daily links move from the trailing icon
+column into Today's masthead as compact chips (glyph or thumbnail, title, and the visited check),
+with an overflow menu when they don't fit on one line. The compact-width toolbar menu and everything
+else above are unchanged. Confirmed on the device pass for `M6-morning-edition.md` S-v3.
 
 **Why a new table is justified (AGENTS.md persistence discipline).** It has user-authored identity,
 an explicit order, a daily visited lifecycle, and one query (the ordered list with visited-today).
@@ -1193,12 +1206,34 @@ the on-device model, For you mail only, needs its own entry and a JUDGMENT-CONTR
 off until then. It never involves a frontier call (§24's 2026-09-23 amendment). The iPhone composition
 is also not decided.
 
-**Status.** The decision is resolved. Downstream authoring still has to happen: §1's shell (which
-still lists Edition), the "Current shell" section of `AGENTS.md`, Gate 4 D-F (the queue moves to the
-Process tab), and `TODAY-EXPERIENCE.md`. Then comes a foundation slice (asset catalog and
-`AccentColor`, `Theme`, type roles, bundled Newsreader), followed by one visual slice per surface.
-Each surface slice is done when it matches the mockup on a device (jon-platform
-`docs/ios/ui-and-platforms.md`, "Visual craft").
+**Status.** Resolved, and carried into the live docs 2026-09-27: §1, §28, §29, `AGENTS.md`, Gate 4
+D-D/D-E/D-F, `TODAY-EXPERIENCE.md`, `IPAD-FIRST-EXPERIENCE.md`, `PRODUCT-MODEL.md`, and `README.md`. The
+build order is `docs/milestones/M6-morning-edition.md` (S-v1 foundation, S-v2 Process tab and quick
+look in default styling, then S-v3 Today and S-v4 reader visual adoption). Each visual slice is done
+when it matches the mockup on device (jon-platform `docs/ios/ui-and-platforms.md`, "Visual craft").
+
+**Architect resolution (2026-09-27).** The mockup leaves some points open, and these are settled so
+the slices can be built:
+
+- **The four "confirm on device" choices are built as the mockup shows.** That means the Highlights row
+  is dropped (Gate 4 D-D amended), Daily links move to the masthead (§29 amended), the unread dot is the
+  only read-state mark (§28 amended), and teaching becomes a toolbar button that opens a sheet. The
+  quick look now does what Highlights did for every headline, which is why the row can go. Each is
+  confirmed on its slice's device pass, and a failure there is an amendment here, not a quiet revert.
+- **The Tail stays on Today** (Jon). Essentials, From the Tail, and Essential Backlog flow as ordinary
+  sections after the role sections, and the compose/recompose control moves to the toolbar's More menu.
+- **Process drops the section rail and the draggable divider** (Jon). The split view is the system's,
+  with its own column width. Today is the section overview, and "Process from here" jumps to any item.
+- **Offers on Today are one compact row per role door.** The mockup's single roll-up row is read as
+  per-role, so §30's doors are unchanged in substance.
+- **Letter or designed is a static test on the HTML** (`EmailDesignWidth` finds a design width or it
+  doesn't), never role or sender. A designed email renders as sent, and light unless it declares dark
+  support. A letter follows the system appearance only when it sets no colors of its own.
+- **Not built:** the "Asks for a reply" chip, the asks strip with dates, attachment chips, the
+  masthead's asks count, and a Today search. The ask chip, the asks strip, and the asks count wait on
+  their own entry ("Not decided here" above). Attachment names from the MIME parts would be
+  deterministic and need no model, but that's still a new surface, so it's recorded in the M6 ledger
+  rather than slipped in.
 
 **Relates to:** §1 (shell), §25 (email fidelity, pane rules), §28 (read state), §29 (Daily links
 placement), §30 (offer doors unchanged), Gate 4 D-F and the Highlights row
