@@ -59,6 +59,7 @@ private struct CockpitRootView: View {
         ProcessView(
           model: readingQueueModel,
           tailModel: editionModel,
+          isActive: shellModel.selection == .process,
           didChangeQueue: reloadTodayAndQueue
         )
       }
