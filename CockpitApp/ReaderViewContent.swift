@@ -87,7 +87,6 @@ extension ReaderView {
   }
 
   func adjustEmailText(by delta: Int) {
-    guard !isTeachingReasonFocused else { return }
     if delta > 0 {
       readerModel.largerEmailText(
         designWidth: originalWebViewStore.designWidth,
@@ -131,7 +130,11 @@ extension ReaderView {
     guard let editionContext else { return }
     await editionContext.model.dismiss(editionContext.entryID)
     if editionContext.model.errorMessage == nil {
-      editionContext.clearSelection()
+      if let didDismiss = editionContext.didDismiss {
+        await didDismiss()
+      } else {
+        editionContext.clearSelection()
+      }
       dismissScreen()
     }
   }
