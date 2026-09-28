@@ -62,30 +62,17 @@ struct TodayTailSectionView: View {
         Text(composingTitle ?? "Composing today’s Edition…")
           .font(Theme.byline)
           .foregroundStyle(Theme.inkSecondary)
-        .padding(.vertical, 7)
+          .padding(.vertical, 7)
       }
-      ForEach(rows) { row in
+      ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
         HStack(alignment: .top, spacing: 8) {
           Button { openQuickLook(row.contentPieceID) } label: {
-            VStack(alignment: .leading, spacing: 2) {
-              Text(row.title)
-                .font(Theme.headline)
-                .foregroundStyle(Theme.ink)
-                .lineLimit(2)
-              Text(row.publisher)
-                .font(Theme.byline)
-                .foregroundStyle(Theme.inkSecondary)
-              if let rationale = row.rationale, !rationale.isEmpty {
-                Text(rationale)
-                  .font(Theme.byline)
-                  .foregroundStyle(Theme.inkTertiary)
-                  .lineLimit(2)
-              }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 6)
-            .matchedTransitionSource(id: row.contentPieceID, in: readerNamespace)
-            .contentShape(Rectangle())
+            HeadlineRow(
+              title: row.title, byline: row.publisher, time: "", detail: row.rationale,
+              showsTopRule: index > 0)
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .matchedTransitionSource(id: row.contentPieceID, in: readerNamespace)
+              .contentShape(Rectangle())
           }
           .buttonStyle(.plain)
           Menu { tailActions(row) } label: {
@@ -138,10 +125,11 @@ struct HeadlineText: View {
   var body: some View {
     Group {
       if isUnread {
-        Text(Image(systemName: "circle.fill"))
+        let dot = Text(Image(systemName: "circle.fill"))
           .font(.system(size: 6, weight: .semibold))
-          .foregroundColor(Theme.accent)
-          .baselineOffset(4) + Text(" \(title)")
+          .foregroundStyle(Theme.accent)
+          .baselineOffset(4)
+        Text("\(dot) \(title)")
       } else {
         Text(title)
       }

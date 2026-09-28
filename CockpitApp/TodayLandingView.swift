@@ -24,7 +24,7 @@ struct TodayLandingView: View {
         let columns = TodayColumnLayout.columns(
           for: content.map(\.layout), count: horizontalSizeClass == .regular ? 3 : 1)
         let sectionsByID = Dictionary(uniqueKeysWithValues: content.map { ($0.id, $0) })
-        TodayColumnsLayout(ratios: horizontalSizeClass == .regular ? [1.3, 1, 1] : [1]) {
+        TodayColumnsLayout(columnCount: columns.count) {
           ForEach(Array(columns.enumerated()), id: \.offset) { columnIndex, column in
             VStack(alignment: .leading, spacing: Theme.sectionSpacing) {
               ForEach(column) { layoutSection in
@@ -33,6 +33,7 @@ struct TodayLandingView: View {
                 }
               }
             }
+            .frame(maxHeight: .infinity, alignment: .top)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .padding(.leading, columnIndex == 0 ? 0 : 18)
             .padding(.trailing, columnIndex == columns.count - 1 ? 0 : 18)
@@ -48,6 +49,7 @@ struct TodayLandingView: View {
       }
       .padding(.horizontal, horizontalSizeClass == .regular ? 24 : 16)
     }
+    .swipeActionsContainer()
     .background(Theme.paper)
     .foregroundStyle(Theme.ink)
   }
@@ -55,21 +57,27 @@ struct TodayLandingView: View {
 
 private extension TodayLandingView {
   var masthead: some View {
+    TimelineView(.periodic(from: .now, by: 60)) { context in
+      masthead(date: context.date)
+    }
+  }
+
+  func masthead(date: Date) -> some View {
     HStack(alignment: .lastTextBaseline, spacing: 14) {
-      Text(Date.now.formatted(.dateTime.weekday(.wide)))
+      Text(date.formatted(.dateTime.weekday(.wide)))
         .font(Theme.masthead)
         .foregroundStyle(Theme.ink)
         .lineLimit(1)
         .minimumScaleFactor(0.7)
 
-      Text("\(Date.now.formatted(.dateTime.month(.wide).day())) · \(queueModel.rows.count) to process")
+      Text("\(date.formatted(.dateTime.month(.wide).day())) · \(queueModel.rows.count) to process")
         .font(Theme.byline)
         .foregroundStyle(Theme.inkSecondary)
         .lineLimit(1)
 
       Spacer(minLength: 8)
 
-      if !dailyLinkModel.links.isEmpty {
+      if horizontalSizeClass == .regular && !dailyLinkModel.links.isEmpty {
         DailyLinksMasthead(model: dailyLinkModel)
       }
     }
@@ -197,7 +205,12 @@ private struct TodayDisplaySection: Identifiable {
 }
 
 private struct TodayColumnsLayout: Layout {
-  var ratios: [CGFloat]
+  let columnCount: Int
+
+  private var ratios: [CGFloat] {
+    guard columnCount > 1 else { return Array(repeating: 1, count: columnCount) }
+    return [1.3] + Array(repeating: 1, count: columnCount - 1)
+  }
 
   func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
     guard !subviews.isEmpty else { return .zero }

@@ -5,6 +5,8 @@ struct HeadlineRow: View {
   let byline: String
   let time: String
   var isUnread = false
+  var detail: String? = nil
+  var showsTopRule = true
 
   var body: some View {
     HStack(alignment: .top, spacing: 10) {
@@ -16,6 +18,12 @@ struct HeadlineRow: View {
         Text(byline)
           .font(Theme.byline)
           .foregroundStyle(Theme.inkSecondary)
+        if let detail, !detail.isEmpty {
+          Text(detail)
+            .font(Theme.byline)
+            .foregroundStyle(Theme.inkTertiary)
+            .lineLimit(2)
+        }
       }
 
       Spacer(minLength: 0)
@@ -29,6 +37,11 @@ struct HeadlineRow: View {
     }
     .padding(.top, Theme.rowTopPadding)
     .padding(.bottom, Theme.rowBottomPadding)
+    .overlay(alignment: .top) {
+      if showsTopRule {
+        Rectangle().fill(Theme.rule).frame(height: 1)
+      }
+    }
     .accessibilityElement(children: .combine)
   }
 }

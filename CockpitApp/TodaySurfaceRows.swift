@@ -17,7 +17,8 @@ struct TodayRoleSectionView: View {
         if section.role == .forYou && index == 0 {
           leadRow(row)
         } else {
-          emailRow(row)
+          let hasLead = section.role == .forYou
+          emailRow(row, showsTopRule: hasLead ? index > 1 : index > 0)
         }
       }
     }
@@ -58,14 +59,14 @@ struct TodayRoleSectionView: View {
     .contextMenu { emailActions(row) }
   }
 
-  private func emailRow(_ row: TodayRequest.Row) -> some View {
+  private func emailRow(_ row: TodayRequest.Row, showsTopRule: Bool) -> some View {
     HStack(alignment: .top, spacing: 8) {
       Button { openQuickLook(row.id) } label: {
         HeadlineRow(
           title: row.title, byline: row.sender,
-          time: TodayArrivalLabel.text(row.arrivedAt), isUnread: row.isUnread)
+          time: TodayArrivalLabel.text(row.arrivedAt), isUnread: row.isUnread,
+          showsTopRule: showsTopRule)
           .frame(maxWidth: .infinity, alignment: .leading)
-          .overlay(alignment: .top) { Rectangle().fill(Theme.rule).frame(height: 1) }
           .matchedTransitionSource(id: row.id, in: readerNamespace)
       }
       .buttonStyle(.plain)
