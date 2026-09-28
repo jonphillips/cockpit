@@ -72,6 +72,7 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
     }
 
     public var sender: String { SenderDisplayName.make(from: creator ?? publisher) }
+    public var senderHeader: String { creator ?? publisher }
   }
 
   public struct Value: Equatable, Sendable {

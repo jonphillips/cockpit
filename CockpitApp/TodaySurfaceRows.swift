@@ -93,9 +93,19 @@ struct TodayRoleSectionView: View {
 private extension TodayRoleSectionView {
   @ViewBuilder
   func emailActions(_ row: TodayRequest.Row) -> some View {
-    MoveToSectionMenu(currentRole: row.role, isTransactional: row.treatment == .transactional) { role in
+    MoveToSectionMenu(
+      currentRole: row.role,
+      isTransactional: row.treatment == .transactional,
+      isTransactionalCorrection: row.isTransactionalCorrection,
+      sender: row.senderHeader
+    ) { role in
       Task {
         await model.moveToSection(row.id, to: role)
+        await didChangeQueue()
+      }
+    } removeTransactionalCorrection: {
+      Task {
+        await model.removeTransactionalCorrection(for: row.senderHeader)
         await didChangeQueue()
       }
     }

@@ -465,6 +465,34 @@ struct EmailTreatmentTests {
     }
   }
 
+  @Test("Transactional sender correction wins over a personal one-to-one classification")
+  func transactionalCorrectionPrecedesPersonalClassification() async throws {
+    let snapshot = GmailInboxSnapshot(
+      accountID: "jon@example.com",
+      messages: [message(id: "transactional-correction", from: "Maya <maya@example.com>", subject: "A note")])
+    let piece = try #require(try await GmailInboxIngestor(
+      client: GmailInboxClient(currentInbox: { snapshot }), now: { .distantPast }
+    ).ingest(into: database).contentPieces.first)
+
+    let corrected = try await database.write { db in
+      try EmailTreatmentOperations.setSenderOverride(
+        .transactional, for: "Maya <maya@example.com>", in: db)
+    }
+    #expect(corrected.first { $0.id == piece.id }?.emailTreatment == .transactional)
+    #expect(corrected.first { $0.id == piece.id }?.emailTransactionalKind == .reference)
+
+    let listed = try await database.read { db in
+      try TransactionalCorrectionRequest().fetch(db).senders
+    }
+    #expect(listed == ["maya@example.com"])
+
+    let restored = try await database.write { db in
+      try EmailTreatmentOperations.removeSenderOverride(for: "maya@example.com", in: db)
+    }
+    #expect(restored.first { $0.id == piece.id }?.emailTreatment == .personal)
+    #expect(restored.first { $0.id == piece.id }?.emailTransactionalKind == nil)
+  }
+
   @Test("A human one-to-one message is never made transactional by a confirmation subject")
   func humanOneToOneWinsOverTypeMarkers() async throws {
     let snapshot = GmailInboxSnapshot(

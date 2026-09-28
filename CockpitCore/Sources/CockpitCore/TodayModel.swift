@@ -112,10 +112,33 @@ public final class TodayModel {
     }
   }
 
+}
+
+extension TodayModel {
   /// Routes the piece's canonical locator, reloads Today immediately, then schedules any missing
   /// offer extraction independently so model failures cannot block the move.
   public func moveToSection(_ contentPieceID: ContentPiece.ID, to role: ContentRole) async {
-    guard role != .transactional else { return }
+    if role == .transactional {
+      do {
+        let sender = try await database.write { db -> String? in
+          guard let piece = try ContentPiece.find(contentPieceID).fetchOne(db), piece.kind == .email
+          else { return nil }
+          let sender = piece.creator ?? piece.publisher
+          _ = try EmailTreatmentOperations.setSenderOverride(.transactional, for: sender, in: db)
+          return sender
+        }
+        guard sender != nil else {
+          errorMessage = "This message has no sender address to correct."
+          return
+        }
+        try await $content.load()
+        errorMessage = nil
+      } catch is CancellationError {
+      } catch {
+        errorMessage = error.localizedDescription
+      }
+      return
+    }
     do {
       let locator = try await database.write { db -> String? in
         let resolution = try CurationRouting.resolution(for: contentPieceID, in: db)
@@ -147,9 +170,19 @@ public final class TodayModel {
     }
   }
 
-}
+  public func removeTransactionalCorrection(for sender: String) async {
+    do {
+      try await database.write { db in
+        _ = try EmailTreatmentOperations.removeSenderOverride(for: sender, in: db)
+      }
+      try await $content.load()
+      errorMessage = nil
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
 
-extension TodayModel {
   /// Adds a Today piece to Later without changing its provider disposition or Today attention.
   public func saveForLater(_ row: TodayRequest.Row) async {
     let date = now

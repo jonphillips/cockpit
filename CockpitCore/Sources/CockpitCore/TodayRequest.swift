@@ -16,6 +16,7 @@ public struct TodayRequest: FetchKeyRequest {
     public let treatmentSummary: String?
     public let grabBagItemsJSON: String?
     public let treatment: EmailTreatment
+    public let isTransactionalCorrection: Bool
     public let isUnread: Bool
     public let role: ContentRole
     public let publishedAt: Date?
@@ -25,6 +26,7 @@ public struct TodayRequest: FetchKeyRequest {
       ReceivedDate.resolve(publishedAt: publishedAt, artifactAcquiredAt: acquiredAt, createdAt: acquiredAt)
     }
     public var sender: String { SenderDisplayName.make(from: creator ?? publisher) }
+    public var senderHeader: String { creator ?? publisher }
 
     public var grabBagItems: [GrabBagItem] {
       guard let grabBagItemsJSON,
@@ -63,6 +65,10 @@ public struct TodayRequest: FetchKeyRequest {
       })
     let detailsByContentPieceID = Dictionary(
       uniqueKeysWithValues: try EmailTreatmentDetails.all.fetchAll(db).map { ($0.contentPieceID, $0) })
+    let transactionalCorrectionSenders = Set(try EmailSenderTreatmentOverride
+      .where { $0.treatment.eq(EmailTreatment.transactional) }
+      .select { $0.senderKey }
+      .fetchAll(db))
     var acquiredAtByContentPieceID: [ContentPiece.ID: Date] = [:]
     var unreadContentPieceIDs = Set<ContentPiece.ID>()
     for artifact in gmailArtifacts {
@@ -81,19 +87,23 @@ public struct TodayRequest: FetchKeyRequest {
     // Keep the email predicate in SQL. Today reloads repeatedly and must not scan Library's entire
     // ContentPiece corpus merely to discard non-email rows in Swift.
     value.rows = try ContentPiece.where { $0.kind.eq(ContentKind.email) }.fetchAll(db).compactMap { piece in
-      let role = routing.role(for: piece.id) ?? .forYou
       guard let treatment = piece.emailTreatment,
         !routing.mutedContentPieceIDs.contains(piece.id),
         !clearedContentPieceIDs.contains(piece.id),
         !disposedContentPieceIDs.contains(piece.id),
         let acquiredAt = acquiredAtByContentPieceID[piece.id]
       else { return nil }
+      let sender = piece.creator ?? piece.publisher
+      let senderKey = GmailHeaderParser.senderKey(from: sender)
+      let isTransactionalCorrection = senderKey.map(transactionalCorrectionSenders.contains) ?? false
+      let role: ContentRole = treatment == .transactional ? .transactional : (routing.role(for: piece.id) ?? .forYou)
       return Row(
         id: piece.id, title: piece.title, creator: piece.creator, publisher: piece.publisher,
         summary: piece.summary,
         treatmentSummary: detailsByContentPieceID[piece.id]?.offerSummary,
         grabBagItemsJSON: detailsByContentPieceID[piece.id]?.grabBagItems,
-        treatment: treatment, isUnread: unreadContentPieceIDs.contains(piece.id),
+        treatment: treatment, isTransactionalCorrection: isTransactionalCorrection,
+        isUnread: unreadContentPieceIDs.contains(piece.id),
         role: role, publishedAt: piece.publishedAt, acquiredAt: acquiredAt)
     }
     value.rows.sort {

@@ -117,6 +117,36 @@ struct TodayModelTests {
     #expect(persisted.1 == 0)
   }
 
+  @Test("Moving a sender into Transactional corrects its existing Today mail")
+  func moveSenderIntoTransactional() async throws {
+    let pieceID = UUID(7_402)
+    try await seed(
+      pieceID, treatment: .personal, receivedAt: 9_991,
+      publisher: "Maya <maya@example.com>",
+      providerProvenance: "{\"accountID\":\"jon@example.com\",\"messageID\":\"transactional-move\",\"threadID\":\"thread\",\"senderAddress\":\"maya@example.com\",\"toRecipientCount\":1,\"ccRecipientCount\":0}")
+
+    let model = TodayModel()
+    try await model.$content.load()
+    let row = try #require(model.content.rows.first)
+    #expect(row.role == .forYou)
+    #expect(row.treatment == .personal)
+
+    await model.moveToSection(row.id, to: .transactional)
+
+    let corrected = try #require(model.content.rows.first { $0.id == pieceID })
+    #expect(corrected.role == .transactional)
+    #expect(corrected.treatment == .transactional)
+    #expect(corrected.isTransactionalCorrection)
+    #expect(model.errorMessage == nil)
+
+    await model.removeTransactionalCorrection(for: corrected.senderHeader)
+
+    let restored = try #require(model.content.rows.first { $0.id == pieceID })
+    #expect(restored.role == .forYou)
+    #expect(restored.treatment == .personal)
+    #expect(!restored.isTransactionalCorrection)
+  }
+
   @discardableResult
   private func seed(
     _ pieceID: ContentPiece.ID,

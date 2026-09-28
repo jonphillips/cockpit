@@ -10,6 +10,8 @@ public final class FollowingModel {
   @ObservationIgnored @Dependency(\.feedClient) private var feedClient
   @ObservationIgnored @Dependency(\.uuid) private var uuid
   @ObservationIgnored @Fetch(FollowingRequest()) public var following = .init()
+  @ObservationIgnored @Fetch(TransactionalCorrectionRequest())
+  public var transactionalCorrections = TransactionalCorrectionRequest.Value()
 
   public var addURL = ""
   public var proposedStream: StreamDraft?
@@ -144,6 +146,20 @@ extension FollowingModel {
       }
       routingRules = snapshot.routingRules.values.sorted { $0.locator < $1.locator }
       discoveredLocators = snapshot.discoveredLocators
+      try await $transactionalCorrections.load()
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  public func removeTransactionalCorrection(for sender: String) async {
+    do {
+      try await database.write { db in
+        _ = try EmailTreatmentOperations.removeSenderOverride(for: sender, in: db)
+      }
+      try await $transactionalCorrections.load()
+      errorMessage = nil
     } catch is CancellationError {
     } catch {
       errorMessage = error.localizedDescription

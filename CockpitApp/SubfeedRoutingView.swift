@@ -37,6 +37,27 @@ struct SubfeedRoutingView: View {
           }
         }
       }
+
+      Section {
+        if model.transactionalCorrections.senders.isEmpty {
+          Text("No transactional corrections.")
+            .foregroundStyle(.secondary)
+        } else {
+          ForEach(model.transactionalCorrections.senders, id: \.self) { sender in
+            Text(sender)
+              .textSelection(.enabled)
+              .swipeActions {
+                Button("Remove", systemImage: "trash", role: .destructive) {
+                  Task { await model.removeTransactionalCorrection(for: sender) }
+                }
+              }
+          }
+        }
+      } header: {
+        Text("Transactional corrections")
+      } footer: {
+        Text("Mail from these senders is treated as transactional. Removing a correction returns it to automatic classification.")
+      }
     }
     .navigationTitle("Sub-feed routing")
     .task { await model.loadRoutingRules() }

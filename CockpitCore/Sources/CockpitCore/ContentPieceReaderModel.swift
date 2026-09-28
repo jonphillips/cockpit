@@ -11,7 +11,7 @@ import SQLiteData
 public final class ContentPieceReaderModel {
   @ObservationIgnored @Dependency(\.defaultDatabase) var database
   @ObservationIgnored @Dependency(\.date.now) var now
-  @ObservationIgnored @Dependency(\.modelClient) private var modelClient
+  @ObservationIgnored @Dependency(\.modelClient) var modelClient
   @ObservationIgnored @Dependency(\.apiKeyStore) private var apiKeyStore
   @ObservationIgnored @Dependency(\.frontierPreferenceStore) private var preferenceStore
   @ObservationIgnored @Dependency(\.emailZoomPreferenceStore) var emailZoomPreferenceStore
@@ -24,7 +24,8 @@ public final class ContentPieceReaderModel {
   @ObservationIgnored @Fetch public var readerTeaching = ReaderTeachingClaimRequest.Value()
   @ObservationIgnored @Fetch public var matchedPersonalKnowledge = MatchedPersonalKnowledgeClaimRequest.Value()
   public let contentPieceID: ContentPiece.ID
-  public private(set) var routingResolution: CurationRoutingResolution?
+  public internal(set) var routingResolution: CurationRoutingResolution?
+  public internal(set) var isTransactionalCorrection = false
   public internal(set) var mailMessageURL: URL?
   public var errorMessage: String?
   public var teachingReason = ""
@@ -132,84 +133,6 @@ public final class ContentPieceReaderModel {
       try await database.write { db in try operation(db) }
       try await $content.load()
       errorMessage = nil
-    } catch is CancellationError {
-    } catch {
-      errorMessage = error.localizedDescription
-    }
-  }
-}
-
-extension ContentPieceReaderModel {
-  public var currentSender: String? { row?.sender }
-  public var currentTreatment: EmailTreatment? { row?.emailTreatment }
-  public var isReplyAvailable: Bool {
-    isGmailSource && (resolvedContentRole == .forYou || resolvedContentRole == .transactional)
-  }
-  public var resolvedRoutingLocator: String? { routingResolution?.locator }
-  public var currentRoutingRule: ContentRoleRoutingRule? { routingResolution?.rule }
-  public var resolvedContentRole: ContentRole? { routingResolution?.role }
-
-  /// Loads the Reader's current content-role locator and rule through CurationRouting's canonical
-  /// per-piece resolution path. This keeps route edits aligned with the surface snapshot.
-  public func loadRoutingResolution() async {
-    guard let id = row?.id else {
-      routingResolution = nil
-      return
-    }
-    do {
-      routingResolution = try await database.read { db in
-        try CurationRouting.resolution(for: id, in: db)
-      }
-      errorMessage = nil
-    } catch is CancellationError {
-    } catch {
-      errorMessage = error.localizedDescription
-    }
-  }
-
-  /// Persists an explicit sub-feed route using the same operation as Settings.
-  public func saveRoutingRule(_ rule: ContentRoleRoutingRule) async {
-    do {
-      try await database.write { db in
-        try StreamOperations.saveRoutingRule(rule, in: db)
-      }
-      await loadRoutingResolution()
-      errorMessage = nil
-    } catch is CancellationError {
-    } catch {
-      errorMessage = error.localizedDescription
-    }
-  }
-
-  /// Moves the current email by its canonical locator. Eligible missing treatment details are
-  /// extracted in a detached task after the route and Reader projection have been saved.
-  public func moveToSection(to role: ContentRole) async {
-    guard role != .transactional, let id = row?.id else { return }
-    do {
-      let locator = try await database.write { db -> String? in
-        let resolution = try CurationRouting.resolution(for: id, in: db)
-        guard resolution.role != .transactional, let locator = resolution.locator else { return nil }
-        try StreamOperations.saveRoutingRule(
-          ContentRoleRoutingRule(locator: locator, role: role, isFollowed: true, isMuted: false),
-          in: db)
-        return locator
-      }
-      guard let locator else {
-        errorMessage = "This message has no routable locator."
-        return
-      }
-      await loadRoutingResolution()
-      try await $content.load()
-      errorMessage = nil
-      guard role == .offers else { return }
-      let processor = EmailTreatmentProcessor(modelClient: modelClient)
-      let database = database
-      Task { [weak self] in
-        _ = try? await Task.detached(priority: .utility) {
-          try await processor.processUnextractedPieces(for: locator, in: database)
-        }.value
-        try? await self?.$content.load()
-      }
     } catch is CancellationError {
     } catch {
       errorMessage = error.localizedDescription

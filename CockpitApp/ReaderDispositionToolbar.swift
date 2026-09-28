@@ -142,9 +142,13 @@ private extension ReaderDispositionToolbar {
         MoveToSectionMenu(
           currentRole: model.currentRoutingRule?.role ?? model.resolvedContentRole ?? .forYou,
           isTransactional: model.currentTreatment == .transactional,
+          isTransactionalCorrection: model.isTransactionalCorrection,
+          sender: model.currentSender ?? "this sender",
           isAvailable: model.resolvedRoutingLocator != nil
         ) { role in
           Task { await model.moveToSection(to: role) }
+        } removeTransactionalCorrection: {
+          Task { await model.removeTransactionalCorrection() }
         }
         Divider()
       }
