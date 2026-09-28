@@ -10,63 +10,93 @@ public enum EmailPresentation {
   }
 
   public static func kind(html: String) -> Kind {
-    guard let width = EmailDesignWidth.detect(html: html) else { return .letter }
+    guard let document = try? SwiftSoup.parse(html) else { return .letter }
+    return kind(in: document)
+  }
+
+  public static func kind(in document: Document) -> Kind {
+    guard let width = EmailDesignWidth.detect(in: document) else { return .letter }
     return .designed(width: width)
   }
 
   public static func supportsDarkAppearance(html: String) -> Bool {
     guard let document = try? SwiftSoup.parse(html) else { return false }
-    let metas = (try? document.select("meta[name=color-scheme], meta[content][name=color-scheme]").array()) ?? []
-    if metas.contains(where: { meta in
-      let name = ((try? meta.attr("name")) ?? "").lowercased()
-      let content = ((try? meta.attr("content")) ?? "").lowercased()
-      return name == "color-scheme" && content.contains("dark")
-    }) { return true }
+    return supportsDarkAppearance(in: document)
+  }
 
-    let styles = (try? document.select("style").array()) ?? []
-    return styles.contains { style in
-      guard let css = try? style.html() else { return false }
-      return css.range(of: #"@media\s*\([^)]*prefers-color-scheme\s*:\s*dark[^)]*\)"#,
-                       options: [.regularExpression, .caseInsensitive]) != nil
+  public static func supportsDarkAppearance(in document: Document) -> Bool {
+    let metas: [Element] = (try? document.select("meta[name]").array()) ?? []
+    for meta in metas {
+      let name = ((try? meta.attr("name")) ?? "").lowercased()
+      guard name == "color-scheme" || name == "supported-color-schemes" else { continue }
+      let content = ((try? meta.attr("content")) ?? "").lowercased()
+      let normalizedContent = content.replacingOccurrences(of: ",", with: " ")
+      let schemes = normalizedContent.split(whereSeparator: { character in character.isWhitespace })
+      if schemes.contains(where: { scheme in scheme == "dark" }) { return true }
     }
+
+    let cssTexts = cssTexts(in: document)
+    for css in cssTexts {
+      if containsDarkAppearanceCSS(css) { return true }
+    }
+    return false
   }
 
   public static func letterSetsOwnColors(html: String) -> Bool {
     guard let document = try? SwiftSoup.parse(html) else { return false }
-    let elements = (try? document.select("body, p" ).array()) ?? []
-    return elements.contains { element in
+    return letterSetsOwnColors(in: document)
+  }
+
+  public static func letterSetsOwnColors(in document: Document) -> Bool {
+    let elements: [Element] = (try? document.select("*").array()) ?? []
+    for element in elements {
+      if hasColorAttribute("color", on: element) || hasColorAttribute("bgcolor", on: element)
+        || hasColorAttribute("text", on: element) { return true }
+
       let style = ((try? element.attr("style")) ?? "").lowercased()
-      return style.split(separator: ";").contains { declaration in
-        let property = declaration.split(separator: ":", maxSplits: 1).first?
-          .trimmingCharacters(in: .whitespacesAndNewlines)
-        return property == "color" || property == "background" || property == "background-color"
-      }
+      if hasColorDeclaration(in: style) { return true }
     }
-  }
-}
-
-/// The next item shown in Process' reader footer. Position is local to that item's role section.
-public struct ProcessNextCard: Equatable, Sendable {
-  public let row: TodayReadingQueueRequest.Row
-  public let roleIndex: Int
-  public let roleCount: Int
-
-  public static func after(
-    _ contentPieceID: ContentPiece.ID,
-    in rows: [TodayReadingQueueRequest.Row]
-  ) -> ProcessNextCard? {
-    guard let index = rows.firstIndex(where: { $0.id == contentPieceID }), rows.indices.contains(index + 1) else {
-      return nil
+    for css in cssTexts(in: document) {
+      if hasColorDeclaration(in: css) { return true }
     }
-    let next = rows[index + 1]
-    let sectionRows = rows.filter { $0.role == next.role }
-    guard let roleIndex = sectionRows.firstIndex(where: { $0.id == next.id }) else { return nil }
-    return ProcessNextCard(row: next, roleIndex: roleIndex + 1, roleCount: sectionRows.count)
+    return false
   }
 
-  public init(row: TodayReadingQueueRequest.Row, roleIndex: Int, roleCount: Int) {
-    self.row = row
-    self.roleIndex = roleIndex
-    self.roleCount = roleCount
+  private static func cssTexts(in document: Document) -> [String] {
+    var result: [String] = []
+    let styles: [Element] = (try? document.select("style").array()) ?? []
+    for style in styles {
+      if let css = try? style.html() { result.append(css) }
+    }
+    let inlineStyles: [Element] = (try? document.select("[style]").array()) ?? []
+    for element in inlineStyles {
+      if let css = try? element.attr("style") { result.append(css) }
+    }
+    return result
+  }
+
+  private static func containsDarkAppearanceCSS(_ css: String) -> Bool {
+    let mediaRange = css.range(
+      of: #"@media\b[^{}]*\([^)]*prefers-color-scheme\s*:\s*dark[^)]*\)"#,
+      options: [.regularExpression, .caseInsensitive]
+    )
+    if mediaRange != nil { return true }
+    let schemeRange = css.range(
+      of: #"(?:^|[;{\s])color-scheme\s*:[^;}]*\bdark\b"#,
+      options: [.regularExpression, .caseInsensitive]
+    )
+    return schemeRange != nil
+  }
+
+  private static func hasColorAttribute(_ name: String, on element: Element) -> Bool {
+    guard let value = try? element.attr(name) else { return false }
+    return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+  }
+
+  private static func hasColorDeclaration(in css: String) -> Bool {
+    css.range(
+      of: #"(?:^|[;{\s])(?:color|background|background-color)\s*:\s*[^;}]+"#,
+      options: [.regularExpression, .caseInsensitive]
+    ) != nil
   }
 }

@@ -11,6 +11,15 @@ extension View {
       self
     }
   }
+
+  @ViewBuilder
+  func readerEmailColumn(width: CGFloat?, kind: EmailPresentation.Kind?) -> some View {
+    if case .designed? = kind {
+      self
+    } else {
+      readerEmailColumn(width: width)
+    }
+  }
 }
 
 struct ReaderSummaryView: View {
@@ -53,11 +62,14 @@ struct ReaderBodyView: View {
       TodayOriginalWebView(webView: originalWebViewStore.webView)
         .frame(maxWidth: .infinity)
         .frame(height: originalWebViewStore.contentHeight)
+        .clipShape(.rect(cornerRadius: emailKind.map {
+          if case .designed = $0 { return 0 }
+          return 12
+        } ?? 12))
         .frame(maxWidth: emailKind.map { kind in
           if case .letter = kind { return Theme.readingMeasure * CGFloat(emailZoom) }
           return .infinity
         } ?? .infinity)
-        .padding(.horizontal, emailKind.map { if case .designed = $0 { return 12 }; return 0 } ?? 0)
         .background(emailBackground)
         .onGeometryChange(for: CGFloat.self) { proxy in proxy.size.width } action: {
           originalWebViewStore.reportViewportWidth($0)
@@ -110,18 +122,31 @@ struct ReaderBodyView: View {
   private var emailBackground: Color {
     guard let emailKind else { return .clear }
     if case .designed = emailKind { return Theme.ground }
-    return originalWebViewStore.letterSetsOwnColors ? .white : .clear
+    return .white
   }
 
   private func configureEmailAppearance() {
-    guard case .html = presentation else { return }
-    let designed = emailKind.map { if case .designed = $0 { return true }; return false } ?? false
-    let mustRenderLight = (designed && !originalWebViewStore.supportsDarkAppearance)
-      || (!designed && originalWebViewStore.letterSetsOwnColors)
-    originalWebViewStore.webView.overrideUserInterfaceStyle = mustRenderLight ? .light : .unspecified
-    originalWebViewStore.webView.isOpaque = mustRenderLight
-    originalWebViewStore.webView.backgroundColor = mustRenderLight ? .white : .clear
-    originalWebViewStore.webView.scrollView.backgroundColor = mustRenderLight ? .white : .clear
+    guard case .html = presentation, let emailKind else {
+      originalWebViewStore.webView.overrideUserInterfaceStyle = .unspecified
+      originalWebViewStore.webView.isOpaque = true
+      originalWebViewStore.webView.backgroundColor = .white
+      originalWebViewStore.webView.scrollView.backgroundColor = .white
+      return
+    }
+    let shouldFollowSystem = if case .designed = emailKind {
+      originalWebViewStore.supportsDarkAppearance
+    } else {
+      false
+    }
+    let usesDocumentColors = if case .designed = emailKind {
+      true
+    } else {
+      originalWebViewStore.letterSetsOwnColors
+    }
+    originalWebViewStore.webView.overrideUserInterfaceStyle = shouldFollowSystem ? .unspecified : .light
+    originalWebViewStore.webView.isOpaque = !usesDocumentColors
+    originalWebViewStore.webView.backgroundColor = usesDocumentColors ? .clear : .white
+    originalWebViewStore.webView.scrollView.backgroundColor = usesDocumentColors ? .clear : .white
   }
 
   private func loadHTMLIfReady(_ html: String, step: Int) {

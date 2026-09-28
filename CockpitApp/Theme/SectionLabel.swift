@@ -13,7 +13,7 @@ struct SectionLabel: View {
       HStack {
         Text(title.uppercased())
           .font(Theme.sectionLabel)
-          .tracking(1.6)
+          .tracking(Theme.sectionLabelTracking)
           .foregroundStyle(Theme.ink)
         Spacer(minLength: 8)
         Text(count, format: .number)

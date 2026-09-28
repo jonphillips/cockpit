@@ -80,13 +80,6 @@ private struct ProcessQueueDetail: View {
             trash: {
               await model.trash(row)
               await didChangeQueue()
-            },
-            dismissTailAndContinue: {
-              guard let entryID = row.editionEntryID else { return }
-              await tailModel.dismiss(entryID)
-              guard tailModel.errorMessage == nil else { return }
-              await model.recordDismissed(row)
-              await didChangeQueue()
             }
           ),
           isReachableStreamPiece: row.isFollowedStreamPiece,

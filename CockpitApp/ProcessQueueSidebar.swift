@@ -10,7 +10,7 @@ struct ProcessQueueSidebar: View {
       ProcessQueueHeader(model: model)
         .padding(.horizontal)
         .padding(.vertical, 8)
-      List {
+      List(selection: $model.selectedContentPieceID) {
         ForEach(model.sections) { section in
           Section {
             ForEach(section.rows) { row in
@@ -25,15 +25,13 @@ struct ProcessQueueSidebar: View {
                     }
                   }
                 }
+                .tag(row.id)
                 .id(row.id)
-                .contentShape(Rectangle())
-                .onTapGesture { model.selectedContentPieceID = row.id }
-                .accessibilityAddTraits(.isButton)
             }
           } header: {
             HStack {
               Text(section.role.displayName.uppercased())
-                .font(Theme.sectionLabel).tracking(1.2)
+                .font(Theme.sectionLabel).tracking(Theme.sectionLabelTracking)
               Spacer()
               Text(section.rows.count, format: .number)
                 .font(Theme.sectionLabel).monospacedDigit()
@@ -133,8 +131,15 @@ private struct ProcessQueueListRow: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 2) {
       HStack(alignment: .firstTextBaseline) {
-        Text(row.title).font(Theme.queueHeadline).foregroundStyle(Theme.ink).lineLimit(2)
+        HeadlineText(title: row.title, isUnread: row.isUnread)
+          .font(Theme.queueHeadline).foregroundStyle(Theme.ink).lineLimit(2)
         Spacer(minLength: 4)
+        if row.isFollowedStreamPiece {
+          Image(systemName: "arrow.triangle.branch")
+            .font(.caption2)
+            .foregroundStyle(Theme.inkTertiary)
+            .accessibilityLabel("Followed Stream")
+        }
         Text(row.arrivedAt, format: .dateTime.hour().minute())
           .font(Theme.meta).foregroundStyle(Theme.inkTertiary)
       }
@@ -147,9 +152,9 @@ private struct ProcessQueueListRow: View {
     .overlay(alignment: .leading) {
       if isSelected { Rectangle().fill(Theme.rule).frame(width: 1) }
     }
+    .listRowBackground(isSelected ? Theme.paper : Theme.paperSecondary)
     .listRowInsets(EdgeInsets(top: 1, leading: 5, bottom: 1, trailing: 5))
     .listRowSeparator(.hidden)
-    .listRowBackground(Color.clear)
     .accessibilityElement(children: .combine)
   }
 }

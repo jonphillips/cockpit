@@ -15,17 +15,24 @@ enum TodayOriginalHTML {
   struct SanitizedHTML {
     let html: String
     let designWidth: Double?
+    let presentationKind: EmailPresentation.Kind
     let supportsDarkAppearance: Bool
     let letterSetsOwnColors: Bool
   }
 
   static func sanitizedForWebView(_ rawHTML: String, adjustmentStep: Int = 0) -> SanitizedHTML {
     guard let document = try? SwiftSoup.parse(rawHTML) else {
-      return SanitizedHTML(html: rawHTML, designWidth: nil, supportsDarkAppearance: false, letterSetsOwnColors: false)
+      return SanitizedHTML(
+        html: rawHTML, designWidth: nil, presentationKind: .letter,
+        supportsDarkAppearance: false, letterSetsOwnColors: false
+      )
     }
     _ = try? document.select("script").remove()
     normalizeViewport(in: document)
-    let designWidth = EmailDesignWidth.detect(in: document)
+    let presentationKind = EmailPresentation.kind(in: document)
+    let designWidth: Double?
+    if case let .designed(width) = presentationKind { designWidth = width }
+    else { designWidth = nil }
     appendFitZoom(to: document, designWidth: designWidth, adjustmentStep: adjustmentStep)
 
     for image in (try? document.select("img").array()) ?? [] {
@@ -38,8 +45,9 @@ enum TodayOriginalHTML {
     return SanitizedHTML(
       html: (try? document.html()) ?? rawHTML,
       designWidth: designWidth,
-      supportsDarkAppearance: EmailPresentation.supportsDarkAppearance(html: rawHTML),
-      letterSetsOwnColors: EmailPresentation.letterSetsOwnColors(html: rawHTML)
+      presentationKind: presentationKind,
+      supportsDarkAppearance: EmailPresentation.supportsDarkAppearance(in: document),
+      letterSetsOwnColors: EmailPresentation.letterSetsOwnColors(in: document)
     )
   }
 
@@ -110,6 +118,7 @@ final class TodayOriginalWebViewStore {
   private(set) var contentHeight: CGFloat = 44
   private(set) var designWidth: Double?
   private(set) var viewportWidth: CGFloat = 0
+  private(set) var emailPresentationKind: EmailPresentation.Kind?
   private(set) var supportsDarkAppearance = false
   private(set) var letterSetsOwnColors = false
 
@@ -142,6 +151,7 @@ final class TodayOriginalWebViewStore {
   func load(rawHTML: String, adjustmentStep: Int = 0) {
     let sanitized = TodayOriginalHTML.sanitizedForWebView(rawHTML, adjustmentStep: adjustmentStep)
     designWidth = sanitized.designWidth
+    emailPresentationKind = sanitized.presentationKind
     supportsDarkAppearance = sanitized.supportsDarkAppearance
     letterSetsOwnColors = sanitized.letterSetsOwnColors
     guard loadedHTML != sanitized.html else { return }

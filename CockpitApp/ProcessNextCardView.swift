@@ -4,7 +4,7 @@ import SwiftUI
 struct ProcessNextCardView: View {
   let selectedRow: TodayReadingQueueRequest.Row
   let next: ProcessNextCard?
-  let actionTitle: String
+  let actionTitle: String?
   let action: () -> Void
 
   var body: some View {
@@ -12,7 +12,7 @@ struct ProcessNextCardView: View {
       if let next {
         Text("Next in \(next.row.role.displayName) · \(next.roleIndex) of \(next.roleCount)")
           .font(Theme.sectionLabel)
-          .tracking(1.2)
+          .tracking(Theme.sectionLabelTracking)
           .foregroundStyle(Theme.inkTertiary)
         Text(next.row.title)
           .font(Theme.nextHeadline)
@@ -20,10 +20,12 @@ struct ProcessNextCardView: View {
         Text(next.row.sourceLabel)
           .font(Theme.byline)
           .foregroundStyle(Theme.inkSecondary)
-        Button(actionTitle, systemImage: selectedRow.editionEntryID == nil ? "archivebox" : "xmark.circle", action: action)
-          .buttonStyle(.borderedProminent)
+        if let actionTitle {
+          Button(actionTitle, systemImage: selectedRow.editionEntryID == nil ? "archivebox" : "xmark.circle", action: action)
+            .buttonStyle(.borderedProminent)
+        }
       } else {
-        Text("The queue is clear")
+        Text("End of the queue")
           .font(Theme.queueTitle)
           .foregroundStyle(Theme.ink)
       }

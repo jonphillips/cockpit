@@ -13,16 +13,21 @@ struct EmailPresentationTests {
   @Test("dark support is detected without rewriting email HTML")
   func darkSupport() {
     #expect(EmailPresentation.supportsDarkAppearance(html: "<meta name='color-scheme' content='light dark'>"))
-    #expect(EmailPresentation.supportsDarkAppearance(html: "<style>@media (prefers-color-scheme: dark) { body { color: white } }</style>"))
+    #expect(EmailPresentation.supportsDarkAppearance(html: "<style>@media screen and (prefers-color-scheme: dark) { body { color: white } }</style>"))
+    #expect(EmailPresentation.supportsDarkAppearance(html: "<meta name='supported-color-schemes' content='light dark'>"))
+    #expect(EmailPresentation.supportsDarkAppearance(html: "<style>html { color-scheme: light dark; }</style>"))
     #expect(!EmailPresentation.supportsDarkAppearance(html: "<p>Hello</p>"))
   }
 
-  @Test("letter self-coloring is limited to body and paragraph inline styles")
+  @Test("letter self-coloring includes inline, legacy, and stylesheet colors")
   func ownColors() {
     #expect(!EmailPresentation.letterSetsOwnColors(html: "<p>Hello</p>"))
     #expect(EmailPresentation.letterSetsOwnColors(html: "<body style='color: #123'><p>Hello</p></body>"))
     #expect(EmailPresentation.letterSetsOwnColors(html: "<p style='background: white'>Hello</p>"))
-    #expect(!EmailPresentation.letterSetsOwnColors(html: "<div style='color:red'><p>Hello</p></div>"))
+    #expect(EmailPresentation.letterSetsOwnColors(html: "<div style='color:red'><p>Hello</p></div>"))
+    #expect(EmailPresentation.letterSetsOwnColors(html: "<font color='#123'>Hello</font>"))
+    #expect(EmailPresentation.letterSetsOwnColors(html: "<table bgcolor='white'><tr><td>Hello</td></tr></table>"))
+    #expect(EmailPresentation.letterSetsOwnColors(html: "<style>div { background-color: white }</style><div>Hello</div>"))
   }
 }
 
