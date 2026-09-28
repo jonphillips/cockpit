@@ -11,17 +11,19 @@ struct OfferReviewCard: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       Button(action: openEmail) {
-        ZStack(alignment: .bottomLeading) {
-          OfferRemoteHero(url: row.heroURL, color: role.color)
-            .frame(maxWidth: .infinity)
-            .aspectRatio(16 / 10, contentMode: .fit)
-          Text(row.sender)
-            .font(.caption.weight(.medium))
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5)
-            .background(.ultraThinMaterial, in: Capsule())
-            .padding(10)
-        }
+        Color.clear
+          .aspectRatio(16 / 10, contentMode: .fit)
+          .overlay {
+            OfferRemoteHero(url: row.heroURL, color: role.color)
+              .overlay(alignment: .bottomLeading) {
+                Text(row.sender)
+                  .font(.caption.weight(.medium))
+                  .padding(.horizontal, 9)
+                  .padding(.vertical, 5)
+                  .background(.ultraThinMaterial, in: Capsule())
+                  .padding(10)
+              }
+          }
         .clipShape(RoundedRectangle(cornerRadius: 12))
       }
       .buttonStyle(.plain)
@@ -69,6 +71,7 @@ struct OfferRemoteHero: View {
   let url: URL?
   let color: Color
 
+  /// Fills the size proposed by its call site; callers own the hero's aspect ratio.
   var body: some View {
     AsyncImage(url: url) { phase in
       if let image = phase.image {
