@@ -57,7 +57,8 @@ struct EmailTreatmentTests {
       #expect(contentColumns.contains("emailTreatment"))
       #expect(contentColumns.contains("emailTransactionalKind"))
       #expect(streamColumns.contains("isGrabBag"))
-      #expect(try ContentPiece.find(pieceID).fetchOne(db)?.emailTreatment == nil)
+      // The S-t8 upgrade now classifies retained Gmail rows after adding the detector markers.
+      #expect(try ContentPiece.find(pieceID).fetchOne(db)?.emailTreatment == .newsletter)
       #expect(try ContentPiece.find(pieceID).fetchOne(db)?.emailTransactionalKind == nil)
       #expect(try Stream.find(streamID).fetchOne(db)?.isGrabBag == false)
       #expect(try Artifact.find(artifactID).fetchOne(db)?.providerProvenance == "{\"listID\":\"Feed Me\"}")
@@ -266,6 +267,86 @@ struct EmailTreatmentTests {
     // The same explicit correction still decides the genuinely ambiguous publication residue.
     expectNoDifference(correctedByTitle["A note from Weck Jars"]?.emailTreatment, .offer)
     expectNoDifference(correctedByTitle["A note from Weck Jars"]?.emailTransactionalKind, nil)
+  }
+
+  @Test("Order confirmations classify transactionally without misclassifying people or newsletters")
+  func orderConfirmationsUseSenderAndSpecificSubjectMarkers() async throws {
+    let snapshot = GmailInboxSnapshot(
+      accountID: "jon@example.com",
+      messages: [
+        message(
+          id: "amazon-order", from: "Amazon <auto-confirm@amazon.com>", subject: "Ordered: 1 item"),
+        message(
+          id: "amazon-listed-order", from: "Amazon <auto-confirm@amazon.com>", subject: "Ordered: 1 item",
+          extraHeaders: [GmailInboxHeader(name: "List-Unsubscribe", value: "<https://example.com/unsubscribe>")]
+        ),
+        message(
+          id: "shop-receipt", from: "Example Shop <confirmations@shop.example>",
+          subject: "Your receipt from Example Shop"),
+        message(
+          id: "human-ordered", from: "Dana <dana@example.com>", subject: "I ordered: the blue tiles"),
+        message(
+          id: "newsletter-order", from: "Operations Weekly <weekly@newsletter.example>",
+          subject: "Order of operations",
+          extraHeaders: [GmailInboxHeader(name: "List-ID", value: "Operations Weekly <weekly.example>")]
+        ),
+      ])
+
+    let report = try await GmailInboxIngestor(
+      client: GmailInboxClient(currentInbox: { snapshot }), now: { .distantPast }
+    ).ingest(into: database)
+    let amazonOrders = report.contentPieces.filter { $0.title == "Ordered: 1 item" }
+    #expect(amazonOrders.count == 2)
+    for piece in amazonOrders {
+      #expect(piece.emailTreatment == .transactional)
+      #expect(piece.emailTransactionalKind == .reference)
+    }
+    let humanMessage = report.contentPieces.first { $0.title == "I ordered: the blue tiles" }
+    #expect(humanMessage?.emailTreatment == .personal)
+    #expect(humanMessage?.emailTransactionalKind == nil)
+    let newsletter = report.contentPieces.first { $0.title == "Order of operations" }
+    #expect(newsletter?.emailTreatment == .newsletter)
+    #expect(newsletter?.emailTransactionalKind == nil)
+    let receipt = report.contentPieces.first { $0.title == "Your receipt from Example Shop" }
+    #expect(receipt?.emailTreatment == .transactional)
+    #expect(receipt?.emailTransactionalKind == .reference)
+  }
+
+  @Test("S-t8 migration reclassifies previously stored For-you order mail once")
+  func transactionalDetectorMigrationReclassifiesExistingMail() throws {
+    let database = try SQLiteData.defaultDatabase()
+    let migrator = CockpitMigrations.makeMigrator()
+    try migrator.migrate(database, upTo: "Daily link thumbnails")
+
+    let pieceID = UUID(9_101)
+    let artifactID = UUID(9_102)
+    let provenance = GmailArtifactProvenance(
+      accountID: "jon@example.com", messageID: "amazon-order", threadID: "thread-amazon-order",
+      rfcMessageID: nil, listUnsubscribe: nil, listID: nil, precedence: nil,
+      senderAddress: "auto-confirm@amazon.com", sendingDomain: "amazon.com", dkimDomain: nil,
+      toRecipientCount: 1, ccRecipientCount: 0
+    )
+    let provenanceJSON = String(decoding: try JSONEncoder().encode(provenance), as: UTF8.self)
+    try database.write { db in
+      try #sql(
+        """
+        INSERT INTO "contentPieces" (id, kind, title, publisher, createdAt, emailTreatment)
+        VALUES (\(bind: pieceID), 'email', 'Ordered: 1 item', 'Amazon <auto-confirm@amazon.com>', '2026-09-28 00:00:00', 'personal')
+        """
+      ).execute(db)
+      try #sql(
+        """
+        INSERT INTO "artifacts" (id, transport, acquiredAt, providerProvenance, contentPieceID)
+        VALUES (\(bind: artifactID), 'gmail', '2026-09-28 00:00:00', \(bind: provenanceJSON), \(bind: pieceID))
+        """
+      ).execute(db)
+    }
+
+    try migrator.migrate(database)
+
+    let migrated = try database.read { db in try ContentPiece.find(pieceID).fetchOne(db) }
+    #expect(migrated?.emailTreatment == .transactional)
+    #expect(migrated?.emailTransactionalKind == .reference)
   }
 
   @Test("A manually flagged Stream routes its Gmail issues to grab-bag")

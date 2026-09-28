@@ -171,6 +171,7 @@ enum CockpitMigrations {
     registerGmailReadState(in: &migrator)
     registerGmailPromotions(in: &migrator)
     registerDailyLinks(in: &migrator)
+    registerTransactionalDetector(in: &migrator)
     return migrator
   }
 }

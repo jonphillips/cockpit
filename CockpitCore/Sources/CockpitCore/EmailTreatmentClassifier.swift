@@ -106,8 +106,14 @@ private extension EmailTreatmentClassifier {
       "reservation", "reservations", "shipping", "shippingnotification", "tracking", "delivery",
       "mailerdaemon",
     ]
+    let confirmationLocalParts = [
+      "orderupdate", "orderupdates", "ordersupport", "receipts", "confirmation", "confirmations",
+    ]
     return normalized.contains("noreply") || normalized.contains("donotreply")
-      || automatedLocalParts.contains(normalized) || hasCareOrHealthDomain(provenance)
+      || automatedLocalParts.contains(normalized)
+      || confirmationLocalParts.contains(normalized)
+      || ["autoconfirm", "confirm", "receipt"].contains(where: normalized.contains)
+      || hasCareOrHealthDomain(provenance)
       || hasFinanceSenderShape(provenance) || hasShipmentSenderShape(provenance)
   }
 
@@ -189,8 +195,10 @@ private extension EmailTreatmentClassifier {
 
   private static let referenceMarkers = [
     "booking confirmation", "confirmation number", "delivery update", "delivery notice",
-    "hotel confirmation", "invoice", "order confirmation", "payment received", "receipt",
-    "reservation confirmation", "shipment", "shipping notice", "trade-in",
+    "hotel confirmation", "invoice", "order confirmation", "order placed", "order confirmed",
+    "ordered:", "thanks for your order", "thank you for your order", "your receipt from",
+    "payment received", "receipt", "reservation confirmation", "shipment", "shipping notice",
+    "trade-in",
   ]
 
   private static let referenceWithAutomatedSenderMarkers = ["appointment", "estimate", "visit"]
