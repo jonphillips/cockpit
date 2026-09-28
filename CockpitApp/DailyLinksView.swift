@@ -10,7 +10,7 @@ struct DailyLinksMasthead: View {
       HStack(spacing: 7) {
         Text("DAILY")
           .font(Theme.sectionLabel)
-          .tracking(1.2)
+          .tracking(Theme.sectionLabelTracking)
           .foregroundStyle(Theme.inkTertiary)
         ViewThatFits(in: .horizontal) {
           ForEach((0...model.links.count).reversed(), id: \.self) { visibleCount in

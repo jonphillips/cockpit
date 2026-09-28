@@ -5,9 +5,25 @@ extension ReaderView {
   @ViewBuilder
   var readerDocument: some View {
     if let row = readerModel.row {
+      let isEmail = row.kind == .email
       VStack(alignment: .leading, spacing: 16) {
-        ReaderHeader(row: row, offlinePresentation: readerModel.offlinePresentation)
-          .readerEmailColumn(width: emailColumnWidth)
+        if isEmail {
+          ReaderEmailMasthead(
+            row: row,
+            kind: emailPresentationKind ?? .letter,
+            roleName: queueContext?.row.role.displayName ?? readerModel.currentTreatment?.displayName ?? "Message",
+            offlinePresentation: readerModel.offlinePresentation,
+            zoom: currentEmailZoom,
+            adjustText: { adjustEmailText(by: $0) },
+            fitText: { readerModel.resetEmailTextSize() },
+            canIncrease: canIncreaseEmailZoom,
+            canDecrease: canDecreaseEmailZoom,
+            canFit: readerModel.emailZoomAdjustmentStep != 0
+          )
+            .readerEmailColumn(width: emailColumnWidth)
+        } else {
+          ReaderHeader(row: row, offlinePresentation: readerModel.offlinePresentation)
+        }
 
         if let rationale = editionContext?.rationale, !rationale.isEmpty {
           ReaderRationaleView(rationale: rationale, matchedClaim: readerModel.matchedClaim) {
@@ -51,12 +67,39 @@ extension ReaderView {
           canonicalURL: row.canonicalURL,
           openURL: openURL,
           originalWebViewStore: originalWebViewStore,
+          emailKind: isEmail ? emailPresentationKind : nil,
+          emailZoom: currentEmailZoom,
           zoomAdjustmentStep: readerModel.emailZoomAdjustmentStep,
           isZoomPreferenceLoaded: readerModel.isEmailZoomPreferenceLoaded,
           magnify: handleEmailMagnification
         )
+        .readerEmailColumn(width: emailColumnWidth, kind: emailPresentationKind)
 
-        if isReachableStreamPiece { ReaderCustodyLine().readerEmailColumn(width: emailColumnWidth) }
+        if isReachableStreamPiece {
+          ReaderCustodyLine().readerEmailColumn(width: emailColumnWidth)
+        }
+        if let queueContext, queueContext.showsNextCard {
+          let isTail = queueContext.row.editionEntryID != nil
+          let actionTitle: String? = if isTail {
+            "Dismiss and continue"
+          } else if queueContext.row.isGmailSource {
+            "Archive and continue"
+          } else {
+            nil
+          }
+          ProcessNextCardView(
+            selectedRow: queueContext.row,
+            next: ProcessNextCard.after(queueContext.row.id, in: queueContext.model.rows),
+            actionTitle: actionTitle,
+            action: {
+              Task {
+                if isTail { await dismissEditionButtonTapped() }
+                else if queueContext.row.isGmailSource { await queueContext.archive() }
+              }
+            }
+          )
+          .readerEmailColumn(width: emailColumnWidth)
+        }
       }
       .padding()
     } else {
@@ -65,12 +108,39 @@ extension ReaderView {
   }
 
   var emailColumnWidth: CGFloat? {
-    guard case .html = readerModel.bodyPresentation, originalWebViewStore.viewportWidth > 0 else { return nil }
+    guard readerModel.row?.kind == .email else { return nil }
+    guard let kind = emailPresentationKind else { return nil }
+    if case .letter = kind {
+      return Theme.readingMeasure * CGFloat(currentEmailZoom)
+    }
+    guard originalWebViewStore.viewportWidth > 0 else { return nil }
     return CGFloat(EmailColumn.width(
       designWidth: originalWebViewStore.designWidth,
       viewportWidth: Double(originalWebViewStore.viewportWidth),
       adjustmentStep: readerModel.emailZoomAdjustmentStep
     ))
+  }
+
+  var emailPresentationKind: EmailPresentation.Kind? {
+    guard readerModel.row?.kind == .email else { return nil }
+    guard case .html = readerModel.bodyPresentation else { return .letter }
+    return originalWebViewStore.emailPresentationKind ?? .letter
+  }
+
+  var canIncreaseEmailZoom: Bool {
+    EmailFitZoom.canIncrease(
+      designWidth: originalWebViewStore.designWidth,
+      viewportWidth: Double(originalWebViewStore.viewportWidth),
+      adjustmentStep: readerModel.emailZoomAdjustmentStep
+    )
+  }
+
+  var canDecreaseEmailZoom: Bool {
+    EmailFitZoom.canDecrease(
+      designWidth: originalWebViewStore.designWidth,
+      viewportWidth: Double(originalWebViewStore.viewportWidth),
+      adjustmentStep: readerModel.emailZoomAdjustmentStep
+    )
   }
 
   var isHTMLReaderBody: Bool {

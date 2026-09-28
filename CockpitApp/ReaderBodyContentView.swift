@@ -11,6 +11,15 @@ extension View {
       self
     }
   }
+
+  @ViewBuilder
+  func readerEmailColumn(width: CGFloat?, kind: EmailPresentation.Kind?) -> some View {
+    if case .designed? = kind {
+      self
+    } else {
+      readerEmailColumn(width: width)
+    }
+  }
 }
 
 struct ReaderSummaryView: View {
@@ -40,9 +49,12 @@ struct ReaderBodyView: View {
   let canonicalURL: String?
   let openURL: OpenURLAction
   let originalWebViewStore: TodayOriginalWebViewStore
+  let emailKind: EmailPresentation.Kind?
+  let emailZoom: Double
   let zoomAdjustmentStep: Int
   let isZoomPreferenceLoaded: Bool
   let magnify: (CGFloat) -> Void
+  @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
     switch presentation {
@@ -50,15 +62,34 @@ struct ReaderBodyView: View {
       TodayOriginalWebView(webView: originalWebViewStore.webView)
         .frame(maxWidth: .infinity)
         .frame(height: originalWebViewStore.contentHeight)
-        .clipShape(.rect(cornerRadius: 12))
+        .clipShape(.rect(cornerRadius: emailKind.map {
+          if case .designed = $0 { return 0 }
+          return 12
+        } ?? 12))
+        .frame(maxWidth: emailKind.map { kind in
+          if case .letter = kind { return Theme.readingMeasure * CGFloat(emailZoom) }
+          return .infinity
+        } ?? .infinity)
+        .background(emailBackground)
         .onGeometryChange(for: CGFloat.self) { proxy in proxy.size.width } action: {
           originalWebViewStore.reportViewportWidth($0)
         }
         .simultaneousGesture(
           MagnifyGesture().onEnded { value in magnify(value.magnification) }
         )
-        .onAppear { loadHTMLIfReady(rawHTML, step: zoomAdjustmentStep) }
+        .onAppear {
+          originalWebViewStore.prepareForLoading(rawHTML: rawHTML)
+          loadHTMLIfReady(rawHTML, step: zoomAdjustmentStep)
+        }
+        .onAppear { configureEmailAppearance() }
+        .onChange(of: colorScheme) { _, _ in configureEmailAppearance() }
+        .onChange(of: emailKind) { _, _ in configureEmailAppearance() }
+        .onChange(of: originalWebViewStore.emailPresentationKind) { _, _ in configureEmailAppearance() }
+        .onChange(of: originalWebViewStore.supportsDarkAppearance) { _, _ in configureEmailAppearance() }
+        .onChange(of: originalWebViewStore.paintsOwnBackground) { _, _ in configureEmailAppearance() }
         .onChange(of: rawHTML) { _, newValue in
+          originalWebViewStore.prepareForLoading(rawHTML: newValue)
+          configureEmailAppearance()
           loadHTMLIfReady(newValue, step: zoomAdjustmentStep)
         }
         .onChange(of: zoomAdjustmentStep) { _, newValue in
@@ -93,6 +124,33 @@ struct ReaderBodyView: View {
     case .preview, .compactPreview:
       openOriginalButton
     }
+  }
+
+  private var emailBackground: Color {
+    guard let emailKind else { return .clear }
+    if case .designed = emailKind { return Theme.ground }
+    return .white
+  }
+
+  private func configureEmailAppearance() {
+    guard case .html = presentation, let emailKind else {
+      originalWebViewStore.webView.overrideUserInterfaceStyle = .unspecified
+      originalWebViewStore.webView.isOpaque = true
+      originalWebViewStore.webView.backgroundColor = .white
+      originalWebViewStore.webView.scrollView.backgroundColor = .white
+      return
+    }
+    let shouldFollowSystem = if case .designed = emailKind {
+      originalWebViewStore.supportsDarkAppearance
+    } else {
+      false
+    }
+    let usesDocumentBackground = originalWebViewStore.supportsDarkAppearance
+      || originalWebViewStore.paintsOwnBackground
+    originalWebViewStore.webView.overrideUserInterfaceStyle = shouldFollowSystem ? .unspecified : .light
+    originalWebViewStore.webView.isOpaque = !usesDocumentBackground
+    originalWebViewStore.webView.backgroundColor = usesDocumentBackground ? .clear : .white
+    originalWebViewStore.webView.scrollView.backgroundColor = usesDocumentBackground ? .clear : .white
   }
 
   private func loadHTMLIfReady(_ html: String, step: Int) {

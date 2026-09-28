@@ -105,17 +105,15 @@ struct ReaderDispositionToolbar: ToolbarContent {
 
 private extension ReaderDispositionToolbar {
   var textSizeMenu: some View {
-    Menu {
-      Button("Smaller", systemImage: "textformat.size.smaller", action: smallerEmailText)
-        .disabled(!canDecreaseEmailZoom)
-      Button("Larger", systemImage: "textformat.size.larger", action: largerEmailText)
-        .disabled(!canIncreaseEmailZoom)
-      Divider()
-      Button("Fit", systemImage: "arrow.left.and.right", action: resetEmailText)
-        .disabled(emailZoomStep == 0)
-    } label: {
-      Label("Text Size · \(Int((emailZoom * 100).rounded()))%", systemImage: "textformat.size")
-    }
+    EmailTextSizeMenu(
+      label: "Text Size · \(Int((emailZoom * 100).rounded()))%",
+      canIncrease: canIncreaseEmailZoom,
+      canDecrease: canDecreaseEmailZoom,
+      canFit: emailZoomStep != 0,
+      smaller: smallerEmailText,
+      larger: largerEmailText,
+      fit: resetEmailText
+    )
   }
 
   @ViewBuilder

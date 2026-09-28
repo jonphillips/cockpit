@@ -23,6 +23,7 @@ enum Theme {
   static let rowBylineSpacing: CGFloat = 1
 
   static let readingMeasure: CGFloat = 620
+  static let sectionLabelTracking: CGFloat = 1.6
 
   static let masthead = Font.custom("Newsreader16pt-Italic", size: 40, relativeTo: .largeTitle)
   static let leadHeadline = Font.custom("Newsreader16pt-Regular", size: 23, relativeTo: .title)
@@ -37,6 +38,8 @@ enum Theme {
     .weight(.medium)
   static let nextHeadline = Font.custom("Newsreader16pt-Regular", size: 21, relativeTo: .title)
     .weight(.medium)
+  static let publisher = Font.custom("Newsreader16pt-Regular", size: 12, relativeTo: .caption)
+    .weight(.semibold)
   static let lede = Font.custom("Newsreader16pt-Italic", size: 15.5, relativeTo: .body)
 
   static let sectionLabel = Font.caption2.weight(.bold)
