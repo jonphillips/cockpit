@@ -30,11 +30,13 @@ extension DependencyValues {
       try SQLiteData.defaultDatabase(configuration: configuration)
     }
     try CockpitMigrations.makeMigrator().migrate(database)
+    defaultDatabase = database
+    defaultSyncEngine = try CockpitCloudSync.makeSyncEngine(for: database)
+    // After the SyncEngine installs its change-tracking triggers, so the reclassified treatments
+    // reach devices that have no Gmail artifacts to reclassify from.
     try database.write { db in
       _ = try EmailTreatmentOperations.applyClassifierRevisionIfNeeded(in: db)
     }
-    defaultDatabase = database
-    defaultSyncEngine = try CockpitCloudSync.makeSyncEngine(for: database)
   }
 }
 

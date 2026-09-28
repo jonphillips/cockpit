@@ -46,7 +46,7 @@ struct EmailTreatmentTests {
       ).execute(db)
     }
 
-    try migrator.migrate(database, upTo: "M5 S3 transactional Gmail treatment")
+    try migrator.migrate(database)
     try database.read { db in
       let contentColumns = try #sql(
         "SELECT name FROM pragma_table_info('contentPieces')", as: String.self
@@ -60,9 +60,7 @@ struct EmailTreatmentTests {
       #expect(try ContentPiece.find(pieceID).fetchOne(db)?.emailTreatment == nil)
       #expect(try ContentPiece.find(pieceID).fetchOne(db)?.emailTransactionalKind == nil)
       #expect(try Stream.find(streamID).fetchOne(db)?.isGrabBag == false)
-      #expect(try #sql(
-        "SELECT providerProvenance FROM artifacts WHERE id = \(bind: artifactID)", as: String.self
-      ).fetchOne(db) == "{\"listID\":\"Feed Me\"}")
+      #expect(try Artifact.find(artifactID).fetchOne(db)?.providerProvenance == "{\"listID\":\"Feed Me\"}")
       #expect(try EmailSenderTreatmentOverride.fetchCount(db) == 0)
     }
   }
