@@ -1241,6 +1241,49 @@ placement), §30 (offer doors unchanged), Gate 4 D-F and the Highlights row
 
 ---
 
+## 32. Transactional corrections: Jon can move mail into Transactional, and the detector widens — RESOLVED (2026-09-27, Jon)
+
+**Evidence.** On 2026-09-27 an Amazon order acknowledgement ("Ordered: 1 item…") sat in For you, and
+Jon had no way to say it was miscategorized. The classifier's first rule treats mail as personal
+when it carries no List-ID or List-Unsubscribe, has at most two recipients, and comes from a sender
+address that doesn't look automated. That rule runs before any transactional check. Amazon's order
+mail most likely comes from `auto-confirm@amazon.com`, and "autoconfirm" isn't on the automated
+sender list, so the message reads as a person writing to Jon. Move to section can't help, because
+Gate 4 D-B made Transactional detection-only. The dormant per-sender override
+(`EmailSenderTreatmentOverride`) can't help either: nothing in the UI writes it, and the classifier
+consults it only *after* the personal rule.
+
+**Decision.**
+
+- **The detector widens (code, for everyone).** Order-confirmation senders and subjects that the
+  current lists miss become transactional. This is a deterministic rule change with tests, and it
+  never calls a model. Slice: `M6-today-additions.md` S-t8.
+- **Jon can move mail *into* Transactional (amends Gate 4 D-B).** Move to section offers Transactional
+  as a target for mail that isn't already transactional. Choosing it writes a **sender correction**
+  (the existing `EmailSenderTreatmentOverride` with treatment `transactional`) after a confirmation
+  that names the sender. It then reclassifies that sender's existing mail. The classifier consults a
+  transactional correction **first**, before the personal rule, or the correction couldn't catch the
+  case that motivated it. Slice: S-t9.
+- **Moving out stays blocked.** Mail the detector marks transactional still can't be moved out (D-B's
+  finance-safety reason stands). The only way out is removing Jon's *own* correction, from the same
+  menu or from Settings → Sub-feed routing, where every transactional correction is listed.
+- **It teaches nothing.** A correction is a standing rule for one sender address. It doesn't
+  generalize to other retailers, doesn't become Personal Knowledge or judgment input, and never
+  touches Gmail. The Settings list is the evidence the architect reviews when widening the detector
+  again; the detector gets smarter only through reviewed code changes (S-t8), never from Jon's moves.
+
+**Not decided here.** A general routing-correction table (a List-ID or sender plus an optional
+subject prefix, routed to one section) was discussed the same day for splitting a single-List-ID
+author such as Slow Boring. That would bring the repo close to a rules engine, which AGENTS.md
+forbids without an explicit product decision, so it is deferred. The first step is to check whether
+the publisher's own section settings make it unnecessary.
+
+**Relates to:** Gate 4 D-B (amended: moving *into* Transactional is allowed), §28 (read state
+unchanged), ADR-0002 D7 (disposition policies stay a closed enum; this changes routing, not
+disposition), AGENTS.md AI boundary and its no-rules-engine clause.
+
+---
+
 # Deliberately deferred decisions
 
 These are **not unresolved blockers**. They should wait for implementation/use evidence.

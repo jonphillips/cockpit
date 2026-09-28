@@ -1,4 +1,4 @@
-# M6 — Today additions (S-t1 … S-t7)
+# M6 — Today additions (S-t1 … S-t9)
 
 > **Build order, architect-recorded 2026-09-26 from Jon's product notes.** Four additions to the Today
 > surface and its Gmail intake. They don't reopen any Gate 4 decision (D-A–D-G) or anything in the
@@ -21,6 +21,11 @@ S-t3, but S-t3 is what gives it volume.
 **S-t7 (added 2026-09-27)** fixes a layout defect found on device in S-t6's card grid. It floats, and
 lands before `M6-morning-edition.md` S-v3 restyles the offer doors.
 
+**S-t8 and S-t9 (added 2026-09-27, DECISIONS §32)** fix transactional mail landing in For you. S-t8
+widens the deterministic detector (core only). S-t9 lets Jon move mail *into* Transactional as a
+per-sender correction. **S-t8 → S-t9:** both edit `EmailTreatmentClassifier`, so build them in that
+order. Both float against the S-v slices.
+
 **Styling.** Build every slice in default system styling. The visual pass for these surfaces belongs
 to the Today/email design process (house rule: arrange → behavior → foundation → per-surface
 adoption), not to these slices.
@@ -32,6 +37,8 @@ adoption), not to these slices.
 - [x] S-t5 — Offer hero image: pick the lead image from held email HTML
 - [x] S-t6 — Offer review mode: a door per offer role, a card grid, Keep, Trash all, one Undo
 - [ ] S-t7 — Offer hero sizing: a fixed 16:10 box the image fills, so cards stay inside their column
+- [ ] S-t8 — Transactional detector: order-confirmation senders and subjects the lists miss
+- [ ] S-t9 — Transactional corrections: move a sender into Transactional, listed in Settings
 
 ## Standing rules for every slice
 
@@ -486,3 +493,112 @@ Today door thumbnails hold 4:3.
 
 **Sequencing.** Touches `OfferReviewCard.swift` and `TodayLandingView.swift`. Floats, and is small.
 Build it before S-v3, which rewrites the door rendering. Branch: `m6/s-t7-offer-hero-sizing`.
+
+---
+
+### S-t8 — Transactional detector: order-confirmation senders and subjects the lists miss
+
+**Why.** DECISIONS §32. An Amazon order acknowledgement ("Ordered: 1 item…") landed in For you. In
+`EmailTreatmentClassifier.classify`, `isClearlyHumanOneToOne` wins first: no List-ID or
+List-Unsubscribe, at most two recipients, and a sender local part that `hasAutomatedSenderShape`
+doesn't recognize. Amazon's order mail most likely comes from `auto-confirm@amazon.com`. After
+`senderLocalPart` strips non-letters, that's `autoconfirm`, which isn't on the list. So the message is
+treated as a person writing to Jon, and no transactional marker is ever checked. The subject doesn't
+match either: "ordered" isn't a marker, and "your order" only counts with a shipment-shaped sender.
+
+**Build** (core only, `EmailTreatmentClassifier.swift`).
+- **Automated sender shape.** Recognize confirmation and receipt senders. Match local parts
+  **containing** `autoconfirm`, `confirm`, or `receipt`, and exact local parts such as `orderupdate`,
+  `orderupdates`, `ordersupport`, `receipts`, `confirmation`, `confirmations`. Keep the existing lists
+  and their matching style for everything else. Once the shape is automated and the mail isn't
+  publication mail, the existing fallback already returns `transactional` / `reference`.
+- **Order markers for publication-shaped mail.** Order confirmations sometimes carry List-Unsubscribe,
+  which makes them publication mail, so the sender rule alone won't catch them. Add reference markers
+  that need no sender shape: `ordered:`, `order placed`, `order confirmed`, `thanks for your order`,
+  `thank you for your order`, `your receipt from`. Keep them specific: `your order` stays
+  shipment-sender-gated as it is.
+- **Existing mail.** Already-ingested pieces keep their stored treatment until they're reclassified.
+  Find the path the last detector change used to reach existing mail. If there isn't one, add a
+  one-time migration that runs `EmailTreatmentOperations.reclassifyAll`. It's deterministic
+  classification, not learned state, and it never touches Gmail. Prove it moves a stored For-you order
+  acknowledgement to Transactional.
+
+**Prove (core).** Fixtures use invented senders, plus `auto-confirm@amazon.com`:
+- `auto-confirm@amazon.com`, subject "Ordered: 1 item", one recipient, no list headers → transactional.
+- The same message with List-Unsubscribe → transactional (reference marker).
+- `confirmations@shop.example`, "Your receipt from Example Shop" → transactional.
+- A person (`dana@example.com`, one recipient) writing "I ordered: the blue tiles" → personal. The
+  human rule still wins for human-shaped senders.
+- A newsletter with List-ID whose subject mentions "order" in passing ("Order of operations") →
+  unchanged.
+- Every existing classifier test passes unchanged.
+
+**Do not.** Call a model. Add a sender-reputation store or learn from Jon's corrections (S-t9's
+corrections are data, not detector input). Add retailer domains one by one where a local-part or
+subject rule covers them. Change the personal rule's recipient threshold.
+
+**Device-only risks (name them).** Jon's real order mail from other retailers. Anything still in For
+you after this slice is a candidate for S-t9's correction and for the next widening.
+
+**Done when.** On device, after upgrade, the Amazon order acknowledgement is in Transactional without
+any correction, and personal mail stays in For you.
+
+**Sequencing.** Touches `EmailTreatmentClassifier.swift`, possibly a migration, and tests. Before
+S-t9. Branch: `m6/s-t8-transactional-detector`.
+
+---
+
+### S-t9 — Transactional corrections: move a sender into Transactional, listed in Settings
+
+**Why.** DECISIONS §32, which amends Gate 4 D-B. However good the detector gets, the next retailer
+will slip past it, and Jon needs to be able to say "this is transactional". Moving *into*
+Transactional is the finance-safe direction. Moving detected mail out stays blocked.
+
+**Build.**
+- **Classifier (core).** In `EmailTreatmentClassifier.classify`, check for a `.transactional` sender
+  override **first**, before `isClearlyHumanOneToOne`, and return `transactional` / `reference`.
+  Other override treatments keep their current position (nothing writes them since the M6 routing
+  migration).
+- **Operations (core).** Use the existing `EmailTreatmentOperations.setSenderOverride(.transactional,
+  for:)` and `removeSenderOverride(for:)`. Both already reclassify. Expose them through the models
+  (`TodayModel`, and the Reader's model for its More menu), keyed by the piece's sender as
+  `EmailTreatmentOperations.classify` already derives it (`GmailHeaderParser.senderKey`). Also add a
+  small request that lists transactional corrections for Settings. Views don't touch the database.
+- **Move to section (app).** `MoveToSectionMenu` gains **Transactional** as a target for a piece
+  that isn't transactional. Choosing it shows a confirmation that names the scope: "Treat all mail from
+  auto-confirm@amazon.com as transactional?" Then it writes the correction and reloads Today and the
+  queue. For a piece that's transactional **because of Jon's correction**, the menu shows "Stop
+  treating this sender as transactional" (removes the correction). For a piece the **detector**
+  marked transactional, it keeps the disabled "Transactional is detected automatically". Keep
+  `TodayModel.moveToSection`'s `.transactional` guard: routing rules never carry the Transactional
+  role, and the correction is a treatment, not a route.
+- **Settings → Sub-feed routing.** Add a "Transactional corrections" section listing each corrected
+  sender, with swipe to remove. Removing reclassifies, and that sender's mail goes back to wherever
+  the detector and routing put it.
+
+**Prove (core).**
+- A `.transactional` correction beats the personal rule: a human-shaped one-recipient message from
+  the corrected sender classifies as transactional.
+- Setting the correction moves the sender's existing Today pieces into the Transactional section and
+  out of For you. Removing it moves them back.
+- A detector-transactional piece can't leave Transactional through `moveToSection` (existing guard,
+  still tested).
+- Nothing writes an override except the explicit operation (the existing law, reasserted in a test
+  that ingest leaves the table untouched).
+- No Gmail call happens for a correction.
+
+**Do not.** Add subject-pattern matching, List-ID-level transactional rules, or any other rule shape
+(§32 defers the general routing table). Let Jon move detector-transactional mail out. Feed
+corrections into the detector.
+
+**Device-only risks (name them).** The confirmation's wording with long sender addresses. How the
+menu reads for the three states: not transactional, corrected, detected.
+
+**Done when.** On device, Jon can move a miscategorized order mail into Transactional in two taps
+plus a confirmation. Its sender's later mail lands there too. The correction shows in Settings, and
+removing it puts things back.
+
+**Sequencing.** After S-t8 (both edit `EmailTreatmentClassifier.swift`). Touches the classifier,
+`EmailTreatment.swift`, `TodayModel.swift`, the Reader model, `TodayTreatmentMenu.swift`
+(`MoveToSectionMenu`), `SubfeedRoutingView.swift`, and tests. Branch:
+`m6/s-t9-transactional-corrections`.
