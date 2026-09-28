@@ -47,123 +47,6 @@ struct ProcessView: View {
   }
 }
 
-private struct ProcessQueueSidebar: View {
-  @Bindable var model: TodayReadingQueueModel
-  let didChangeQueue: @MainActor () async -> Void
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      queueProgress
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-
-      List(selection: $model.selectedContentPieceID) {
-        ForEach(model.sections) { section in
-          Section(section.role.displayName) {
-            ForEach(section.rows) { row in
-              TodayReadingQueueRow(
-                row: row,
-                archive: { dispose { await model.archive(row) } },
-                trash: { dispose { await model.trash(row) } }
-              )
-              .tag(row.id)
-              .id(row.id)
-            }
-          }
-        }
-      }
-      .overlay {
-        if model.rows.isEmpty {
-          ContentUnavailableView(
-            "Nothing in the Queue", systemImage: "checkmark.circle",
-            description: Text("The morning reading queue is clear."))
-        }
-      }
-    }
-    .navigationTitle("Process")
-    .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 420)
-    .toolbar {
-      ToolbarItemGroup(placement: .topBarLeading) {
-        Button("Previous", systemImage: "chevron.up") {
-          model.selectPrevious()
-        }
-        .disabled(!canSelectPrevious)
-
-        Button("Next", systemImage: "chevron.down") {
-          model.selectNext()
-        }
-        .disabled(!canSelectNext)
-      }
-
-      if let disposition = model.lastDisposition {
-        ToolbarItem(placement: .topBarTrailing) {
-          Button("Undo", systemImage: "arrow.uturn.backward") {
-            Task {
-              await model.undoLastDisposition()
-              await didChangeQueue()
-            }
-          }
-          .accessibilityLabel(
-            "Undo \(disposition.disposition == .archive ? "archive" : "trash") of \(disposition.title)"
-          )
-        }
-      }
-    }
-  }
-
-  @ViewBuilder
-  private var queueProgress: some View {
-    if let position = model.position {
-      VStack(alignment: .leading, spacing: 2) {
-        Text("\(position.index) of \(position.total)")
-          .font(.caption.monospacedDigit())
-          .foregroundStyle(.secondary)
-
-        if model.doneCount > 0 {
-          let roles = model.doneRoles.map(\.displayName).joined(separator: ", ")
-          Label {
-            Text(
-              roles.isEmpty
-                ? "\(model.doneCount) done"
-                : "\(model.doneCount) done · \(roles)"
-            )
-          } icon: {
-            Image(systemName: "checkmark")
-          }
-          .font(.caption)
-          .foregroundStyle(.secondary)
-        }
-      }
-    } else if model.doneCount > 0 {
-      Text("\(model.doneCount) done")
-        .font(.caption)
-        .foregroundStyle(.secondary)
-    }
-  }
-
-  private var selectedIndex: Int? {
-    guard let selectedContentPieceID = model.selectedContentPieceID else { return nil }
-    return model.rows.firstIndex { $0.id == selectedContentPieceID }
-  }
-
-  private var canSelectPrevious: Bool {
-    guard let selectedIndex else { return !model.rows.isEmpty }
-    return selectedIndex > model.rows.startIndex
-  }
-
-  private var canSelectNext: Bool {
-    guard let selectedIndex else { return !model.rows.isEmpty }
-    return model.rows.indices.contains(selectedIndex + 1)
-  }
-
-  private func dispose(_ operation: @escaping @MainActor () async -> Void) {
-    Task {
-      await operation()
-      await didChangeQueue()
-    }
-  }
-}
-
 private struct ProcessQueueDetail: View {
   @Bindable var model: TodayReadingQueueModel
   @Bindable var tailModel: EditionModel
@@ -188,12 +71,21 @@ private struct ProcessQueueDetail: View {
             }
           ),
           queueContext: ReaderQueueContext(
+            model: model,
+            row: row,
             archive: {
               await model.archive(row)
               await didChangeQueue()
             },
             trash: {
               await model.trash(row)
+              await didChangeQueue()
+            },
+            dismissTailAndContinue: {
+              guard let entryID = row.editionEntryID else { return }
+              await tailModel.dismiss(entryID)
+              guard tailModel.errorMessage == nil else { return }
+              await model.recordDismissed(row)
               await didChangeQueue()
             }
           ),

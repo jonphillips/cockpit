@@ -24,6 +24,7 @@ struct ReaderView: View {
     ScrollView {
       readerDocument
     }
+    .background(Theme.paper)
     .toolbar {
       readerToolbar
     }
@@ -192,8 +193,12 @@ struct EditionReaderContext {
 }
 
 struct ReaderQueueContext {
+  let model: TodayReadingQueueModel
+  let row: TodayReadingQueueRequest.Row
   let archive: @MainActor () async -> Void
   let trash: @MainActor () async -> Void
+  var dismissTailAndContinue: (@MainActor () async -> Void)? = nil
+  var showsNextCard = true
 }
 
 struct ReaderRationaleView: View {

@@ -20,6 +20,8 @@ struct TodayQuickLookSheet: View {
           didDismiss: { await model.recordDismissed(row) }
         ),
         queueContext: ReaderQueueContext(
+          model: model,
+          row: row,
           archive: {
             await model.archive(row)
             dismiss()
@@ -27,7 +29,8 @@ struct TodayQuickLookSheet: View {
           trash: {
             await model.trash(row)
             dismiss()
-          }
+          },
+          showsNextCard: false
         ),
         isReachableStreamPiece: row.isFollowedStreamPiece,
         originalWebViewStore: originalWebViewStore

@@ -40,9 +40,12 @@ struct ReaderBodyView: View {
   let canonicalURL: String?
   let openURL: OpenURLAction
   let originalWebViewStore: TodayOriginalWebViewStore
+  let emailKind: EmailPresentation.Kind?
+  let emailZoom: Double
   let zoomAdjustmentStep: Int
   let isZoomPreferenceLoaded: Bool
   let magnify: (CGFloat) -> Void
+  @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
     switch presentation {
@@ -50,7 +53,12 @@ struct ReaderBodyView: View {
       TodayOriginalWebView(webView: originalWebViewStore.webView)
         .frame(maxWidth: .infinity)
         .frame(height: originalWebViewStore.contentHeight)
-        .clipShape(.rect(cornerRadius: 12))
+        .frame(maxWidth: emailKind.map { kind in
+          if case .letter = kind { return Theme.readingMeasure * CGFloat(emailZoom) }
+          return .infinity
+        } ?? .infinity)
+        .padding(.horizontal, emailKind.map { if case .designed = $0 { return 12 }; return 0 } ?? 0)
+        .background(emailBackground)
         .onGeometryChange(for: CGFloat.self) { proxy in proxy.size.width } action: {
           originalWebViewStore.reportViewportWidth($0)
         }
@@ -58,6 +66,10 @@ struct ReaderBodyView: View {
           MagnifyGesture().onEnded { value in magnify(value.magnification) }
         )
         .onAppear { loadHTMLIfReady(rawHTML, step: zoomAdjustmentStep) }
+        .onAppear { configureEmailAppearance() }
+        .onChange(of: colorScheme) { _, _ in configureEmailAppearance() }
+        .onChange(of: originalWebViewStore.supportsDarkAppearance) { _, _ in configureEmailAppearance() }
+        .onChange(of: originalWebViewStore.letterSetsOwnColors) { _, _ in configureEmailAppearance() }
         .onChange(of: rawHTML) { _, newValue in
           loadHTMLIfReady(newValue, step: zoomAdjustmentStep)
         }
@@ -93,6 +105,23 @@ struct ReaderBodyView: View {
     case .preview, .compactPreview:
       openOriginalButton
     }
+  }
+
+  private var emailBackground: Color {
+    guard let emailKind else { return .clear }
+    if case .designed = emailKind { return Theme.ground }
+    return originalWebViewStore.letterSetsOwnColors ? .white : .clear
+  }
+
+  private func configureEmailAppearance() {
+    guard case .html = presentation else { return }
+    let designed = emailKind.map { if case .designed = $0 { return true }; return false } ?? false
+    let mustRenderLight = (designed && !originalWebViewStore.supportsDarkAppearance)
+      || (!designed && originalWebViewStore.letterSetsOwnColors)
+    originalWebViewStore.webView.overrideUserInterfaceStyle = mustRenderLight ? .light : .unspecified
+    originalWebViewStore.webView.isOpaque = mustRenderLight
+    originalWebViewStore.webView.backgroundColor = mustRenderLight ? .white : .clear
+    originalWebViewStore.webView.scrollView.backgroundColor = mustRenderLight ? .white : .clear
   }
 
   private func loadHTMLIfReady(_ html: String, step: Int) {

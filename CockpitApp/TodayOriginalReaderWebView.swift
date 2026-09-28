@@ -15,11 +15,13 @@ enum TodayOriginalHTML {
   struct SanitizedHTML {
     let html: String
     let designWidth: Double?
+    let supportsDarkAppearance: Bool
+    let letterSetsOwnColors: Bool
   }
 
   static func sanitizedForWebView(_ rawHTML: String, adjustmentStep: Int = 0) -> SanitizedHTML {
     guard let document = try? SwiftSoup.parse(rawHTML) else {
-      return SanitizedHTML(html: rawHTML, designWidth: nil)
+      return SanitizedHTML(html: rawHTML, designWidth: nil, supportsDarkAppearance: false, letterSetsOwnColors: false)
     }
     _ = try? document.select("script").remove()
     normalizeViewport(in: document)
@@ -33,7 +35,12 @@ enum TodayOriginalHTML {
     if !TodayOriginalReaderConfiguration.loadRemoteContent {
       removeRemoteContent(from: document)
     }
-    return SanitizedHTML(html: (try? document.html()) ?? rawHTML, designWidth: designWidth)
+    return SanitizedHTML(
+      html: (try? document.html()) ?? rawHTML,
+      designWidth: designWidth,
+      supportsDarkAppearance: EmailPresentation.supportsDarkAppearance(html: rawHTML),
+      letterSetsOwnColors: EmailPresentation.letterSetsOwnColors(html: rawHTML)
+    )
   }
 
   private static func normalizeViewport(in document: SwiftSoup.Document) {
@@ -103,6 +110,8 @@ final class TodayOriginalWebViewStore {
   private(set) var contentHeight: CGFloat = 44
   private(set) var designWidth: Double?
   private(set) var viewportWidth: CGFloat = 0
+  private(set) var supportsDarkAppearance = false
+  private(set) var letterSetsOwnColors = false
 
   init() {
     let configuration = WKWebViewConfiguration()
@@ -133,6 +142,8 @@ final class TodayOriginalWebViewStore {
   func load(rawHTML: String, adjustmentStep: Int = 0) {
     let sanitized = TodayOriginalHTML.sanitizedForWebView(rawHTML, adjustmentStep: adjustmentStep)
     designWidth = sanitized.designWidth
+    supportsDarkAppearance = sanitized.supportsDarkAppearance
+    letterSetsOwnColors = sanitized.letterSetsOwnColors
     guard loadedHTML != sanitized.html else { return }
     let isSameMessageAdjustment = loadedRawHTML == rawHTML && loadedAdjustmentStep != adjustmentStep
     webView.stopLoading()

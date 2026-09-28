@@ -5,24 +5,40 @@ extension ReaderView {
   @ViewBuilder
   var readerDocument: some View {
     if let row = readerModel.row {
+      let emailHTML = htmlBody
+      let isEmail = row.kind == .email
       VStack(alignment: .leading, spacing: 16) {
-        ReaderHeader(row: row, offlinePresentation: readerModel.offlinePresentation)
-          .readerEmailColumn(width: emailColumnWidth)
+        if isEmail {
+          ReaderEmailMasthead(
+            row: row,
+            kind: emailHTML.map(EmailPresentation.kind) ?? .letter,
+            roleName: queueContext?.row.role.displayName ?? readerModel.currentTreatment?.displayName ?? "Message",
+            zoom: currentEmailZoom,
+            adjustText: { adjustEmailText(by: $0) },
+            fitText: { readerModel.resetEmailTextSize() }
+          )
+            .readerEmailColumn(width: emailColumnWidth)
+        } else {
+          ReaderHeader(row: row, offlinePresentation: readerModel.offlinePresentation)
+            .readerEmailColumn(width: emailColumnWidth)
+        }
 
-        if let rationale = editionContext?.rationale, !rationale.isEmpty {
+        if !isEmail, let rationale = editionContext?.rationale, !rationale.isEmpty {
           ReaderRationaleView(rationale: rationale, matchedClaim: readerModel.matchedClaim) {
             correctingClaim = $0
           }
           .readerEmailColumn(width: emailColumnWidth)
         }
 
-        ReaderSummaryView(
-          summary: row.summary,
-          isCompactPreview: row.isSubstantivePrimary == false
-        )
-        .readerEmailColumn(width: emailColumnWidth)
+        if !isEmail {
+          ReaderSummaryView(
+            summary: row.summary,
+            isCompactPreview: row.isSubstantivePrimary == false
+          )
+          .readerEmailColumn(width: emailColumnWidth)
+        }
 
-        if let find = readerModel.pendingFind {
+        if !isEmail, let find = readerModel.pendingFind {
           PendingFindProposalCard(
             find: find,
             save: {
@@ -37,26 +53,47 @@ extension ReaderView {
           .readerEmailColumn(width: emailColumnWidth)
         }
 
-        ReaderClassificationStatus(
-          isSubstantivePrimary: row.isSubstantivePrimary,
-          bodyCompleteness: row.bodyCompleteness,
-          correct: { value in
-            Task { await readerModel.correctIsSubstantivePrimary(to: value) }
-          }
-        )
-        .readerEmailColumn(width: emailColumnWidth)
+        if !isEmail {
+          ReaderClassificationStatus(
+            isSubstantivePrimary: row.isSubstantivePrimary,
+            bodyCompleteness: row.bodyCompleteness,
+            correct: { value in
+              Task { await readerModel.correctIsSubstantivePrimary(to: value) }
+            }
+          )
+          .readerEmailColumn(width: emailColumnWidth)
+        }
 
         ReaderBodyView(
           presentation: readerModel.bodyPresentation,
           canonicalURL: row.canonicalURL,
           openURL: openURL,
           originalWebViewStore: originalWebViewStore,
+          emailKind: isEmail ? (emailHTML.map(EmailPresentation.kind) ?? .letter) : nil,
+          emailZoom: currentEmailZoom,
           zoomAdjustmentStep: readerModel.emailZoomAdjustmentStep,
           isZoomPreferenceLoaded: readerModel.isEmailZoomPreferenceLoaded,
           magnify: handleEmailMagnification
         )
+        .readerEmailColumn(width: emailColumnWidth)
 
-        if isReachableStreamPiece { ReaderCustodyLine().readerEmailColumn(width: emailColumnWidth) }
+        if isReachableStreamPiece || queueContext != nil {
+          ReaderCustodyLine().readerEmailColumn(width: emailColumnWidth)
+        }
+        if let queueContext, queueContext.showsNextCard {
+          ProcessNextCardView(
+            selectedRow: queueContext.row,
+            next: ProcessNextCard.after(queueContext.row.id, in: queueContext.model.rows),
+            actionTitle: editionContext == nil ? "Archive and continue" : "Dismiss and continue",
+            action: {
+              Task {
+                if editionContext != nil { await queueContext.dismissTailAndContinue?() }
+                else { await queueContext.archive() }
+              }
+            }
+          )
+          .readerEmailColumn(width: emailColumnWidth)
+        }
       }
       .padding()
     } else {
@@ -65,12 +102,22 @@ extension ReaderView {
   }
 
   var emailColumnWidth: CGFloat? {
-    guard case .html = readerModel.bodyPresentation, originalWebViewStore.viewportWidth > 0 else { return nil }
+    guard readerModel.row?.kind == .email else { return nil }
+    let kind = htmlBody.map(EmailPresentation.kind) ?? .letter
+    if case .letter = kind {
+      return Theme.readingMeasure * CGFloat(currentEmailZoom)
+    }
+    guard originalWebViewStore.viewportWidth > 0 else { return nil }
     return CGFloat(EmailColumn.width(
       designWidth: originalWebViewStore.designWidth,
       viewportWidth: Double(originalWebViewStore.viewportWidth),
       adjustmentStep: readerModel.emailZoomAdjustmentStep
     ))
+  }
+
+  var htmlBody: String? {
+    guard case let .html(html) = readerModel.bodyPresentation else { return nil }
+    return html
   }
 
   var isHTMLReaderBody: Bool {
