@@ -46,7 +46,7 @@ struct EmailTreatmentTests {
       ).execute(db)
     }
 
-    try migrator.migrate(database)
+    try migrator.migrate(database, upTo: "M5 S3 transactional Gmail treatment")
     try database.read { db in
       let contentColumns = try #sql(
         "SELECT name FROM pragma_table_info('contentPieces')", as: String.self
@@ -57,11 +57,12 @@ struct EmailTreatmentTests {
       #expect(contentColumns.contains("emailTreatment"))
       #expect(contentColumns.contains("emailTransactionalKind"))
       #expect(streamColumns.contains("isGrabBag"))
-      // The S-t8 upgrade now classifies retained Gmail rows after adding the detector markers.
-      #expect(try ContentPiece.find(pieceID).fetchOne(db)?.emailTreatment == .newsletter)
+      #expect(try ContentPiece.find(pieceID).fetchOne(db)?.emailTreatment == nil)
       #expect(try ContentPiece.find(pieceID).fetchOne(db)?.emailTransactionalKind == nil)
       #expect(try Stream.find(streamID).fetchOne(db)?.isGrabBag == false)
-      #expect(try Artifact.find(artifactID).fetchOne(db)?.providerProvenance == "{\"listID\":\"Feed Me\"}")
+      #expect(try #sql(
+        "SELECT providerProvenance FROM artifacts WHERE id = \(bind: artifactID)", as: String.self
+      ).fetchOne(db) == "{\"listID\":\"Feed Me\"}")
       #expect(try EmailSenderTreatmentOverride.fetchCount(db) == 0)
     }
   }
@@ -290,6 +291,11 @@ struct EmailTreatmentTests {
           subject: "Order of operations",
           extraHeaders: [GmailInboxHeader(name: "List-ID", value: "Operations Weekly <weekly.example>")]
         ),
+        message(
+          id: "summary-order-newsletter", from: "Daily News <brief@daily.example>",
+          subject: "Daily Brief",
+          extraHeaders: [GmailInboxHeader(name: "List-ID", value: "Daily News <daily.example>")]
+        ),
       ])
 
     let report = try await GmailInboxIngestor(
@@ -307,16 +313,26 @@ struct EmailTreatmentTests {
     let newsletter = report.contentPieces.first { $0.title == "Order of operations" }
     #expect(newsletter?.emailTreatment == .newsletter)
     #expect(newsletter?.emailTransactionalKind == nil)
+    let summaryNewsletter = try #require(
+      report.contentPieces.first { $0.title == "Daily Brief" })
+    let reclassifiedSummary = try await database.write { db in
+      try ContentPiece.find(summaryNewsletter.id).update {
+        $0.summary = #bind("A gag order placed on Tuesday was described in the article.")
+      }.execute(db)
+      return try EmailTreatmentOperations.classify(
+        emailContentPieceIDs: [summaryNewsletter.id], in: db).first
+    }
+    #expect(reclassifiedSummary?.emailTreatment == .newsletter)
+    #expect(reclassifiedSummary?.emailTransactionalKind == nil)
     let receipt = report.contentPieces.first { $0.title == "Your receipt from Example Shop" }
     #expect(receipt?.emailTreatment == .transactional)
     #expect(receipt?.emailTransactionalKind == .reference)
   }
 
-  @Test("S-t8 migration reclassifies previously stored For-you order mail once")
-  func transactionalDetectorMigrationReclassifiesExistingMail() throws {
-    let database = try SQLiteData.defaultDatabase()
+  @Test("S-t8 detector revision reclassifies existing order mail once")
+  func transactionalDetectorRevisionReclassifiesExistingMailOnce() async throws {
     let migrator = CockpitMigrations.makeMigrator()
-    try migrator.migrate(database, upTo: "Daily link thumbnails")
+    try migrator.migrate(database)
 
     let pieceID = UUID(9_101)
     let artifactID = UUID(9_102)
@@ -327,7 +343,7 @@ struct EmailTreatmentTests {
       toRecipientCount: 1, ccRecipientCount: 0
     )
     let provenanceJSON = String(decoding: try JSONEncoder().encode(provenance), as: UTF8.self)
-    try database.write { db in
+    try await database.write { db in
       try #sql(
         """
         INSERT INTO "contentPieces" (id, kind, title, publisher, createdAt, emailTreatment)
@@ -340,13 +356,41 @@ struct EmailTreatmentTests {
         VALUES (\(bind: artifactID), 'gmail', '2026-09-28 00:00:00', \(bind: provenanceJSON), \(bind: pieceID))
         """
       ).execute(db)
+      try #sql(
+        """
+        INSERT INTO "emailTreatmentClassifierState" ("singletonID", "revision")
+        VALUES (1, 1)
+        ON CONFLICT ("singletonID") DO UPDATE SET "revision" = excluded."revision"
+        """
+      ).execute(db)
     }
 
-    try migrator.migrate(database)
+    let didReclassify = try await database.write { db in
+      try EmailTreatmentOperations.applyClassifierRevisionIfNeeded(in: db)
+    }
+    #expect(didReclassify)
 
-    let migrated = try database.read { db in try ContentPiece.find(pieceID).fetchOne(db) }
+    let migrated = try await database.read { db in try ContentPiece.find(pieceID).fetchOne(db) }
     #expect(migrated?.emailTreatment == .transactional)
     #expect(migrated?.emailTransactionalKind == .reference)
+
+    try await database.write { db in
+      try ContentPiece.find(pieceID).update {
+        $0.emailTreatment = #bind(.personal)
+        $0.emailTransactionalKind = #bind(nil as EmailTransactionalKind?)
+      }.execute(db)
+    }
+    let didReclassifyAgain = try await database.write { db in
+      try EmailTreatmentOperations.applyClassifierRevisionIfNeeded(in: db)
+    }
+    #expect(!didReclassifyAgain)
+    let secondOpen = try await database.read { db in try ContentPiece.find(pieceID).fetchOne(db) }
+    #expect(secondOpen?.emailTreatment == .personal)
+    #expect(secondOpen?.emailTransactionalKind == nil)
+    let overrides = try await database.read { db in
+      try EmailSenderTreatmentOverride.all.fetchAll(db)
+    }
+    #expect(overrides.isEmpty)
   }
 
   @Test("A manually flagged Stream routes its Gmail issues to grab-bag")

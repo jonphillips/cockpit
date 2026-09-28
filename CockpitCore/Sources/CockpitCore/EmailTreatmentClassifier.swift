@@ -1,6 +1,9 @@
 import Foundation
 
 enum EmailTreatmentClassifier {
+  /// Bump whenever deterministic treatment rules change so existing mail is reclassified once.
+  static let revision = 2
+
   struct Classification {
     let treatment: EmailTreatment
     let transactionalKind: EmailTransactionalKind?
@@ -87,6 +90,7 @@ private extension EmailTreatmentClassifier {
       return .shipment
     }
     if referenceMarkers.contains(where: haystack.contains) { return .reference }
+    if orderReferenceMarkers.contains(where: piece.title.lowercased().contains) { return .reference }
     if referenceWithAutomatedSenderMarkers.contains(where: haystack.contains),
       hasAutomatedSenderShape(provenance)
     {
@@ -195,10 +199,13 @@ private extension EmailTreatmentClassifier {
 
   private static let referenceMarkers = [
     "booking confirmation", "confirmation number", "delivery update", "delivery notice",
-    "hotel confirmation", "invoice", "order confirmation", "order placed", "order confirmed",
-    "ordered:", "thanks for your order", "thank you for your order", "your receipt from",
-    "payment received", "receipt", "reservation confirmation", "shipment", "shipping notice",
-    "trade-in",
+    "hotel confirmation", "invoice", "order confirmation", "payment received", "receipt",
+    "reservation confirmation", "shipment", "shipping notice", "trade-in",
+  ]
+
+  private static let orderReferenceMarkers = [
+    "order placed", "order confirmed", "ordered:", "thanks for your order",
+    "thank you for your order", "your receipt from",
   ]
 
   private static let referenceWithAutomatedSenderMarkers = ["appointment", "estimate", "visit"]

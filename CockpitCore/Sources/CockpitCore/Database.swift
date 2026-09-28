@@ -30,6 +30,9 @@ extension DependencyValues {
       try SQLiteData.defaultDatabase(configuration: configuration)
     }
     try CockpitMigrations.makeMigrator().migrate(database)
+    try database.write { db in
+      _ = try EmailTreatmentOperations.applyClassifierRevisionIfNeeded(in: db)
+    }
     defaultDatabase = database
     defaultSyncEngine = try CockpitCloudSync.makeSyncEngine(for: database)
   }
@@ -171,7 +174,7 @@ enum CockpitMigrations {
     registerGmailReadState(in: &migrator)
     registerGmailPromotions(in: &migrator)
     registerDailyLinks(in: &migrator)
-    registerTransactionalDetector(in: &migrator)
+    registerEmailTreatmentClassifierRevision(in: &migrator)
     return migrator
   }
 }
