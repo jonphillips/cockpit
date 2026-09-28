@@ -5,36 +5,43 @@ struct HeadlineRow: View {
   let byline: String
   let time: String
   var isUnread = false
+  var detail: String? = nil
+  var showsTopRule = true
 
   var body: some View {
     HStack(alignment: .top, spacing: 10) {
       VStack(alignment: .leading, spacing: Theme.rowBylineSpacing) {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-          if isUnread {
-            Circle()
-              .fill(Theme.accent)
-              .frame(width: 6, height: 6)
-              .accessibilityLabel("Unread")
-          }
-          Text(title)
-            .font(Theme.headline)
-            .foregroundStyle(Theme.ink)
-            .lineLimit(2)
-        }
+        HeadlineText(title: title, isUnread: isUnread)
+          .font(Theme.headline)
+          .foregroundStyle(Theme.ink)
+          .lineLimit(2)
         Text(byline)
           .font(Theme.byline)
           .foregroundStyle(Theme.inkSecondary)
+        if let detail, !detail.isEmpty {
+          Text(detail)
+            .font(Theme.byline)
+            .foregroundStyle(Theme.inkTertiary)
+            .lineLimit(2)
+        }
       }
 
       Spacer(minLength: 0)
 
-      Text(time)
-        .font(Theme.meta)
-        .foregroundStyle(Theme.inkTertiary)
-        .padding(.top, 2)
+      if !time.isEmpty {
+        Text(time)
+          .font(Theme.meta)
+          .foregroundStyle(Theme.inkTertiary)
+          .padding(.top, 2)
+      }
     }
     .padding(.top, Theme.rowTopPadding)
     .padding(.bottom, Theme.rowBottomPadding)
+    .overlay(alignment: .top) {
+      if showsTopRule {
+        Rectangle().fill(Theme.rule).frame(height: 1)
+      }
+    }
     .accessibilityElement(children: .combine)
   }
 }

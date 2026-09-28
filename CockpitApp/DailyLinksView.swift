@@ -1,44 +1,91 @@
 import CockpitCore
 import SwiftUI
 
-struct DailyLinksColumn: View {
+struct DailyLinksMasthead: View {
   @Bindable var model: DailyLinkModel
   @Environment(\.openURL) private var openURL
 
   var body: some View {
     TimelineView(.periodic(from: .now, by: 60)) { context in
-      VStack(spacing: 14) {
-        ForEach(model.links) { link in
-          let visited = link.isVisited(on: context.date)
-          Button {
-            open(link)
-          } label: {
-            VStack(spacing: 2) {
-              DailyLinkGlyph(link: link, size: 36)
-                .saturation(visited ? 0 : 1)
-              if visited {
-                Image(systemName: "checkmark")
-                  .font(.system(size: 9, weight: .bold))
-              } else {
-                Color.clear.frame(height: 9)
-              }
-            }
-            .foregroundStyle(visited ? .secondary : .primary)
-            .frame(width: 56)
-            .contentShape(Rectangle())
-          }
-          .buttonStyle(.plain)
-          .opacity(visited ? 0.55 : 1)
-          .accessibilityLabel(link.title)
-          .help(link.title)
-          .contextMenu {
-            Button("Open \(link.title)", systemImage: link.symbolName) { open(link) }
+      HStack(spacing: 7) {
+        Text("DAILY")
+          .font(Theme.sectionLabel)
+          .tracking(1.2)
+          .foregroundStyle(Theme.inkTertiary)
+        ViewThatFits(in: .horizontal) {
+          ForEach((0...model.links.count).reversed(), id: \.self) { visibleCount in
+            chipLine(visibleCount: visibleCount, date: context.date)
           }
         }
-        Spacer(minLength: 0)
       }
-      .padding(.top, 62)
-      .frame(width: 56)
+    }
+  }
+
+  @ViewBuilder
+  private func chipLine(visibleCount: Int, date: Date) -> some View {
+    HStack(spacing: 6) {
+      ForEach(Array(model.links.prefix(visibleCount))) { link in
+        chip(link, date: date)
+      }
+      if visibleCount < model.links.count {
+        overflowMenu(from: visibleCount, date: date)
+      }
+    }
+    .fixedSize(horizontal: true, vertical: false)
+  }
+
+  private func chip(_ link: DailyLink, date: Date) -> some View {
+    let visited = link.isVisited(on: date)
+    return Button { open(link) } label: {
+      HStack(spacing: 6) {
+        DailyLinkGlyph(link: link, size: 20)
+        Text(link.title)
+          .font(Theme.byline)
+          .lineLimit(1)
+        if visited {
+          Image(systemName: "checkmark")
+            .font(.system(size: 10, weight: .bold))
+            .foregroundStyle(Theme.accent)
+        }
+      }
+      .foregroundStyle(Theme.ink)
+      .padding(.horizontal, 7)
+      .padding(.vertical, 4)
+      .background(Theme.paperSecondary, in: RoundedRectangle(cornerRadius: 7))
+      .overlay {
+        RoundedRectangle(cornerRadius: 7).stroke(Theme.rule, lineWidth: 1)
+      }
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .opacity(visited ? 0.76 : 1)
+    .accessibilityLabel(visited ? "\(link.title), visited today" : link.title)
+  }
+
+  private func overflowMenu(from index: Int, date: Date) -> some View {
+    Menu {
+      ForEach(Array(model.links.dropFirst(index))) { link in
+        openButton(link, date: date)
+      }
+    } label: {
+      Image(systemName: "ellipsis")
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(Theme.inkSecondary)
+        .frame(width: 30, height: 28)
+        .background(Theme.paperSecondary, in: RoundedRectangle(cornerRadius: 7))
+        .overlay { RoundedRectangle(cornerRadius: 7).stroke(Theme.rule, lineWidth: 1) }
+    }
+    .accessibilityLabel("More daily links")
+  }
+
+  @ViewBuilder
+  private func openButton(_ link: DailyLink, date: Date) -> some View {
+    if link.isVisited(on: date) {
+      Button { open(link) } label: {
+        Label(link.title, systemImage: "checkmark")
+      }
+    } else {
+      Button(link.title, systemImage: link.symbolName) { open(link) }
     }
   }
 

@@ -39,7 +39,6 @@ struct TodayView: View {
             description: Text("Loose Gmail messages and screened tail stories will appear here."))
         }
       }
-      .navigationTitle("Today")
       .toolbar { todayToolbar }
     }
     .sheet(isPresented: $isShowingRecentTrashes) {
