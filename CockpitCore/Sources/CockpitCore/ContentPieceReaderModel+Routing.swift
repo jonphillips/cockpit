@@ -3,6 +3,7 @@ import SQLiteData
 
 extension ContentPieceReaderModel {
   public var currentSender: String? { row?.senderHeader }
+  public var currentSenderKey: String? { row?.senderKey }
   public var currentTreatment: EmailTreatment? { row?.emailTreatment }
   public var isReplyAvailable: Bool {
     isGmailSource && (resolvedContentRole == .forYou || resolvedContentRole == .transactional)
@@ -51,24 +52,7 @@ extension ContentPieceReaderModel {
   /// Moves the current email by its canonical locator, or explicitly corrects its sender.
   public func moveToSection(to role: ContentRole) async {
     guard let id = row?.id else { return }
-    if role == .transactional {
-      guard let sender = row?.senderHeader else {
-        errorMessage = "This message has no sender address to correct."
-        return
-      }
-      do {
-        try await database.write { db in
-          _ = try EmailTreatmentOperations.setSenderOverride(.transactional, for: sender, in: db)
-        }
-        try await $content.load()
-        await loadRoutingResolution()
-        errorMessage = nil
-      } catch is CancellationError {
-      } catch {
-        errorMessage = error.localizedDescription
-      }
-      return
-    }
+    guard role != .transactional else { return }
     do {
       let locator = try await database.write { db -> String? in
         let resolution = try CurationRouting.resolution(for: id, in: db)
@@ -94,6 +78,24 @@ extension ContentPieceReaderModel {
         }.value
         try? await self?.$content.load()
       }
+    } catch is CancellationError {
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  public func correctSenderAsTransactional() async {
+    guard let sender = row?.senderHeader else {
+      errorMessage = "This message has no sender address to correct."
+      return
+    }
+    do {
+      try await database.write { db in
+        _ = try EmailTreatmentOperations.setSenderOverride(.transactional, for: sender, in: db)
+      }
+      try await $content.load()
+      await loadRoutingResolution()
+      errorMessage = nil
     } catch is CancellationError {
     } catch {
       errorMessage = error.localizedDescription

@@ -9,6 +9,7 @@ struct ReaderDispositionToolbar: ToolbarContent {
   var queueContext: ReaderQueueContext? = nil
   var openReply: () -> Void = {}
   var openMail: () -> Void = {}
+  var requestTransactionalCorrection: () -> Void = {}
   var openTeaching: () -> Void = {}
   var sendToYesChef: () async -> Void = {}
   var archiveSource: () async -> Void = {}
@@ -143,10 +144,12 @@ private extension ReaderDispositionToolbar {
           currentRole: model.currentRoutingRule?.role ?? model.resolvedContentRole ?? .forYou,
           isTransactional: model.currentTreatment == .transactional,
           isTransactionalCorrection: model.isTransactionalCorrection,
-          sender: model.currentSender ?? "this sender",
-          isAvailable: model.resolvedRoutingLocator != nil
+          isAvailable: model.resolvedRoutingLocator != nil,
+          canCorrectSender: model.currentSenderKey != nil
         ) { role in
           Task { await model.moveToSection(to: role) }
+        } requestTransactionalCorrection: {
+          requestTransactionalCorrection()
         } removeTransactionalCorrection: {
           Task { await model.removeTransactionalCorrection() }
         }

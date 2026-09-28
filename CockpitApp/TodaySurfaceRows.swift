@@ -8,6 +8,7 @@ struct TodayRoleSectionView: View {
   let readerNamespace: Namespace.ID
   let didChangeQueue: @MainActor () async -> Void
   let openQuickLook: (ContentPiece.ID) -> Void
+  @State private var pendingTransactionalCorrection: TodayRequest.Row?
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
@@ -21,6 +22,24 @@ struct TodayRoleSectionView: View {
           emailRow(row, showsTopRule: hasLead ? index > 1 : index > 0)
         }
       }
+    }
+    .confirmationDialog(
+      "Treat all mail from \(pendingTransactionalCorrection?.senderKey ?? "this sender") as transactional?",
+      isPresented: Binding(
+        get: { pendingTransactionalCorrection != nil },
+        set: { if !$0 { pendingTransactionalCorrection = nil } }
+      ),
+      titleVisibility: .visible
+    ) {
+      Button("Treat Sender as Transactional") {
+        guard let row = pendingTransactionalCorrection else { return }
+        pendingTransactionalCorrection = nil
+        Task {
+          await model.correctSenderAsTransactional(row.id)
+          await didChangeQueue()
+        }
+      }
+      Button("Cancel", role: .cancel) { pendingTransactionalCorrection = nil }
     }
   }
 
@@ -96,13 +115,14 @@ private extension TodayRoleSectionView {
     MoveToSectionMenu(
       currentRole: row.role,
       isTransactional: row.treatment == .transactional,
-      isTransactionalCorrection: row.isTransactionalCorrection,
-      sender: row.senderHeader
+      isTransactionalCorrection: row.isTransactionalCorrection
     ) { role in
       Task {
         await model.moveToSection(row.id, to: role)
         await didChangeQueue()
       }
+    } requestTransactionalCorrection: {
+      pendingTransactionalCorrection = row
     } removeTransactionalCorrection: {
       Task {
         await model.removeTransactionalCorrection(for: row.senderHeader)

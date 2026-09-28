@@ -27,6 +27,7 @@ public struct TodayRequest: FetchKeyRequest {
     }
     public var sender: String { SenderDisplayName.make(from: creator ?? publisher) }
     public var senderHeader: String { creator ?? publisher }
+    public var senderKey: String? { GmailHeaderParser.senderKey(from: senderHeader) }
 
     public var grabBagItems: [GrabBagItem] {
       guard let grabBagItemsJSON,
@@ -96,7 +97,7 @@ public struct TodayRequest: FetchKeyRequest {
       let sender = piece.creator ?? piece.publisher
       let senderKey = GmailHeaderParser.senderKey(from: sender)
       let isTransactionalCorrection = senderKey.map(transactionalCorrectionSenders.contains) ?? false
-      let role: ContentRole = treatment == .transactional ? .transactional : (routing.role(for: piece.id) ?? .forYou)
+      let role = routing.role(for: piece.id) ?? .forYou
       return Row(
         id: piece.id, title: piece.title, creator: piece.creator, publisher: piece.publisher,
         summary: piece.summary,

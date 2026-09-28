@@ -20,11 +20,11 @@ struct MoveToSectionMenu: View {
   let currentRole: ContentRole
   let isTransactional: Bool
   var isTransactionalCorrection = false
-  var sender = "this sender"
   var isAvailable = true
+  var canCorrectSender = true
   let move: (ContentRole) -> Void
+  var requestTransactionalCorrection: () -> Void = {}
   var removeTransactionalCorrection: () -> Void = {}
-  @State private var confirmsTransactionalCorrection = false
 
   private let routingRoles = ContentRole.allCases.filter { $0 != .transactional }
 
@@ -46,21 +46,13 @@ struct MoveToSectionMenu: View {
           } label: {
             Label(role.displayName, systemImage: currentRole == role ? "checkmark" : "circle")
           }
-          .disabled(currentRole == role)
+          .disabled(!isAvailable || currentRole == role)
         }
         Button("Transactional", systemImage: "creditcard") {
-          confirmsTransactionalCorrection = true
+          requestTransactionalCorrection()
         }
+        .disabled(!canCorrectSender)
       }
     }
-    .confirmationDialog(
-      "Treat all mail from \(sender) as transactional?",
-      isPresented: $confirmsTransactionalCorrection,
-      titleVisibility: .visible
-    ) {
-      Button("Treat Sender as Transactional") { move(.transactional) }
-      Button("Cancel", role: .cancel) {}
-    }
-    .disabled(!isAvailable)
   }
 }

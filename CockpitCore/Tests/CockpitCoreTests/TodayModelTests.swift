@@ -4,6 +4,7 @@ import Dependencies
 import DependenciesTestSupport
 import Foundation
 import SQLiteData
+import Synchronization
 import Testing
 
 @Suite(.serialized, .dependencies {
@@ -125,26 +126,56 @@ struct TodayModelTests {
       publisher: "Maya <maya@example.com>",
       providerProvenance: "{\"accountID\":\"jon@example.com\",\"messageID\":\"transactional-move\",\"threadID\":\"thread\",\"senderAddress\":\"maya@example.com\",\"toRecipientCount\":1,\"ccRecipientCount\":0}")
 
+    let calls = TransactionalCorrectionCallLog()
+    try await withDependencies { $0.gmailDispositionClient = calls.client } operation: {
+      let model = TodayModel()
+      try await model.$content.load()
+      let row = try #require(model.content.rows.first)
+      #expect(row.role == .forYou)
+      #expect(row.treatment == .personal)
+
+      await model.correctSenderAsTransactional(row.id)
+      let corrected = try #require(model.content.rows.first { $0.id == pieceID })
+      #expect(corrected.role == .transactional)
+      #expect(corrected.treatment == .transactional)
+      #expect(corrected.isTransactionalCorrection)
+      #expect(model.errorMessage == nil)
+
+      await model.removeTransactionalCorrection(for: corrected.senderHeader)
+      let restored = try #require(model.content.rows.first { $0.id == pieceID })
+      #expect(restored.role == .forYou)
+      #expect(restored.treatment == .personal)
+      #expect(!restored.isTransactionalCorrection)
+    }
+    #expect(calls.calls.isEmpty)
+  }
+
+  @Test("Detector transactionals cannot be routed or corrected by moveToSection")
+  func detectorTransactionalMoveGuard() async throws {
+    let pieceID = UUID(7_403)
+    _ = try await seed(
+      pieceID, treatment: .transactional, receivedAt: 9_992,
+      publisher: "Confirmations <confirm@shop.example>",
+      providerProvenance: "{\"accountID\":\"jon@example.com\",\"messageID\":\"detected-transactional\",\"threadID\":\"thread\",\"senderAddress\":\"confirm@shop.example\",\"toRecipientCount\":1,\"ccRecipientCount\":0}")
+    try await database.write { db in
+      _ = try EmailTreatmentOperations.classify(emailContentPieceIDs: [pieceID], in: db)
+    }
+
     let model = TodayModel()
     try await model.$content.load()
-    let row = try #require(model.content.rows.first)
-    #expect(row.role == .forYou)
-    #expect(row.treatment == .personal)
+    await model.moveToSection(pieceID, to: .wine)
+    await model.moveToSection(pieceID, to: .transactional)
 
-    await model.moveToSection(row.id, to: .transactional)
-
-    let corrected = try #require(model.content.rows.first { $0.id == pieceID })
-    #expect(corrected.role == .transactional)
-    #expect(corrected.treatment == .transactional)
-    #expect(corrected.isTransactionalCorrection)
-    #expect(model.errorMessage == nil)
-
-    await model.removeTransactionalCorrection(for: corrected.senderHeader)
-
-    let restored = try #require(model.content.rows.first { $0.id == pieceID })
-    #expect(restored.role == .forYou)
-    #expect(restored.treatment == .personal)
-    #expect(!restored.isTransactionalCorrection)
+    #expect(model.content.rows.first?.treatment == .transactional)
+    #expect(model.content.rows.first?.role == .transactional)
+    let persisted = try await database.read { db in
+      (
+        try ContentRoleRoutingRule.find("confirm@shop.example").fetchOne(db),
+        try EmailSenderTreatmentOverride.find("confirm@shop.example").fetchOne(db)
+      )
+    }
+    #expect(persisted.0 == nil)
+    #expect(persisted.1 == nil)
   }
 
   @discardableResult
@@ -174,4 +205,20 @@ struct TodayModelTests {
     }
     return artifactID
   }
+}
+
+private final class TransactionalCorrectionCallLog: Sendable {
+  private let entries = Mutex<[String]>([])
+  var calls: [String] { entries.withLock { $0 } }
+
+  var client: GmailDispositionClient {
+    GmailDispositionClient(
+      archive: { self.record("archive:\($0)") },
+      trash: { self.record("trash:\($0)") },
+      reAddInbox: { self.record("reAddInbox:\($0)") },
+      untrash: { self.record("untrash:\($0)") }
+    )
+  }
+
+  private func record(_ call: String) { entries.withLock { $0.append(call) } }
 }
