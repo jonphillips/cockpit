@@ -16,6 +16,7 @@ struct ReaderView: View {
   @State var offlineSheet: OfflineAvailabilitySheet?
   @State var replySheet: ReaderReplySheet?
   @State var isShowingTeaching = false
+  @State private var isConfirmingTransactionalCorrection = false
 
   var readerModel: ContentPieceReaderModel { model }
 
@@ -27,6 +28,16 @@ struct ReaderView: View {
     .background(Theme.paper)
     .toolbar {
       readerToolbar
+    }
+    .confirmationDialog(
+      "Treat all mail from \(model.currentSenderKey ?? "this sender") as transactional?",
+      isPresented: $isConfirmingTransactionalCorrection,
+      titleVisibility: .visible
+    ) {
+      Button("Treat Sender as Transactional") {
+        Task { await model.correctSenderAsTransactional() }
+      }
+      Button("Cancel", role: .cancel) {}
     }
     .background {
       VStack {
@@ -91,6 +102,7 @@ private extension ReaderView {
       queueContext: queueContext,
       openReply: openReply,
       openMail: openMail,
+      requestTransactionalCorrection: { isConfirmingTransactionalCorrection = true },
       openTeaching: { isShowingTeaching = true },
       sendToYesChef: sendReaderFindToYesChef,
       archiveSource: archiveReaderSource,

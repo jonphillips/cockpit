@@ -72,6 +72,8 @@ public struct ContentPieceReaderRequest: FetchKeyRequest {
     }
 
     public var sender: String { SenderDisplayName.make(from: creator ?? publisher) }
+    public var senderHeader: String { creator ?? publisher }
+    public var senderKey: String? { GmailHeaderParser.senderKey(from: senderHeader) }
   }
 
   public struct Value: Equatable, Sendable {

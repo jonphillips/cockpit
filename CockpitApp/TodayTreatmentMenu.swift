@@ -19,16 +19,26 @@ struct GmailDispositionButtons: View {
 struct MoveToSectionMenu: View {
   let currentRole: ContentRole
   let isTransactional: Bool
+  var isTransactionalCorrection = false
   var isAvailable = true
+  var canCorrectSender = true
   let move: (ContentRole) -> Void
+  var requestTransactionalCorrection: () -> Void = {}
+  var removeTransactionalCorrection: () -> Void = {}
 
   private let routingRoles = ContentRole.allCases.filter { $0 != .transactional }
 
   var body: some View {
     Menu("Move to section…", systemImage: "arrow.right") {
       if isTransactional {
-        Button("Transactional is detected automatically") {}
-          .disabled(true)
+        if isTransactionalCorrection {
+          Button("Stop treating this sender as transactional", role: .destructive) {
+            removeTransactionalCorrection()
+          }
+        } else {
+          Button("Transactional is detected automatically") {}
+            .disabled(true)
+        }
       } else {
         ForEach(routingRoles, id: \.self) { role in
           Button {
@@ -36,10 +46,13 @@ struct MoveToSectionMenu: View {
           } label: {
             Label(role.displayName, systemImage: currentRole == role ? "checkmark" : "circle")
           }
-          .disabled(currentRole == role)
+          .disabled(!isAvailable || currentRole == role)
         }
+        Button("Transactional", systemImage: "creditcard") {
+          requestTransactionalCorrection()
+        }
+        .disabled(!canCorrectSender)
       }
     }
-    .disabled(!isAvailable)
   }
 }

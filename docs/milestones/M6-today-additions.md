@@ -38,7 +38,7 @@ adoption), not to these slices.
 - [x] S-t6 — Offer review mode: a door per offer role, a card grid, Keep, Trash all, one Undo
 - [x] S-t7 — Offer hero sizing: a fixed 16:10 box the image fills, so cards stay inside their column
 - [x] S-t8 — Transactional detector: order-confirmation senders and subjects the lists miss
-- [ ] S-t9 — Transactional corrections: move a sender into Transactional, listed in Settings
+- [x] S-t9 — Transactional corrections: move a sender into Transactional, listed in Settings
 
 ## Standing rules for every slice
 

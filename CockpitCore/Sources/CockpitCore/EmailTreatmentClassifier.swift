@@ -15,6 +15,11 @@ enum EmailTreatmentClassifier {
     stream: Stream?,
     override: EmailSenderTreatmentOverride?
   ) -> Classification {
+    // Only the transactional override is allowed to precede the human one-to-one rule. Other
+    // override treatments retain their existing position in the hierarchy.
+    if override?.treatment == .transactional {
+      return .init(treatment: .transactional, transactionalKind: .reference)
+    }
     if isClearlyHumanOneToOne(provenance) { return .init(treatment: .personal, transactionalKind: nil) }
     if let kind = transactionalKind(for: piece, provenance: provenance) {
       return .init(treatment: .transactional, transactionalKind: kind)

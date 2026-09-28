@@ -86,6 +86,47 @@ struct ContentPieceReaderModelTests {
     expectNoDifference(model.currentRoutingRule?.role, .opinion)
   }
 
+  @Test("Reader corrects and releases a sender's Transactional treatment")
+  func readerTransactionalCorrection() async throws {
+    let pieceID = UUID(9_050)
+    let provenance = GmailArtifactProvenance(
+      accountID: "jon@example.com", messageID: "reader-transactional", threadID: "thread",
+      rfcMessageID: nil, listUnsubscribe: nil, listID: nil, precedence: nil,
+      senderAddress: "maya@example.com", sendingDomain: "example.com", dkimDomain: nil,
+      toRecipientCount: 1, ccRecipientCount: 0)
+    let provenanceJSON = String(data: try JSONEncoder().encode(provenance), encoding: .utf8)
+    try await database.write { db in
+      try ContentPiece.insert {
+        ContentPiece.Draft(ContentPiece(
+          id: pieceID, kind: .email, title: "A note from Maya",
+          creator: "Maya <maya@example.com>", publisher: "Maya",
+          emailTreatment: .personal, createdAt: .distantPast))
+      }.execute(db)
+      try Artifact.insert {
+        Artifact.Draft(Artifact(
+          id: UUID(9_051), transport: .gmail, acquiredAt: .distantPast,
+          providerProvenance: provenanceJSON, contentPieceID: pieceID))
+      }.execute(db)
+    }
+
+    let model = ContentPieceReaderModel(contentPieceID: pieceID)
+    try await model.$content.load()
+    await model.loadRoutingResolution()
+    #expect(model.currentTreatment == .personal)
+    #expect(!model.isTransactionalCorrection)
+    #expect(model.currentSenderKey == "maya@example.com")
+
+    await model.correctSenderAsTransactional()
+    #expect(model.currentTreatment == .transactional)
+    #expect(model.isTransactionalCorrection)
+    #expect(model.errorMessage == nil)
+
+    await model.removeTransactionalCorrection()
+    #expect(model.currentTreatment == .personal)
+    #expect(!model.isTransactionalCorrection)
+    #expect(model.errorMessage == nil)
+  }
+
   @Test("Reader renders a locally held full body inline")
   func fullBodyPresentation() async throws {
     let pieceID = UUID(9010)
