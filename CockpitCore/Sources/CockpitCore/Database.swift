@@ -32,6 +32,11 @@ extension DependencyValues {
     try CockpitMigrations.makeMigrator().migrate(database)
     defaultDatabase = database
     defaultSyncEngine = try CockpitCloudSync.makeSyncEngine(for: database)
+    // After the SyncEngine installs its change-tracking triggers, so the reclassified treatments
+    // reach devices that have no Gmail artifacts to reclassify from.
+    try database.write { db in
+      _ = try EmailTreatmentOperations.applyClassifierRevisionIfNeeded(in: db)
+    }
   }
 }
 
@@ -171,6 +176,7 @@ enum CockpitMigrations {
     registerGmailReadState(in: &migrator)
     registerGmailPromotions(in: &migrator)
     registerDailyLinks(in: &migrator)
+    registerEmailTreatmentClassifierRevision(in: &migrator)
     return migrator
   }
 }

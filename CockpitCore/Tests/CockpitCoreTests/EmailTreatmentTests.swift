@@ -268,6 +268,129 @@ struct EmailTreatmentTests {
     expectNoDifference(correctedByTitle["A note from Weck Jars"]?.emailTransactionalKind, nil)
   }
 
+  @Test("Order confirmations classify transactionally without misclassifying people or newsletters")
+  func orderConfirmationsUseSenderAndSpecificSubjectMarkers() async throws {
+    let snapshot = GmailInboxSnapshot(
+      accountID: "jon@example.com",
+      messages: [
+        message(
+          id: "amazon-order", from: "Amazon <auto-confirm@amazon.com>", subject: "Ordered: 1 item"),
+        message(
+          id: "amazon-listed-order", from: "Amazon <auto-confirm@amazon.com>", subject: "Ordered: 1 item",
+          extraHeaders: [GmailInboxHeader(name: "List-Unsubscribe", value: "<https://example.com/unsubscribe>")]
+        ),
+        message(
+          id: "shop-receipt", from: "Example Shop <confirmations@shop.example>",
+          subject: "Your receipt from Example Shop"),
+        message(
+          id: "human-ordered", from: "Dana <dana@example.com>", subject: "I ordered: the blue tiles"),
+        message(
+          id: "newsletter-order", from: "Operations Weekly <weekly@newsletter.example>",
+          subject: "Order of operations",
+          extraHeaders: [GmailInboxHeader(name: "List-ID", value: "Operations Weekly <weekly.example>")]
+        ),
+        message(
+          id: "summary-order-newsletter", from: "Daily News <brief@daily.example>",
+          subject: "Daily Brief",
+          extraHeaders: [GmailInboxHeader(name: "List-ID", value: "Daily News <daily.example>")]
+        ),
+      ])
+
+    let report = try await GmailInboxIngestor(
+      client: GmailInboxClient(currentInbox: { snapshot }), now: { .distantPast }
+    ).ingest(into: database)
+    let amazonOrders = report.contentPieces.filter { $0.title == "Ordered: 1 item" }
+    #expect(amazonOrders.count == 2)
+    for piece in amazonOrders {
+      #expect(piece.emailTreatment == .transactional)
+      #expect(piece.emailTransactionalKind == .reference)
+    }
+    let humanMessage = report.contentPieces.first { $0.title == "I ordered: the blue tiles" }
+    #expect(humanMessage?.emailTreatment == .personal)
+    #expect(humanMessage?.emailTransactionalKind == nil)
+    let newsletter = report.contentPieces.first { $0.title == "Order of operations" }
+    #expect(newsletter?.emailTreatment == .newsletter)
+    #expect(newsletter?.emailTransactionalKind == nil)
+    let summaryNewsletter = try #require(
+      report.contentPieces.first { $0.title == "Daily Brief" })
+    let reclassifiedSummary = try await database.write { db in
+      try ContentPiece.find(summaryNewsletter.id).update {
+        $0.summary = #bind("A gag order placed on Tuesday was described in the article.")
+      }.execute(db)
+      return try EmailTreatmentOperations.classify(
+        emailContentPieceIDs: [summaryNewsletter.id], in: db).first
+    }
+    #expect(reclassifiedSummary?.emailTreatment == .newsletter)
+    #expect(reclassifiedSummary?.emailTransactionalKind == nil)
+    let receipt = report.contentPieces.first { $0.title == "Your receipt from Example Shop" }
+    #expect(receipt?.emailTreatment == .transactional)
+    #expect(receipt?.emailTransactionalKind == .reference)
+  }
+
+  @Test("S-t8 detector revision reclassifies existing order mail once")
+  func transactionalDetectorRevisionReclassifiesExistingMailOnce() async throws {
+    let migrator = CockpitMigrations.makeMigrator()
+    try migrator.migrate(database)
+
+    let pieceID = UUID(9_101)
+    let artifactID = UUID(9_102)
+    let provenance = GmailArtifactProvenance(
+      accountID: "jon@example.com", messageID: "amazon-order", threadID: "thread-amazon-order",
+      rfcMessageID: nil, listUnsubscribe: nil, listID: nil, precedence: nil,
+      senderAddress: "auto-confirm@amazon.com", sendingDomain: "amazon.com", dkimDomain: nil,
+      toRecipientCount: 1, ccRecipientCount: 0
+    )
+    let provenanceJSON = String(decoding: try JSONEncoder().encode(provenance), as: UTF8.self)
+    try await database.write { db in
+      try #sql(
+        """
+        INSERT INTO "contentPieces" (id, kind, title, publisher, createdAt, emailTreatment)
+        VALUES (\(bind: pieceID), 'email', 'Ordered: 1 item', 'Amazon <auto-confirm@amazon.com>', '2026-09-28 00:00:00', 'personal')
+        """
+      ).execute(db)
+      try #sql(
+        """
+        INSERT INTO "artifacts" (id, transport, acquiredAt, providerProvenance, contentPieceID)
+        VALUES (\(bind: artifactID), 'gmail', '2026-09-28 00:00:00', \(bind: provenanceJSON), \(bind: pieceID))
+        """
+      ).execute(db)
+      try #sql(
+        """
+        INSERT INTO "emailTreatmentClassifierState" ("singletonID", "revision")
+        VALUES (1, 1)
+        ON CONFLICT ("singletonID") DO UPDATE SET "revision" = excluded."revision"
+        """
+      ).execute(db)
+    }
+
+    let didReclassify = try await database.write { db in
+      try EmailTreatmentOperations.applyClassifierRevisionIfNeeded(in: db)
+    }
+    #expect(didReclassify)
+
+    let migrated = try await database.read { db in try ContentPiece.find(pieceID).fetchOne(db) }
+    #expect(migrated?.emailTreatment == .transactional)
+    #expect(migrated?.emailTransactionalKind == .reference)
+
+    try await database.write { db in
+      try ContentPiece.find(pieceID).update {
+        $0.emailTreatment = #bind(.personal)
+        $0.emailTransactionalKind = #bind(nil as EmailTransactionalKind?)
+      }.execute(db)
+    }
+    let didReclassifyAgain = try await database.write { db in
+      try EmailTreatmentOperations.applyClassifierRevisionIfNeeded(in: db)
+    }
+    #expect(!didReclassifyAgain)
+    let secondOpen = try await database.read { db in try ContentPiece.find(pieceID).fetchOne(db) }
+    #expect(secondOpen?.emailTreatment == .personal)
+    #expect(secondOpen?.emailTransactionalKind == nil)
+    let overrides = try await database.read { db in
+      try EmailSenderTreatmentOverride.all.fetchAll(db)
+    }
+    #expect(overrides.isEmpty)
+  }
+
   @Test("A manually flagged Stream routes its Gmail issues to grab-bag")
   func grabBagIsAnExplicitStreamSetting() async throws {
     let snapshot = GmailInboxSnapshot(

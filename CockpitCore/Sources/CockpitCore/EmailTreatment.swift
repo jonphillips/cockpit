@@ -72,6 +72,27 @@ public enum EmailTreatmentOperations {
     return try classify(emailContentPieceIDs: ids, in: db)
   }
 
+  /// Applies the current deterministic detector revision once. The caller wraps this operation in
+  /// a database write transaction so classification and the revision marker commit atomically.
+  @discardableResult
+  public static func applyClassifierRevisionIfNeeded(in db: Database) throws -> Bool {
+    let appliedRevision = try #sql(
+      "SELECT revision FROM \"emailTreatmentClassifierState\" WHERE \"singletonID\" = 1",
+      as: Int.self
+    ).fetchOne(db) ?? 0
+    guard appliedRevision < EmailTreatmentClassifier.revision else { return false }
+
+    try reclassifyAll(in: db)
+    try #sql(
+      """
+      INSERT INTO "emailTreatmentClassifierState" ("singletonID", "revision")
+      VALUES (1, \(bind: EmailTreatmentClassifier.revision))
+      ON CONFLICT ("singletonID") DO UPDATE SET "revision" = excluded."revision"
+      """
+    ).execute(db)
+    return true
+  }
+
   /// Stores a correction that wins over deterministic routing, then updates already-ingested mail
   /// from the same sender. Calling this method is the required explicit user action.
   @discardableResult
