@@ -19,16 +19,29 @@ struct EmailPresentationTests {
     #expect(!EmailPresentation.supportsDarkAppearance(html: "<p>Hello</p>"))
   }
 
-  @Test("own background detection includes legacy, inline, and stylesheet backgrounds")
-  func ownBackground() {
+  @Test("page background counts html, body, and the wrapper chain only")
+  func pageBackground() {
     #expect(!EmailPresentation.paintsOwnBackground(html: "<p>Hello</p>"))
     #expect(!EmailPresentation.paintsOwnBackground(html: "<p style='color: #123'>Hello</p>"))
-    #expect(EmailPresentation.paintsOwnBackground(html: "<table bgcolor='white'><tr><td>Hello</td></tr></table>"))
-    #expect(EmailPresentation.paintsOwnBackground(html: "<p style='background: white'>Hello</p>"))
-    #expect(EmailPresentation.paintsOwnBackground(html: "<p style='background-color: white'>Hello</p>"))
-    #expect(EmailPresentation.paintsOwnBackground(html: "<style>div { background: white }</style><div>Hello</div>"))
-    #expect(EmailPresentation.paintsOwnBackground(html: "<style>div { background-color: white }</style><div>Hello</div>"))
+    #expect(EmailPresentation.paintsOwnBackground(html: "<body style='background-color: #f4f4f4'><p>Hello</p></body>"))
+    #expect(EmailPresentation.paintsOwnBackground(html: "<body><center><table bgcolor='white'><tr><td>Hello</td></tr></table></center></body>"))
+    #expect(EmailPresentation.paintsOwnBackground(html: "<style>body { background-color: #fff }</style><p>Hello</p>"))
+    #expect(EmailPresentation.paintsOwnBackground(html: "<style>html body { background: #eee !important }</style><p>Hello</p>"))
   }
+
+  @Test("backgrounds that don't cover the page are not a page background")
+  func notPageBackground() {
+    let buttonBelowBranch = """
+      <body><table width='600'><tr><td><p>Body text</p></td></tr>
+      <tr><td bgcolor='#c00' style='background-color: #c00'>Read more</td></tr></table></body>
+      """
+    #expect(!EmailPresentation.paintsOwnBackground(html: buttonBelowBranch))
+    #expect(!EmailPresentation.paintsOwnBackground(html: "<body style='background: none'><p>Hello</p></body>"))
+    #expect(!EmailPresentation.paintsOwnBackground(html: "<body style='background-color: transparent'><p>Hello</p></body>"))
+    #expect(!EmailPresentation.paintsOwnBackground(html: "<style>.card { background: white }</style><div class='card'>Hi</div><p>Hello</p>"))
+    #expect(!EmailPresentation.paintsOwnBackground(html: "<style>body table { background: white }</style><p>Hello</p>"))
+  }
+
 }
 
 struct ProcessNextCardTests {

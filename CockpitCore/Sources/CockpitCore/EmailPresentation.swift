@@ -47,17 +47,6 @@ public enum EmailPresentation {
     return paintsOwnBackground(in: document)
   }
 
-  public static func paintsOwnBackground(in document: Document) -> Bool {
-    let elements: [Element] = (try? document.select("*").array()) ?? []
-    for element in elements {
-      if hasNonemptyAttribute("bgcolor", on: element) { return true }
-    }
-    for css in cssTexts(in: document) {
-      if hasBackgroundDeclaration(in: css) { return true }
-    }
-    return false
-  }
-
   private static func cssTexts(in document: Document) -> [String] {
     var result: [String] = []
     let styles: [Element] = (try? document.select("style").array()) ?? []
@@ -83,16 +72,82 @@ public enum EmailPresentation {
     )
     return schemeRange != nil
   }
+}
 
-  private static func hasNonemptyAttribute(_ name: String, on element: Element) -> Bool {
-    guard let value = try? element.attr(name) else { return false }
-    return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+// MARK: - Page background
+
+extension EmailPresentation {
+  /// A page background only: `html`, `body`, or the wrapper chain below `body`. A background on a
+  /// button or callout cell doesn't count, because body text can sit outside it. A miss costs only the
+  /// paper-on-Ground look; a false positive would put black text on dark Ground.
+  public static func paintsOwnBackground(in document: Document) -> Bool {
+    var candidates: [Element] = []
+    if let root = document.children().first() { candidates.append(root) }
+    candidates.append(contentsOf: wrapperChain(in: document))
+    if candidates.contains(where: paintsBackground) { return true }
+
+    let styles: [Element] = (try? document.select("style").array()) ?? []
+    return styles.contains { style in
+      guard let css = try? style.html() else { return false }
+      return stylesheetPaintsPageBackground(css)
+    }
   }
 
-  private static func hasBackgroundDeclaration(in css: String) -> Bool {
-    css.range(
-      of: #"(?:^|[;{\s])background(?:-color)?\s*:\s*[^;}]+"#,
-      options: [.regularExpression, .caseInsensitive]
-    ) != nil
+  /// `body`, then each only rendered child, ending at the first element that branches.
+  private static func wrapperChain(in document: Document) -> [Element] {
+    guard var element = document.body() else { return [] }
+    var chain = [element]
+    while true {
+      let children = element.children().array().filter { !nonRenderingTags.contains($0.tagName().lowercased()) }
+      guard children.count == 1, let only = children.first else { return chain }
+      element = only
+      chain.append(element)
+    }
+  }
+
+  private static let nonRenderingTags: Set<String> = ["style", "script", "meta", "link", "title"]
+
+  private static func paintsBackground(_ element: Element) -> Bool {
+    if let color = try? element.attr("bgcolor"), paintsColor(color) { return true }
+    let style = (try? element.attr("style")) ?? ""
+    return style.split(separator: ";").contains { declaration in
+      let parts = declaration.split(separator: ":", maxSplits: 1)
+      guard parts.count == 2 else { return false }
+      let property = parts[0].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+      guard property == "background" || property == "background-color" else { return false }
+      return paintsColor(String(parts[1]))
+    }
+  }
+
+  private static func paintsColor(_ value: String) -> Bool {
+    let value = value.lowercased()
+      .replacingOccurrences(of: "!important", with: "")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    // A bare image may not load (remote content is off by default), so it doesn't count.
+    guard !value.isEmpty, !value.hasPrefix("url(") else { return false }
+    return !["none", "transparent", "inherit", "initial", "unset"].contains(value)
+  }
+
+  /// Innermost `selector { declarations }` blocks whose subject is `html` or `body`.
+  private static func stylesheetPaintsPageBackground(_ css: String) -> Bool {
+    guard let rule = try? NSRegularExpression(pattern: #"([^{}]+)\{([^{}]*)\}"#) else { return false }
+    let range = NSRange(css.startIndex..., in: css)
+    return rule.matches(in: css, range: range).contains { match in
+      guard let selectors = Range(match.range(at: 1), in: css),
+        let declarations = Range(match.range(at: 2), in: css)
+      else { return false }
+      let targetsPage = css[selectors].split(separator: ",").contains { selector in
+        let subject = selector.split(whereSeparator: { " >+~\n\t".contains($0) }).last ?? ""
+        let tag = subject.prefix { $0.isLetter }.lowercased()
+        return tag == "html" || tag == "body"
+      }
+      guard targetsPage else { return false }
+      return css[declarations].split(separator: ";").contains { declaration in
+        let parts = declaration.split(separator: ":", maxSplits: 1)
+        guard parts.count == 2 else { return false }
+        let property = parts[0].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return (property == "background" || property == "background-color") && paintsColor(String(parts[1]))
+      }
+    }
   }
 }
