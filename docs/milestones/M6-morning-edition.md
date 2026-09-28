@@ -411,6 +411,11 @@ slice. Don't quietly revert it.
 | Unread dot as the only read-state mark | S-v3 | §28 presentation (S-t2's bold) | bold plus dot |
 | Teaching as a toolbar button that opens a sheet | S-v2 | S-r2's inline Tell Cockpit | none expected: the inline field was the §31 evidence |
 
+**S-v2 device pass: passed (Jon, 2026-09-27).** Covered tab-switch timing for series trash, five
+tabs in `.sidebarAdaptable`, Process scroll position and selection across tab switches, "Process
+from here" on a series piece landing untrashed, and Delete typed in the Teach and Reply sheets not
+archiving.
+
 Also for the device pass:
 - **Keyboard shortcuts in Process.** The mockup labels "Archive and continue" ⌘↓, but ⌘↓ is
   scroll-to-end inside a web view. Choose shortcuts for Previous / Next / Archive and continue on device,

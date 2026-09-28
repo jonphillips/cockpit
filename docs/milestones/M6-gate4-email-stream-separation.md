@@ -189,8 +189,10 @@ Settings-buried stub.
   transactional mail must be its own second section and overrides locator routing, including mute;
   this deliberately amends S-d0a's "no section derived from treatment alone" for this per-message
   finance-safety exception. Device-eval correction: “Move to section” is the sole correction UI;
-  transactional stays detection-only, while moving a locator to Grab-bag or Offers also enables its
-  matching extraction schema without changing treatment-based Gmail disposition safety.
+  transactional stays detection-only (**amended 2026-09-27 by DECISIONS §32:** Jon may move mail
+  *into* Transactional as a per-sender correction; moving detected transactional mail out stays
+  blocked), while moving a locator to Grab-bag or Offers also enables its matching extraction schema
+  without changing treatment-based Gmail disposition safety.
 
 - **D-C — Publishers pick apart; authors stay whole (answers Q-C; scopes the classifier fork).** A
   *sender is not a Stream and a Stream is not a section.* An author feed (Yglesias) is 1:1 sender =
