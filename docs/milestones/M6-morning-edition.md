@@ -345,22 +345,31 @@ below. Letters with no design of their own get a width cap and margins applied f
   small caps, date, and a trailing text-size capsule showing the current per-sender size (e.g. "115%
   for this sender"). A tap on the capsule opens the existing Text Size menu. The existing ⌘+ / ⌘− / ⌘0
   shortcuts stay.
-- **Dark mode.** A designed email renders as its sender made it: light, as a sheet of paper on the
-  dark `Ground`, unless the HTML declares dark support (a `color-scheme` meta or a
-  `prefers-color-scheme` media query; detect it statically in core). A letter follows the system
-  appearance **only if** its HTML sets no text or background colors of its own (a static check in core).
-  Otherwise it renders light, on a light panel. Neither case modifies the email.
+- **Dark mode.** Emails aren't adapted for dark mode (§31, amended 2026-09-28), and nothing is added
+  to the HTML to make them follow it. A designed email renders as its sender made it: light, as a
+  sheet of paper on the dark `Ground`, unless the HTML declares dark support. That means a
+  `color-scheme` or `supported-color-schemes` meta, a CSS `color-scheme` that includes `dark`, or a
+  `prefers-color-scheme: dark` media query in any form. Detect it statically in core. The web view is
+  transparent only when the email declares dark support or paints a background of its own (`bgcolor`,
+  or a `background`/`background-color` declaration, inline or in `<style>`). Otherwise it gets an
+  opaque white backing, so default black text never lands on dark `Ground`. A letter always renders
+  light, on a light panel.
 - **Footer** (after the email, same width as the email or letter column): the custody line
   (`ReaderCustodyLine`, restyled), then in Process only a **next card**. The card shows "Next in
   {role} · k of n" (position within that role's section), the next headline in `nextHeadline`, and its
   source, with a trailing **Archive and continue** (`.borderedProminent`). That's the existing
-  archive-and-advance. For Tail pieces it's **Dismiss and continue**. With no next item, the card
-  says the queue is clear.
+  archive-and-advance, offered only for a Gmail-sourced piece, as in the toolbar. For Tail pieces
+  it's **Dismiss and continue**, through the same dismiss path as the toolbar. Any other piece gets no
+  action button. With no next item, the card says "End of the queue". It doesn't say "the queue is
+  clear", because earlier items can still be undone.
 - **Process sidebar.** `PaperSecondary` background. "This morning" in `queueTitle` with the S-v2
   position ("8 of 17") in `meta`, and the S-v2 done line ("7 done · For you, Transactional, Daily news")
   with an `accent` check. Section headers use a smaller `sectionLabel` with counts. Rows are
-  `queueHeadline` and byline, with time trailing. The current row is `Paper` with a 1pt `Rule` inset,
-  in place of the system selection highlight. Everything else is the system list.
+  `queueHeadline` and byline, with time trailing, keeping the unread dot and the followed-stream
+  mark. The current row is `Paper` with a 1pt `Rule` inset, set through `.listRowBackground`. The
+  list keeps `List(selection:)`, because selection drives the collapsed split view's push, keyboard
+  navigation, and VoiceOver. If the system highlight still draws over the treatment on device, the
+  highlight wins and the device pass records it. Everything else is the system list.
 - **Quick-look sheet.** It gets the same header or strip, body, and custody line as the Process
   reader, without the next card. Its toolbar is the system's.
 - **Toolbar.** The S-v2 order, system-styled. The leading action is `.borderedProminent` (Reply for
@@ -370,20 +379,23 @@ below. Letters with no design of their own get a width cap and margins applied f
 - `EmailPresentation.kind`: a 600px-table newsletter fixture is `.designed(600)`. A bare
   `<p>`/`<ul>` letter is `.letter`. A plain-text body is `.letter`. Reuse `EmailDesignWidth` fixtures
   where they fit.
-- Dark-support detection: true for `<meta name="color-scheme" content="light dark">` and for an
-  `@media (prefers-color-scheme: dark)` block. False for neither.
-- Letter self-coloring detection: false for a bare letter, true when `body`/`p` carries an inline
-  `color` or `background`.
+- Dark-support detection: true for a `color-scheme` or `supported-color-schemes` meta that includes
+  `dark`, for `@media (prefers-color-scheme: dark)` and `@media screen and (prefers-color-scheme:
+  dark)`, and for a CSS `color-scheme: light dark`. False for none of these.
+- Own-background detection: false for a bare letter or a table with no background. True for `bgcolor`,
+  and for an inline or stylesheet `background` or `background-color`.
 - Next-card data: for the selected piece, the next queue row, its role's section position, and the
-  "queue clear" case at the end.
+  end-of-queue case.
 
 **Do not.** Inject CSS, change fonts, or reflow any email. Invert or darken a designed email. Cap a
 designed email's width. Build the asks strip, date chips, or attachment chips. Theme the toolbar or
 sheet chrome.
 
-**Device-only risks (name them).** The letter measure at each text size. Dark-mode letters with odd
-inline colors. The strip's alignment with the email's left edge (S-r8's rule). A web view frame cap
-against Split View widths.
+**Device-only risks (name them).** The letter measure at each text size. The strip's alignment with
+the email's left edge (S-r8's rule). A web view frame cap against Split View widths, and newsletters
+at those widths. In dark mode, a newsletter that declares dark support, one that paints its own
+background, and one that does neither. An HTML article in dark mode. The collapsed split view pushing
+to the reader. Whether the system selection highlight covers the current-row treatment.
 
 **Done when.** The Process tab (letter and newsletter, top and end of issue) and the quick-look sheet
 match `docs/mockups/morning-edition.html` on device, in light and dark, apart from the elements the
