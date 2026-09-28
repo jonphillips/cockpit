@@ -1228,7 +1228,10 @@ the slices can be built:
   per-role, so §30's doors are unchanged in substance.
 - **Letter or designed is a static test on the HTML** (`EmailDesignWidth` finds a design width or it
   doesn't), never role or sender. A designed email renders as sent, and light unless it declares dark
-  support. A letter follows the system appearance only when it sets no colors of its own.
+  support. A letter always renders light. *(Amended 2026-09-28, Jon, in the S-v4 review: emails are
+  not adapted for dark mode. The earlier rule, where a letter followed the system when it set no
+  colors of its own, would have needed a `color-scheme` meta added to the email, and §25 rules that
+  out.)*
 - **Not built:** the "Asks for a reply" chip, the asks strip with dates, attachment chips, the
   masthead's asks count, and a Today search. The ask chip, the asks strip, and the asks count wait on
   their own entry ("Not decided here" above). Attachment names from the MIME parts would be
