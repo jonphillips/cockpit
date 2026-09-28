@@ -350,10 +350,17 @@ below. Letters with no design of their own get a width cap and margins applied f
   sheet of paper on the dark `Ground`, unless the HTML declares dark support. That means a
   `color-scheme` or `supported-color-schemes` meta, a CSS `color-scheme` that includes `dark`, or a
   `prefers-color-scheme: dark` media query in any form. Detect it statically in core. The web view is
-  transparent only when the email declares dark support or paints a background of its own (`bgcolor`,
-  or a `background`/`background-color` declaration, inline or in `<style>`). Otherwise it gets an
-  opaque white backing, so default black text never lands on dark `Ground`. A letter always renders
-  light, on a light panel.
+  transparent only when the email declares dark support or paints its own page background. Otherwise
+  it gets an opaque white backing, so default black text never lands on dark `Ground`. A letter always
+  renders light, on a light panel.
+  - *Page background* means a non-transparent background on `html`, on `body`, or on the wrapper
+    chain. The wrapper chain starts at `body` and keeps descending while the current element has
+    exactly one element child, and it includes the element where it branches. The background can be
+    `bgcolor`, or an inline `background`/`background-color` other than `none`/`transparent`/`inherit`.
+    In a `<style>` block, only a rule whose selector targets `html` or `body` counts.
+  - A background on a button or callout cell doesn't count, because body text can sit outside it.
+  - When in doubt, the answer is "no". A miss only costs the paper-on-`Ground` look, while a false
+    "yes" puts black text on dark `Ground`.
 - **Footer** (after the email, same width as the email or letter column): the custody line
   (`ReaderCustodyLine`, restyled), then in Process only a **next card**. The card shows "Next in
   {role} · k of n" (position within that role's section), the next headline in `nextHeadline`, and its
@@ -382,8 +389,10 @@ below. Letters with no design of their own get a width cap and margins applied f
 - Dark-support detection: true for a `color-scheme` or `supported-color-schemes` meta that includes
   `dark`, for `@media (prefers-color-scheme: dark)` and `@media screen and (prefers-color-scheme:
   dark)`, and for a CSS `color-scheme: light dark`. False for none of these.
-- Own-background detection: false for a bare letter or a table with no background. True for `bgcolor`,
-  and for an inline or stylesheet `background` or `background-color`.
+- Page-background detection: false for a bare letter, for a background only on a button or callout
+  cell below a branch, for `background: none` or `transparent`, and for a stylesheet rule on a class.
+  True for `bgcolor` or an inline background on `body` or on a wrapper-chain table, and for a
+  stylesheet `body { background-color: … }`.
 - Next-card data: for the selected piece, the next queue row, its role's section position, and the
   end-of-queue case.
 
