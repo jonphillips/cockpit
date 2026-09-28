@@ -42,22 +42,18 @@ public enum EmailPresentation {
     return false
   }
 
-  public static func letterSetsOwnColors(html: String) -> Bool {
+  public static func paintsOwnBackground(html: String) -> Bool {
     guard let document = try? SwiftSoup.parse(html) else { return false }
-    return letterSetsOwnColors(in: document)
+    return paintsOwnBackground(in: document)
   }
 
-  public static func letterSetsOwnColors(in document: Document) -> Bool {
+  public static func paintsOwnBackground(in document: Document) -> Bool {
     let elements: [Element] = (try? document.select("*").array()) ?? []
     for element in elements {
-      if hasColorAttribute("color", on: element) || hasColorAttribute("bgcolor", on: element)
-        || hasColorAttribute("text", on: element) { return true }
-
-      let style = ((try? element.attr("style")) ?? "").lowercased()
-      if hasColorDeclaration(in: style) { return true }
+      if hasNonemptyAttribute("bgcolor", on: element) { return true }
     }
     for css in cssTexts(in: document) {
-      if hasColorDeclaration(in: css) { return true }
+      if hasBackgroundDeclaration(in: css) { return true }
     }
     return false
   }
@@ -88,14 +84,14 @@ public enum EmailPresentation {
     return schemeRange != nil
   }
 
-  private static func hasColorAttribute(_ name: String, on element: Element) -> Bool {
+  private static func hasNonemptyAttribute(_ name: String, on element: Element) -> Bool {
     guard let value = try? element.attr(name) else { return false }
     return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
   }
 
-  private static func hasColorDeclaration(in css: String) -> Bool {
+  private static func hasBackgroundDeclaration(in css: String) -> Bool {
     css.range(
-      of: #"(?:^|[;{\s])(?:color|background|background-color)\s*:\s*[^;}]+"#,
+      of: #"(?:^|[;{\s])background(?:-color)?\s*:\s*[^;}]+"#,
       options: [.regularExpression, .caseInsensitive]
     ) != nil
   }

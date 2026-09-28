@@ -17,14 +17,14 @@ enum TodayOriginalHTML {
     let designWidth: Double?
     let presentationKind: EmailPresentation.Kind
     let supportsDarkAppearance: Bool
-    let letterSetsOwnColors: Bool
+    let paintsOwnBackground: Bool
   }
 
   static func sanitizedForWebView(_ rawHTML: String, adjustmentStep: Int = 0) -> SanitizedHTML {
     guard let document = try? SwiftSoup.parse(rawHTML) else {
       return SanitizedHTML(
         html: rawHTML, designWidth: nil, presentationKind: .letter,
-        supportsDarkAppearance: false, letterSetsOwnColors: false
+        supportsDarkAppearance: false, paintsOwnBackground: false
       )
     }
     _ = try? document.select("script").remove()
@@ -47,7 +47,7 @@ enum TodayOriginalHTML {
       designWidth: designWidth,
       presentationKind: presentationKind,
       supportsDarkAppearance: EmailPresentation.supportsDarkAppearance(in: document),
-      letterSetsOwnColors: EmailPresentation.letterSetsOwnColors(in: document)
+      paintsOwnBackground: EmailPresentation.paintsOwnBackground(in: document)
     )
   }
 
@@ -120,7 +120,7 @@ final class TodayOriginalWebViewStore {
   private(set) var viewportWidth: CGFloat = 0
   private(set) var emailPresentationKind: EmailPresentation.Kind?
   private(set) var supportsDarkAppearance = false
-  private(set) var letterSetsOwnColors = false
+  private(set) var paintsOwnBackground = false
 
   init() {
     let configuration = WKWebViewConfiguration()
@@ -149,11 +149,12 @@ final class TodayOriginalWebViewStore {
   }
 
   func load(rawHTML: String, adjustmentStep: Int = 0) {
+    prepareForLoading(rawHTML: rawHTML)
     let sanitized = TodayOriginalHTML.sanitizedForWebView(rawHTML, adjustmentStep: adjustmentStep)
     designWidth = sanitized.designWidth
     emailPresentationKind = sanitized.presentationKind
     supportsDarkAppearance = sanitized.supportsDarkAppearance
-    letterSetsOwnColors = sanitized.letterSetsOwnColors
+    paintsOwnBackground = sanitized.paintsOwnBackground
     guard loadedHTML != sanitized.html else { return }
     let isSameMessageAdjustment = loadedRawHTML == rawHTML && loadedAdjustmentStep != adjustmentStep
     webView.stopLoading()
@@ -166,6 +167,14 @@ final class TodayOriginalWebViewStore {
     loadedRawHTML = rawHTML
     loadedAdjustmentStep = adjustmentStep
     webView.loadHTMLString(sanitized.html, baseURL: nil)
+  }
+
+  func prepareForLoading(rawHTML: String) {
+    guard loadedRawHTML != rawHTML else { return }
+    designWidth = nil
+    emailPresentationKind = nil
+    supportsDarkAppearance = false
+    paintsOwnBackground = false
   }
 
   func reportViewportWidth(_ width: CGFloat) {

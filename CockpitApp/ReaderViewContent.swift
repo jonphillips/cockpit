@@ -123,6 +123,7 @@ extension ReaderView {
 
   var emailPresentationKind: EmailPresentation.Kind? {
     guard readerModel.row?.kind == .email else { return nil }
+    guard case .html = readerModel.bodyPresentation else { return .letter }
     return originalWebViewStore.emailPresentationKind ?? .letter
   }
 

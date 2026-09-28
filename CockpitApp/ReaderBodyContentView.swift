@@ -77,12 +77,19 @@ struct ReaderBodyView: View {
         .simultaneousGesture(
           MagnifyGesture().onEnded { value in magnify(value.magnification) }
         )
-        .onAppear { loadHTMLIfReady(rawHTML, step: zoomAdjustmentStep) }
+        .onAppear {
+          originalWebViewStore.prepareForLoading(rawHTML: rawHTML)
+          loadHTMLIfReady(rawHTML, step: zoomAdjustmentStep)
+        }
         .onAppear { configureEmailAppearance() }
         .onChange(of: colorScheme) { _, _ in configureEmailAppearance() }
+        .onChange(of: emailKind) { _, _ in configureEmailAppearance() }
+        .onChange(of: originalWebViewStore.emailPresentationKind) { _, _ in configureEmailAppearance() }
         .onChange(of: originalWebViewStore.supportsDarkAppearance) { _, _ in configureEmailAppearance() }
-        .onChange(of: originalWebViewStore.letterSetsOwnColors) { _, _ in configureEmailAppearance() }
+        .onChange(of: originalWebViewStore.paintsOwnBackground) { _, _ in configureEmailAppearance() }
         .onChange(of: rawHTML) { _, newValue in
+          originalWebViewStore.prepareForLoading(rawHTML: newValue)
+          configureEmailAppearance()
           loadHTMLIfReady(newValue, step: zoomAdjustmentStep)
         }
         .onChange(of: zoomAdjustmentStep) { _, newValue in
@@ -138,15 +145,12 @@ struct ReaderBodyView: View {
     } else {
       false
     }
-    let usesDocumentColors = if case .designed = emailKind {
-      true
-    } else {
-      originalWebViewStore.letterSetsOwnColors
-    }
+    let usesDocumentBackground = originalWebViewStore.supportsDarkAppearance
+      || originalWebViewStore.paintsOwnBackground
     originalWebViewStore.webView.overrideUserInterfaceStyle = shouldFollowSystem ? .unspecified : .light
-    originalWebViewStore.webView.isOpaque = !usesDocumentColors
-    originalWebViewStore.webView.backgroundColor = usesDocumentColors ? .clear : .white
-    originalWebViewStore.webView.scrollView.backgroundColor = usesDocumentColors ? .clear : .white
+    originalWebViewStore.webView.isOpaque = !usesDocumentBackground
+    originalWebViewStore.webView.backgroundColor = usesDocumentBackground ? .clear : .white
+    originalWebViewStore.webView.scrollView.backgroundColor = usesDocumentBackground ? .clear : .white
   }
 
   private func loadHTMLIfReady(_ html: String, step: Int) {
