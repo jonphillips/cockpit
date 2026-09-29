@@ -6,9 +6,12 @@ This file is normative guidance for implementation and architecture agents worki
 
 Every session, read:
 
-1. `docs/IMPLEMENTATION-CONTRACT.md` — schema, Edition state machine, invariants, definitions
-2. `docs/V1-SCOPE-AND-SEQUENCING.md` — what phase we are in and what its gate asks
-3. the active build order in `docs/milestones/` — which slice is next, its done-criteria, and the standing rules for every slice in that milestone
+1. `docs/NEXT_UP.md` — the one dispatch (executor: your only planning input; empty → stop and ask)
+2. `docs/IMPLEMENTATION-CONTRACT.md` — schema, Edition state machine, invariants, definitions
+3. the brief sections `NEXT_UP.md` links, plus that milestone's standing rules; `docs/verification.md`
+
+The architect also reads `docs/V1-SCOPE-AND-SEQUENCING.md` (phase and gate) and `docs/open-questions.md`
+(candidates; the executor never reads it).
 
 Then, only as the work requires:
 
@@ -24,12 +27,13 @@ Documents under `docs/archive/` are historical evidence only. They must not be u
 
 ## How work is assigned
 
-Slices come from the active build order in `docs/milestones/`, never from chat. One branch + PR
-per slice (`mN/sK-short-slug`); the PR that completes a slice ticks its box, and the architect
-reviews against its done-criteria. Plan changes change a doc; single-slice feedback is a PR
-comment. Full protocol (roles, draft/ready loop, attribution, bare "go"):
-`jon-platform/docs/agent-collaboration.md`. The working directory is the scope, and a bare "go"
-means state your read of the board and one intended next action, then wait before any write.
+Work comes from `docs/NEXT_UP.md`, never from chat: one dispatch (one or more slices), one branch + PR
+(`mN/sK-short-slug`, or `effort/<slug>`). The completing PR ticks the ledger box, adds a
+`docs/DONE-LOG.md` entry naming its branch, and advances `NEXT_UP.md` to the next dispatch in the
+milestone's order. The architect merges approved plan-order PRs and escalates to Jon on deviation,
+schema/migration, sync/sharing, or an owed device gate. Full protocol:
+`jon-platform/docs/agent-collaboration.md` and ADR-0005. The working directory is the scope, and a bare
+"go" means state your read of the board and one intended next action, then wait before any write.
 
 ## Shell naming
 
@@ -157,9 +161,8 @@ frameworks/services/models sit behind injectable clients.
 
 ### No UI, simulator, or device testing
 
-Agents verify through `swift test`, `swiftlint lint --strict`, and an unsigned build — each run
-through `~/code/jon-platform/scripts/quiet-run` so only errors and verdicts reach context
-(jon-platform `docs/agent-workflow.md` § Token discipline). Driving the Simulator or a device is
+Agents verify per `docs/verification.md`: `swift test`, `swiftlint lint --strict`, and an unsigned
+build, each through jon-platform's `quiet-run`. Driving the Simulator or a device is
 Jon's job, not an agent's: UI work is verified by testing the `@Observable` model that owns the
 behavior. A defect class only a device can catch (a migration against real rows, live CloudKit,
 provider authorization) is named in the handoff report as an unverified risk — never closed by
