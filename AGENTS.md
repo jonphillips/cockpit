@@ -24,31 +24,19 @@ Documents under `docs/archive/` are historical evidence only. They must not be u
 
 ## How work is assigned
 
-Slices come from the active build order in `docs/milestones/`, never from a chat message. The architect authors that document; the executor opens one branch and one PR per slice (`mN/sK-short-slug`), ticks the slice's box in the PR that completes it, and the architect reviews the PR against that slice's done-criteria. If it changes the plan it changes a doc; if it is about one slice it is a PR comment.
+Slices come from the active build order in `docs/milestones/`, never from chat. One branch + PR
+per slice (`mN/sK-short-slug`); the PR that completes a slice ticks its box, and the architect
+reviews against its done-criteria. Plan changes change a doc; single-slice feedback is a PR
+comment. Full protocol (roles, draft/ready loop, attribution, bare "go"):
+`jon-platform/docs/agent-collaboration.md`. The working directory is the scope, and a bare "go"
+means state your read of the board and one intended next action, then wait before any write.
 
-The full protocol is `jon-platform/docs/agent-collaboration.md` — including the roles, the draft/ready/review loop, commit attribution, and what a bare "go" means. Two clauses matter often enough to repeat here: the session's repository is the scope, so the working directory selects the project and nothing else does; and a bare "go" requires stating your read of the board and your single intended next action, then waiting, before any write. Prefer an explicit assignment over a bare "go" — role, slice, verb, as in `codex: build S2`.
+## Shell naming
 
-## Current shell
-
-The user-facing shell is:
-
-```text
-Today
-Process
-Later
-Library
-Settings
-```
-
-Today is the overview and triage; tapping a headline opens a quick-look sheet. Process is the one
-ordered reading queue as its own tab, shared with Today, so a disposition in either removes the item
-from both. Edition is a domain entity (the screened tail, shown as sections on Today), not a
-destination. Navigation chrome is the system's with only the tint changed; see DECISIONS §31 and
-`docs/milestones/M6-morning-edition.md`.
-
-Do not reintroduce `Content` as the destination name. `Content` is a broader subsystem/domain term.
-
-Following lives under Settings. `Following` is the friendly management label; `Stream` is the domain noun.
+The shell is Today / Process / Later / Library / Settings (DECISIONS §31,
+`docs/milestones/M6-morning-edition.md`). Edition is a domain entity shown as sections on Today,
+not a destination. Never reintroduce `Content` as a destination name — it's a broader domain term.
+Following lives under Settings: `Following` is the UI label, `Stream` the domain noun.
 
 ## Core domain boundaries
 
@@ -116,14 +104,9 @@ Do not add permanent Delete Forever, broad reply/composition, silent learned del
 
 Do not collapse custody, Library membership, local cache, and offline availability into one `isSaved`/`isDownloaded` flag.
 
-Conceptually distinguish:
-
-- reliable upstream reacquisition;
-- durable Cockpit understanding;
-- Cockpit-owned payload custody;
-- device-local automatic cache;
-- explicit temporary offline availability;
-- explicit indefinite offline availability.
+Distinguish: reliable upstream reacquisition; durable Cockpit understanding; Cockpit-owned
+payload custody; device-local automatic cache; explicit temporary and explicit indefinite offline
+availability.
 
 `Offline until [date]` may expire according to its visible promise. `Keep Offline` may not be silently evicted by Cockpit.
 
@@ -135,15 +118,10 @@ Before adding a table/type/protocol, ask what stable identity, lifecycle, relati
 
 Do not create canonical persistence systems merely because a noun appears in design prose.
 
-In particular, do not bootstrap:
-
-- universal Item/Thing;
-- generic Source hierarchy where Stream/Artifact/provider concepts are sufficient;
-- universal Subject/entity graph;
-- Opportunity/Signal/Notice model hierarchy;
-- generic rules engine;
-- family-wide Handoff queue;
-- canonical Restaurant/Product/Wine/Recipe models in Cockpit.
+In particular, do not bootstrap a universal Item/Thing, a generic Source hierarchy (Stream/
+Artifact/provider concepts suffice), a universal Subject/entity graph, an Opportunity/Signal/
+Notice hierarchy, a generic rules engine, a family-wide Handoff queue, or canonical
+Restaurant/Product/Wine/Recipe models.
 
 Use conservative deterministic deduplication first. Preserve provenance. Prefer an occasional duplicate to an uncertain destructive merge.
 
@@ -155,74 +133,37 @@ Cockpit consumes proven domain-neutral infrastructure and owns Cockpit domain se
 
 Do not create or extract `ContentStreamKit`, `PersonalKnowledgeKit`, `FamilyContextKit`, `JonLibraryKit`, or another shared package based on a single Cockpit use.
 
-Before proposing a jon-platform change:
-
-1. inspect the relevant jon-platform package/docs/seam ledger;
-2. identify existing Galavant and Yes Chef consumers;
-3. determine whether Cockpit is actually blocked;
-4. prefer an app-local implementation until repeated evidence proves a neutral seam;
-5. preserve/migrate existing consumers deliberately.
+Before proposing a jon-platform change: inspect its package/docs/seam ledger, identify the
+existing Galavant and Yes Chef consumers, confirm Cockpit is actually blocked, prefer app-local
+until repeated evidence proves a neutral seam, and migrate existing consumers deliberately.
 
 `LLMHandoffKit` is not an approved full Cockpit dependency in its current Galavant-shaped form.
 
 ## V1 sequencing
 
-Follow `docs/V1-SCOPE-AND-SEQUENCING.md` rather than building destination-by-destination.
-
-The first major vertical slice is:
-
-```text
-known URL
-→ RSS/Atom autodiscovery
-→ Stream
-→ Artifact
-→ ContentPiece
-→ Personal Knowledge + Jon Brain import
-→ judgment
-→ Edition
-→ Reader
-→ Later / Library / Pending Finds
-→ Offline
-```
-
-Stop at each architecture gate and inspect what reality taught before broadening the model.
-
-Do not proceed from Gmail read-only to provider mutation until the Gmail identity/retry/undo/disposition contract has been written from actual provider behavior.
+Build by vertical slice per `docs/V1-SCOPE-AND-SEQUENCING.md`, not destination-by-destination.
+Stop at each architecture gate and inspect what reality taught before broadening the model. No
+Gmail provider mutation until the identity/retry/undo/disposition contract has been written from
+actual provider behavior.
 
 ## Testing expectations
 
-Make deterministic business behavior cheap to test. Prioritize:
-
-- identity and deduplication;
-- database transactions/lifecycle;
-- Edition membership/state transitions;
-- Essential behavior;
-- Later/Library invariants;
-- custody and local-availability transitions;
-- semantic-fidelity boundaries;
-- model structured-output decoding;
-- Personal Knowledge reconciliation/supersession;
-- provider disposition barriers and failure recovery;
-- cross-app handoff boundaries;
-- migration behavior.
-
-External frameworks/services/models should sit behind injectable clients.
+Make deterministic business behavior cheap to test. Prioritize identity and deduplication,
+transactions/lifecycle, Edition membership and state transitions, Essential behavior,
+Later/Library invariants, custody and local-availability transitions, semantic-fidelity
+boundaries, structured-output decoding, Personal Knowledge reconciliation, provider disposition
+barriers and failure recovery, cross-app handoff boundaries, and migrations. External
+frameworks/services/models sit behind injectable clients.
 
 ### No UI, simulator, or device testing
 
 Agents verify through `swift test`, `swiftlint lint --strict`, and an unsigned build — each run
 through `~/code/jon-platform/scripts/quiet-run` so only errors and verdicts reach context
-(jon-platform `docs/agent-workflow.md` § Token discipline). Driving the
-Simulator or a device — launching the app, screenshots, taps, UI hierarchy dumps — is not an agent
-activity. It burns tokens at a rate no slice justifies and it is Jon's to do.
-
-This is not a quality compromise, it is where the boundary sits. A slice's UI work is verified by
-testing the `@Observable` model that owns the behaviour, which is the same reason views may not
-touch the database.
-
-When a slice has a defect class only a device can catch — a migration against real rows, live
-CloudKit, provider authorization — name it in the handoff report as an unverified risk and stop
-there. Never close that gap by going to the device.
+(jon-platform `docs/agent-workflow.md` § Token discipline). Driving the Simulator or a device is
+Jon's job, not an agent's: UI work is verified by testing the `@Observable` model that owns the
+behavior. A defect class only a device can catch (a migration against real rows, live CloudKit,
+provider authorization) is named in the handoff report as an unverified risk — never closed by
+going to the device.
 
 ## Documentation rule
 
