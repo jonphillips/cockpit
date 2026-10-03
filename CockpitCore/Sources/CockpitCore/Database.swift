@@ -154,7 +154,6 @@ enum CockpitMigrations {
       ).execute(db)
     }
     registerDestinations(in: &migrator)
-    registerListedFeeds(in: &migrator)
     registerLiveStreams(in: &migrator)
     registerPersonalKnowledge(in: &migrator)
     registerEdition(in: &migrator)
@@ -178,6 +177,7 @@ enum CockpitMigrations {
     registerGmailPromotions(in: &migrator)
     registerDailyLinks(in: &migrator)
     registerEmailTreatmentClassifierRevision(in: &migrator)
+    registerListedFeeds(in: &migrator)
     return migrator
   }
 }
