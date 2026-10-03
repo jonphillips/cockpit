@@ -126,6 +126,12 @@ Examples:
 
 Handling should remain semantic rather than expose ranking weights, parser modes, or a large toggle matrix.
 
+**Posture (DECISIONS §33, 2026-10-03).** Beside the prose, an RSS or Atom Stream has one posture:
+**Screened** (the default: the Edition judges it, and the prose above steers judgment) or **Listed**
+(never judged; every story shows in the Feeds tab for seven days, and the prose is kept but unused).
+Essential doesn't apply to a Listed Stream. Gmail Streams have no posture choice, because curated email
+is organized by role and never judged (§24).
+
 ### Essential
 
 Essential is a Stream-level posture. Its binding consequence is:

@@ -20,10 +20,14 @@ The current shell is:
 ```text
 Today
 Process
+Feeds
 Later
 Library
 Settings
 ```
+
+**Amended 2026-10-03 by §33.** Feeds holds the stories from Listed RSS Streams for seven days, as its own
+tab. Today carries a Feeds door as the indicator.
 
 **Amended 2026-09-27 by §31.** Process is the one ordered queue (Gate 4 D-F) as its own tab. Edition is
 no longer a destination: since §24 it is the barely-curated tail, materialized as before and rendered
@@ -1287,7 +1291,7 @@ disposition), AGENTS.md AI boundary and its no-rules-engine clause.
 
 ---
 
-## 33. Listed feeds: an RSS Stream Jon wants listed, not screened, read in a Feeds tab — PROPOSED (2026-10-03, draft for Jon)
+## 33. Listed feeds: an RSS Stream Jon wants listed, not screened, read in a Feeds tab — RESOLVED (2026-10-03, Jon)
 
 **Evidence.** On 2026-10-03 Jon asked to follow NYT section feeds (Travel, Dining & Wine, Book Review,
 Movies, Theater) "to be reminded when those things publish." Today, every RSS Stream lands in the Tail
@@ -1370,15 +1374,20 @@ aren't parsed today. Reading NYT articles inside Cockpit, or signing in to the N
 treatment for Gmail Streams. The iPhone composition, where six tabs won't all fit (§31 already leaves
 iPhone open).
 
-**For Jon to settle on the mockup.** Whether the door's newest-headline teaser earns its line. The name
-"Feeds". *(Settled 2026-10-03, Jon: a tab, not a sheet; seven days, not three.)*
+**Resolved 2026-10-03 (Jon approved it all).** A tab, not a sheet, and seven days, not three. The
+newest-headline teaser and the name "Feeds" are built as the mockup shows, and a device-pass rejection
+of either is an amendment here. The schema change (`StreamHandling.listed` and the synced
+`listedPieceStates` table) is approved.
 
 **Relates to:** §24 and its Gate 4 ratification (this is the per-Stream posture it anticipated), ADR-0002
 D11 ("RSS is unchanged" becomes "RSS defaults to Screened"), §31 (shell amended: Feeds tab), §15
 (Dismiss; Essential excluded), §29 (system open, opened rows dim), §30 (door precedent, out of the
 queue), `AGENTS.md` "Shell naming", `CONTENT-STREAM-MODEL.md` Handling, `IMPLEMENTATION-CONTRACT.md`
-(`Stream.handling` posture enum). Slices: `docs/milestones/M6-listed-feeds.md` (S-l1 … S-l3), not
-dispatched until Jon resolves this entry; the live docs above are carried in the dispatching PR.
+(`Stream.handling` posture enum). Slices: `docs/milestones/M6-listed-feeds.md` (S-l1 … S-l3).
+
+**Status.** Carried into the live docs 2026-10-03: §1, `AGENTS.md` "Shell naming", ADR-0002 D11,
+`CONTENT-STREAM-MODEL.md` Handling, `IMPLEMENTATION-CONTRACT.md`, `TODAY-EXPERIENCE.md`,
+`IPAD-FIRST-EXPERIENCE.md`, and `PRODUCT-MODEL.md`.
 
 ---
 

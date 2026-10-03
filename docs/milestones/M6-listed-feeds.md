@@ -1,13 +1,12 @@
 # M6 — Listed feeds (S-l1 … S-l3)
 
-> **Build order, architect-drafted 2026-10-03 with DECISIONS §33.** Three slices that let an RSS Stream
-> be Listed instead of Screened, read in a Feeds tab, with an indicator on Today. **Not dispatched:**
-> §33 is PROPOSED, and S-l1 carries a schema change and a new synced table, both of which need Jon's
-> yes. When Jon resolves §33, the architect carries it into the live docs (AGENTS.md "Shell naming",
-> `CONTENT-STREAM-MODEL.md` Handling, `IMPLEMENTATION-CONTRACT.md`, `TODAY-EXPERIENCE.md`, ADR-0002 D11)
-> and points `NEXT_UP.md` at S-l1 in the same PR. Each block is self-contained: send it to the executor
-> as-is. Branch per slice: `m6/s-lN-short-slug`, one PR each, tick the box here in the PR that completes
-> it.
+> **Build order, architect-recorded 2026-10-03 with DECISIONS §33 (resolved the same day, Jon).** Three
+> slices that let an RSS Stream be Listed instead of Screened, read in a Feeds tab, with an indicator on
+> Today. Jon approved the schema change (`StreamHandling.listed` and the synced `listedPieceStates`
+> table). Each block is self-contained: send it to the executor as-is. **Two dispatches:** S-l1 goes
+> alone because it carries the schema change and could redirect what follows. S-l2 and S-l3 go together
+> because they share the Feeds model and the shell. One branch and one PR per dispatch, and the
+> completing PR ticks its boxes here.
 
 **Decision behind these slices.** DECISIONS §33, settled against `docs/mockups/M6-listed-feeds.html`,
 which is the visual spec. Jon settled two points on 2026-10-03: a Feeds tab rather than a sheet over
@@ -25,7 +24,10 @@ the existing type roles and components. Don't add new fonts, colors or spacing c
 naming the gap in the handoff report. Chrome is the system's (§31): `TabView`, `NavigationSplitView`,
 toolbars, swipe actions, context menus.
 
+**Dispatch 1** (branch `m6/s-l1-listed-posture`)
 - [ ] S-l1 — Listed posture: `StreamHandling.listed`, Edition exclusion, `listedPieceStates`, the listed-feeds model
+
+**Dispatch 2** (branch `m6/s-l2-feeds-tab-and-door`)
 - [ ] S-l2 — Feeds tab: the split view, Dismiss, Later, open through the system, and choosing Listed in Following
 - [ ] S-l3 — Today's Feeds door: counts per feed, the newest headline, "Feeds N" on the index line
 
@@ -191,7 +193,8 @@ none of these stories appears in the Tail.
 
 **Sequencing.** Touches `ShellModel.swift`, `CockpitApp.swift`, `FollowingView.swift`,
 `FollowingModel.swift` (draft handling), new `FeedsView.swift` and supporting row views in `CockpitApp`,
-and a small grouping helper in `CockpitCore`. Branch: `m6/s-l2-feeds-tab`.
+and a small grouping helper in `CockpitCore`. Branch: `m6/s-l2-feeds-tab-and-door` (Dispatch 2, with
+S-l3).
 
 ---
 
@@ -232,4 +235,4 @@ tap lands on the Feeds tab at All feeds. After Jon dismisses everything there, t
 entry disappear from Today.
 
 **Sequencing.** Touches `TodayModel.swift`, `TodayLandingView.swift`, and the index-line view. Branch:
-`m6/s-l3-feeds-door`.
+`m6/s-l2-feeds-tab-and-door` (Dispatch 2, with S-l2).

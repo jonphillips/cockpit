@@ -145,6 +145,11 @@ opens anything.
    entry shows **honest recompose progress** and always resolves to a definite state — never a bare
    indefinite spinner (M5 S5).
 
+**Feeds door (DECISIONS §33, 2026-10-03).** Stories from Listed RSS Streams never appear as Today rows.
+One Feeds door sits with the offer doors and shows the new count, a count per feed, and the newest
+headline. Tapping it switches to the Feeds tab. These stories are not in "N to process" or the Process
+queue.
+
 ### The navigation container (normative)
 
 **Rewritten 2026-09-27 for DECISIONS §31.** The M5 rule was "Today is full width and the Reader is a
@@ -164,8 +169,10 @@ Both are superseded by:
   removes the item from both, with Undo.
 - **Chrome is the system's**, with only the tint changed. Cockpit designs its own content (masthead,
   section labels, rows) and the email designs itself (§25).
+- **Feeds is its own tab (§33).** A system split view: sources in the sidebar, stories newest first
+  under day headers, each tap opening the article through the system. Today's Feeds door switches to it.
 
-Build order: `docs/milestones/M6-morning-edition.md`.
+Build order: `docs/milestones/M6-morning-edition.md`; Feeds: `docs/milestones/M6-listed-feeds.md`.
 
 ### What this note does not settle
 

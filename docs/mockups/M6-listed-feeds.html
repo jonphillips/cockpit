@@ -199,9 +199,9 @@ section{display:grid;gap:22px;scroll-margin-top:24px}
 <main class="page">
 
 <header class="intro">
-  <div class="eyebrow">Design spec · Listed feeds · 2026-10-03 · proposed</div>
+  <div class="eyebrow">Design spec · Listed feeds · 2026-10-03</div>
   <h1>Listed feeds</h1>
-  <p class="lede">Some RSS feeds Jon wants filtered, and some he wants to see in full. A Listed feed skips the Edition's judgment, and its stories go to a Feeds tab, a place to go, while Today keeps only a compact indicator. Decision: DECISIONS §33 (proposed).</p>
+  <p class="lede">Some RSS feeds Jon wants filtered, and some he wants to see in full. A Listed feed skips the Edition's judgment, and its stories go to a Feeds tab, a place to go, while Today keeps only a compact indicator. Decision: DECISIONS §33. Build order: <code>docs/milestones/M6-listed-feeds.md</code>.</p>
   <p class="back">Today every RSS Stream lands in the Tail, where most stories are declined. That's right for a firehose, and wrong for NYT Travel or Dining, where a declined story is exactly the reminder Jon asked for. A first draft read these in a sheet over Today. Jon found it too temporary, so they get a tab.</p>
   <div class="changes">
     <div class="new"><b>Screened or Listed</b>A per-Stream choice for RSS. Screened is today's behavior and stays the default. Listed is never judged and never calls a model.</div>
@@ -286,15 +286,15 @@ section{display:grid;gap:22px;scroll-margin-top:24px}
 
 <section id="next">
   <div class="sec-head">
-    <div class="eyebrow">04 · For Jon</div>
-    <h2>To settle on this page</h2>
+    <div class="eyebrow">04 · Settled</div>
+    <h2>Resolved October 3</h2>
   </div>
   <ol class="qs">
-    <li><span><b>Settled Oct 3:</b> a Feeds tab, not a sheet over Today. Seven days, not three.</span></li>
-    <li><span><b>The newest-headline teaser</b> on Today's door. It's what makes the door a reminder rather than a number. Without it the door is one line shorter.</span></li>
-    <li><span><b>The name.</b> "Feeds" is plain and accurate. "Just published" is the alternative.</span></li>
-    <li><span><b>Which feeds to list.</b> It's per-Stream, so Movies, the noisiest of the five, with interviews and news mixed in, could stay Screened while Travel and Dining are Listed.</span></li>
-    <li><span><b>Schema.</b> One synced table of opened and dismissed stories, plus a new <code>handling</code> case. Both need Jon's yes before slicing, and both devices update together.</span></li>
+    <li><span><b>Jon approved it all.</b> A Feeds tab, not a sheet over Today. Seven days, not three.</span></li>
+    <li><span><b>The newest-headline teaser</b> stays on Today's door, because it's what makes the door a reminder rather than a number. A device-pass rejection is a §33 amendment.</span></li>
+    <li><span><b>The name</b> is "Feeds".</span></li>
+    <li><span><b>Which feeds to list</b> stays Jon's call per Stream. Movies, the noisiest of the five, could stay Screened.</span></li>
+    <li><span><b>Schema approved:</b> one synced table of opened and dismissed stories, plus a new <code>handling</code> case. Both devices update together.</span></li>
   </ol>
   <p class="foot">Not included: push notifications when a feed publishes, keyword filters inside a feed, thumbnails, reading NYT articles inside Cockpit, and the iPhone layout (six tabs won't fit; §31 already leaves iPhone open). Feed volumes come from the five NYT feeds as measured on 2026-10-03. Headlines, descriptions and bylines are invented to show density, because this repository is public. The Eater feed isn't one Jon asked for; it's there to show how rows read when publishers mix.</p>
 </section>
