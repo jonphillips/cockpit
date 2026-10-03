@@ -40,7 +40,7 @@ struct EditionPlanner: Sendable {
   ) throws -> EditionPlan {
     let essentialStreamPieceIDs = try EditionOperations.essentialStreamPieceIDs(in: db)
     let excludedContentPieceIDs = try CurationRouting.snapshot(in: db)
-      .editionExcludedContentPieceIDs
+      .editionExcludedContentPieceIDs.union(ListedFeeds.contentPieceIDs(in: db))
     let carriedByPiece = try carryovers(
       previousEditionID: previousEditionID, excluding: excludedContentPieceIDs, in: db)
     let newPieceIDs = try newPieceIDs(since: since, excluding: excludedContentPieceIDs, in: db)

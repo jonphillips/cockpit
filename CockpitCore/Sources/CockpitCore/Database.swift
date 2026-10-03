@@ -154,6 +154,7 @@ enum CockpitMigrations {
       ).execute(db)
     }
     registerDestinations(in: &migrator)
+    registerListedFeeds(in: &migrator)
     registerLiveStreams(in: &migrator)
     registerPersonalKnowledge(in: &migrator)
     registerEdition(in: &migrator)

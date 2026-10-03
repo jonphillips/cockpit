@@ -3,7 +3,7 @@ import SQLiteData
 
 public enum StreamTransport: String, Codable, QueryBindable, Sendable { case rss, atom, gmail }
 
-public enum StreamHandling: String, Codable, QueryBindable, Sendable { case following }
+public enum StreamHandling: String, Codable, QueryBindable, Sendable { case following, listed }
 
 public enum StreamFollowState: String, Codable, QueryBindable, Sendable {
   case active
