@@ -1,0 +1,402 @@
+<title>Cockpit Listed Feeds</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap">
+<style>
+:root{
+  --bg:#F5F6F8; --surface:#FFFFFF; --ink:#16181D; --muted:#5C6370; --faint:#8A919C;
+  --hair:#E2E5EA; --accent:#A8660F; --accent-soft:#F6EBDA;
+  --serif:'Newsreader',Georgia,'Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#101216; --surface:#181B21; --ink:#E8EAEE; --muted:#A0A7B3; --faint:#707886;
+  --hair:#282C35; --accent:#E3A650; --accent-soft:#33291B;
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#101216; --surface:#181B21; --ink:#E8EAEE; --muted:#A0A7B3; --faint:#707886;
+  --hair:#282C35; --accent:#E3A650; --accent-soft:#33291B;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;margin:0}
+.page{max-width:1120px;margin:0 auto;padding-inline:clamp(16px,4vw,40px);padding-block:48px 96px;display:grid;gap:60px}
+.page h1,.page h2,.page h3{font-family:var(--serif);font-weight:500;text-wrap:balance;margin:0;letter-spacing:-.01em}
+.page h1{font-size:clamp(34px,5vw,50px);line-height:1.05}
+.page h2{font-size:clamp(26px,3.4vw,34px);line-height:1.12}
+p{margin:0}
+code{font-size:.9em}
+.lede{font-size:18px;color:var(--muted);max-width:66ch}
+.eyebrow{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;color:var(--accent)}
+.intro{display:grid;gap:16px}
+.back{font-size:13.5px;color:var(--muted);max-width:74ch}
+.changes{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:6px}
+.changes div{background:var(--surface);border:1px solid var(--hair);border-radius:12px;padding:14px 16px;display:grid;gap:4px;font-size:14px;color:var(--muted);align-content:start}
+.changes b{color:var(--ink);font-weight:600;font-size:14.5px}
+.changes .new{border-color:var(--accent)}
+.changes .new b::after{content:"New";margin-left:8px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:2px 6px;vertical-align:1px}
+section{display:grid;gap:22px;scroll-margin-top:24px}
+.sec-head{display:grid;gap:8px;max-width:70ch}
+.sec-head p{color:var(--muted)}
+.frames{display:grid;gap:22px}
+.frame-wrap{display:grid;gap:8px}
+.frame-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.frame-bar .cap{font-size:13px;color:var(--muted)}
+.frame-bar .cap b{color:var(--ink);font-weight:600}
+.seg{display:inline-flex;border:1px solid var(--hair);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{font:inherit;font-size:12.5px;border:0;background:transparent;color:var(--muted);padding:5px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.frame{position:relative;width:100%;max-width:100%;aspect-ratio:1180/820;overflow:hidden;border-radius:18px;border:1px solid var(--hair);box-shadow:0 1px 2px rgba(0,0,0,.04),0 12px 32px rgba(20,24,32,.08);background:#000}
+.screen{position:absolute;top:0;left:0;width:1180px;height:820px;transform-origin:0 0;transform:scale(var(--s,1));overflow:hidden}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px 28px;font-size:14px;color:var(--muted)}
+.notes p b{color:var(--ink);font-weight:600}
+.split{overflow-x:auto}
+.split table{border-collapse:collapse;width:100%;min-width:620px;background:var(--surface);border:1px solid var(--hair);border-radius:14px;overflow:hidden;font-size:14px}
+.split th,.split td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--hair);vertical-align:top}
+.split th{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;width:50%}
+.split tr:last-child td{border-bottom:0}
+.qs{counter-reset:q;display:grid;gap:12px;max-width:74ch;margin:0;padding:0;list-style:none}
+.qs li{counter-increment:q;display:grid;grid-template-columns:28px 1fr;gap:6px}
+.qs li::before{content:counter(q);font-family:var(--serif);font-size:20px;color:var(--accent);line-height:1.3}
+.foot{font-size:13px;color:var(--faint);max-width:74ch}
+
+/* ================= mock (Morning Edition tokens, docs/mockups/morning-edition.html) ================= */
+.screen svg.i{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.screen *{box-sizing:border-box}
+.clip1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.clip2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.me{--p:#FFFFFF;--p2:#F3F3F0;--k:#121212;--k2:#5E5E5A;--k3:#8E8E88;--r:#E0E0DA;--a:#A5620F;--as:#FBEEDB;--ak:#7A470A;
+  --glass:rgba(255,255,255,.72);--glass-edge:rgba(0,0,0,.08);--sys:#1F1F1F;--grp:#F2F2F7;--cell:#FFFFFF;--del:#8E8E93;
+  background:var(--p);color:var(--k);font-family:var(--sans)}
+.me.dark{--p:#141414;--p2:#1D1D1C;--k:#ECEBE6;--k2:#A8A7A0;--k3:#75746E;--r:#2D2D2B;--a:#E3A755;--as:#2F2616;--ak:#F0C489;
+  --glass:rgba(44,44,46,.72);--glass-edge:rgba(255,255,255,.1);--sys:#F2F2F2;--grp:#000000;--cell:#1C1C1E;--del:#636366}
+.chrome{height:56px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 16px;position:relative;z-index:2}
+.lights{display:flex;gap:8px;align-items:center}
+.lights i{width:12px;height:12px;border-radius:50%;display:block}
+.lights i:nth-child(1){background:#FF5F57}.lights i:nth-child(2){background:#FEBC2E}.lights i:nth-child(3){background:#28C840}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(20px) saturate(1.6);backdrop-filter:blur(20px) saturate(1.6);border:.5px solid var(--glass-edge);box-shadow:0 2px 10px rgba(0,0,0,.08);border-radius:999px}
+.systabs{display:flex;gap:2px;padding:4px;font-size:14.5px;color:var(--sys)}
+.systabs span{padding:6px 15px;border-radius:999px}
+.systabs .on{background:rgba(127,127,127,.16);color:var(--a);font-weight:600}
+.sysgroup{display:flex;align-items:center;padding:3px;color:var(--sys)}
+.sysgroup span{width:36px;height:34px;display:grid;place-items:center;border-radius:999px;font-size:14px;font-weight:600}
+.sysgroup span.txt{width:auto;padding:0 13px;gap:7px;display:flex;align-items:center}
+.sysgroup span.tint{background:var(--a);color:#fff}
+.left{display:flex;gap:14px;align-items:center;color:var(--sys)}
+.right{display:flex;gap:8px;justify-content:flex-end;align-items:center}
+.mast{display:flex;align-items:baseline;gap:18px;padding:2px 32px 10px;border-bottom:2px solid var(--k)}
+.day{font-family:var(--serif);font-style:italic;font-size:40px;line-height:1;letter-spacing:-.02em}
+.date{font-size:13px;color:var(--k2)}
+.index{display:flex;gap:18px;padding:7px 32px;border-bottom:1px solid var(--r);font-size:12px;color:var(--k2)}
+.index b{color:var(--k);font-weight:600;margin-left:4px;font-variant-numeric:tabular-nums}
+.index .hl{color:var(--ak)}
+.index .hl b{color:var(--ak)}
+.cols{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);padding:0 32px;height:calc(820px - 56px - 54px - 32px)}
+.col{padding:12px 22px 0;border-left:1px solid var(--r);display:flex;flex-direction:column;gap:14px;overflow:hidden}
+.col:first-child{padding-left:0;border-left:0}
+.col:last-child{padding-right:0}
+.sh{font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:var(--k);display:flex;justify-content:space-between;border-top:1px solid var(--k);padding-top:5px}
+.sh span{color:var(--k3);font-weight:600;letter-spacing:.04em}
+.row{display:grid;grid-template-columns:1fr auto;column-gap:10px;padding:6px 0 7px;border-top:1px solid var(--r)}
+.sec > .row:first-of-type{border-top:0}
+.row h5{margin:0;font-family:var(--serif);font-weight:500;font-size:16px;line-height:1.22}
+.row .src{font-size:11.5px;color:var(--k2);margin-top:1px}
+.row .ago{font-size:11.5px;color:var(--k3);font-variant-numeric:tabular-nums;padding-top:2px}
+.row.unread h5::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--a);margin-right:6px;vertical-align:3px}
+.offers{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--p2);border-radius:8px;font-size:13px}
+.offers b{font-weight:600}
+.offers span{color:var(--a);font-weight:600}
+/* the Feeds door */
+.door{margin-top:6px;padding:9px 10px 10px;background:var(--p2);border-radius:8px;display:grid;gap:5px}
+.door .dt{display:flex;justify-content:space-between;align-items:baseline;font-size:13px}
+.door .dt b{font-weight:600}
+.door .dt span{color:var(--a);font-weight:600}
+.door .dc{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11.5px;color:var(--k2)}
+.door .dc em{font-style:normal;color:var(--k);font-weight:600;font-variant-numeric:tabular-nums;margin-left:3px}
+.door .lt{border-top:1px solid var(--r);padding-top:6px;font-family:var(--serif);font-weight:500;font-size:14.5px;line-height:1.22}
+.door .lt small{display:block;font-family:var(--sans);font-size:11px;color:var(--k3);font-weight:500;margin-top:2px}
+.ring{box-shadow:0 0 0 2px var(--a)}
+/* sheet over Today */
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.32);z-index:5}
+.sheet{position:absolute;left:110px;right:110px;top:34px;bottom:0;background:var(--p);border-radius:22px 22px 0 0;z-index:6;box-shadow:0 -4px 40px rgba(0,0,0,.25);overflow:hidden;display:flex;flex-direction:column}
+.sheet .chrome{grid-template-columns:auto 1fr auto}
+.sheet .grab{position:absolute;top:6px;left:50%;width:40px;height:5px;margin-left:-20px;border-radius:3px;background:var(--r)}
+.sysplain{color:var(--a);font-size:15px;font-weight:600;padding:0 6px}
+.sheet .mid{justify-self:center;font-size:12px;color:var(--k3)}
+.fhead{display:flex;align-items:baseline;gap:14px;padding:0 36px 9px;border-bottom:2px solid var(--k)}
+.fhead b{font-family:var(--serif);font-style:italic;font-weight:500;font-size:30px;line-height:1}
+.fhead span{font-size:12.5px;color:var(--k2)}
+.fcols{display:grid;grid-template-columns:1fr 1fr;padding:0 36px;flex:1;overflow:hidden}
+.fcol{padding:12px 22px 0;border-left:1px solid var(--r);display:flex;flex-direction:column;gap:14px;overflow:hidden}
+.fcol:first-child{padding-left:0;border-left:0}
+.fcol:last-child{padding-right:0}
+.fr{position:relative;padding:6px 0 7px;border-top:1px solid var(--r);overflow:hidden}
+.sec > .fr:first-of-type{border-top:0}
+.fr .in{display:grid;grid-template-columns:1fr auto;column-gap:10px;background:var(--p);position:relative;z-index:1}
+.fr h5{margin:0;font-family:var(--serif);font-weight:500;font-size:16px;line-height:1.22}
+.fr .src{font-size:11.5px;color:var(--k2);margin-top:1px}
+.fr .dek{font-size:12.5px;color:var(--k2);margin-top:2px;grid-column:1/-1}
+.fr .ago{font-size:11.5px;color:var(--k3);font-variant-numeric:tabular-nums;padding-top:2px}
+.fr.new h5::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--a);margin-right:6px;vertical-align:3px}
+.fr.opened .in{opacity:.48}
+.fr.opened h5::after{content:"Opened";font-family:var(--sans);font-size:10px;font-weight:600;letter-spacing:.04em;color:var(--k3);border:1px solid var(--r);border-radius:4px;padding:0 5px;margin-left:7px;vertical-align:2px}
+.fr.swiped .in{transform:translateX(-172px)}
+.fr .acts{position:absolute;right:0;top:0;bottom:0;display:flex;z-index:0}
+.fr .acts span{width:86px;display:grid;place-items:center;align-content:center;gap:2px;color:#fff;font-size:11.5px;font-weight:600}
+.fr .acts span svg.i{width:17px;height:17px}
+.fr .acts .lt{background:var(--a)}
+.fr .acts .dm{background:var(--del)}
+/* system form sheet */
+.formsheet{position:absolute;left:50%;top:70px;width:560px;margin-left:-280px;padding-bottom:22px;background:var(--grp);border-radius:16px;z-index:6;box-shadow:0 10px 50px rgba(0,0,0,.3);overflow:hidden;display:flex;flex-direction:column;color:var(--sys)}
+.formsheet .chrome{grid-template-columns:auto 1fr auto;height:54px}
+.formsheet .ttl{justify-self:center;font-weight:600;font-size:16px}
+.fbody{padding:6px 20px 0;display:grid;gap:6px;align-content:start}
+.glab{font-size:12.5px;text-transform:uppercase;color:var(--k3);padding:10px 16px 3px;letter-spacing:.02em}
+.gfoot{font-size:12.5px;color:var(--k3);padding:4px 16px 0;line-height:1.4}
+.group{background:var(--cell);border-radius:11px;overflow:hidden}
+.cell{padding:11px 16px;border-top:.5px solid var(--r);font-size:15px;display:grid;gap:2px}
+.cell:first-child{border-top:0}
+.cell .k{font-size:13px;color:var(--k3)}
+.cell .url{color:var(--k2);font-size:14.5px}
+.found{display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:center}
+.found .lg{width:34px;height:34px;border-radius:8px;background:var(--p2);border:1px solid var(--r);display:grid;place-items:center;font-family:'Old English Text MT',var(--serif);font-weight:600;font-size:20px}
+.found small{font-size:13px;color:var(--k3)}
+.opt{display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:start}
+.opt .rb{width:21px;height:21px;border-radius:50%;border:1.5px solid var(--k3);margin-top:1px}
+.opt.on .rb{border:6px solid var(--a)}
+.opt b{font-weight:500}
+.opt p{font-size:13px;color:var(--k3);line-height:1.38;margin-top:2px}
+.dis{opacity:.4}
+.sw{width:46px;height:28px;border-radius:999px;background:var(--r);position:relative}
+.sw::after{content:"";position:absolute;left:2px;top:2px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.cell.line{grid-template-columns:1fr auto;align-items:center}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></symbol>
+  <symbol id="i-later" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-side" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M9 4.5v15"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M5 12h13"/><path d="m13 6 6 6-6 6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+</svg>
+
+<main class="page">
+
+<header class="intro">
+  <div class="eyebrow">Design spec · Listed feeds · 2026-10-03 · proposed</div>
+  <h1>Listed feeds</h1>
+  <p class="lede">Some RSS feeds Jon wants filtered, and some he wants to see in full. A Listed feed skips the Edition's judgment, and its new stories wait behind one door on Today, so Today keeps its shape. Decision: DECISIONS §33 (proposed).</p>
+  <p class="back">Today every RSS Stream lands in the Tail, where most stories are declined. That's right for a firehose, and wrong for NYT Travel or Dining, where a declined story is exactly the reminder Jon asked for. The Gate 4 ratification left this as a per-Stream choice to make when it came up. Now it has.</p>
+  <div class="changes">
+    <div class="new"><b>Screened or Listed</b>A per-Stream choice for RSS. Screened is today's behavior and stays the default. Listed is never judged and never calls a model.</div>
+    <div class="new"><b>One Feeds door</b>Counts per feed and the newest headline, beside the offer doors. No feed rows on Today, and no change to "to process".</div>
+    <div class="new"><b>The Feeds sheet</b>One section per feed, newest first. Tapping a headline opens the NYT app or Safari, where the subscription is signed in.</div>
+    <div><b>Three days, then gone</b>A listed story shows for three days after it's published. The NYT keeps the article, and Later is the way to hold one.</div>
+  </div>
+</header>
+
+<section id="today">
+  <div class="sec-head">
+    <div class="eyebrow">01 · Today</div>
+    <h2>A door, not a section</h2>
+    <p>About 15 stories a day across five feeds would take over a column. The door gives the count, where they came from, and the newest headline, then gets out of the way. With nothing new, it disappears.</p>
+  </div>
+  <div class="frames">
+    <div class="frame-wrap">
+      <div class="frame-bar"><span class="cap"><b>Today</b> · the Feeds door under Offers</span><span class="seg" data-for="t"><button type="button" aria-pressed="true" data-mode="light">Light</button><button type="button" aria-pressed="false" data-mode="dark">Dark</button></span></div>
+      <div class="frame"><div class="screen me" id="t"></div></div>
+    </div>
+  </div>
+  <div class="notes">
+    <p><b>"New" is narrow.</b> Not opened, not dismissed, and published in the last three days. Open a story and it stops counting.</p>
+    <p><b>Outside the queue.</b> "14 to process" and the Process tab stay email and Tail only. The Feeds sheet is where these are read, the same move §30 made for offers.</p>
+    <p><b>The index line counts it.</b> "Feeds 16" sits after Offers, so the shape of the morning still reads from one line.</p>
+  </div>
+</section>
+
+<section id="sheet">
+  <div class="sec-head">
+    <div class="eyebrow">02 · The Feeds sheet</div>
+    <h2>Every new story, grouped by feed</h2>
+    <p>A large system sheet over Today, like quick look. Close it and Today is where it was. Each feed is a section in Following order, newest first inside it. A row is the headline, the byline, and one line of the feed's own description. Cockpit writes none of it.</p>
+  </div>
+  <div class="frames">
+    <div class="frame-wrap">
+      <div class="frame-bar"><span class="cap"><b>Feeds</b> · one row opened, one mid-swipe</span><span class="seg" data-for="f"><button type="button" aria-pressed="true" data-mode="light">Light</button><button type="button" aria-pressed="false" data-mode="dark">Dark</button></span></div>
+      <div class="frame"><div class="screen me" id="f"></div></div>
+    </div>
+  </div>
+  <div class="split">
+    <table>
+      <thead><tr><th>Action</th><th>What happens</th></tr></thead>
+      <tbody>
+        <tr><td>Tap a headline</td><td>The system opens the article: the NYT app if it's installed, otherwise Safari (as Daily links do, §29). The row dims and is marked Opened.</td></tr>
+        <tr><td>Swipe: Dismiss</td><td>The story leaves the sheet, with Undo. Dismiss is the Edition's word for resolving a non-email piece (§15).</td></tr>
+        <tr><td>Swipe or menu: Later</td><td>Into Later, under the existing rules. Nothing enters Later on its own.</td></tr>
+        <tr><td>Dismiss all</td><td>Clears every listed story at once, with one Undo. The door disappears.</td></tr>
+        <tr><td>Do nothing</td><td>Three days after it's published, the story leaves without a trace.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="choose">
+  <div class="sec-head">
+    <div class="eyebrow">03 · Choosing</div>
+    <h2>Asked once, when you add the feed</h2>
+    <p>Add Stream asks after it finds the feed. Screen stays the default, so nothing about an existing Stream changes until Jon chooses. The same two options sit in the Stream's Following detail.</p>
+  </div>
+  <div class="frames">
+    <div class="frame-wrap">
+      <div class="frame-bar"><span class="cap"><b>Add Stream</b> · NYT Travel, choosing Listed</span><span class="seg" data-for="a"><button type="button" aria-pressed="true" data-mode="light">Light</button><button type="button" aria-pressed="false" data-mode="dark">Dark</button></span></div>
+      <div class="frame"><div class="screen me" id="a"></div></div>
+    </div>
+  </div>
+  <div class="notes">
+    <p><b>Essential turns off.</b> Essential promises a story can't age away. A Listed story does age away, on purpose, so the switch is disabled while a Stream is Listed.</p>
+    <p><b>The first poll is handled by the window.</b> A new feed arrives with about 20 stories of backfill. Only the last three days show.</p>
+    <p><b>Switching is forward-looking.</b> It takes effect at the next poll and composition. Dismissed stories stay dismissed, and nothing is re-judged.</p>
+  </div>
+</section>
+
+<section id="next">
+  <div class="sec-head">
+    <div class="eyebrow">04 · For Jon</div>
+    <h2>To settle on this page</h2>
+  </div>
+  <ol class="qs">
+    <li><span><b>Three days.</b> Long enough to catch a weekend's Travel piece on Monday, short enough that Book Review's 5 a day doesn't pile up. Two or seven are both defensible.</span></li>
+    <li><span><b>The newest-headline teaser.</b> It's what makes the door a reminder rather than a number. Without it the door is one line shorter.</span></li>
+    <li><span><b>The name.</b> "Feeds" is plain and accurate. "Just published" is the alternative.</span></li>
+    <li><span><b>Which feeds to list.</b> It's per-Stream, so Movies, the noisiest of the five, with interviews and news mixed in, could stay Screened while Travel and Dining are Listed.</span></li>
+    <li><span><b>Schema.</b> One synced table of opened and dismissed stories, plus a new <code>handling</code> case. Both need Jon's yes before slicing, and both devices update together.</span></li>
+  </ol>
+  <p class="foot">Not included: push notifications when a feed publishes, keyword filters inside a feed, thumbnails, and reading NYT articles inside Cockpit. Feed counts come from the five NYT feeds as measured on 2026-10-03. Headlines, descriptions and bylines are invented to show density, because this repository is public.</p>
+</section>
+</main>
+
+<script>
+(function(){
+const ic = n => `<svg class="i" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const esc = t => t.replace(/&(?!amp;)/g,'&amp;');
+const tabs = on => `<nav class="systabs glass">${['Today','Process','Later','Library','Settings'].map(t=>`<span class="${t===on?'on':''}">${t}</span>`).join('')}</nav>`;
+
+/* ---------- Today, as in morning-edition.html, with the Feeds door ---------- */
+const S = [
+  {name:'For you', items:[
+    {t:'Kitchen Renovation – next steps', src:'Dana Whitfield · Northside Kitchen & Bath', ago:'Fri', u:1},
+    {t:'Re: Dinner on the 14th?', src:'Pat Morgan', ago:'Fri', u:1}]},
+  {name:'Transactional', items:[{t:'Your order has shipped', src:'Order updates', ago:'Fri'}]},
+  {name:'Daily news', items:[
+    {t:'The Morning: The week, in five charts', src:'The New York Times', ago:'6:02', u:1},
+    {t:'The 7: The most important news this Saturday', src:'The Washington Post', ago:'7:00', u:1},
+    {t:'Techmeme: Top tech news for Saturday', src:'Techmeme', ago:'8:15', u:1}]},
+  {name:'Opinion', items:[
+    {t:'The weekend mailbag', src:'Matthew Yglesias · Slow Boring', ago:'Fri', u:1},
+    {t:'The streaming bundle nobody asked for', src:'Puck', ago:'Fri', u:1},
+    {t:'What I watched this week', src:'Alan Sepinwall', ago:'Fri', u:1},
+    {t:'Notes on a very long week', src:'The Dispatch', ago:'Sat', u:1},
+    {t:'The case for a boring Federal Reserve', src:'The Washington Post · Opinion', ago:'Fri'},
+    {t:'Meta’s new A.I. agent, reviewed', src:'Today in Tabs', ago:'Thu'}]},
+  {name:'Food', items:[
+    {t:'Five dinners for the first cool week', src:'NYT Cooking', ago:'Sat', u:1}]},
+  {name:'Wine', items:[{t:'Vinous: The Week in Review + Next Week', src:'Vinous', ago:'Fri', u:1}]},
+];
+const F = [
+  {name:'Book Review', items:[
+    {t:'Book Review: ‘The Salt Road,’ by Ines Calder', by:'Ruth Abelard', ago:'1h', d:'A family saga set along a vanished trade route, told in three voices.', n:1},
+    {t:'New Thrillers for the Long Weekend', by:'Owen Pryce', ago:'3h', d:'Our columnist on four new novels, including a debut set on an oil rig.', n:1},
+    {t:'Book Review: ‘Small Hours,’ by Tomas Weir', by:'Lena Okafor', ago:'5h', d:'A memoir of night shifts at a city hospital, unsentimental and exact.', n:1, open:1},
+    {t:'A Biography Takes the Measure of a Reluctant Statesman', by:'Gil Marsh', ago:'Fri', d:'The first full life of a diplomat who spent decades avoiding the spotlight.', n:1},
+    {t:'Book Review: ‘Glass Orchard,’ by Mae Lindqvist', by:'Ruth Abelard', ago:'Fri', d:'Short stories about a Swedish island where everyone keeps bees.', n:1},
+    {t:'Book Review: ‘After the Flood,’ by Rafael Ortiz', by:'Owen Pryce', ago:'Fri', d:'Reconstructing one river town’s long recovery, street by street.', n:1}]},
+  {name:'Movies', items:[
+    {t:'‘Harbor Lights’ Review: A Quiet Film That Earns Its Ending', by:'Nadia Stroud', ago:'2h', d:'A fisherman and his estranged daughter, and almost nothing else. It works.', n:1, swipe:1},
+    {t:'‘Overdrive 3’ Review: More Cars, Fewer Ideas', by:'Ben Hollis', ago:'4h', d:'The franchise keeps its engines running long after the fuel is gone.', n:1},
+    {t:'A Director Returns to the Village Where She Grew Up', by:'Cara Imes', ago:'6h', d:'Twenty years after her debut, a filmmaker goes home to shoot her fourth.', n:1},
+    {t:'‘The Ledger’ Review: An Accountant’s Very Bad Week', by:'Nadia Stroud', ago:'Fri', d:'A workplace satire that sharpens as it goes.', n:1},
+    {t:'‘Paper Moons’ Review: Animation for Grown-Ups', by:'Ben Hollis', ago:'Fri', d:'A hand-drawn fable that trusts its audience.', n:1}]},
+  {name:'Dining & Wine', items:[
+    {t:'Restaurant Review: At Calla, the Grill Does the Talking', by:'Mira Feld', ago:'2h', d:'A wood-fired Basque spot in Fort Greene that rewards ordering the whole fish.', n:1},
+    {t:'Good, Cheap Wine Is Finally Getting Easier to Find', by:'Hal Brennan', ago:'7h', d:'Small producers are betting on well-made bottles under $20.', n:1},
+    {t:'An Easy Fall Menu for a Crowd', by:'June Park', ago:'Fri', d:'Wings, a slow-roasted pork shoulder, and an apple cake that keeps.', n:1}]},
+  {name:'Travel', items:[
+    {t:'36 Hours in Porto', by:'Leo Varga', ago:'5h', d:'Port lodges, tiled churches and a new wave of natural-wine bars.', n:1},
+    {t:'Five Inns for Savoring the Fall', by:'Iris Kemp', ago:'Thu', d:'New or renovated getaways for leaf season, from Vermont to the Catskills.', n:1}]},
+  {name:'Theater', items:[
+    {t:'Review: A Haunted Family Drama, Revived With Care', by:'Sam Ilves', ago:'8h', d:'An Off Broadway revival that finds new grief in an old play.', n:1}]},
+];
+const fNew = F.reduce((n,f)=>n+f.items.filter(i=>i.n&&!i.open).length,0);
+const total = S.reduce((n,s)=>n+s.items.length,0);
+const row = it => `<div class="row ${it.u?'unread':''}"><div><h5 class="clip2">${esc(it.t)}</h5><div class="src clip1">${esc(it.src)}</div></div><span class="ago">${it.ago}</span></div>`;
+const sec = (s, body) => `<div class="sec"><div class="sh">${s.name}<span>${s.items.length}</span></div>${body || s.items.map(row).join('')}</div>`;
+const newest = F[0].items[0];
+const door = ring => `<div class="sec"><div class="sh">Feeds<span>${fNew} new</span></div>
+  <div class="door ${ring?'ring':''}"><div class="dt"><b>${fNew} new from ${F.length} feeds</b><span>Open</span></div>
+    <div class="dc">${F.map(f=>`<span>${f.name}<em>${f.items.filter(i=>i.n&&!i.open).length}</em></span>`).join('')}</div>
+    <div class="lt clip2">${esc(newest.t)}<small>Newest · ${F[0].name} · ${newest.ago} ago</small></div></div></div>`;
+const todayHTML = ring => `<div class="chrome">
+  <div class="left"><span class="lights"><i></i><i></i><i></i></span>${ic('side')}</div>
+  ${tabs('Today')}
+  <div class="right"><span class="sysgroup glass"><span class="txt tint">${ic('play')}Process ${total}</span></span><span class="sysgroup glass"><span>${ic('search')}</span><span>${ic('refresh')}</span><span>${ic('more')}</span></span></div></div>
+  <header class="mast"><span class="day">Saturday</span><span class="date">October 3 · ${total} to process</span></header>
+  <div class="index">${S.map(s=>`<span>${s.name}<b>${s.items.length}</b></span>`).join('')}<span>Offers<b>9</b></span><span class="hl">Feeds<b>${fNew}</b></span></div>
+  <div class="cols">
+    <div class="col">${sec(S[0])}${sec(S[1])}${sec(S[2])}</div>
+    <div class="col">${sec(S[3])}</div>
+    <div class="col">${sec(S[4])}${sec(S[5])}
+      <div class="sec"><div class="sh">Offers<span>9</span></div><div class="offers" style="margin-top:6px"><b>9 offers from 6 senders</b><span>Review</span></div></div>
+      ${door(ring)}</div>
+  </div>`;
+document.getElementById('t').innerHTML = todayHTML(true);
+
+/* ---------- the Feeds sheet ---------- */
+const fr = it => `<div class="fr ${it.open?'opened':'new'} ${it.swipe?'swiped':''}">
+  ${it.swipe?`<div class="acts"><span class="lt">${ic('later')}Later</span><span class="dm">${ic('x')}Dismiss</span></div>`:''}
+  <div class="in"><div><h5 class="clip2">${esc(it.t)}</h5><div class="src clip1">${esc(it.by)}</div></div><span class="ago">${it.ago}</span><div class="dek clip1">${esc(it.d)}</div></div></div>`;
+const fsec = f => `<div class="sec"><div class="sh">${f.name}<span>${f.items.filter(i=>i.n&&!i.open).length} new</span></div>${f.items.map(fr).join('')}</div>`;
+document.getElementById('f').innerHTML = todayHTML(false) + `<div class="dim"></div>
+  <div class="sheet"><span class="grab"></span>
+    <div class="chrome"><span class="sysplain">Done</span><span class="mid">Feeds</span>
+      <div class="right"><span class="sysgroup glass"><span class="txt">${ic('check')}Dismiss all ${fNew}</span></span><span class="sysgroup glass"><span>${ic('more')}</span></span></div></div>
+    <div class="fhead"><b>Feeds</b><span>${fNew} new from ${F.length} feeds · the last three days</span></div>
+    <div class="fcols"><div class="fcol">${fsec(F[0])}${fsec(F[1])}</div><div class="fcol">${fsec(F[2])}${fsec(F[3])}${fsec(F[4])}</div></div>
+  </div>`;
+
+/* ---------- Add Stream form sheet over Settings ---------- */
+const settingsBehind = `<div class="chrome"><div class="left"><span class="lights"><i></i><i></i><i></i></span>${ic('side')}</div>${tabs('Settings')}<span></span></div>
+  <div style="padding:10px 40px;font-family:var(--serif);font-size:30px;font-weight:500">Following</div>
+  <div style="padding:0 40px;display:grid;gap:10px;color:var(--k2);font-size:15px">${['Slow Boring','Puck','The Dispatch','Vinous','NYT Cooking','Techmeme','The Morning'].map(n=>`<div style="padding:10px 0;border-bottom:1px solid var(--r)">${n}</div>`).join('')}</div>`;
+document.getElementById('a').innerHTML = settingsBehind + `<div class="dim"></div>
+  <div class="formsheet">
+    <div class="chrome"><span class="sysplain">Cancel</span><span class="ttl">Add Stream</span><span class="sysplain">Add</span></div>
+    <div class="fbody">
+      <div class="group"><div class="cell"><span class="k">Website or RSS/Atom URL</span><span class="url clip1">https://rss.nytimes.com/services/xml/rss/nyt/Travel.xml</span></div>
+        <div class="cell found"><span class="lg">T</span><span><b style="font-weight:500">NYT &gt; Travel</b><br><small>The New York Times · about 2 stories a day</small></span></div></div>
+      <div class="glab">How should Cockpit treat it?</div>
+      <div class="group">
+        <div class="cell opt"><span class="rb"></span><span><b>Screen it</b><p>The Edition judges each story and keeps only what's worth your time. Most are declined.</p></span></div>
+        <div class="cell opt on"><span class="rb"></span><span><b>List every story</b><p>New stories wait behind the Feeds door on Today for three days. Nothing is judged.</p></span></div>
+      </div>
+      <div class="gfoot">You can change this later in Following.</div>
+      <div class="group" style="margin-top:12px"><div class="cell line dis"><span>Essential</span><span class="sw"></span></div></div>
+      <div class="gfoot">Essential keeps stories from aging away, so it's off for listed feeds.</div>
+    </div>
+  </div>`;
+
+const ro = new ResizeObserver(es => es.forEach(e => e.target.firstElementChild.style.setProperty('--s', e.contentRect.width/1180)));
+document.querySelectorAll('.frame').forEach(f => ro.observe(f));
+document.querySelectorAll('.seg').forEach(seg => {
+  const scr = document.getElementById(seg.dataset.for);
+  seg.addEventListener('click', ev => {
+    const b = ev.target.closest('button'); if(!b) return;
+    seg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x===b ? 'true':'false'));
+    scr.classList.toggle('dark', b.dataset.mode === 'dark');
+  });
+});
+})();
+</script>
