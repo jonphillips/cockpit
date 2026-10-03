@@ -154,12 +154,18 @@ because the tab now exists to show what a Listed Stream brings in.
   - **Swipe:** leading **Later**, trailing **Dismiss** (with Undo). The context menu has Later, Library
     and Dismiss.
   - **Toolbar:** **Dismiss all** clears the selected source (all items in All feeds), with Undo through
-    the existing Undo affordance. Refresh calls the existing `acquireOnLaunchOrRefresh()`.
+    the existing Undo affordance. Refresh calls the existing `acquireOnLaunchOrRefresh()`, then
+    `ListedFeedsModel.reload()`.
   - **Empty state:** `ContentUnavailableView` with the text "Nothing new in your feeds" and the
     description "Stories from feeds you list appear here for seven days." With no Listed Streams at
     all, the description instead points to Following → Add Stream.
   - **Compact width:** the system's split-view collapse (sidebar becomes a pushed list) with no custom
     work. The iPhone tab count is a known open question (§33), so don't solve it here.
+- **Moving window (added 2026-10-03 from the S-l1 review).** `ListedFeedsModel` fixes `now` each time
+  it loads, so the seven-day cutoff and the day headers only move on `reload()`. Call it when the scene
+  becomes active (`scenePhase == .active`), after Refresh, and on `.NSCalendarDayChanged`. Create **one**
+  `ListedFeedsModel` at the app level and pass it to both the Feeds tab and Today (S-l3), the way
+  `TodayReadingQueueModel` is hoisted, so a single reload covers both.
 - **Add Stream.** After discovery, the sheet adds a section titled "How should Cockpit treat it?" with
   two options. **Screen it**: "The Edition judges each story and keeps only what's worth your time.
   Most are declined." **List every story**: "Every new story goes to the Feeds tab for seven days.
@@ -185,6 +191,8 @@ notifications. Put Feeds items in the Process queue or the quick-look sheet. Add
   which one, and don't add a workaround.
 - Six tabs in the iPad tab bar at the smallest landscape width and in Split View.
 - That the sidebar's selection and the list's scroll position survive switching to Today and back.
+- Left open on Feeds past midnight, the day headers roll over (Today becomes Yesterday) and items
+  older than seven days leave, without a relaunch.
 
 **Done when.** On device, Jon adds NYT Travel, Dining & Wine, Book Review, Movies and Theater as Listed
 (renaming each to its section). The Feeds tab shows them by source with kickers in All feeds. A tap
@@ -207,6 +215,8 @@ rows taking over a column. One compact door does that and switches to the Feeds 
 - **Core.** `TodayModel` exposes `feedsDoor: FeedsDoor?`, built from `ListedFeedsModel` (or the same
   request): total new count, per-Stream new counts in Following order (Streams with zero new are left
   out), and the newest new item (title, Stream name, listed date). It's `nil` when nothing is new.
+  Use the app-level `ListedFeedsModel` that S-l2 creates, so its `reload()` keeps the door current. Don't
+  create a second instance.
 - **Placement.** `TodayLandingView` renders the door directly after the offer doors, in the same column
   flow (§30), before Transactional and the Tail, per the mockup's first frame. It's a `SectionLabel`
   "Feeds" with "N new", then a row on `Theme.paperSecondary`: "N new from M feeds" with a trailing
