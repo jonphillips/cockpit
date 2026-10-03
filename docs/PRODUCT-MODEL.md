@@ -41,6 +41,13 @@ Process is the one ordered queue across Today's sections, as its own tab (DECISI
 overview and Process is where Jon works straight down the queue. The two share it, so clearing an item
 in either removes it from both.
 
+### Feeds
+
+> **What just published from the sections I want to see in full?**
+
+Feeds is the tab for Listed RSS Streams (DECISIONS §33): every story, never judged, newest first, for
+seven days. Today shows a Feeds door as the indicator. Feeds is outside the Process queue.
+
 ### Edition
 
 > **I have some time. What is worth reading, watching, exploring, or considering?**

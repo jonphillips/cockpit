@@ -37,8 +37,7 @@ schema/migration, sync/sharing, or an owed device gate. Full protocol:
 
 ## Shell naming
 
-The shell is Today / Process / Later / Library / Settings (DECISIONS §31,
-`docs/milestones/M6-morning-edition.md`). Edition is a domain entity shown as sections on Today,
+The shell is Today / Process / Feeds / Later / Library / Settings (DECISIONS §31, §33). Edition is a domain entity shown as sections on Today,
 not a destination. Never reintroduce `Content` as a destination name — it's a broader domain term.
 Following lives under Settings: `Following` is the UI label, `Stream` the domain noun.
 

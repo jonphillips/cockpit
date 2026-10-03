@@ -283,7 +283,8 @@ sections in arrival order. Nothing curated is suppressed, declined or ranked by 
 **RSS is unchanged.** RSS Streams remain the uncurated tail: judged, admitted or declined, ranked
 within `targetSize`, and Essential RSS keeps both halves of §15. This is Jon's intent, not a transport
 shortcut. He reads RSS elsewhere, and Cockpit's job for RSS is only to filter it (DECISIONS §24, Gate 4
-ratification).
+ratification). *(Amended 2026-10-03 by DECISIONS §33: Screened is now the RSS default, not the only
+treatment. A Stream Jon marks **Listed** is never judged and is read in full in the Feeds tab.)*
 
 **The layers are separate.** Transport, Artifact, ContentPiece, Stream Handling, source disposition
 (D4–D6, D9, D10) and Edition state vary independently:

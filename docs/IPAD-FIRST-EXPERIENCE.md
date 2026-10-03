@@ -14,13 +14,15 @@ Both device families share the same conceptual destinations:
 ```text
 Today
 Process
+Feeds
 Later
 Library
 Settings
 ```
 
 Following lives under Settings. Edition is not a destination: since DECISIONS §24 it is the screened
-tail on Today, and Process is the reading queue as its own tab (§1, amended by §31).
+tail on Today, and Process is the reading queue as its own tab (§1, amended by §31). Feeds holds
+Listed RSS stories as its own tab (§33).
 
 The product model is shared; navigation/composition may be device-appropriate.
 
