@@ -1377,7 +1377,8 @@ iPhone open).
 D11 ("RSS is unchanged" becomes "RSS defaults to Screened"), §31 (shell amended: Feeds tab), §15
 (Dismiss; Essential excluded), §29 (system open, opened rows dim), §30 (door precedent, out of the
 queue), `AGENTS.md` "Shell naming", `CONTENT-STREAM-MODEL.md` Handling, `IMPLEMENTATION-CONTRACT.md`
-(`Stream.handling` posture enum). Carried into those docs, and sliced, once Jon resolves it.
+(`Stream.handling` posture enum). Slices: `docs/milestones/M6-listed-feeds.md` (S-l1 … S-l3), not
+dispatched until Jon resolves this entry; the live docs above are carried in the dispatching PR.
 
 ---
 
