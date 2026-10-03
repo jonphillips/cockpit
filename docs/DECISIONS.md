@@ -1287,7 +1287,7 @@ disposition), AGENTS.md AI boundary and its no-rules-engine clause.
 
 ---
 
-## 33. Listed feeds: an RSS Stream Jon wants listed, not screened — PROPOSED (2026-10-03, draft for Jon)
+## 33. Listed feeds: an RSS Stream Jon wants listed, not screened, read in a Feeds tab — PROPOSED (2026-10-03, draft for Jon)
 
 **Evidence.** On 2026-10-03 Jon asked to follow NYT section feeds (Travel, Dining & Wine, Book Review,
 Movies, Theater) "to be reminded when those things publish." Today, every RSS Stream lands in the Tail
@@ -1297,8 +1297,9 @@ full, because a declined Travel story is exactly the reminder he asked for. The 
 anticipated this: "an RSS Stream he wants listed … is a per-Stream posture decision to make then, not
 a transport rule." Measured the same day, the five feeds published about 110 stories in seven days
 (Book Review 34, Movies 31, Dining 19, Theater 13, Travel 12), so roughly 15 a day. That is too many
-for rows on Today, which is already dense, and too few to need a model. Settled against the mockup
-`docs/mockups/M6-listed-feeds.html`.
+for rows on Today, which is already dense, and too few to need a model. A first draft read them in a
+sheet over Today. Jon rejected it the same day as too temporary: "I'd like a place to go." Settled
+against the mockup `docs/mockups/M6-listed-feeds.html`.
 
 **Decision.**
 
@@ -1311,29 +1312,41 @@ for rows on Today, which is already dense, and too few to need a model. Settled 
   Stream's `handlingGuidance` is kept but unused while it is Listed. Essential doesn't apply, because
   it promises Edition material can't age away and Listed pieces deliberately do (below). The Essential
   switch is disabled for a Listed Stream.
-- **One Feeds door on Today.** While any Listed piece is new, Today shows one **Feeds** door with the
-  new count, a count per feed, and the newest headline. It sits with the offer doors (§30), after the
-  role sections and before Transactional and the Tail, and the index line gets "Feeds N". **New**
-  means not opened, not dismissed, and still inside the window. With nothing new, the door disappears.
-  Today's "N to process" count and the Process queue leave Listed pieces out, because the Feeds sheet
-  is where they're read. That's the same move §30 made for offers.
-- **The Feeds sheet.** Tapping the door opens a large system sheet over Today, so Today never swaps
-  itself out (§31). It has one section per Listed Stream in Following order, newest first within each
-  (arrival order, §24's "rank across types, never within"). A row is the headline, the byline and time,
-  and one line of the feed's own description. Cockpit generates nothing.
+- **The shell gains Feeds (amends §31).** Tabs are Today · Process · Feeds · Later · Library ·
+  Settings. Feeds is a place to go: it keeps its selection and scroll position like every tab, and it
+  shows an honest empty state ("Nothing new in your feeds") rather than disappearing. The tab carries
+  no badge, because Today's counts are orientation, not a badge to clear (`TODAY-EXPERIENCE.md`).
+- **The Feeds tab is a system split view.** The **sidebar** lists the sources: **All feeds** first,
+  then each Listed Stream grouped under its publisher, in Following order, each with its new count.
+  The **list** shows the selected source's stories, newest first, under day headers (Today,
+  Yesterday, then weekday names). The sidebar collapses with the system toggle.
+- **Every row names its source.** In All feeds each row carries a small-caps kicker with the Stream's
+  name, plus a short publisher label when Listed Streams come from more than one publisher (for
+  example "Travel · NYT"). Filtered to one feed, the kicker drops because the sidebar already says it.
+  A row is the kicker, the headline, the byline and time, and one line of the feed's own description.
+  Cockpit generates nothing.
+- **An indicator on Today.** While any Listed piece is new, Today shows one **Feeds** door with the new
+  count, a count per feed, and the newest headline. It sits with the offer doors (§30), after the role
+  sections and before Transactional and the Tail, and the index line gets "Feeds N". Tapping it
+  switches to the Feeds tab with All feeds selected. **New** means not opened, not dismissed, and still
+  inside the window. With nothing new, the door disappears. Today's "N to process" count and the
+  Process queue leave Listed pieces out, because the Feeds tab is where they're read. That's the same
+  move §30 made for offers.
 - **Opening goes through the system.** Tapping a row hands the article URL to the system, as Daily
   links do (§29): the NYT app if installed, otherwise Safari. That's where Jon's subscription is
   signed in. Cockpit never fetches the article page. The row is marked opened, dims, and stops counting
   as new.
 - **Clearing.** Swipe to **Dismiss** (the Edition's word for resolving a non-email piece, §15).
-  **Dismiss all** in the sheet's toolbar clears every listed piece with one Undo. The context menu
-  also offers Later and Library, under the existing custody rules for reliably reachable material.
-- **A three-day window, not a backlog.** A Listed piece shows for three days after `publishedAt` (the
+  **Dismiss all** in the toolbar clears every story in the selected source with one Undo. The context
+  menu also offers Later and Library, under the existing custody rules for reliably reachable material.
+- **A seven-day window, not a backlog.** A Listed piece shows for seven days after `publishedAt` (the
   first time Cockpit saw it, when the feed gives no date), then leaves without a trace. The NYT keeps
-  the article and Later is the way to hold one. The same rule handles the first poll: a feed's 20-odd
-  stories of backfill arrive, and only the last three days show.
+  the article and Later is the way to hold one. Seven days lets a week of a section be scanned in one
+  sitting; at the measured rate the tab holds about 110 stories at most. The same rule handles the
+  first poll: a feed's backfill arrives, and only the last seven days show.
 - **One piece, one row.** A story in two Listed feeds already converges on one ContentPiece (ADR-0001
-  D3). It appears once, under the first of those feeds in Following order.
+  D3). It appears once in All feeds, under the first of those feeds in Following order, and in each
+  feed's own filter.
 - **Choosing the posture.** Add Stream asks after discovery ("Screen it" / "List every story",
   defaulting to Screen), and the Stream's Following detail has the same choice. Switching takes effect
   at the next poll and composition. Dismissed pieces stay dismissed, and nothing is re-judged
@@ -1350,20 +1363,21 @@ Edition. `EditionEntry` is Edition membership, and Listed pieces are deliberatel
 The row exists only for pieces Jon has acted on, and it's queried one way: the window minus the
 dismissed.
 
-**Still out.** Push notifications when a feed publishes: "reminded" here means the door on Today. Title
-or keyword filters inside a feed ("only reviews"), which would edge toward a rules engine; a feed whose
-churn Jon doesn't want stays Screened instead. Thumbnails, since the feed's media elements aren't parsed
-today. Reading NYT articles inside Cockpit, or signing in to the NYT there. A door per feed or per
-publisher. Listed treatment for Gmail Streams.
+**Still out.** Push notifications when a feed publishes: "reminded" here means the Today door and the
+tab. Title or keyword filters inside a feed ("only reviews"), which would edge toward a rules engine; a
+feed whose churn Jon doesn't want stays Screened instead. Thumbnails, since the feed's media elements
+aren't parsed today. Reading NYT articles inside Cockpit, or signing in to the NYT there. Listed
+treatment for Gmail Streams. The iPhone composition, where six tabs won't all fit (§31 already leaves
+iPhone open).
 
-**For Jon to settle on the mockup.** The three-day window. Whether the door's newest-headline teaser
-earns its line. The name "Feeds".
+**For Jon to settle on the mockup.** Whether the door's newest-headline teaser earns its line. The name
+"Feeds". *(Settled 2026-10-03, Jon: a tab, not a sheet; seven days, not three.)*
 
 **Relates to:** §24 and its Gate 4 ratification (this is the per-Stream posture it anticipated), ADR-0002
-D11 ("RSS is unchanged" becomes "RSS defaults to Screened"), §15 (Dismiss; Essential excluded), §29
-(system open, opened rows dim), §30 (door precedent, out of the queue), §31 (sheet over Today),
-`CONTENT-STREAM-MODEL.md` Handling, `IMPLEMENTATION-CONTRACT.md` (`Stream.handling` posture enum).
-Carried into those docs, and sliced, once Jon resolves it.
+D11 ("RSS is unchanged" becomes "RSS defaults to Screened"), §31 (shell amended: Feeds tab), §15
+(Dismiss; Essential excluded), §29 (system open, opened rows dim), §30 (door precedent, out of the
+queue), `AGENTS.md` "Shell naming", `CONTENT-STREAM-MODEL.md` Handling, `IMPLEMENTATION-CONTRACT.md`
+(`Stream.handling` posture enum). Carried into those docs, and sliced, once Jon resolves it.
 
 ---
 
