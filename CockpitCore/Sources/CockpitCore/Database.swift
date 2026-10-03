@@ -177,6 +177,7 @@ enum CockpitMigrations {
     registerGmailPromotions(in: &migrator)
     registerDailyLinks(in: &migrator)
     registerEmailTreatmentClassifierRevision(in: &migrator)
+    registerListedFeeds(in: &migrator)
     return migrator
   }
 }

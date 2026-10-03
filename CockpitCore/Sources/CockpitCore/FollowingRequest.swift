@@ -9,6 +9,7 @@ public struct FollowingRequest: FetchKeyRequest {
     public let publisher: String
     public let interestAreaName: String?
     public let transport: StreamTransport
+    public let handling: StreamHandling
     public let locator: String
     public let handlingGuidance: String
     public let isEssential: Bool
@@ -42,6 +43,7 @@ public struct FollowingRequest: FetchKeyRequest {
           publisher: $0.publisher,
           interestAreaName: $1.name,
           transport: $0.transport,
+          handling: $0.handling,
           locator: $0.locator,
           handlingGuidance: $0.handlingGuidance,
           isEssential: $0.isEssential,

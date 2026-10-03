@@ -18,7 +18,7 @@ public enum CockpitCloudSync {
     try SyncEngine(
       for: database,
       tables: InterestArea.self, Stream.self, ContentPiece.self,
-        LaterMembership.self, LibraryMembership.self, LibraryNormalizedText.self,
+        LaterMembership.self, ListedPieceState.self, LibraryMembership.self, LibraryNormalizedText.self,
         PersonalKnowledgeClaim.self, PersonalKnowledgeTeaching.self, Edition.self, EditionEntry.self,
         PendingFind.self,
       containerIdentifier: configuration.containerIdentifier,

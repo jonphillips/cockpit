@@ -88,6 +88,7 @@ public final class FollowingModel {
       transport: row.transport,
       locator: row.locator,
       interestAreaName: row.interestAreaName ?? "General",
+      handling: row.handling,
       handlingGuidance: row.handlingGuidance,
       isEssential: row.isEssential
     )

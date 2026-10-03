@@ -8,6 +8,7 @@ public struct StreamDraft: Equatable, Identifiable, Sendable {
   public var transport: StreamTransport
   public var locator: String
   public var interestAreaName: String
+  public var handling: StreamHandling
   public var handlingGuidance: String
   public var isEssential: Bool
   public var isGrabBag: Bool
@@ -19,6 +20,7 @@ public struct StreamDraft: Equatable, Identifiable, Sendable {
     transport: StreamTransport = .rss,
     locator: String = "",
     interestAreaName: String = "General",
+    handling: StreamHandling = .following,
     handlingGuidance: String = "",
     isEssential: Bool = false,
     isGrabBag: Bool = false
@@ -29,6 +31,7 @@ public struct StreamDraft: Equatable, Identifiable, Sendable {
     self.transport = transport
     self.locator = locator
     self.interestAreaName = interestAreaName
+    self.handling = handling
     self.handlingGuidance = handlingGuidance
     self.isEssential = isEssential
     self.isGrabBag = isGrabBag
@@ -40,6 +43,7 @@ public enum StreamOperations {
     case missingStream
     case missingRequiredField
     case emptyRoutingLocator
+    case listedRequiresFeedTransport
   }
 
   public static func activeStreams(in db: Database) throws -> [Stream] {
@@ -61,6 +65,10 @@ public enum StreamOperations {
     guard !name.isEmpty, !publisher.isEmpty, !locator.isEmpty, !interestAreaName.isEmpty else {
       throw Failure.missingRequiredField
     }
+    guard draft.handling != .listed || draft.transport != .gmail else {
+      throw Failure.listedRequiresFeedTransport
+    }
+    let isEssential = draft.handling == .listed ? false : draft.isEssential
 
     let interestArea = try matchingInterestArea(named: interestAreaName, in: db)
       ?? InterestArea(id: interestAreaID, name: interestAreaName)
@@ -77,8 +85,9 @@ public enum StreamOperations {
           $0.interestAreaID = #bind(interestArea.id)
           $0.transport = #bind(draft.transport)
           $0.locator = #bind(locator)
+          $0.handling = #bind(draft.handling)
           $0.handlingGuidance = #bind(draft.handlingGuidance)
-          $0.isEssential = #bind(draft.isEssential)
+          $0.isEssential = #bind(isEssential)
           $0.isGrabBag = #bind(draft.isGrabBag)
         }
         .execute(db)
@@ -92,8 +101,9 @@ public enum StreamOperations {
             interestAreaID: interestArea.id,
             transport: draft.transport,
             locator: locator,
+            handling: draft.handling,
             handlingGuidance: draft.handlingGuidance,
-            isEssential: draft.isEssential,
+            isEssential: isEssential,
             isGrabBag: draft.isGrabBag
           )
         )
