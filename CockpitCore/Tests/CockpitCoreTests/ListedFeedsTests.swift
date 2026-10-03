@@ -85,6 +85,7 @@ struct ListedFeedsTests {
 
     let request = ListedFeedsRequest(now: now, calendar: calendar)
     var value = try await database.read { db in try request.fetch(db) }
+    #expect(value.hasListedStreams)
     #expect(value.items.count == 2)
     #expect(value.items.first?.id == recent)
     #expect(value.items.first?.streamID == firstStream.id)
@@ -169,5 +170,26 @@ struct ListedFeedsTests {
     try await model.undo()
     value = try await database.read { db in try request.fetch(db) }
     #expect(Set(value.items.map(\.id)) == [recent, fallback])
+  }
+
+  @Test("Listed day groups roll over at midnight and sort newest first")
+  func dayGrouping() throws {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+    let now = ISO8601DateFormatter().date(from: "2026-10-03T00:15:00Z")!
+    func item(_ id: Int, _ title: String, _ date: String) -> ListedFeedsRequest.Item {
+      ListedFeedsRequest.Item(
+        id: UUID(98_000 + id), title: title, creator: nil, canonicalURL: nil,
+        listedDate: ISO8601DateFormatter().date(from: date)!, streamID: UUID(98_100),
+        streamName: "Travel", isOpened: false, description: "")
+    }
+    let groups = ListedFeedGrouping.dayGroups([
+      item(1, "Today", "2026-10-03T00:05:00Z"),
+      item(2, "Yesterday", "2026-10-02T23:55:00Z"),
+      item(3, "Earlier", "2026-09-28T12:00:00Z"),
+    ], now: now, calendar: calendar)
+
+    #expect(groups.map(\.title) == ["Today", "Yesterday", "Monday"])
+    #expect(groups.map { $0.items.first?.title } == ["Today", "Yesterday", "Earlier"])
   }
 }

@@ -167,6 +167,11 @@ private struct StreamEditorView: View {
 private struct StreamEditorFields: View {
   @Binding var draft: StreamDraft?
 
+  private var supportsHandlingChoice: Bool {
+    guard let draft else { return false }
+    return draft.transport == .rss || draft.transport == .atom
+  }
+
   var body: some View {
     if let draft = Binding($draft) {
       Section("Stream") {
@@ -174,11 +179,56 @@ private struct StreamEditorFields: View {
         TextField("Publisher / Creator", text: draft.publisher)
         TextField("Interest Area", text: draft.interestAreaName)
       }
-      Section("How Cockpit should handle this") {
-        TextEditor(text: draft.handlingGuidance)
-          .frame(minHeight: 120)
-        Toggle("Essential", isOn: draft.isEssential)
+      if supportsHandlingChoice {
+        Section("How should Cockpit treat it?") {
+          handlingOption(
+            .following, title: "Screen it",
+            detail: "The Edition judges each story and keeps only what's worth your time. Most are declined.",
+            draft: draft)
+          handlingOption(
+            .listed, title: "List every story",
+            detail: "Every new story goes to the Feeds tab for seven days. Nothing is judged.",
+            draft: draft)
+          Text("You can change this later in Following.")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+        }
+      }
+      if draft.wrappedValue.handling == .listed {
+        Section {
+          Toggle("Essential", isOn: draft.isEssential)
+            .disabled(true)
+        } footer: {
+          Text("Essential keeps stories from aging away, so it's off for listed feeds.")
+        }
+      } else {
+        Section("How Cockpit should handle this") {
+          TextEditor(text: draft.handlingGuidance)
+            .frame(minHeight: 120)
+          Toggle("Essential", isOn: draft.isEssential)
+        }
       }
     }
+  }
+
+  private func handlingOption(
+    _ handling: StreamHandling, title: String, detail: String, draft: Binding<StreamDraft>
+  ) -> some View {
+    Button {
+      draft.wrappedValue.handling = handling
+      if handling == .listed { draft.wrappedValue.isEssential = false }
+    } label: {
+      HStack(alignment: .top, spacing: 12) {
+        Image(systemName: draft.wrappedValue.handling == handling ? "largecircle.fill.circle" : "circle")
+          .foregroundStyle(draft.wrappedValue.handling == handling ? Color.accentColor : .secondary)
+        VStack(alignment: .leading, spacing: 3) {
+          Text(title).foregroundStyle(.primary)
+          Text(detail).font(.footnote).foregroundStyle(.secondary)
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
   }
 }

@@ -7,6 +7,7 @@ struct TodayLandingView: View {
   @Bindable var tailModel: EditionModel
   @Bindable var dailyLinkModel: DailyLinkModel
   let readerNamespace: Namespace.ID
+  let openFeeds: () -> Void
   let readableContentPieceIDs: Set<ContentPiece.ID>
   let didChangeQueue: @MainActor () async -> Void
   let openQuickLook: (ContentPiece.ID) -> Void
@@ -97,6 +98,16 @@ private extension TodayLandingView {
         if !model.offerDoors.isEmpty {
           indexLabel("Offers", count: model.offers.rows.count)
         }
+        if let door = model.feedsDoor {
+          HStack(spacing: 4) {
+            Text("Feeds").foregroundStyle(Theme.accent)
+            Text(door.totalCount, format: .number)
+              .fontWeight(.semibold)
+              .foregroundStyle(Theme.accent)
+          }
+          .font(Theme.meta)
+          .fixedSize()
+        }
       }
       .padding(.vertical, 7)
     }
@@ -129,7 +140,26 @@ private extension TodayLandingView {
         content: .offers(model.offerDoors)))
     }
 
-    let tailStart = ContentRole.allCases.count + 1
+    if let feedsDoor = model.feedsDoor {
+      result.append(TodayDisplaySection(
+        layout: .init(id: "feeds-door", sortOrder: ContentRole.offers.sortOrder + 1,
+                      rowCount: 1),
+        content: .feedsDoor(feedsDoor)))
+    }
+
+    // The Feeds door belongs after Offers, before the transactional reference section.
+    if model.feedsDoor != nil, let transactionalIndex = result.firstIndex(where: {
+      if case let .role(section) = $0.content { return section.role == .transactional }
+      return false
+    }) {
+      let transactional = result.remove(at: transactionalIndex)
+      result.append(TodayDisplaySection(
+        layout: .init(id: transactional.id, sortOrder: ContentRole.offers.sortOrder + 2,
+                      rowCount: transactional.layout.rowCount),
+        content: transactional.content))
+    }
+
+    let tailStart = ContentRole.allCases.count + (model.feedsDoor == nil ? 1 : 2)
     let essentials = tailRows(in: .essentials)
     if !essentials.isEmpty {
       result.append(TodayDisplaySection(
@@ -162,6 +192,8 @@ private extension TodayLandingView {
     case let .offers(doors):
       TodayOfferSectionView(doors: doors, totalCount: model.offers.rows.count,
                             openOfferReview: openOfferReview)
+    case let .feedsDoor(door):
+      TodayFeedsDoorView(door: door, openFeeds: openFeeds)
     case let .tail(title, rows, showsComposition):
       TodayTailSectionView(
         title: title, rows: rows, isComposing: showsComposition && tailModel.isComposing,
@@ -190,18 +222,6 @@ private extension TodayLandingView {
     guard case let .composing(phase) = tailModel.compositionState else { return nil }
     return phase
   }
-}
-
-private struct TodayDisplaySection: Identifiable {
-  enum Content {
-    case role(TodayModel.RoleSection)
-    case offers([TodayModel.OfferDoor])
-    case tail(title: String, rows: [CurrentEditionRequest.Row], showsComposition: Bool)
-  }
-
-  let layout: TodayColumnLayout.Section
-  let content: Content
-  var id: String { layout.id }
 }
 
 private struct TodayColumnsLayout: Layout {

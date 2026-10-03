@@ -2,13 +2,14 @@ import Foundation
 import Observation
 
 /// The app-level navigation state. Feature models own their own data and detail selection; this
-/// model owns only the five primary destinations and Settings' nested routes.
+/// model owns the six primary destinations and Settings' nested routes.
 @MainActor
 @Observable
 public final class ShellModel {
   public enum Destination: String, CaseIterable, Hashable, Sendable {
     case today
     case process
+    case feeds
     case later
     case library
     case settings

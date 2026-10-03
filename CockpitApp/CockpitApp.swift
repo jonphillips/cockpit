@@ -30,16 +30,25 @@ struct CockpitApp: App {
   }
 }
 
+@MainActor
 private struct CockpitRootView: View {
   @State private var shellModel = ShellModel()
   @State private var followingModel = FollowingModel()
   @State private var editionModel = EditionModel()
-  @State private var todayModel = TodayModel()
+  @State private var listedFeedsModel: ListedFeedsModel
+  @State private var todayModel: TodayModel
   @State private var readingQueueModel = TodayReadingQueueModel()
   @State private var dailyLinkModel = DailyLinkModel()
   @State private var pendingFindModel = PendingFindListModel()
   @State private var inboxIngest = GmailInboxIngestModel()
+  @State private var selectedFeedID: CockpitCore.Stream.ID?
   @Environment(\.scenePhase) private var scenePhase
+
+  init() {
+    let listedFeedsModel = ListedFeedsModel()
+    _listedFeedsModel = State(initialValue: listedFeedsModel)
+    _todayModel = State(initialValue: TodayModel(listedFeedsModel: listedFeedsModel))
+  }
 
   var body: some View {
     @Bindable var shellModel = shellModel
@@ -52,6 +61,7 @@ private struct CockpitRootView: View {
           inboxIngest: inboxIngest,
           dailyLinkModel: dailyLinkModel,
           shellModel: shellModel,
+          selectedFeedID: $selectedFeedID,
           didChangeQueue: reloadTodayAndQueue
         )
       }
@@ -62,6 +72,11 @@ private struct CockpitRootView: View {
           isActive: shellModel.selection == .process,
           didChangeQueue: reloadTodayAndQueue
         )
+      }
+      Tab("Feeds", systemImage: "dot.radiowaves.up.forward", value: .feeds) {
+        FeedsView(
+          model: listedFeedsModel, followingModel: followingModel,
+          selectedStreamID: $selectedFeedID)
       }
       Tab("Later", systemImage: "clock", value: .later) {
         ContentPieceListView(destination: .later)
@@ -84,7 +99,10 @@ private struct CockpitRootView: View {
       }
       await readingQueueModel.reload()
     }
-    .task { await followingModel.acquireOnLaunchOrRefresh() }
+    .task {
+      await followingModel.acquireOnLaunchOrRefresh()
+      try? await listedFeedsModel.reload()
+    }
     .task { _ = await inboxIngest.autoSyncIfNeeded() }
     .task { await pendingFindModel.refreshHandoffState() }
     .onChange(of: shellModel.selection) { oldSelection, newSelection in
@@ -100,7 +118,11 @@ private struct CockpitRootView: View {
         await pendingFindModel.refreshHandoffState()
         _ = await inboxIngest.autoSyncIfNeeded()
         await readingQueueModel.reload()
+        try? await listedFeedsModel.reload()
       }
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+      Task { try? await listedFeedsModel.reload() }
     }
   }
 

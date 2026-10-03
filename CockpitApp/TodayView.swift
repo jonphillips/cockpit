@@ -8,6 +8,7 @@ struct TodayView: View {
   @Bindable var inboxIngest: GmailInboxIngestModel
   @Bindable var dailyLinkModel: DailyLinkModel
   @Bindable var shellModel: ShellModel
+  @Binding var selectedFeedID: CockpitCore.Stream.ID?
   let didChangeQueue: @MainActor () async -> Void
 
   @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -27,13 +28,19 @@ struct TodayView: View {
         tailModel: tailModel,
         dailyLinkModel: dailyLinkModel,
         readerNamespace: readerTransition,
+        openFeeds: {
+          selectedFeedID = nil
+          shellModel.select(.feeds)
+        },
         readableContentPieceIDs: readingQueueContentPieceIDs,
         didChangeQueue: didChangeQueue,
         openQuickLook: openQuickLook,
         openOfferReview: { offerReviewRole = $0 }
       )
       .overlay {
-        if model.sections.isEmpty && model.offerDoors.isEmpty && tailRows.isEmpty && !tailModel.isComposing {
+        if model.sections.isEmpty && model.offerDoors.isEmpty && model.feedsDoor == nil
+          && tailRows.isEmpty && !tailModel.isComposing
+        {
           ContentUnavailableView(
             "Nothing to Review", systemImage: "sun.max",
             description: Text("Loose Gmail messages and screened tail stories will appear here."))

@@ -43,6 +43,56 @@ struct TodayOfferSectionView: View {
   }
 }
 
+struct TodayFeedsDoorView: View {
+  let door: TodayModel.FeedsDoor
+  let openFeeds: () -> Void
+
+  private var newestAge: String {
+    RelativeDateTimeFormatter().localizedString(for: door.newestDate, relativeTo: .now)
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 2) {
+      SectionLabel(title: "Feeds", count: door.totalCount)
+        .padding(.bottom, 2)
+      Button(action: openFeeds) {
+        VStack(alignment: .leading, spacing: 5) {
+          HStack {
+            Text("\(door.totalCount) new from \(door.sources.count) feeds")
+              .font(Theme.byline.weight(.semibold))
+              .foregroundStyle(Theme.ink)
+            Spacer(minLength: 4)
+            Text("Go to Feeds")
+              .font(Theme.byline.weight(.semibold))
+              .foregroundStyle(Theme.accent)
+          }
+          Text(door.sources.map { "\($0.name) \($0.count)" }.joined(separator: " · "))
+            .font(Theme.meta)
+            .foregroundStyle(Theme.inkSecondary)
+          Rectangle().fill(Theme.rule).frame(height: 1).padding(.vertical, 1)
+          VStack(alignment: .leading, spacing: 2) {
+            Text(door.newestTitle)
+              .font(Theme.queueHeadline)
+              .foregroundStyle(Theme.ink)
+              .lineLimit(2)
+            Text("Newest · \(door.newestStreamName) · \(newestAge)")
+              .font(Theme.meta)
+              .foregroundStyle(Theme.inkTertiary)
+              .lineLimit(1)
+          }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.paperSecondary, in: RoundedRectangle(cornerRadius: 8))
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("\(door.totalCount) new stories from \(door.sources.count) feeds. Open Feeds.")
+    }
+  }
+}
+
 struct TodayTailSectionView: View {
   let title: String
   let rows: [CurrentEditionRequest.Row]

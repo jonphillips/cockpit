@@ -42,6 +42,53 @@ struct TodayModelTests {
     expectNoDifference(model.sections[1].rows.map(\.id), [transactional])
   }
 
+  @Test("The Feeds door shows only new items and leaves Today's count alone")
+  func feedsDoor() {
+    let streamID = UUID(7_801)
+    let now = Date(timeIntervalSince1970: 20_000)
+    let source = ListedFeedsRequest.Source(id: streamID, name: "Travel", publisher: "NYT", newCount: 1)
+    let emptySource = ListedFeedsRequest.Source(
+      id: UUID(7_804), name: "Books", publisher: "NYT", newCount: 0)
+    let secondSource = ListedFeedsRequest.Source(
+      id: UUID(7_805), name: "Movies", publisher: "NYT", newCount: 2)
+    let opened = ListedFeedsRequest.Item(
+      id: UUID(7_802), title: "Opened", creator: nil, canonicalURL: nil,
+      listedDate: now.addingTimeInterval(-100), streamID: streamID, streamName: "Travel",
+      isOpened: true, description: "")
+    let newest = ListedFeedsRequest.Item(
+      id: UUID(7_803), title: "Newest headline", creator: nil, canonicalURL: nil,
+      listedDate: now, streamID: streamID, streamName: "Travel", isOpened: false,
+      description: "")
+    let newestOverall = ListedFeedsRequest.Item(
+      id: UUID(7_806), title: "Newest overall", creator: nil, canonicalURL: nil,
+      listedDate: now.addingTimeInterval(10), streamID: secondSource.id, streamName: "Movies",
+      isOpened: false, description: "")
+    let anotherMovie = ListedFeedsRequest.Item(
+      id: UUID(7_807), title: "Another movie", creator: nil, canonicalURL: nil,
+      listedDate: now.addingTimeInterval(-10), streamID: secondSource.id, streamName: "Movies",
+      isOpened: false, description: "")
+    var feeds = ListedFeedsRequest.Value()
+    #expect(TodayModel.FeedsDoor.make(from: feeds) == nil)
+    feeds.sources = [source, emptySource, secondSource]
+    feeds.items = [opened, newest, newestOverall, anotherMovie]
+    feeds.totalNewCount = 3
+
+    let door = TodayModel.FeedsDoor.make(from: feeds)
+    #expect(door?.totalCount == 3)
+    #expect(door?.sources.map(\.name) == ["Travel", "Movies"])
+    #expect(door?.sources.map(\.count) == [1, 2])
+    #expect(door?.newestTitle == "Newest overall")
+    #expect(door?.newestDate == now.addingTimeInterval(10))
+
+    feeds.items = [opened, ListedFeedsRequest.Item(
+      id: newest.id, title: newest.title, creator: nil, canonicalURL: nil,
+      listedDate: now, streamID: streamID, streamName: "Travel", isOpened: true,
+      description: "")]
+    feeds.totalNewCount = 0
+    #expect(TodayModel.FeedsDoor.make(from: feeds) == nil)
+    #expect(TodayModel().totalCount == 0)
+  }
+
   @Test("Clear resolves only Cockpit attention and leaves Gmail evidence unchanged")
   func clearIsCockpitOnly() async throws {
     let pieceID = UUID(7_101)
