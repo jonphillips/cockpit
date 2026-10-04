@@ -174,7 +174,13 @@ private struct StreamEditorFields: View {
   }
 
   var body: some View {
-    if let draft = Binding($draft) {
+    // Follow and Save clear the draft while the sheet is still up, and UIKit can read these rows'
+    // bindings while it moves focus out of them. `Binding($draft)` force-unwraps on every read, so
+    // bind to the last draft instead, and drop late writes so they can't bring back a cleared one.
+    if let current = draft {
+      let draft = Binding<StreamDraft>(
+        get: { self.draft ?? current },
+        set: { if self.draft != nil { self.draft = $0 } })
       Section("Stream") {
         TextField("Name", text: draft.name)
         TextField("Publisher / Creator", text: draft.publisher)
