@@ -218,7 +218,9 @@ rows taking over a column. One compact door does that and switches to the Feeds 
   Use the app-level `ListedFeedsModel` that S-l2 creates, so its `reload()` keeps the door current. Don't
   create a second instance.
 - **Placement.** `TodayLandingView` renders the door directly after the offer doors, in the same column
-  flow (§30), before Transactional and the Tail, per the mockup's first frame. It's a `SectionLabel`
+  flow (§30), before the Tail, per the mockup's first frame. Every existing section keeps its
+  place: Transactional stays second, after For you, whether or not the door shows. (Corrected
+  2026-10-03 from "before Transactional and the Tail", which contradicted the mockup.) It's a `SectionLabel`
   "Feeds" with "N new", then a row on `Theme.paperSecondary`: "N new from M feeds" with a trailing
   "Go to Feeds" in the accent, then a line of feed names with counts, then the newest headline in
   `Theme.queueHeadline` with "Newest · {feed} · {time} ago" under it.
