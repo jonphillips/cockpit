@@ -28,8 +28,8 @@ toolbars, swipe actions, context menus.
 - [x] S-l1 — Listed posture: `StreamHandling.listed`, Edition exclusion, `listedPieceStates`, the listed-feeds model
 
 **Dispatch 2** (branch `m6/s-l2-feeds-tab-and-door`)
-- [ ] S-l2 — Feeds tab: the split view, Dismiss, Later, open through the system, and choosing Listed in Following
-- [ ] S-l3 — Today's Feeds door: counts per feed, the newest headline, "Feeds N" on the index line
+- [x] S-l2 — Feeds tab: the split view, Dismiss, Later, open through the system, and choosing Listed in Following
+- [x] S-l3 — Today's Feeds door: counts per feed, the newest headline, "Feeds N" on the index line
 
 ## Standing rules for every slice
 

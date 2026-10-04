@@ -43,6 +43,7 @@ public final class TodayModel {
   @ObservationIgnored @Dependency(\.date.now) var now
   @ObservationIgnored @Dependency(\.gmailDispositionClient) var dispositionClient
   @ObservationIgnored @Dependency(\.modelClient) private var modelClient
+  @ObservationIgnored private var listedFeedsModel: ListedFeedsModel?
   @ObservationIgnored @Fetch(TodayRequest()) public var content = .init()
   @ObservationIgnored @Fetch(OfferReviewRequest(heroLimit: 4)) public var offers = OfferReviewRequest.Value()
   public var recentTrashes = RecentTrashRequest.Value()
@@ -51,9 +52,18 @@ public final class TodayModel {
   public var selectedContentPieceID: ContentPiece.ID?
   public var errorMessage: String?
 
-  public init() {}
+  public init(listedFeedsModel: ListedFeedsModel? = nil) {
+    self.listedFeedsModel = listedFeedsModel
+  }
 
   public var totalCount: Int { content.rows.count }
+
+  /// A compact orientation summary of new Listed stories; Listed never changes Today or Process
+  /// membership.
+  public var feedsDoor: FeedsDoor? {
+    guard let listedFeedsModel else { return nil }
+    return FeedsDoor.make(from: listedFeedsModel.content)
+  }
 
   /// The orientation sections are content roles, in the same order used by the future reading
   /// queue. Rows stay in the projection's arrival order within a role.
@@ -63,12 +73,6 @@ public final class TodayModel {
         $0.role == role && !OfferPieces.isOffer(role: $0.role, treatment: $0.treatment)
       }
       return rows.isEmpty ? nil : RoleSection(role: role, rows: rows)
-    }
-  }
-
-  public func rows(for role: ContentRole) -> [TodayRequest.Row] {
-    content.rows.filter {
-      $0.role == role && !OfferPieces.isOffer(role: $0.role, treatment: $0.treatment)
     }
   }
 

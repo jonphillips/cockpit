@@ -84,6 +84,8 @@ struct FollowingTests {
     expectNoDifference(proposal.publisher, "Slow Boring")
     expectNoDifference(proposal.interestAreaName, "General")
     proposal.handlingGuidance = "Keep the writer's original argument available."
+    proposal.handling = .listed
+    proposal.isEssential = true
     model.proposedStream = proposal
     await model.followButtonTapped()
 
@@ -92,6 +94,8 @@ struct FollowingTests {
       let stream = try #require(matchingStream)
       let interestArea = try InterestArea.find(try #require(stream.interestAreaID)).fetchOne(db)
       expectNoDifference(stream.handlingGuidance, "Keep the writer's original argument available.")
+      expectNoDifference(stream.handling, .listed)
+      expectNoDifference(stream.isEssential, false)
       expectNoDifference(interestArea?.name, "General")
       let row = try #require(FollowingRequest().fetch(db).rows.first { $0.id == stream.id })
       expectNoDifference(row.effectiveHealth, .unknown)

@@ -42,6 +42,94 @@ struct TodayModelTests {
     expectNoDifference(model.sections[1].rows.map(\.id), [transactional])
   }
 
+  @Test("The Feeds door shows only new items and leaves Today's count alone")
+  func feedsDoor() {
+    let streamID = UUID(7_801)
+    let now = Date(timeIntervalSince1970: 20_000)
+    let source = ListedFeedsRequest.Source(id: streamID, name: "Travel", publisher: "NYT", newCount: 1)
+    let emptySource = ListedFeedsRequest.Source(
+      id: UUID(7_804), name: "Books", publisher: "NYT", newCount: 0)
+    let secondSource = ListedFeedsRequest.Source(
+      id: UUID(7_805), name: "Movies", publisher: "NYT", newCount: 2)
+    let opened = ListedFeedsRequest.Item(
+      id: UUID(7_802), title: "Opened", creator: nil, canonicalURL: nil,
+      listedDate: now.addingTimeInterval(-100), streamID: streamID, streamName: "Travel",
+      isOpened: true, description: "")
+    let newest = ListedFeedsRequest.Item(
+      id: UUID(7_803), title: "Newest headline", creator: nil, canonicalURL: nil,
+      listedDate: now, streamID: streamID, streamName: "Travel", isOpened: false,
+      description: "")
+    let newestOverall = ListedFeedsRequest.Item(
+      id: UUID(7_806), title: "Newest overall", creator: nil, canonicalURL: nil,
+      listedDate: now.addingTimeInterval(10), streamID: secondSource.id, streamName: "Movies",
+      isOpened: false, description: "")
+    let anotherMovie = ListedFeedsRequest.Item(
+      id: UUID(7_807), title: "Another movie", creator: nil, canonicalURL: nil,
+      listedDate: now.addingTimeInterval(-10), streamID: secondSource.id, streamName: "Movies",
+      isOpened: false, description: "")
+    var feeds = ListedFeedsRequest.Value()
+    #expect(TodayModel.FeedsDoor.make(from: feeds) == nil)
+    feeds.sources = [source, emptySource, secondSource]
+    feeds.items = [opened, newest, newestOverall, anotherMovie]
+    feeds.totalNewCount = 3
+
+    let door = TodayModel.FeedsDoor.make(from: feeds)
+    #expect(door?.totalCount == 3)
+    #expect(door?.sources.map(\.name) == ["Travel", "Movies"])
+    #expect(door?.sources.map(\.count) == [1, 2])
+    #expect(door?.newestTitle == "Newest overall")
+    #expect(door?.newestDate == now.addingTimeInterval(10))
+
+    feeds.items = [opened, ListedFeedsRequest.Item(
+      id: newest.id, title: newest.title, creator: nil, canonicalURL: nil,
+      listedDate: now, streamID: streamID, streamName: "Travel", isOpened: true,
+      description: "")]
+    feeds.totalNewCount = 0
+    #expect(TodayModel.FeedsDoor.make(from: feeds) == nil)
+  }
+
+  @Test("Listed material leaves Today and Process counts unchanged and opening the last item removes the door")
+  func listedDoesNotChangeTodayAndOpeningClearsDoor() async throws {
+    let streamID = UUID(7_820)
+    let pieceID = UUID(7_821)
+    let artifactID = UUID(7_822)
+    let now = Date(timeIntervalSince1970: 20_000)
+    let before = try await database.read { db in
+      (try TodayRequest().fetch(db).rows.map(\.id),
+       try TodayReadingQueueRequest().fetch(db).rows.map(\.id))
+    }
+    let stream = Stream(
+      id: streamID, name: "Travel", publisher: "NYT", transport: .rss,
+      locator: "https://example.com/feed", handling: .listed)
+    try await database.write { db in
+      try Stream.insert { Stream.Draft(stream) }.execute(db)
+      try ContentPiece.insert {
+        ContentPiece.Draft(
+          id: pieceID, kind: .article, title: "A listed story", publisher: "NYT",
+          publishedAt: now, canonicalURL: "https://example.com/story", createdAt: now)
+      }.execute(db)
+      try Artifact.insert {
+        Artifact.Draft(Artifact(
+          id: artifactID, streamID: streamID, transport: .rss, acquiredAt: now,
+          contentPieceID: pieceID))
+      }.execute(db)
+    }
+    let after = try await database.read { db in
+      (try TodayRequest().fetch(db).rows.map(\.id),
+       try TodayReadingQueueRequest().fetch(db).rows.map(\.id))
+    }
+    #expect(after.0 == before.0)
+    #expect(after.1 == before.1)
+
+    let feedsModel = ListedFeedsModel(database: database, now: { now })
+    try await feedsModel.reload()
+    let todayModel = TodayModel(listedFeedsModel: feedsModel)
+    #expect(todayModel.feedsDoor?.totalCount == 1)
+    try await feedsModel.recordOpened(id: pieceID)
+    try await feedsModel.reload()
+    #expect(todayModel.feedsDoor == nil)
+  }
+
   @Test("Clear resolves only Cockpit attention and leaves Gmail evidence unchanged")
   func clearIsCockpitOnly() async throws {
     let pieceID = UUID(7_101)

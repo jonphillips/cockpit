@@ -41,24 +41,12 @@ public struct ListedFeedsRequest: FetchKeyRequest {
     public var newCount: Int
   }
 
-  @Selection
-  public struct Item: Equatable, Identifiable, Sendable {
-    public let id: ContentPiece.ID
-    public let title: String
-    public let creator: String?
-    public let canonicalURL: String?
-    public let listedDate: Date
-    public let streamID: Stream.ID
-    public let streamName: String
-    public let isOpened: Bool
-    public let description: String
-  }
-
   public struct Value: Equatable, Sendable {
     public var sources: [Source] = []
     public var items: [Item] = []
     public var totalNewCount = 0
     public var showsPublisherLabel = false
+    public var hasListedStreams = false
     public init() {}
   }
 
@@ -71,16 +59,20 @@ public struct ListedFeedsRequest: FetchKeyRequest {
   }
 
   public func fetch(_ db: Database) throws -> Value {
+    // Paused Listed streams still mean the reader has a Listed stream configured.
+    let hasListedStreams = try Stream.where { $0.handling.eq(StreamHandling.listed) }
+      .fetchCount(db) > 0
+    var result = Value()
+    result.hasListedStreams = hasListedStreams
     let streams = try orderedListedStreams(in: db)
     let streamByID = Dictionary(uniqueKeysWithValues: streams.map { ($0.id, $0) })
     let streamOrder = Dictionary(uniqueKeysWithValues: streams.enumerated().map { ($1.id, $0) })
-    guard !streams.isEmpty else { return Value() }
+    guard !streams.isEmpty else { return result }
     let optionalStreamIDs = streams.map { Optional($0.id) }
     let listedArtifacts = try Artifact.where { $0.streamID.in(optionalStreamIDs) }
       .fetchAll(db).filter { $0.contentPieceID != nil && $0.streamID.flatMap { streamByID[$0] } != nil }
     let artifactsByPiece = Dictionary(grouping: listedArtifacts, by: { $0.contentPieceID! })
     guard !artifactsByPiece.isEmpty else {
-      var result = Value()
       result.sources = streams.map { Source(id: $0.id, name: $0.name, publisher: $0.publisher, newCount: 0) }
       result.showsPublisherLabel = Set(result.sources.map(\.publisher)).count > 1
       return result
@@ -93,7 +85,6 @@ public struct ListedFeedsRequest: FetchKeyRequest {
     let cutoff = calendar.date(
       byAdding: .day, value: -(ListedFeedPolicy.window.day ?? 7), to: now
     ) ?? now.addingTimeInterval(-7 * 86_400)
-    var result = Value()
     var itemsByStream: [Stream.ID: [Item]] = [:]
 
     for (pieceID, artifacts) in artifactsByPiece {
@@ -110,12 +101,13 @@ public struct ListedFeedsRequest: FetchKeyRequest {
       guard let artifact = orderedArtifacts.first, let streamID = artifact.streamID,
         let stream = streamByID[streamID]
       else { continue }
+      let streamIDs = orderedStreamIDs(for: orderedArtifacts)
       let plainDescription = (HTMLText.normalizedText(from: artifact.rawSourceText) ?? "")
         .components(separatedBy: .newlines).joined(separator: " ")
       let item = Item(
         id: pieceID, title: piece.title, creator: piece.creator, canonicalURL: piece.canonicalURL,
         listedDate: listedDate, streamID: streamID, streamName: stream.name,
-        isOpened: state?.openedAt != nil, description: plainDescription)
+        isOpened: state?.openedAt != nil, description: plainDescription, streamIDs: streamIDs)
       itemsByStream[streamID, default: []].append(item)
     }
 
@@ -143,6 +135,12 @@ public struct ListedFeedsRequest: FetchKeyRequest {
         return left < right
       }
   }
+
+  private func orderedStreamIDs(for artifacts: [Artifact]) -> [Stream.ID] {
+    artifacts.compactMap(\.streamID).reduce(into: []) { ids, id in
+      if !ids.contains(id) { ids.append(id) }
+    }
+  }
 }
 
 @Observable
@@ -164,6 +162,7 @@ public final class ListedFeedsModel {
   public var items: [ListedFeedsRequest.Item] { content.items }
   public var totalNewCount: Int { content.totalNewCount }
   public var showsPublisherLabel: Bool { content.showsPublisherLabel }
+  public var hasListedStreams: Bool { content.hasListedStreams }
 
   public func reload() async throws {
     try await $content.load(ListedFeedsRequest(now: now()), database: database)
@@ -173,12 +172,29 @@ public final class ListedFeedsModel {
     try await setState(id: id, open: true, dismiss: false)
   }
 
+  public func saveForLater(id: ContentPiece.ID) async throws {
+    let date = now()
+    try await database.write { db in
+      try DestinationOperations.saveForLater(id, at: date, in: db)
+    }
+  }
+
+  public func addToLibrary(id: ContentPiece.ID) async throws {
+    let date = now()
+    try await database.write { db in
+      try DestinationOperations.addToLibrary(id, at: date, in: db)
+    }
+  }
+
   public func dismiss(id: ContentPiece.ID) async throws {
     try await dismiss(ids: [id])
   }
 
   public func dismissAll(streamID: Stream.ID? = nil) async throws {
-    let ids = Set(content.items.filter { streamID == nil || $0.streamID == streamID }.map(\.id))
+    let ids = Set(content.items.filter { item in
+      guard let streamID else { return true }
+      return item.streamIDs.contains(streamID)
+    }.map(\.id))
     try await dismiss(ids: ids)
   }
 
