@@ -1330,8 +1330,10 @@ against the mockup `docs/mockups/M6-listed-feeds.html`.
   A row is the kicker, the headline, the byline and time, and one line of the feed's own description.
   Cockpit generates nothing.
 - **An indicator on Today.** While any Listed piece is new, Today shows one **Feeds** door with the new
-  count, a count per feed, and the newest headline. It sits with the offer doors (§30), after the role
-  sections and before Transactional and the Tail, and the index line gets "Feeds N". Tapping it
+  count, a count per feed, and the newest headline. It sits directly after the offer doors (§30), the
+  last of the role sections, and before the Tail. Existing sections keep their places: Transactional
+  stays second, after For you. (Wording corrected 2026-10-03: an earlier draft said "before
+  Transactional", which contradicted the mockup.) The index line gets "Feeds N". Tapping it
   switches to the Feeds tab with All feeds selected. **New** means not opened, not dismissed, and still
   inside the window. With nothing new, the door disappears. Today's "N to process" count and the
   Process queue leave Listed pieces out, because the Feeds tab is where they're read. That's the same
