@@ -147,19 +147,7 @@ private extension TodayLandingView {
         content: .feedsDoor(feedsDoor)))
     }
 
-    // The Feeds door belongs after Offers, before the transactional reference section.
-    if model.feedsDoor != nil, let transactionalIndex = result.firstIndex(where: {
-      if case let .role(section) = $0.content { return section.role == .transactional }
-      return false
-    }) {
-      let transactional = result.remove(at: transactionalIndex)
-      result.append(TodayDisplaySection(
-        layout: .init(id: transactional.id, sortOrder: ContentRole.offers.sortOrder + 2,
-                      rowCount: transactional.layout.rowCount),
-        content: transactional.content))
-    }
-
-    let tailStart = ContentRole.allCases.count + (model.feedsDoor == nil ? 1 : 2)
+    let tailStart = ContentRole.allCases.count + 1
     let essentials = tailRows(in: .essentials)
     if !essentials.isEmpty {
       result.append(TodayDisplaySection(

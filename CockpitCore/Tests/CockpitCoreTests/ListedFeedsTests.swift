@@ -89,6 +89,7 @@ struct ListedFeedsTests {
     #expect(value.items.count == 2)
     #expect(value.items.first?.id == recent)
     #expect(value.items.first?.streamID == firstStream.id)
+    #expect(value.items.first?.streamIDs == [firstStream.id, secondStream.id])
     #expect(value.items.first?.description == "First & clear.")
     let fallbackItem = try #require(value.items.first(where: { $0.id == fallback }))
     #expect(fallbackItem.streamID == secondStream.id)
@@ -160,6 +161,12 @@ struct ListedFeedsTests {
     try await model.undo()
     value = try await database.read { db in try request.fetch(db) }
     #expect(Set(value.items.map(\.id)) == [recent, fallback])
+    try await model.dismissAll(streamID: secondStream.id)
+    try await model.reload()
+    #expect(model.items.isEmpty)
+    try await model.undo()
+    try await model.reload()
+    #expect(Set(model.items.map(\.id)) == [recent, fallback])
     #expect(try await database.read { db in try ListedPieceState.find(recent).fetchOne(db)?.openedAt } == firstOpen)
     try await model.dismissAll()
     try await model.reload()
@@ -187,9 +194,23 @@ struct ListedFeedsTests {
       item(1, "Today", "2026-10-03T00:05:00Z"),
       item(2, "Yesterday", "2026-10-02T23:55:00Z"),
       item(3, "Earlier", "2026-09-28T12:00:00Z"),
+      item(4, "Last Saturday", "2026-09-26T15:00:00Z"),
     ], now: now, calendar: calendar)
 
-    #expect(groups.map(\.title) == ["Today", "Yesterday", "Monday"])
-    #expect(groups.map { $0.items.first?.title } == ["Today", "Yesterday", "Earlier"])
+    #expect(groups.map(\.title) == ["Today", "Yesterday", "Monday", "Last Saturday"])
+    #expect(groups.map { $0.items.first?.title } == ["Today", "Yesterday", "Earlier", "Last Saturday"])
+  }
+
+  @Test("Publisher groups preserve first publisher and source order")
+  func publisherGrouping() {
+    func source(_ id: Int, _ name: String, _ publisher: String) -> ListedFeedsRequest.Source {
+      ListedFeedsRequest.Source(id: UUID(98_200 + id), name: name, publisher: publisher, newCount: 0)
+    }
+    let groups = ListedFeedGrouping.publisherGroups([
+      source(1, "A first", "A"), source(2, "B", "B"),
+      source(3, "A second", "A"), source(4, "A third", "A"),
+    ])
+    #expect(groups.map(\.publisher) == ["A", "B"])
+    #expect(groups.map { $0.sources.map(\.name) } == [["A first", "A second", "A third"], ["B"]])
   }
 }

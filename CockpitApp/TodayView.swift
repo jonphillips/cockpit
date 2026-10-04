@@ -8,7 +8,7 @@ struct TodayView: View {
   @Bindable var inboxIngest: GmailInboxIngestModel
   @Bindable var dailyLinkModel: DailyLinkModel
   @Bindable var shellModel: ShellModel
-  @Binding var selectedFeedID: CockpitCore.Stream.ID?
+  @Binding var feedSelection: FeedsSelection?
   let didChangeQueue: @MainActor () async -> Void
 
   @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -29,7 +29,7 @@ struct TodayView: View {
         dailyLinkModel: dailyLinkModel,
         readerNamespace: readerTransition,
         openFeeds: {
-          selectedFeedID = nil
+          feedSelection = .all
           shellModel.select(.feeds)
         },
         readableContentPieceIDs: readingQueueContentPieceIDs,

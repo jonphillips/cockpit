@@ -41,7 +41,7 @@ private struct CockpitRootView: View {
   @State private var dailyLinkModel = DailyLinkModel()
   @State private var pendingFindModel = PendingFindListModel()
   @State private var inboxIngest = GmailInboxIngestModel()
-  @State private var selectedFeedID: CockpitCore.Stream.ID?
+  @State private var feedSelection: FeedsSelection? = .all
   @Environment(\.scenePhase) private var scenePhase
 
   init() {
@@ -61,7 +61,7 @@ private struct CockpitRootView: View {
           inboxIngest: inboxIngest,
           dailyLinkModel: dailyLinkModel,
           shellModel: shellModel,
-          selectedFeedID: $selectedFeedID,
+          feedSelection: $feedSelection,
           didChangeQueue: reloadTodayAndQueue
         )
       }
@@ -76,7 +76,7 @@ private struct CockpitRootView: View {
       Tab("Feeds", systemImage: "dot.radiowaves.up.forward", value: .feeds) {
         FeedsView(
           model: listedFeedsModel, followingModel: followingModel,
-          selectedStreamID: $selectedFeedID)
+          selection: $feedSelection)
       }
       Tab("Later", systemImage: "clock", value: .later) {
         ContentPieceListView(destination: .later)

@@ -4,22 +4,22 @@ import SwiftUI
 struct FeedsView: View {
   @Bindable var model: ListedFeedsModel
   @Bindable var followingModel: FollowingModel
-  @Binding var selectedStreamID: CockpitCore.Stream.ID?
+  @Binding var selection: FeedsSelection?
   @State private var undoMessage: String?
   @State private var errorMessage: String?
   @Environment(\.openURL) private var openURL
 
   private var selectedItemCount: Int {
-    guard let selectedStreamID else { return model.items.count }
-    return model.items.filter { $0.streamID == selectedStreamID }.count
+    guard case let .stream(streamID)? = selection else { return model.items.count }
+    return model.items.filter { $0.streamIDs.contains(streamID) }.count
   }
 
   var body: some View {
     NavigationSplitView {
-      FeedsSidebar(model: model, selectedStreamID: $selectedStreamID)
+      FeedsSidebar(model: model, selection: $selection)
     } detail: {
       FeedsListPane(
-        model: model, selectedStreamID: selectedStreamID,
+        model: model, selection: selection,
         onOpen: open, onLater: saveForLater, onLibrary: addToLibrary, onDismiss: dismiss)
         .navigationTitle("Feeds")
         .toolbar {
@@ -65,9 +65,8 @@ struct FeedsView: View {
   }
 
   private func open(_ item: ListedFeedsRequest.Item) {
-    if let locator = item.canonicalURL, let url = URL(string: locator) {
-      openURL(url)
-    }
+    guard let locator = item.canonicalURL, let url = URL(string: locator) else { return }
+    openURL(url)
     Task {
       do { try await model.recordOpened(id: item.id) }
       catch { errorMessage = error.localizedDescription }
@@ -86,7 +85,9 @@ struct FeedsView: View {
 
   private func dismissAll() async {
     do {
-      try await model.dismissAll(streamID: selectedStreamID)
+      let streamID: CockpitCore.Stream.ID?
+      if case let .stream(id)? = selection { streamID = id } else { streamID = nil }
+      try await model.dismissAll(streamID: streamID)
       undoMessage = "Dismissed stories"
       errorMessage = nil
     } catch { errorMessage = error.localizedDescription }

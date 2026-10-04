@@ -6,7 +6,27 @@ public struct ListedFeedDayGroup: Equatable, Identifiable, Sendable {
   public let items: [ListedFeedsRequest.Item]
 }
 
+public struct ListedFeedPublisherGroup: Equatable, Identifiable, Sendable {
+  public let publisher: String
+  public var sources: [ListedFeedsRequest.Source]
+  public var id: String { publisher }
+}
+
 public enum ListedFeedGrouping {
+  public static func publisherGroups(
+    _ sources: [ListedFeedsRequest.Source]
+  ) -> [ListedFeedPublisherGroup] {
+    var groups: [ListedFeedPublisherGroup] = []
+    for source in sources {
+      if let index = groups.firstIndex(where: { $0.publisher == source.publisher }) {
+        groups[index].sources.append(source)
+      } else {
+        groups.append(ListedFeedPublisherGroup(publisher: source.publisher, sources: [source]))
+      }
+    }
+    return groups
+  }
+
   public static func dayGroups(
     _ items: [ListedFeedsRequest.Item], now: Date, calendar: Calendar
   ) -> [ListedFeedDayGroup] {
@@ -24,6 +44,17 @@ public enum ListedFeedGrouping {
     if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
       calendar.isDate(date, inSameDayAs: yesterday)
     { return "Yesterday" }
+    let ageInDays = calendar.dateComponents([.day], from: date, to: now).day ?? 0
+    if ageInDays >= 2
+      && calendar.component(.weekday, from: date) == calendar.component(.weekday, from: now)
+    {
+      let formatter = DateFormatter()
+      formatter.calendar = calendar
+      formatter.timeZone = calendar.timeZone
+      formatter.locale = .current
+      formatter.dateFormat = "EEEE"
+      return "Last \(formatter.string(from: date))"
+    }
     let formatter = DateFormatter()
     formatter.calendar = calendar
     formatter.timeZone = calendar.timeZone

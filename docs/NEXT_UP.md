@@ -1,7 +1,14 @@
-# Next Up — M6 Gate 5: S-join device round trip
+# Next Up — nothing dispatched
 
-**Slices:** M6 · S-join (Jon, device)
-**Briefs:** docs/milestones/M6-gate5-find-handoff-slice-plan.md §6 (S-join device gate)
-**Done when:** Complete the Cockpit ↔ Yes Chef real-email round trip, decline and dismiss paths, interrupted-receiver case, custody check, and split-view race review; ratify the boundary.
-**Owed:** S-c4 follows this gate.
-**Notes:** Device work belongs to Jon. Agents do not drive UI, simulator, or device.
+Nothing dispatched.
+
+**Slices:** None.
+**Briefs:** None.
+**Done when:** Jon completes the owed device gates and the architect sets the next dispatch.
+
+**Owed:**
+- M6 S-join device gate: complete the Cockpit ↔ Yes Chef real-email round trip, decline and dismiss paths, interrupted-receiver case, custody check, and split-view race review; ratify the boundary. See `docs/milestones/M6-gate5-find-handoff-slice-plan.md` §6.
+- M6 S-l2/S-l3 device pass: verify universal-link routing, six-tab and split-width layout, tab selection and scroll retention, midnight rollover, and Today door height; include compact-width Feeds selection collapse behavior.
+- S-c4 follows these gates.
+
+Device work belongs to Jon. Agents do not drive UI, simulator, or device.

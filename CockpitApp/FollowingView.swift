@@ -115,7 +115,7 @@ private struct AddStreamView: View {
           Button("Find Feed") { Task { await model.discoverButtonTapped() } }
         }
         if model.proposedStream != nil {
-          StreamEditorFields(draft: $model.proposedStream)
+          StreamEditorFields(draft: $model.proposedStream, showsAddGuidance: true)
         }
       }
       .navigationTitle("Add Stream")
@@ -166,6 +166,7 @@ private struct StreamEditorView: View {
 
 private struct StreamEditorFields: View {
   @Binding var draft: StreamDraft?
+  var showsAddGuidance = false
 
   private var supportsHandlingChoice: Bool {
     guard let draft else { return false }
@@ -180,7 +181,7 @@ private struct StreamEditorFields: View {
         TextField("Interest Area", text: draft.interestAreaName)
       }
       if supportsHandlingChoice {
-        Section("How should Cockpit treat it?") {
+        Section {
           handlingOption(
             .following, title: "Screen it",
             detail: "The Edition judges each story and keeps only what's worth your time. Most are declined.",
@@ -189,9 +190,12 @@ private struct StreamEditorFields: View {
             .listed, title: "List every story",
             detail: "Every new story goes to the Feeds tab for seven days. Nothing is judged.",
             draft: draft)
-          Text("You can change this later in Following.")
-            .font(.footnote)
-            .foregroundStyle(.secondary)
+        } header: {
+          Text("How should Cockpit treat it?")
+        } footer: {
+          if showsAddGuidance {
+            Text("You can change this later in Following.")
+          }
         }
       }
       if draft.wrappedValue.handling == .listed {

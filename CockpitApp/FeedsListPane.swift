@@ -1,29 +1,22 @@
 import CockpitCore
 import SwiftUI
 
+enum FeedsSelection: Hashable {
+  case all
+  case stream(CockpitCore.Stream.ID)
+}
+
 struct FeedsSidebar: View {
   @Bindable var model: ListedFeedsModel
-  @Binding var selectedStreamID: CockpitCore.Stream.ID?
-
-  private var publisherGroups: [PublisherGroup] {
-    var groups: [PublisherGroup] = []
-    for source in model.sources {
-      if let index = groups.firstIndex(where: { $0.publisher == source.publisher }) {
-        groups[index].sources.append(source)
-      } else {
-        groups.append(PublisherGroup(publisher: source.publisher, sources: [source]))
-      }
-    }
-    return groups
-  }
+  @Binding var selection: FeedsSelection?
 
   var body: some View {
-    List(selection: $selectedStreamID) {
-      Text("All feeds").tag(nil as CockpitCore.Stream.ID?).badge(model.totalNewCount)
-      ForEach(publisherGroups, id: \.publisher) { group in
+    List(selection: $selection) {
+      Text("All feeds").tag(FeedsSelection.all as FeedsSelection?).badge(model.totalNewCount)
+      ForEach(ListedFeedGrouping.publisherGroups(model.sources)) { group in
         Section(group.publisher) {
           ForEach(group.sources) { source in
-            Text(source.name).tag(Optional(source.id)).badge(source.newCount)
+            Text(source.name).tag(FeedsSelection.stream(source.id) as FeedsSelection?).badge(source.newCount)
           }
         }
       }
@@ -35,24 +28,24 @@ struct FeedsSidebar: View {
 
 struct FeedsListPane: View {
   @Bindable var model: ListedFeedsModel
-  let selectedStreamID: CockpitCore.Stream.ID?
+  let selection: FeedsSelection?
   let onOpen: (ListedFeedsRequest.Item) -> Void
   let onLater: (ListedFeedsRequest.Item) -> Void
   let onLibrary: (ListedFeedsRequest.Item) -> Void
   let onDismiss: (ListedFeedsRequest.Item) -> Void
 
   private var selectedItems: [ListedFeedsRequest.Item] {
-    guard let selectedStreamID else { return model.items }
-    return model.items.filter { $0.streamID == selectedStreamID }
+    guard case let .stream(streamID)? = selection else { return model.items }
+    return model.items.filter { $0.streamIDs.contains(streamID) }
   }
 
   private var selectedTitle: String {
-    guard let selectedStreamID else { return "All feeds" }
+    guard case let .stream(selectedStreamID)? = selection else { return "All feeds" }
     return model.sources.first(where: { $0.id == selectedStreamID })?.name ?? "All feeds"
   }
 
   private var selectedNewCount: Int {
-    guard let selectedStreamID else { return model.totalNewCount }
+    guard case let .stream(selectedStreamID)? = selection else { return model.totalNewCount }
     return model.sources.first(where: { $0.id == selectedStreamID })?.newCount ?? 0
   }
 
@@ -90,7 +83,7 @@ struct FeedsListPane: View {
         Section {
           ForEach(Array(group.items.enumerated()), id: \.element.id) { index, item in
             ListedFeedStoryRow(
-              item: item, showsKicker: selectedStreamID == nil,
+              item: item, showsKicker: selection == .all,
               showsPublisherLabel: model.showsPublisherLabel,
               publisher: model.sources.first(where: { $0.id == item.streamID })?.publisher,
               showsTopRule: index > 0, onOpen: { onOpen(item) })
@@ -124,9 +117,4 @@ struct FeedsListPane: View {
     .listStyle(.plain)
     .scrollContentBackground(.hidden)
   }
-}
-
-private struct PublisherGroup {
-  let publisher: String
-  var sources: [ListedFeedsRequest.Source]
 }

@@ -41,19 +41,6 @@ public struct ListedFeedsRequest: FetchKeyRequest {
     public var newCount: Int
   }
 
-  @Selection
-  public struct Item: Equatable, Identifiable, Sendable {
-    public let id: ContentPiece.ID
-    public let title: String
-    public let creator: String?
-    public let canonicalURL: String?
-    public let listedDate: Date
-    public let streamID: Stream.ID
-    public let streamName: String
-    public let isOpened: Bool
-    public let description: String
-  }
-
   public struct Value: Equatable, Sendable {
     public var sources: [Source] = []
     public var items: [Item] = []
@@ -72,8 +59,9 @@ public struct ListedFeedsRequest: FetchKeyRequest {
   }
 
   public func fetch(_ db: Database) throws -> Value {
-    let hasListedStreams = try !Stream.where { $0.handling.eq(StreamHandling.listed) }
-      .fetchAll(db).isEmpty
+    // Paused Listed streams still mean the reader has a Listed stream configured.
+    let hasListedStreams = try Stream.where { $0.handling.eq(StreamHandling.listed) }
+      .fetchCount(db) > 0
     var result = Value()
     result.hasListedStreams = hasListedStreams
     let streams = try orderedListedStreams(in: db)
@@ -113,12 +101,13 @@ public struct ListedFeedsRequest: FetchKeyRequest {
       guard let artifact = orderedArtifacts.first, let streamID = artifact.streamID,
         let stream = streamByID[streamID]
       else { continue }
+      let streamIDs = orderedStreamIDs(for: orderedArtifacts)
       let plainDescription = (HTMLText.normalizedText(from: artifact.rawSourceText) ?? "")
         .components(separatedBy: .newlines).joined(separator: " ")
       let item = Item(
         id: pieceID, title: piece.title, creator: piece.creator, canonicalURL: piece.canonicalURL,
         listedDate: listedDate, streamID: streamID, streamName: stream.name,
-        isOpened: state?.openedAt != nil, description: plainDescription)
+        isOpened: state?.openedAt != nil, description: plainDescription, streamIDs: streamIDs)
       itemsByStream[streamID, default: []].append(item)
     }
 
@@ -145,6 +134,12 @@ public struct ListedFeedsRequest: FetchKeyRequest {
         let right = (areaNames[$1.interestAreaID ?? UUID()] ?? "", $1.name, $1.id.uuidString)
         return left < right
       }
+  }
+
+  private func orderedStreamIDs(for artifacts: [Artifact]) -> [Stream.ID] {
+    artifacts.compactMap(\.streamID).reduce(into: []) { ids, id in
+      if !ids.contains(id) { ids.append(id) }
+    }
   }
 }
 
@@ -196,7 +191,10 @@ public final class ListedFeedsModel {
   }
 
   public func dismissAll(streamID: Stream.ID? = nil) async throws {
-    let ids = Set(content.items.filter { streamID == nil || $0.streamID == streamID }.map(\.id))
+    let ids = Set(content.items.filter { item in
+      guard let streamID else { return true }
+      return item.streamIDs.contains(streamID)
+    }.map(\.id))
     try await dismiss(ids: ids)
   }
 
