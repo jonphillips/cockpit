@@ -1,10 +1,9 @@
-# Next Up — nothing dispatched
+# Next Up — Background disposition: rows leave at once, Gmail confirms behind them
 
-Nothing dispatched.
-
-**Slices:** None.
-**Briefs:** None.
-**Done when:** Jon completes the owed device gates and the architect sets the next dispatch.
+**Slices:** M6 · S-d1 + S-d2
+**Briefs:** docs/milestones/M6-background-disposition.md §Standing rules, §S-d1, §S-d2 (decision: ADR-0002 D6 amendment, 2026-10-12)
+**Done when:** per the briefs. Offers Trash all and single-row Trash/Archive remove rows immediately, Gmail calls run in the background (window of 4), Undo is live from the first moment until the batch settles, and a failure raises an alert and brings the failed rows back.
+**Notes:** Branch `effort/background-disposition`. No schema, migration, or sync change; the D4 barrier order is unchanged. Floats ahead of S-c4.
 
 **Owed:**
 - M6 S-join device gate: complete the Cockpit ↔ Yes Chef real-email round trip, decline and dismiss paths, interrupted-receiver case, custody check, and split-view race review; ratify the boundary. See `docs/milestones/M6-gate5-find-handoff-slice-plan.md` §6.
