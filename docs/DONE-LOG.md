@@ -6,6 +6,15 @@ History, newest first. The PR that completes a dispatch adds an entry naming its
 History before 2026-09-29 lives in the milestone ledgers (`docs/milestones/`), the
 `docs/handoff-*-report.md` files, and merged PRs.
 
+## 2026-10-12 — M6 S-d1/S-d2 Background disposition (`effort/background-disposition`)
+
+Added the shared in-memory Gmail disposition queue. Explicit Trash/Archive now hides rows at submit,
+runs at most four provider calls across the app, and offers Undo while work is running. Failed rows
+return with an alert; offer review, Today, Process, and Reader use the queue. Core tests (347), strict
+SwiftLint, unsigned iOS build, and handoff shape check pass. Trash-all responsiveness, failure alerts,
+and token reuse remain unverified on device for Jon. The S-join round trip and S-l2/S-l3 device pass
+remain owed to Jon.
+
 ## 2026-10-03 — M6 S-l2/S-l3 Feeds tab and Today door (`m6/s-l2-feeds-tab-and-door`)
 
 Added the Feeds split view and Listed choice in Following, plus Today's shared Feeds door with new

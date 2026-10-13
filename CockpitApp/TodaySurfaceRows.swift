@@ -142,7 +142,7 @@ private extension TodayRoleSectionView {
       if let queueRow = queueModel.rows.first(where: { $0.id == row.id }) {
         await queueModel.archive(queueRow)
       } else {
-        await model.archive(row)
+        model.archive(row)
       }
       await didChangeQueue()
     }
@@ -153,7 +153,7 @@ private extension TodayRoleSectionView {
       if let queueRow = queueModel.rows.first(where: { $0.id == row.id }) {
         await queueModel.trash(queueRow)
       } else {
-        await model.trash(row)
+        model.trash(row)
       }
       await didChangeQueue()
     }

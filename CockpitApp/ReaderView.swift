@@ -59,6 +59,7 @@ struct ReaderView: View {
       .accessibilityHidden(true)
     }
     .task { await readerAppeared() }
+    .dispositionAlert(queue: model.dispositionQueue)
     .sheet(isPresented: $isShowingTeaching, onDismiss: {
       model.cancelTeaching()
     }) {
@@ -146,6 +147,7 @@ extension ReaderView {
     contentPieceID: ContentPiece.ID,
     editionContext: EditionReaderContext? = nil,
     queueContext: ReaderQueueContext? = nil,
+    dispositionQueue: GmailDispositionQueue = .shared,
     isReachableStreamPiece: Bool = false,
     onSourceDisposed: (@MainActor () -> Void)? = nil,
     originalWebViewStore: TodayOriginalWebViewStore? = nil
@@ -159,7 +161,8 @@ extension ReaderView {
     _model = LazyState {
       ContentPieceReaderModel(
         contentPieceID: contentPieceID,
-        matchedPersonalKnowledgeClaimID: editionContext?.matchedPersonalKnowledgeClaimID
+        matchedPersonalKnowledgeClaimID: editionContext?.matchedPersonalKnowledgeClaimID,
+        dispositionQueue: dispositionQueue
       )
     }
   }

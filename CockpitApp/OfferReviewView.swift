@@ -12,9 +12,8 @@ struct OfferReviewView: View {
   init(role: ContentRole, todayModel: TodayModel, didFinish: @escaping () -> Void) {
     self.role = role
     self.didFinish = didFinish
-    _model = State(initialValue: OfferReviewModel(role: role) {
-      todayModel.rememberOfferBatch($0)
-    })
+    _model = State(initialValue: OfferReviewModel(
+      role: role, dispositionQueue: todayModel.dispositionQueue))
   }
 
   var body: some View {
@@ -55,14 +54,16 @@ struct OfferReviewView: View {
           Button("Not now") { didFinish() }
         }
       }
-      .safeAreaInset(edge: .bottom, spacing: 0) {
-        OfferReviewFinishBar(model: model, role: role, didFinish: didFinish)
-      }
+    .safeAreaInset(edge: .bottom, spacing: 0) {
+      OfferReviewFinishBar(model: model, role: role, didFinish: didFinish)
+    }
+    .dispositionAlert(queue: model.dispositionQueue)
       .task { await model.reload() }
       .sheet(item: $readerRow, onDismiss: { Task { await model.reload() } }) { row in
         NavigationStack {
           ReaderView(
             contentPieceID: row.id,
+            dispositionQueue: model.dispositionQueue,
             onSourceDisposed: {
               Task {
                 readerRow = nil

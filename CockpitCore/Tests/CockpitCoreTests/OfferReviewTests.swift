@@ -133,18 +133,20 @@ struct OfferReviewTests {
       second, messageID: "batch-b", role: .offers, treatment: .offer, receivedAt: 1,
       findID: pendingFind)
     let calls = OfferCallLog()
+    let queue = GmailDispositionQueue()
     try await withDependencies { $0.gmailDispositionClient = calls.client } operation: {
-      let model = OfferReviewModel(role: .offers)
+      let model = OfferReviewModel(role: .offers, dispositionQueue: queue)
       await model.reload()
       await model.keep(keptFind)
-      await model.trashAll()
+      let batchID = model.trashAll()!
       #expect(model.rows.isEmpty)
-      #expect(model.lastBatch.count == 2)
+      await queue.waitForSettlement(batchID)
+      #expect(queue.batches.first?.applied.count == 2)
       #expect(model.isClear)
-      let today = TodayModel()
+      let today = TodayModel(dispositionQueue: queue)
       try await today.$offers.load()
       #expect(today.offerDoors.isEmpty)
-      await model.undoLastBatch()
+      await queue.undo(batchID)
       #expect(model.rows.count == 2)
       #expect(model.rows.first(where: { $0.pendingFind?.id == keptFind })?.pendingFind?.state == .confirmed)
       #expect(model.rows.first(where: { $0.pendingFind?.id == pendingFind })?.pendingFind?.state == .pending)
@@ -159,20 +161,19 @@ struct OfferReviewTests {
     try await seed(first, messageID: "today-batch-a", role: .offers, treatment: .offer, receivedAt: 2)
     try await seed(second, messageID: "today-batch-b", role: .offers, treatment: .offer, receivedAt: 1)
     let calls = OfferCallLog()
+    let queue = GmailDispositionQueue()
     try await withDependencies { $0.gmailDispositionClient = calls.client } operation: {
-      let review = OfferReviewModel(role: .offers)
+      let review = OfferReviewModel(role: .offers, dispositionQueue: queue)
       await review.reload()
-      await review.trashAll()
-      #expect(review.lastBatch.count == 2)
+      let batchID = review.trashAll()!
+      await queue.waitForSettlement(batchID)
+      #expect(queue.batches.first?.applied.count == 2)
 
-      let today = TodayModel()
-      today.rememberOfferBatch(review.lastBatch)
+      let today = TodayModel(dispositionQueue: queue)
       try await today.$offers.load()
       #expect(today.offerDoors.isEmpty)
-      await today.undoLastOfferBatch()
+      await queue.undo(batchID)
 
-      #expect(today.lastOfferBatch.isEmpty)
-      #expect(today.offerUndoMessage == nil)
       #expect(today.offerDoors.map(\.count) == [2])
       #expect(Set(today.offers.rows.map(\.id)) == Set([first, second]))
     }
@@ -187,15 +188,18 @@ struct OfferReviewTests {
     try await seed(failed, messageID: "partial-fail", role: .offers, treatment: .offer, receivedAt: 2)
     try await seed(last, messageID: "partial-c", role: .offers, treatment: .offer, receivedAt: 1)
     let calls = OfferCallLog()
+    let queue = GmailDispositionQueue()
     await withDependencies {
       $0.gmailDispositionClient = calls.client(failingTrashMessageID: "partial-fail")
     } operation: {
-      let model = OfferReviewModel(role: .offers)
+      let model = OfferReviewModel(role: .offers, dispositionQueue: queue)
       await model.reload()
-      await model.trashAll()
+      let batchID = model.trashAll()!
+      await queue.waitForSettlement(batchID)
       #expect(model.rows.map(\.id) == [failed])
-      #expect(model.lastBatch.count == 2)
-      #expect(model.statusMessage == "Trashed 2 of 3. 1 couldn't be trashed.")
+      #expect(queue.batches.first?.applied.count == 2)
+      #expect(queue.batches.first?.failures.map(\.contentPieceID) == [failed])
+      #expect(queue.alert?.title == "Couldn't trash 1 of 3 emails")
     }
     #expect(calls.calls.filter { $0.hasPrefix("trash:") }.count == 3)
   }

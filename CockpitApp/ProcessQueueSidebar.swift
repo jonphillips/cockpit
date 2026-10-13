@@ -59,7 +59,11 @@ struct ProcessQueueSidebar: View {
         Button("Next", systemImage: "chevron.down") { model.selectNext() }
           .disabled(!canSelectNext)
       }
-      if let disposition = model.lastDisposition {
+      if let disposition = model.lastDisposition,
+        disposition.batchID == nil
+          || model.dispositionQueue.batches.contains(where: {
+            $0.id == disposition.batchID && ($0.phase != .settled || !$0.applied.isEmpty)
+          }) {
         ToolbarItem(placement: .topBarTrailing) {
           Button("Undo", systemImage: "arrow.uturn.backward") {
             Task {
@@ -69,6 +73,9 @@ struct ProcessQueueSidebar: View {
           }
           .accessibilityLabel(
             "Undo \(disposition.disposition == .archive ? "archive" : "trash") of \(disposition.title)"
+          )
+          .disabled(
+            model.dispositionQueue.batches.first(where: { $0.id == disposition.batchID })?.phase == .undoing
           )
         }
       }
