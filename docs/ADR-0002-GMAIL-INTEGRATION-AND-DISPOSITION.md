@@ -173,6 +173,13 @@ Cockpit-trashed message within it — is only exercisable once `Trash`/Undo exis
 standalone measurement now. Also: whether the log is synced across devices or device-local (lean
 device-local first, consistent with ADR-0001 D2).
 
+**Amendment (2026-10-12, Jon): rows leave before Gmail confirms.** An explicit, tapped Archive/Trash
+hides its rows at once and runs the D4 sequence in the background. Undo is offered from the tap and
+stays until the batch settles. Undo on a running batch stops the unstarted messages and reverses the
+ones that landed. A failure raises an alert and the failed rows return. The hiding is in memory only:
+nothing is logged ahead of the mutation, so D4's order and D6's log are unchanged, and a message whose
+call never ran simply stays in `INBOX`. Slices: `docs/milestones/M6-background-disposition.md`.
+
 ---
 
 ## D7 — Authority model: explicit per-action first; policies are explicit and user-established.
