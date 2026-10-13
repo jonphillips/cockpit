@@ -12,6 +12,10 @@ public final class GmailDispositionQueue {
 
   public struct Batch: Identifiable, Equatable, Sendable {
     public enum Phase: Equatable, Sendable { case running, undoing, settled }
+    public enum Origin: Equatable, Sendable {
+      case offerReview(ContentRole)
+      case row
+    }
     public struct Failure: Equatable, Sendable {
       public let contentPieceID: ContentPiece.ID
       public let message: String
@@ -24,7 +28,7 @@ public final class GmailDispositionQueue {
     public let id: UUID
     public let disposition: GmailSourceDisposition
     public let contentPieceIDs: [ContentPiece.ID]
-    public let label: String
+    public let origin: Origin
     public var phase: Phase
     public var applied: [GmailDispositionLogEntry]
     public var appliedContentPieceIDs: [ContentPiece.ID]
@@ -45,35 +49,46 @@ public final class GmailDispositionQueue {
   public private(set) var hiddenContentPieceIDs: Set<ContentPiece.ID> = []
   public var alert: Alert?
   @ObservationIgnored private var tasks: [UUID: Task<Void, Never>] = [:]
-  @ObservationIgnored private var reloadHandlers: [UUID: [UUID: @MainActor () async -> Void]] = [:]
+  @ObservationIgnored private var reloadHandlers: [UUID: ReloadHandlerRegistration] = [:]
+  @ObservationIgnored private var batchReferences: [ObjectIdentifier: BatchReference] = [:]
   @ObservationIgnored private let callLimiter = GmailDispositionCallLimiter(limit: maxConcurrentDispositions)
 
   public init() {}
 
   public var liveBatches: [Batch] { batches.filter { $0.phase != .settled } }
   public var latestBatch: Batch? { batches.last }
-  public var latestOfferBatch: Batch? {
-    batches.last { $0.label == "Offers" && ($0.phase != .settled || !$0.applied.isEmpty) }
+  public var offerReviewBatches: [Batch] {
+    batches.reversed().filter { if case .offerReview = $0.origin { true } else { false } }
   }
 
   /// Registers a projection owner that must reload before successful IDs can be unhidden.
   @discardableResult
   public func registerReloadHandler(
-    owner: UUID, handlerID: UUID = UUID(), reload: @escaping @MainActor () async -> Void
+    owner: AnyObject, handlerID: UUID = UUID(), reload: @escaping @MainActor () async -> Void
   ) -> UUID {
-    reloadHandlers[owner, default: [:]][handlerID] = reload
+    reloadHandlers[handlerID] = ReloadHandlerRegistration(owner: owner, reload: reload)
     return handlerID
   }
 
-  public func unregisterReloadHandler(owner: UUID, handlerID: UUID) {
-    reloadHandlers[owner]?.removeValue(forKey: handlerID)
+  public func unregisterReloadHandler(_ handlerID: UUID) {
+    reloadHandlers[handlerID] = nil
+  }
+
+  public func setBatchReference(_ batchID: UUID?, owner: AnyObject) {
+    let ownerID = ObjectIdentifier(owner)
+    if let batchID {
+      batchReferences[ownerID] = BatchReference(owner: owner, batchID: batchID)
+    } else {
+      batchReferences[ownerID] = nil
+    }
+    pruneSettledBatches()
   }
 
   @discardableResult
   public func submit(
     _ disposition: GmailSourceDisposition,
     contentPieceIDs: [ContentPiece.ID],
-    label: String
+    origin: Batch.Origin = .row
   ) -> UUID? {
     guard disposition != .leave else { return nil }
     let liveIDs = Set(liveBatches.flatMap(\.contentPieceIDs))
@@ -82,7 +97,7 @@ public final class GmailDispositionQueue {
     guard !ids.isEmpty else { return nil }
     let id = UUID()
     batches.append(Batch(
-      id: id, disposition: disposition, contentPieceIDs: ids, label: label,
+      id: id, disposition: disposition, contentPieceIDs: ids, origin: origin,
       phase: .running, applied: [], appliedContentPieceIDs: [], failures: [], undoAttempted: false))
     hiddenContentPieceIDs.formUnion(ids)
     tasks[id] = Task { [weak self] in await self?.run(id) }
@@ -193,11 +208,13 @@ private extension GmailDispositionQueue {
   func settle(_ batchID: UUID) async {
     guard let index = batches.firstIndex(where: { $0.id == batchID }) else { return }
     let batch = batches[index]
-    for handler in reloadHandlers.values.flatMap(\.values) { await handler() }
+    reloadHandlers = reloadHandlers.filter { $0.value.owner != nil }
+    for registration in reloadHandlers.values { await registration.reload() }
     let successfulIDs = Set(batch.contentPieceIDs).subtracting(batch.failures.map(\.contentPieceID))
     hiddenContentPieceIDs.subtract(successfulIDs)
     hiddenContentPieceIDs.subtract(batch.failures.map(\.contentPieceID))
     tasks[batchID] = nil
+    pruneSettledBatches()
     if !batch.failures.isEmpty {
       let action = batch.undoAttempted ? "restore" : batch.disposition == .trash ? "trash" : "archive"
       let count = batch.failures.count
@@ -209,57 +226,24 @@ private extension GmailDispositionQueue {
 
   func batch(_ id: UUID) -> Batch? { batches.first { $0.id == id } }
 
-}
-
-private actor GmailDispositionCallLimiter {
-  private let limit: Int
-  private var activeCalls = 0
-  private var waiters: [CheckedContinuation<Void, Never>] = []
-
-  init(limit: Int) { self.limit = limit }
-
-  func perform(_ operation: @escaping @Sendable () async throws -> Void) async throws {
-    await acquire()
-    guard !Task.isCancelled else {
-      release()
-      throw CancellationError()
-    }
-    do {
-      try await operation()
-      release()
-    } catch {
-      release()
-      throw error
+  func pruneSettledBatches() {
+    pruneBatchReferences()
+    let referencedIDs = Set(batchReferences.values.map(\.batchID))
+    var newestSettledByOrigin: [Batch.Origin] = []
+    let newestSettledIDs = Set(batches.reversed().compactMap { batch -> UUID? in
+      guard batch.phase == .settled, !batch.applied.isEmpty,
+        !newestSettledByOrigin.contains(batch.origin) else { return nil }
+      newestSettledByOrigin.append(batch.origin)
+      return batch.id
+    })
+    batches.removeAll { batch in
+      batch.phase == .settled
+        && (batch.applied.isEmpty || (!newestSettledIDs.contains(batch.id) && !referencedIDs.contains(batch.id)))
     }
   }
 
-  private func acquire() async {
-    if activeCalls < limit {
-      activeCalls += 1
-      return
-    }
-    await withCheckedContinuation { waiters.append($0) }
+  func pruneBatchReferences() {
+    batchReferences = batchReferences.filter { $0.value.owner != nil }
   }
 
-  private func release() {
-    if waiters.isEmpty {
-      activeCalls -= 1
-    } else {
-      waiters.removeFirst().resume()
-    }
-  }
-}
-
-private extension GmailDispositionClient {
-  func limited(by limiter: GmailDispositionCallLimiter) -> Self {
-    let archive = archive
-    let trash = trash
-    let reAddInbox = reAddInbox
-    let untrash = untrash
-    return Self(
-      archive: { id in try await limiter.perform { try await archive(id) } },
-      trash: { id in try await limiter.perform { try await trash(id) } },
-      reAddInbox: { id in try await limiter.perform { try await reAddInbox(id) } },
-      untrash: { id in try await limiter.perform { try await untrash(id) } })
-  }
 }

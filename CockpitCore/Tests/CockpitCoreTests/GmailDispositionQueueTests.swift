@@ -24,11 +24,11 @@ struct GmailDispositionQueueTests {
       $0.gmailDispositionClient = gate.client
     } operation: {
       let batchID = try #require(queue.submit(
-        .trash, contentPieceIDs: Array(ids.prefix(5)), label: "Offers"))
+        .trash, contentPieceIDs: Array(ids.prefix(5)), origin: .offerReview(.offers)))
       let secondBatchID = try #require(queue.submit(
-        .trash, contentPieceIDs: Array(ids.suffix(2)), label: "Wine"))
+        .trash, contentPieceIDs: Array(ids.suffix(2)), origin: .offerReview(.wine)))
       #expect(queue.hiddenContentPieceIDs == Set(ids))
-      #expect(queue.submit(.trash, contentPieceIDs: ids, label: "Offers") == nil)
+      #expect(queue.submit(.trash, contentPieceIDs: ids, origin: .offerReview(.offers)) == nil)
       await gate.waitForStarted(4)
       #expect(await gate.snapshot().maximumInFlight == 4)
       #expect(await gate.snapshot().started.count == 4)
@@ -50,7 +50,7 @@ struct GmailDispositionQueueTests {
     try await withDependencies {
       $0.gmailDispositionClient = gate.client
     } operation: {
-      let batchID = try #require(queue.submit(.trash, contentPieceIDs: ids, label: "Offers"))
+      let batchID = try #require(queue.submit(.trash, contentPieceIDs: ids, origin: .offerReview(.offers)))
       await gate.waitForStarted(4)
       let undoTask = Task { await queue.undo(batchID) }
       while queue.batches.first?.phase != .undoing { await Task.yield() }
@@ -60,7 +60,7 @@ struct GmailDispositionQueueTests {
       #expect(snapshot.started.count == 4)
       #expect(snapshot.trashed.count == 4)
       #expect(snapshot.untrashed.count == 4)
-      #expect(queue.batches.first?.applied.isEmpty == true)
+      #expect(queue.batches.isEmpty)
       #expect(queue.hiddenContentPieceIDs.isEmpty)
       #expect(queue.alert == nil)
     }
@@ -75,7 +75,7 @@ struct GmailDispositionQueueTests {
     try await withDependencies {
       $0.gmailDispositionClient = calls.client
     } operation: {
-      let batchID = try #require(queue.submit(.trash, contentPieceIDs: ids, label: "Offers"))
+      let batchID = try #require(queue.submit(.trash, contentPieceIDs: ids, origin: .offerReview(.offers)))
       await queue.waitForSettlement(batchID)
       let batch = try #require(queue.batches.first)
       #expect(batch.applied.count == 2)
@@ -91,7 +91,7 @@ struct GmailDispositionQueueTests {
       #expect(active.filter { $0 != nil }.count == 2)
       queue.clearAlert()
       await queue.undo(batchID)
-      #expect(queue.batches.first?.applied.isEmpty == true)
+      #expect(queue.batches.isEmpty)
       #expect(queue.alert == nil)
     }
     #expect(await calls.snapshot().filter { $0.hasPrefix("trash:") }.count == 3)
@@ -107,11 +107,88 @@ struct GmailDispositionQueueTests {
       untrash: { _ in throw URLError(.timedOut) })
     let queue = GmailDispositionQueue()
     try await withDependencies { $0.gmailDispositionClient = client } operation: {
-      let batchID = try #require(queue.submit(.trash, contentPieceIDs: ids, label: "Offers"))
+      let batchID = try #require(queue.submit(.trash, contentPieceIDs: ids, origin: .offerReview(.offers)))
       await queue.waitForSettlement(batchID)
-      #expect(queue.batches.first?.applied.isEmpty == true)
+      #expect(queue.batches.isEmpty)
       #expect(queue.hiddenContentPieceIDs.isEmpty)
       #expect(queue.alert?.title == "Couldn't trash 2 of 2 emails")
+    }
+  }
+
+  @Test("Undo failure keeps unrestored entries available for another restore attempt")
+  func undoCanBeRetriedAfterFailure() async throws {
+    let ids = try await seed(1, prefix: "undo-retry")
+    let queue = GmailDispositionQueue()
+    try await withDependencies {
+      $0.gmailDispositionClient = UndoRetryClient.client
+    } operation: {
+      let batchID = try #require(queue.submit(.trash, contentPieceIDs: ids))
+      await queue.waitForSettlement(batchID)
+      await queue.undo(batchID)
+      #expect(queue.batches.first?.applied.count == 1)
+      #expect(queue.alert?.title == "Couldn't restore 1 of 1 emails")
+      queue.clearAlert()
+      await queue.undo(batchID)
+      #expect(queue.batches.isEmpty)
+      #expect(queue.alert == nil)
+    }
+  }
+
+  @Test("Applied IDs remain hidden until the log-filtered projection can hide them")
+  func noFlickerAcrossSettlement() async throws {
+    let ids = try await seed(2, prefix: "no-flicker")
+    let queue = GmailDispositionQueue()
+    let owner = NSObject()
+    var projectionRemainedHidden = true
+    queue.registerReloadHandler(owner: owner) { [weak queue] in
+      guard let queue else { return }
+      do {
+        let loggedIDs = Set(try await self.activeDispositionIDs(for: ids))
+        projectionRemainedHidden = ids.allSatisfy {
+          queue.hiddenContentPieceIDs.contains($0) || loggedIDs.contains($0)
+        }
+      } catch {
+        projectionRemainedHidden = false
+      }
+    }
+    try await withDependencies {
+      $0.gmailDispositionClient = QueueCallLog().client
+    } operation: {
+      let batchID = try #require(queue.submit(.trash, contentPieceIDs: ids))
+      await queue.waitForSettlement(batchID)
+      #expect(projectionRemainedHidden)
+      #expect(queue.hiddenContentPieceIDs.isEmpty)
+    }
+  }
+
+  @Test("Offer review batches are scoped to the model and settled history is pruned")
+  func originScopingAndPruning() async throws {
+    let ids = try await seed(3, prefix: "origins")
+    let queue = GmailDispositionQueue()
+    try await withDependencies {
+      $0.gmailDispositionClient = QueueCallLog().client
+    } operation: {
+      let firstRowBatch = try #require(queue.submit(.trash, contentPieceIDs: [ids[0]]))
+      await queue.waitForSettlement(firstRowBatch)
+      let rowUndoOwner = NSObject()
+      queue.setBatchReference(firstRowBatch, owner: rowUndoOwner)
+      let secondRowBatch = try #require(queue.submit(.trash, contentPieceIDs: [ids[1]]))
+      await queue.waitForSettlement(secondRowBatch)
+      #expect(Set(queue.batches.map(\.id)) == Set([firstRowBatch, secondRowBatch]))
+      queue.setBatchReference(nil, owner: rowUndoOwner)
+      #expect(queue.batches.map(\.id) == [secondRowBatch])
+
+      let rowBatchForWine = try #require(queue.submit(.trash, contentPieceIDs: [ids[2]]))
+      await queue.waitForSettlement(rowBatchForWine)
+      let wineReview = OfferReviewModel(role: .wine, dispositionQueue: queue)
+      #expect(wineReview.batch == nil)
+
+      let reviewBatch = try #require(queue.submit(
+        .trash, contentPieceIDs: [ids[2]], origin: .offerReview(.wine)))
+      await queue.waitForSettlement(reviewBatch)
+      let reopenedReview = OfferReviewModel(role: .wine, dispositionQueue: queue)
+      #expect(reopenedReview.batch == nil)
+      #expect(queue.offerReviewBatches.map(\.id) == [reviewBatch])
     }
   }
 
@@ -134,6 +211,35 @@ struct GmailDispositionQueueTests {
       }
     }
     return ids
+  }
+
+  private func activeDispositionIDs(for ids: [ContentPiece.ID]) async throws -> [ContentPiece.ID] {
+    try await database.read { db in
+      try ids.filter { try GmailDispositionOperations.activeDisposition(forContentPieceID: $0, in: db) != nil }
+    }
+  }
+}
+
+private actor UndoRetryClient {
+  private var restoreAttempts = 0
+
+  nonisolated static var client: GmailDispositionClient {
+    GmailDispositionClient(
+      archive: { _ in },
+      trash: { _ in },
+      reAddInbox: { _ in },
+      untrash: { _ in try await Self.restore() })
+  }
+
+  private static let shared = UndoRetryClient()
+
+  private static func restore() async throws {
+    try await shared.restoreOnce()
+  }
+
+  private func restoreOnce() throws {
+    restoreAttempts += 1
+    if restoreAttempts == 1 { throw URLError(.timedOut) }
   }
 }
 

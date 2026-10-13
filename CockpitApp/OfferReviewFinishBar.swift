@@ -60,10 +60,6 @@ struct OfferReviewFinishBar: View {
   }
 
   private func message(for batch: GmailDispositionQueue.Batch) -> String {
-    switch batch.phase {
-    case .running: "Trashing \(batch.contentPieceIDs.count) emails…"
-    case .undoing: "Restoring…"
-    case .settled: "Trashed \(batch.applied.count) emails"
-    }
+    DispositionBatchMessage.text(for: batch)
   }
 }

@@ -22,12 +22,16 @@ enum DispositionBatchMessage {
     switch batch.phase {
     case .running:
       let verb = batch.disposition == .trash ? "Trashing" : "Archiving"
-      return "\(verb) \(batch.contentPieceIDs.count) emails…"
+      return "\(verb) \(emailCount(batch.contentPieceIDs.count))…"
     case .undoing:
       return "Restoring…"
     case .settled:
       let verb = batch.disposition == .trash ? "Trashed" : "Archived"
-      return "\(verb) \(batch.applied.count) emails"
+      return "\(verb) \(emailCount(batch.applied.count))"
     }
+  }
+
+  static func emailCount(_ count: Int) -> String {
+    "\(count) email\(count == 1 ? "" : "s")"
   }
 }

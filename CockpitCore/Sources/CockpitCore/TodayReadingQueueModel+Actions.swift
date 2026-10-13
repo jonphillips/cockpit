@@ -181,7 +181,7 @@ extension TodayReadingQueueModel {
     let shouldAdvance = selectedContentPieceID == id
     let nextSelection = shouldAdvance ? ReadingQueueSelection.neighbour(of: id, in: rows) : nil
     guard let batchID = dispositionQueue.submit(
-      disposition, contentPieceIDs: [id], label: row.role.displayName
+      disposition, contentPieceIDs: [id]
     ) else { return }
     recordDone(row)
     presentedProcessContentPieceIDs.remove(id)

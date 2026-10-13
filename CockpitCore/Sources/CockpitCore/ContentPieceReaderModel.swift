@@ -169,7 +169,7 @@ extension ContentPieceReaderModel {
 
   private func applyDisposition(_ disposition: GmailSourceDisposition) async -> Bool {
     guard let id = row?.id else { return false }
-    return dispositionQueue.submit(disposition, contentPieceIDs: [id], label: "Reader") != nil
+    return dispositionQueue.submit(disposition, contentPieceIDs: [id]) != nil
   }
 
   private var dispositionService: GmailDispositionService {

@@ -48,12 +48,20 @@ public final class TodayReadingQueueModel {
 
   public var selectedContentPieceID: ContentPiece.ID?
   public var errorMessage: String?
-  public var lastDisposition: LastDisposition?
+  public var lastDisposition: LastDisposition? {
+    didSet {
+      if oldValue?.batchID != lastDisposition?.batchID {
+        dispositionQueue.setBatchReference(nil, owner: self)
+        if let batchID = lastDisposition?.batchID {
+          dispositionQueue.setBatchReference(batchID, owner: self)
+        }
+      }
+    }
+  }
 
   public init(dispositionQueue: GmailDispositionQueue = .shared) {
     self.dispositionQueue = dispositionQueue
-    let owner = UUID()
-    dispositionQueue.registerReloadHandler(owner: owner) { [weak self] in await self?.reload() }
+    dispositionQueue.registerReloadHandler(owner: self) { [weak self] in await self?.reload() }
   }
 
   public var rows: [TodayReadingQueueRequest.Row] {

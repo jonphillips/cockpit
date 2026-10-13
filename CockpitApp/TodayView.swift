@@ -103,9 +103,7 @@ struct TodayView: View {
 private extension TodayView {
   @ViewBuilder
   var bottomBanner: some View {
-    let batches = model.dispositionQueue.batches.filter {
-      $0.phase != .settled || !$0.applied.isEmpty
-    }
+    let batches = model.dispositionQueue.offerReviewBatches
     if !batches.isEmpty || model.errorMessage != nil || queueModel.errorMessage != nil || tailModel.errorMessage != nil
     {
       VStack(spacing: 8) {
@@ -156,7 +154,7 @@ private extension TodayView {
       }
     }
 
-    if let disposition = queueModel.lastDisposition, disposition.batchID == nil {
+    if let disposition = queueModel.lastDisposition {
       ToolbarItem(placement: .topBarTrailing) {
         Button("Undo", systemImage: "arrow.uturn.backward") {
           Task {
@@ -166,6 +164,9 @@ private extension TodayView {
         }
         .accessibilityLabel(
           "Undo \(disposition.disposition == .archive ? "archive" : "trash") of \(disposition.title)"
+        )
+        .disabled(
+          queueModel.dispositionQueue.batches.first(where: { $0.id == disposition.batchID })?.phase == .undoing
         )
       }
     }

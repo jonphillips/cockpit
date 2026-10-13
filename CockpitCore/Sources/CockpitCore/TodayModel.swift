@@ -57,8 +57,7 @@ public final class TodayModel {
   ) {
     self.listedFeedsModel = listedFeedsModel
     self.dispositionQueue = dispositionQueue
-    let owner = UUID()
-    dispositionQueue.registerReloadHandler(owner: owner) { [weak self] in
+    dispositionQueue.registerReloadHandler(owner: self) { [weak self] in
       guard let self else { return }
       try? await self.$content.load()
       try? await self.$offers.load()
@@ -219,12 +218,12 @@ extension TodayModel {
   /// Archives the Gmail source behind the disposition barrier. Independent of `clear`: archiving the
   /// provider message does not resolve Today attention, and clearing does not mutate Gmail (§7).
   public func archive(_ row: TodayRequest.Row) {
-    _ = dispositionQueue.submit(.archive, contentPieceIDs: [row.id], label: row.role.displayName)
+    _ = dispositionQueue.submit(.archive, contentPieceIDs: [row.id])
   }
 
   /// Trashes the Gmail source behind the disposition barrier; reversible via `undoDisposition`.
   public func trash(_ row: TodayRequest.Row) {
-    _ = dispositionQueue.submit(.trash, contentPieceIDs: [row.id], label: row.role.displayName)
+    _ = dispositionQueue.submit(.trash, contentPieceIDs: [row.id])
   }
 
   /// Archives every message in a landing group (an offer publisher's rows) in one gesture, reloading
@@ -232,12 +231,12 @@ extension TodayModel {
   /// the batch stops there and surfaces the error; rows disposed before the failure keep their
   /// disposition and leave Today (the reload runs on both paths).
   public func archiveAll(_ rows: [TodayRequest.Row]) {
-    _ = dispositionQueue.submit(.archive, contentPieceIDs: rows.map(\.id), label: "Today")
+    _ = dispositionQueue.submit(.archive, contentPieceIDs: rows.map(\.id))
   }
 
   /// Trashes every message in a landing group in one gesture. Reversible per row via `undoDisposition`.
   public func trashAll(_ rows: [TodayRequest.Row]) {
-    _ = dispositionQueue.submit(.trash, contentPieceIDs: rows.map(\.id), label: "Today")
+    _ = dispositionQueue.submit(.trash, contentPieceIDs: rows.map(\.id))
   }
 
   /// Reverses the message's current disposition, if any, by issuing the inverse label operation.

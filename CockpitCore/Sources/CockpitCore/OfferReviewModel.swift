@@ -12,6 +12,9 @@ public final class OfferReviewModel {
   public let role: ContentRole
   public let dispositionQueue: GmailDispositionQueue
   public private(set) var content = OfferReviewRequest.Value()
+  public private(set) var batchID: UUID? {
+    didSet { dispositionQueue.setBatchReference(batchID, owner: self) }
+  }
   public var errorMessage: String?
 
   public init(
@@ -20,8 +23,7 @@ public final class OfferReviewModel {
   ) {
     self.role = role
     self.dispositionQueue = dispositionQueue
-    let owner = UUID()
-    dispositionQueue.registerReloadHandler(owner: owner) { [weak self] in await self?.reload() }
+    dispositionQueue.registerReloadHandler(owner: self) { [weak self] in await self?.reload() }
   }
 
   public var rows: [OfferReviewRequest.Row] {
@@ -29,9 +31,10 @@ public final class OfferReviewModel {
   }
   public var keptCount: Int { rows.filter { $0.pendingFind?.state == .confirmed }.count }
   public var batch: GmailDispositionQueue.Batch? {
-    dispositionQueue.batches.last { $0.label == role.displayName }
+    guard let batchID else { return nil }
+    return dispositionQueue.batches.first { $0.id == batchID }
   }
-  public var isClear: Bool { rows.isEmpty && batch != nil }
+  public var isClear: Bool { rows.isEmpty && batchID != nil }
 
   public func reload() async {
     do {
@@ -69,6 +72,9 @@ public final class OfferReviewModel {
   public func trashAll() -> UUID? {
     let ids = rows.map(\.id)
     guard !ids.isEmpty else { return nil }
-    return dispositionQueue.submit(.trash, contentPieceIDs: ids, label: role.displayName)
+    let submittedBatchID = dispositionQueue.submit(
+      .trash, contentPieceIDs: ids, origin: .offerReview(role))
+    batchID = submittedBatchID
+    return submittedBatchID
   }
 }
