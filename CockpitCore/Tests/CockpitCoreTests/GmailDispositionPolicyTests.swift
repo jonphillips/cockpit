@@ -120,11 +120,12 @@ struct GmailDispositionPolicyTests {
       try GmailDispositionPolicyOperations.establish(.offerWithFind, at: .distantPast, in: db)
     }
     let log = CallLog()
+    let dispositionQueue = GmailDispositionQueue()
     try await withDependencies {
       $0.gmailDispositionClient = log.client
       $0.date.now = .distantPast
     } operation: {
-      let model = ContentPieceReaderModel(contentPieceID: pieceID)
+      let model = ContentPieceReaderModel(contentPieceID: pieceID, dispositionQueue: dispositionQueue)
       try await model.$content.load()
       try await model.$pendingFindContent.load()
       #expect(model.pendingFind?.id == findID)
@@ -136,11 +137,13 @@ struct GmailDispositionPolicyTests {
       // Confirmation establishes eligibility; the Reader owns the provider action because offers
       // now leave the general reading queue and live behind their review door.
       #expect(log.calls.isEmpty)
-      let queue = TodayReadingQueueModel()
+      let queue = TodayReadingQueueModel(dispositionQueue: dispositionQueue)
       try await queue.$content.load()
       #expect(queue.rows.first { $0.id == pieceID } == nil)
       #expect(await model.trashSource())
-      await model.undoDisposition()
+      let batchID = try #require(dispositionQueue.latestBatch?.id)
+      await dispositionQueue.waitForSettlement(batchID)
+      await dispositionQueue.undo(batchID)
       await queue.reload()
       #expect(!queue.rows.contains { $0.id == pieceID })
       let restoredToReview = try await database.read { db in

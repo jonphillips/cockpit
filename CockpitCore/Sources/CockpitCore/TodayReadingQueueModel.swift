@@ -21,11 +21,16 @@ public final class TodayReadingQueueModel {
   }
 
   public struct LastDisposition: Equatable, Sendable {
+    public let batchID: UUID?
     public let contentPieceID: ContentPiece.ID
     public let title: String
     public let disposition: GmailSourceDisposition
 
-    public init(contentPieceID: ContentPiece.ID, title: String, disposition: GmailSourceDisposition) {
+    public init(
+      batchID: UUID? = nil, contentPieceID: ContentPiece.ID, title: String,
+      disposition: GmailSourceDisposition
+    ) {
+      self.batchID = batchID
       self.contentPieceID = contentPieceID
       self.title = title
       self.disposition = disposition
@@ -35,6 +40,7 @@ public final class TodayReadingQueueModel {
   @ObservationIgnored @Dependency(\.defaultDatabase) var database
   @ObservationIgnored @Dependency(\.date.now) var now
   @ObservationIgnored @Dependency(\.gmailDispositionClient) var dispositionClient
+  public let dispositionQueue: GmailDispositionQueue
   @ObservationIgnored @Fetch(TodayReadingQueueRequest()) public var content = .init()
   @ObservationIgnored var presentedProcessContentPieceIDs: Set<ContentPiece.ID> = []
   var doneByID: [ContentPiece.ID: ContentRole] = [:]
@@ -42,11 +48,25 @@ public final class TodayReadingQueueModel {
 
   public var selectedContentPieceID: ContentPiece.ID?
   public var errorMessage: String?
-  public var lastDisposition: LastDisposition?
+  public var lastDisposition: LastDisposition? {
+    didSet {
+      if oldValue?.batchID != lastDisposition?.batchID {
+        dispositionQueue.setBatchReference(nil, owner: self)
+        if let batchID = lastDisposition?.batchID {
+          dispositionQueue.setBatchReference(batchID, owner: self)
+        }
+      }
+    }
+  }
 
-  public init() {}
+  public init(dispositionQueue: GmailDispositionQueue = .shared) {
+    self.dispositionQueue = dispositionQueue
+    dispositionQueue.registerReloadHandler(owner: self) { [weak self] in await self?.reload() }
+  }
 
-  public var rows: [TodayReadingQueueRequest.Row] { content.rows }
+  public var rows: [TodayReadingQueueRequest.Row] {
+    content.rows.filter { !dispositionQueue.hiddenContentPieceIDs.contains($0.id) }
+  }
 
   public var selectedRole: ContentRole? {
     Self.selectedRole(for: selectedContentPieceID, in: sections)
@@ -83,7 +103,7 @@ public final class TodayReadingQueueModel {
 
   public var sections: [Section] {
     ContentRole.allCases.sorted { $0.sortOrder < $1.sortOrder }.compactMap { role in
-      let rows = content.rows.filter { $0.role == role }
+      let rows = self.rows.filter { $0.role == role }
       return rows.isEmpty ? nil : Section(role: role, rows: rows)
     }
   }

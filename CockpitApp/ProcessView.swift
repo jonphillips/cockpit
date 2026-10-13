@@ -82,6 +82,7 @@ private struct ProcessQueueDetail: View {
               await didChangeQueue()
             }
           ),
+          dispositionQueue: model.dispositionQueue,
           isReachableStreamPiece: row.isFollowedStreamPiece,
           originalWebViewStore: originalWebViewStore
         )

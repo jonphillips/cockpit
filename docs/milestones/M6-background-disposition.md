@@ -159,5 +159,5 @@ A forced failure (airplane mode) alerts and the row returns.
 
 ## Ledger
 
-- [ ] S-d1 — Disposition queue, and Offers Trash all on it
-- [ ] S-d2 — Single-row Trash and Archive on the queue
+- [x] S-d1 — Disposition queue, and Offers Trash all on it
+- [x] S-d2 — Single-row Trash and Archive on the queue

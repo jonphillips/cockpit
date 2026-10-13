@@ -37,7 +37,8 @@ private struct CockpitRootView: View {
   @State private var editionModel = EditionModel()
   @State private var listedFeedsModel: ListedFeedsModel
   @State private var todayModel: TodayModel
-  @State private var readingQueueModel = TodayReadingQueueModel()
+  @State private var dispositionQueue: GmailDispositionQueue
+  @State private var readingQueueModel: TodayReadingQueueModel
   @State private var dailyLinkModel = DailyLinkModel()
   @State private var pendingFindModel = PendingFindListModel()
   @State private var inboxIngest = GmailInboxIngestModel()
@@ -46,8 +47,12 @@ private struct CockpitRootView: View {
 
   init() {
     let listedFeedsModel = ListedFeedsModel()
+    let dispositionQueue = GmailDispositionQueue.shared
     _listedFeedsModel = State(initialValue: listedFeedsModel)
-    _todayModel = State(initialValue: TodayModel(listedFeedsModel: listedFeedsModel))
+    _dispositionQueue = State(initialValue: dispositionQueue)
+    _todayModel = State(initialValue: TodayModel(
+      listedFeedsModel: listedFeedsModel, dispositionQueue: dispositionQueue))
+    _readingQueueModel = State(initialValue: TodayReadingQueueModel(dispositionQueue: dispositionQueue))
   }
 
   var body: some View {

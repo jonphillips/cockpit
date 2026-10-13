@@ -34,7 +34,19 @@ enum GmailDispositionWiring {
 
   @MainActor
   private static func accessToken() async throws -> String {
-    try await withCheckedThrowingContinuation { continuation in
+    if let currentUser = GIDSignIn.sharedInstance.currentUser {
+      return try await withCheckedThrowingContinuation { continuation in
+        currentUser.refreshTokensIfNeeded { refreshedUser, error in
+          if let refreshedUser {
+            continuation.resume(returning: refreshedUser.accessToken.tokenString)
+          } else {
+            continuation.resume(throwing: error ?? GmailDispositionAuthError.missingToken)
+          }
+        }
+      }
+    }
+
+    return try await withCheckedThrowingContinuation { continuation in
       GIDSignIn.sharedInstance.restorePreviousSignIn { user, error in
         guard let user else {
           continuation.resume(throwing: error ?? GmailDispositionAuthError.missingAuthorization)

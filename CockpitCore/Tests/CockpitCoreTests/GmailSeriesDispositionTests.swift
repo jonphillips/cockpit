@@ -86,10 +86,11 @@ struct GmailSeriesDispositionTests {
     }
 
     let log = CallLog()
+    let dispositionQueue = GmailDispositionQueue()
     try await withDependencies {
       $0.gmailDispositionClient = log.client
     } operation: {
-      let model = TodayReadingQueueModel()
+      let model = TodayReadingQueueModel(dispositionQueue: dispositionQueue)
       try await model.$content.load()
       // No leave event is sent for this piece: being declared is not itself a trigger.
       #expect(model.rows.contains { $0.id == unreadID })
@@ -173,10 +174,11 @@ struct GmailSeriesDispositionTests {
       _ = try await seed(id: suffix, treatment: .personal, sender: "friend-\(suffix)@example.com")
     }
     let log = CallLog()
+    let dispositionQueue = GmailDispositionQueue()
     try await withDependencies {
       $0.gmailDispositionClient = log.client
     } operation: {
-      let model = TodayReadingQueueModel()
+      let model = TodayReadingQueueModel(dispositionQueue: dispositionQueue)
       try await model.$content.load()
       // Select two known test rows in their actual queue order, independent of older fixture rows.
       let inserted = model.rows.filter { $0.title.hasPrefix("Subject queue-") }
@@ -184,6 +186,7 @@ struct GmailSeriesDispositionTests {
       let nonSelected = try #require(inserted.last { $0.id != selected.id })
       model.selectedContentPieceID = selected.id
       await model.archive(nonSelected)
+      let nonSelectedBatchID = try #require(model.lastDisposition?.batchID)
       expectNoDifference(model.selectedContentPieceID, selected.id)
 
       let selectedIndex = try #require(model.rows.firstIndex { $0.id == selected.id })
@@ -193,6 +196,9 @@ struct GmailSeriesDispositionTests {
       expectNoDifference(model.selectedContentPieceID, expectedNext.id)
       #expect(!model.rows.contains { $0.id == selected.id })
       #expect(model.lastDisposition?.contentPieceID == selected.id)
+      let batchID = try #require(model.lastDisposition?.batchID)
+      await dispositionQueue.waitForSettlement(batchID)
+      await dispositionQueue.waitForSettlement(nonSelectedBatchID)
       await model.undoLastDisposition()
       expectNoDifference(model.selectedContentPieceID, selected.id)
       #expect(model.rows.contains { $0.id == selected.id })
@@ -213,10 +219,11 @@ struct GmailSeriesDispositionTests {
       reAddInbox: { _ in throw GmailDispositionOperations.Failure.notGmailArtifact },
       untrash: { _ in throw GmailDispositionOperations.Failure.notGmailArtifact }
     )
+    let dispositionQueue = GmailDispositionQueue()
     try await withDependencies {
       $0.gmailDispositionClient = failingClient
     } operation: {
-      let model = TodayReadingQueueModel()
+      let model = TodayReadingQueueModel(dispositionQueue: dispositionQueue)
       try await model.$content.load()
       let row = try #require(model.rows.first { $0.id == pieceID })
       model.selectedContentPieceID = pieceID
@@ -224,10 +231,12 @@ struct GmailSeriesDispositionTests {
         contentPieceID: UUID(), title: "Earlier issue", disposition: .trash)
       model.lastDisposition = previousDisposition
       await model.archive(row)
-      expectNoDifference(model.selectedContentPieceID, pieceID)
+      #expect(model.selectedContentPieceID != pieceID)
+      let batchID = try #require(model.lastDisposition?.batchID)
+      await dispositionQueue.waitForSettlement(batchID)
       #expect(model.rows.contains { $0.id == pieceID })
-      #expect(model.errorMessage != nil)
-      expectNoDifference(model.lastDisposition, previousDisposition)
+      #expect(dispositionQueue.alert != nil)
+      #expect(model.lastDisposition?.contentPieceID == pieceID)
     }
   }
 
@@ -245,10 +254,11 @@ struct GmailSeriesDispositionTests {
         ContentRoleRoutingRule(locator: "morning.example.com", role: .dailyNews), in: db)
     }
     let log = CallLog()
+    let dispositionQueue = GmailDispositionQueue()
     try await withDependencies {
       $0.gmailDispositionClient = log.client
     } operation: {
-      let model = TodayReadingQueueModel()
+      let model = TodayReadingQueueModel(dispositionQueue: dispositionQueue)
       try await model.$content.load()
       _ = try #require(model.rows.first { $0.id == advancedID })
       let advancedIndex = try #require(model.rows.firstIndex { $0.id == advancedID })
@@ -279,12 +289,13 @@ struct GmailSeriesDispositionTests {
     let pieceID = try await seed(
       id: "shared-projection", treatment: .personal, sender: "friend@example.com")
     let log = CallLog()
+    let dispositionQueue = GmailDispositionQueue()
 
     try await withDependencies {
       $0.gmailDispositionClient = log.client
     } operation: {
-      let today = TodayModel()
-      let queue = TodayReadingQueueModel()
+      let today = TodayModel(dispositionQueue: dispositionQueue)
+      let queue = TodayReadingQueueModel(dispositionQueue: dispositionQueue)
       try await today.$content.load()
       try await queue.$content.load()
 
@@ -292,20 +303,20 @@ struct GmailSeriesDispositionTests {
       let queueRow = try #require(queue.rows.first { $0.id == pieceID })
 
       await queue.archive(queueRow)
-      try await today.$content.load()
+      let batchID = try #require(queue.lastDisposition?.batchID)
+      await dispositionQueue.waitForSettlement(batchID)
       #expect(!today.content.rows.contains { $0.id == pieceID })
 
       await queue.undoLastDisposition()
-      try await today.$content.load()
       #expect(today.content.rows.contains { $0.id == pieceID })
       #expect(queue.rows.contains { $0.id == pieceID })
 
-      await today.archive(todayRow)
-      await queue.reload()
+      today.archive(todayRow)
+      let todayBatchID = try #require(dispositionQueue.latestBatch?.id)
+      await dispositionQueue.waitForSettlement(todayBatchID)
       #expect(!queue.rows.contains { $0.id == pieceID })
 
-      await today.undoDisposition(todayRow)
-      await queue.reload()
+      await dispositionQueue.undo(todayBatchID)
       #expect(today.content.rows.contains { $0.id == pieceID })
       #expect(queue.rows.contains { $0.id == pieceID })
     }

@@ -164,14 +164,17 @@ struct GmailDispositionTests {
   func todayModelDispositionWiring() async throws {
     let pieceID = try await seedGmailMessage(id: "message-today")
     let log = CallLog()
+    let queue = GmailDispositionQueue()
     try await withDependencies {
       $0.gmailDispositionClient = log.client
     } operation: {
-      let model = TodayModel()
+      let model = TodayModel(dispositionQueue: queue)
       try await model.$content.load()
       let row = try #require(model.content.rows.first { $0.id == pieceID })
-      await model.archive(row)
-      await model.undoDisposition(row)
+      model.archive(row)
+      let batchID = try #require(queue.batches.first?.id)
+      await queue.waitForSettlement(batchID)
+      await queue.undo(batchID)
     }
     expectNoDifference(log.calls, ["archive:message-today", "reAddInbox:message-today"])
   }
@@ -181,20 +184,21 @@ struct GmailDispositionTests {
   func archivedRowLeavesTodayImmediately() async throws {
     let pieceID = try await seedGmailMessage(id: "message-vanish")
     let log = CallLog()
+    let queue = GmailDispositionQueue()
     try await withDependencies {
       $0.gmailDispositionClient = log.client
     } operation: {
-      let model = TodayModel()
+      let model = TodayModel(dispositionQueue: queue)
       try await model.$content.load()
       let row = try #require(model.content.rows.first { $0.id == pieceID })
 
-      await model.archive(row)
-      // The disposition log hides the archived row from the reloaded projection without waiting for
-      // a Gmail sync to observe the departure.
+      model.archive(row)
+      #expect(!model.sections.flatMap(\.rows).contains { $0.id == pieceID })
+      let batchID = try #require(queue.batches.first?.id)
+      await queue.waitForSettlement(batchID)
       #expect(!model.content.rows.contains { $0.id == pieceID })
 
-      await model.undoDisposition(row)
-      // Undo reverses the log entry, so the row returns to Today.
+      await queue.undo(batchID)
       #expect(model.content.rows.contains { $0.id == pieceID })
     }
     expectNoDifference(log.calls, ["archive:message-vanish", "reAddInbox:message-vanish"])
@@ -205,14 +209,17 @@ struct GmailDispositionTests {
   func readerModelDispositionWiring() async throws {
     let pieceID = try await seedGmailMessage(id: "message-reader")
     let log = CallLog()
+    let queue = GmailDispositionQueue()
     try await withDependencies {
       $0.gmailDispositionClient = log.client
     } operation: {
-      let model = ContentPieceReaderModel(contentPieceID: pieceID)
+      let model = ContentPieceReaderModel(contentPieceID: pieceID, dispositionQueue: queue)
       try await model.$content.load()
       #expect(model.isGmailSource)
       #expect(await model.trashSource())
-      await model.undoDisposition()
+      let batchID = try #require(queue.batches.first?.id)
+      await queue.waitForSettlement(batchID)
+      await queue.undo(batchID)
     }
     expectNoDifference(log.calls, ["trash:message-reader", "untrash:message-reader"])
   }
@@ -227,13 +234,16 @@ struct GmailDispositionTests {
       reAddInbox: { _ in throw URLError(.timedOut) },
       untrash: { _ in throw URLError(.timedOut) }
     )
+    let queue = GmailDispositionQueue()
     try await withDependencies {
       $0.gmailDispositionClient = failingClient
     } operation: {
-      let model = ContentPieceReaderModel(contentPieceID: pieceID)
+      let model = ContentPieceReaderModel(contentPieceID: pieceID, dispositionQueue: queue)
       try await model.$content.load()
-      #expect(!(await model.archiveSource()))
-      #expect(model.errorMessage != nil)
+      #expect(await model.archiveSource())
+      let batchID = try #require(queue.batches.first?.id)
+      await queue.waitForSettlement(batchID)
+      #expect(queue.alert != nil)
     }
   }
 

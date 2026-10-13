@@ -44,16 +44,25 @@ public final class TodayModel {
   @ObservationIgnored @Dependency(\.gmailDispositionClient) var dispositionClient
   @ObservationIgnored @Dependency(\.modelClient) private var modelClient
   @ObservationIgnored private var listedFeedsModel: ListedFeedsModel?
+  public let dispositionQueue: GmailDispositionQueue
   @ObservationIgnored @Fetch(TodayRequest()) public var content = .init()
   @ObservationIgnored @Fetch(OfferReviewRequest(heroLimit: 4)) public var offers = OfferReviewRequest.Value()
   public var recentTrashes = RecentTrashRequest.Value()
-  public var lastOfferBatch: [GmailDispositionLogEntry] = []
-  public var offerUndoMessage: String?
   public var selectedContentPieceID: ContentPiece.ID?
   public var errorMessage: String?
 
-  public init(listedFeedsModel: ListedFeedsModel? = nil) {
+  public init(
+    listedFeedsModel: ListedFeedsModel? = nil,
+    dispositionQueue: GmailDispositionQueue = .shared
+  ) {
     self.listedFeedsModel = listedFeedsModel
+    self.dispositionQueue = dispositionQueue
+    dispositionQueue.registerReloadHandler(owner: self) { [weak self] in
+      guard let self else { return }
+      try? await self.$content.load()
+      try? await self.$offers.load()
+      await self.loadRecentTrashes()
+    }
   }
 
   public var totalCount: Int { content.rows.count }
@@ -71,6 +80,7 @@ public final class TodayModel {
     ContentRole.allCases.sorted { $0.sortOrder < $1.sortOrder }.compactMap { role in
       let rows = content.rows.filter {
         $0.role == role && !OfferPieces.isOffer(role: $0.role, treatment: $0.treatment)
+          && !dispositionQueue.hiddenContentPieceIDs.contains($0.id)
       }
       return rows.isEmpty ? nil : RoleSection(role: role, rows: rows)
     }
@@ -79,7 +89,9 @@ public final class TodayModel {
   /// One review door per role with a Today offer, in the same deterministic order as role sections.
   public var offerDoors: [OfferDoor] {
     ContentRole.allCases.sorted { $0.sortOrder < $1.sortOrder }.compactMap { role in
-      let rows = offers.rows.filter { $0.role == role }
+      let rows = offers.rows.filter {
+        $0.role == role && !dispositionQueue.hiddenContentPieceIDs.contains($0.id)
+      }
       return rows.isEmpty ? nil : OfferDoor(role: role, rows: rows)
     }
   }
@@ -88,6 +100,7 @@ public final class TodayModel {
     Dictionary(
       grouping: content.rows.filter {
         !OfferPieces.isOffer(role: $0.role, treatment: $0.treatment)
+          && !dispositionQueue.hiddenContentPieceIDs.contains($0.id)
       },
       by: \.role
     ).mapValues(\.count)
@@ -204,47 +217,26 @@ extension TodayModel {
 
   /// Archives the Gmail source behind the disposition barrier. Independent of `clear`: archiving the
   /// provider message does not resolve Today attention, and clearing does not mutate Gmail (§7).
-  public func archive(_ row: TodayRequest.Row) async {
-    await applyDisposition(.archive, to: row.id)
+  public func archive(_ row: TodayRequest.Row) {
+    _ = dispositionQueue.submit(.archive, contentPieceIDs: [row.id])
   }
 
   /// Trashes the Gmail source behind the disposition barrier; reversible via `undoDisposition`.
-  public func trash(_ row: TodayRequest.Row) async {
-    await applyDisposition(.trash, to: row.id)
+  public func trash(_ row: TodayRequest.Row) {
+    _ = dispositionQueue.submit(.trash, contentPieceIDs: [row.id])
   }
 
   /// Archives every message in a landing group (an offer publisher's rows) in one gesture, reloading
   /// the projection once. Each disposition still rides its own barrier. If one row fails the barrier
   /// the batch stops there and surfaces the error; rows disposed before the failure keep their
   /// disposition and leave Today (the reload runs on both paths).
-  public func archiveAll(_ rows: [TodayRequest.Row]) async {
-    await applyDisposition(.archive, to: rows.map(\.id))
+  public func archiveAll(_ rows: [TodayRequest.Row]) {
+    _ = dispositionQueue.submit(.archive, contentPieceIDs: rows.map(\.id))
   }
 
   /// Trashes every message in a landing group in one gesture. Reversible per row via `undoDisposition`.
-  public func trashAll(_ rows: [TodayRequest.Row]) async {
-    await applyDisposition(.trash, to: rows.map(\.id))
-  }
-
-  public func rememberOfferBatch(_ entries: [GmailDispositionLogEntry]) {
-    lastOfferBatch = entries
-    offerUndoMessage = nil
-  }
-
-  public func undoLastOfferBatch() async {
-    guard !lastOfferBatch.isEmpty else { return }
-    let batch = lastOfferBatch
-    let failed = await dispositionService.undo(batch, in: database)
-    lastOfferBatch = failed
-    offerUndoMessage = failed.isEmpty ? nil : "Restored \(batch.count - failed.count) of \(batch.count). \(failed.count) couldn't be restored."
-    try? await $content.load()
-    try? await $offers.load()
-    await loadRecentTrashes()
-  }
-
-  public func dismissOfferUndo() {
-    lastOfferBatch = []
-    offerUndoMessage = nil
+  public func trashAll(_ rows: [TodayRequest.Row]) {
+    _ = dispositionQueue.submit(.trash, contentPieceIDs: rows.map(\.id))
   }
 
   /// Reverses the message's current disposition, if any, by issuing the inverse label operation.
@@ -252,38 +244,11 @@ extension TodayModel {
     await undoDisposition(forContentPieceID: row.id)
   }
 
-  private func applyDisposition(_ disposition: GmailSourceDisposition, to id: ContentPiece.ID) async {
-    await applyDisposition(disposition, to: [id])
-  }
-
-  private func applyDisposition(_ disposition: GmailSourceDisposition, to ids: [ContentPiece.ID]) async {
-    lastOfferBatch = []
-    offerUndoMessage = nil
-    do {
-      let service = dispositionService
-      for id in ids {
-        _ = try await service.apply(disposition, toContentPieceID: id, in: database)
-      }
-      // The disposition log now hides these rows (`TodayRequest`); reload so Today reflects it now.
-      try await $content.load()
-      try await $offers.load()
-      await loadRecentTrashes()
-      errorMessage = nil
-    } catch is CancellationError {
-    } catch {
-      // A failed barrier aborts the batch, but any rows disposed before it are already durable and
-      // hidden by `TodayRequest`; reload so they leave Today instead of lingering until the next load.
-      try? await $content.load()
-      try? await $offers.load()
-      await loadRecentTrashes()
-      errorMessage = error.localizedDescription
-    }
-  }
-
   var dispositionService: GmailDispositionService {
     let date = now
     return GmailDispositionService(client: dispositionClient, now: { date })
   }
+
 }
 
 public extension EmailTreatment {

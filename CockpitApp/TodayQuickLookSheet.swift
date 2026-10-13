@@ -32,6 +32,7 @@ struct TodayQuickLookSheet: View {
           },
           showsNextCard: false
         ),
+        dispositionQueue: model.dispositionQueue,
         isReachableStreamPiece: row.isFollowedStreamPiece,
         originalWebViewStore: originalWebViewStore
       )

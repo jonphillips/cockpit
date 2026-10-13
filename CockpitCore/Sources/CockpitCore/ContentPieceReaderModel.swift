@@ -16,6 +16,7 @@ public final class ContentPieceReaderModel {
   @ObservationIgnored @Dependency(\.frontierPreferenceStore) private var preferenceStore
   @ObservationIgnored @Dependency(\.emailZoomPreferenceStore) var emailZoomPreferenceStore
   @ObservationIgnored @Dependency(\.gmailDispositionClient) var dispositionClient
+  public let dispositionQueue: GmailDispositionQueue
   @ObservationIgnored @Dependency(\.gmailReadStateClient) var readStateClient
   @ObservationIgnored @Dependency(\.findReferralHandoffClient) var findReferralClient
   @ObservationIgnored @Dependency(\.uuid) var uuid
@@ -39,9 +40,11 @@ public final class ContentPieceReaderModel {
 
   public init(
     contentPieceID: ContentPiece.ID,
-    matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID? = nil
+    matchedPersonalKnowledgeClaimID: PersonalKnowledgeClaim.ID? = nil,
+    dispositionQueue: GmailDispositionQueue = .shared
   ) {
     self.contentPieceID = contentPieceID
+    self.dispositionQueue = dispositionQueue
     _content = Fetch(wrappedValue: .init(), ContentPieceReaderRequest(contentPieceID: contentPieceID))
     _pendingFindContent = Fetch(
       wrappedValue: .init(), PendingFindForContentPieceRequest(contentPieceID: contentPieceID))
@@ -166,22 +169,14 @@ extension ContentPieceReaderModel {
 
   private func applyDisposition(_ disposition: GmailSourceDisposition) async -> Bool {
     guard let id = row?.id else { return false }
-    do {
-      _ = try await dispositionService.apply(disposition, toContentPieceID: id, in: database)
-      errorMessage = nil
-      return true
-    } catch is CancellationError {
-      return false
-    } catch {
-      errorMessage = error.localizedDescription
-      return false
-    }
+    return dispositionQueue.submit(disposition, contentPieceIDs: [id]) != nil
   }
 
   private var dispositionService: GmailDispositionService {
     let date = now
     return GmailDispositionService(client: dispositionClient, now: { date })
   }
+
 }
 
 public enum ReaderTeachingStage: Identifiable, Equatable, Sendable {

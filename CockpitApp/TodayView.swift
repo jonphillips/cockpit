@@ -54,6 +54,7 @@ struct TodayView: View {
     .offerReviewCover(role: $offerReviewRole, model: model) {
       Task { await didChangeQueue() }
     }
+    .dispositionAlert(queue: model.dispositionQueue)
     .sheet(item: $quickLookRow, onDismiss: quickLookDismissed) { row in
       TodayQuickLookSheet(
         row: row,
@@ -102,29 +103,12 @@ struct TodayView: View {
 private extension TodayView {
   @ViewBuilder
   var bottomBanner: some View {
-    if !model.lastOfferBatch.isEmpty || model.offerUndoMessage != nil
-      || model.errorMessage != nil || queueModel.errorMessage != nil || tailModel.errorMessage != nil
+    let batches = model.dispositionQueue.offerReviewBatches
+    if !batches.isEmpty || model.errorMessage != nil || queueModel.errorMessage != nil || tailModel.errorMessage != nil
     {
       VStack(spacing: 8) {
-        if !model.lastOfferBatch.isEmpty {
-          HStack {
-            Text(model.offerUndoMessage ?? "Trashed \(model.lastOfferBatch.count) offers")
-            Spacer()
-            Button("Undo") {
-              Task {
-                await model.undoLastOfferBatch()
-                await didChangeQueue()
-              }
-            }
-            .fontWeight(.semibold)
-            Button("Dismiss") { model.dismissOfferUndo() }.accessibilityLabel("Dismiss Undo")
-          }
-        } else if let offerUndoMessage = model.offerUndoMessage {
-          HStack {
-            Text(offerUndoMessage)
-            Spacer()
-            Button("Dismiss") { model.dismissOfferUndo() }
-          }
+        ForEach(batches) { batch in
+          dispositionBatchRow(batch)
         }
         if let error = model.errorMessage ?? queueModel.errorMessage ?? tailModel.errorMessage {
           HStack {
@@ -140,6 +124,20 @@ private extension TodayView {
       }
       .padding()
       .background(.regularMaterial)
+    }
+  }
+
+  func dispositionBatchRow(_ batch: GmailDispositionQueue.Batch) -> some View {
+    HStack {
+      Text(DispositionBatchMessage.text(for: batch))
+      Spacer()
+      if batch.phase == .running || batch.phase == .settled {
+        Button("Undo") { Task { await model.dispositionQueue.undo(batch.id) } }
+          .fontWeight(.semibold)
+      }
+      if batch.phase == .settled {
+        Button("Dismiss") { model.dispositionQueue.dismiss(batch.id) }
+      }
     }
   }
 
@@ -166,6 +164,9 @@ private extension TodayView {
         }
         .accessibilityLabel(
           "Undo \(disposition.disposition == .archive ? "archive" : "trash") of \(disposition.title)"
+        )
+        .disabled(
+          queueModel.dispositionQueue.batches.first(where: { $0.id == disposition.batchID })?.phase == .undoing
         )
       }
     }

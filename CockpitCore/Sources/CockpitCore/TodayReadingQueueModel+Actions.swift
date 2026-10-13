@@ -67,10 +67,25 @@ extension TodayReadingQueueModel {
 
   public func undoLastDisposition() async {
     guard let lastDisposition else { return }
-    await undoDisposition(contentPieceID: lastDisposition.contentPieceID)
+    if let batchID = lastDisposition.batchID {
+      await dispositionQueue.undo(batchID)
+      doneByID.removeValue(forKey: lastDisposition.contentPieceID)
+      await reload()
+      if let movedAwayFrom = selectedContentPieceID, movedAwayFrom != lastDisposition.contentPieceID {
+        presentedProcessContentPieceIDs.remove(movedAwayFrom)
+      }
+      selectedContentPieceID = lastDisposition.contentPieceID
+      self.lastDisposition = nil
+    } else {
+      await undoDisposition(contentPieceID: lastDisposition.contentPieceID)
+    }
   }
 
   public func undoDisposition(contentPieceID: ContentPiece.ID) async {
+    if let lastDisposition, lastDisposition.batchID != nil, lastDisposition.contentPieceID == contentPieceID {
+      await undoLastDisposition()
+      return
+    }
     resetDoneTrackingIfNeeded(at: now)
     do {
       guard let entry = try await database.read({ db in
@@ -165,19 +180,15 @@ extension TodayReadingQueueModel {
     guard let row = rows.first(where: { $0.id == id }), row.isGmailSource else { return }
     let shouldAdvance = selectedContentPieceID == id
     let nextSelection = shouldAdvance ? ReadingQueueSelection.neighbour(of: id, in: rows) : nil
-    do {
-      _ = try await dispositionService.apply(disposition, toContentPieceID: id, in: database)
-      recordDone(row)
-      presentedProcessContentPieceIDs.remove(id)
-      lastDisposition = LastDisposition(
-        contentPieceID: row.id, title: row.title, disposition: disposition)
-      if shouldAdvance { selectedContentPieceID = nextSelection }
-      await reload()
-      errorMessage = nil
-    } catch is CancellationError {
-    } catch {
-      errorMessage = error.localizedDescription
-    }
+    guard let batchID = dispositionQueue.submit(
+      disposition, contentPieceIDs: [id]
+    ) else { return }
+    recordDone(row)
+    presentedProcessContentPieceIDs.remove(id)
+    lastDisposition = LastDisposition(
+      batchID: batchID, contentPieceID: row.id, title: row.title, disposition: disposition)
+    if shouldAdvance { selectedContentPieceID = nextSelection }
+    await reload()
   }
 }
 
