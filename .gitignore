@@ -5,7 +5,16 @@ DerivedData/
 xcuserdata/
 *.xcuserstate
 
-# XcodeGen output; project.yml is the source of truth.
-Cockpit.xcodeproj/
+# XcodeGen output; project.yml is the source of truth. Only the Swift package pins are
+# tracked (jon-platform docs/ios/drift-control.md): without them, builds silently resolve new
+# versions of the remote packages project.yml declares.
+Cockpit.xcodeproj/*
+!Cockpit.xcodeproj/project.xcworkspace/
+Cockpit.xcodeproj/project.xcworkspace/*
+!Cockpit.xcodeproj/project.xcworkspace/xcshareddata/
+Cockpit.xcodeproj/project.xcworkspace/xcshareddata/*
+!Cockpit.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+Cockpit.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/*
+!Cockpit.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 CockpitApp/Info.plist
 CockpitApp/Cockpit.entitlements
