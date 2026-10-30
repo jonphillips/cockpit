@@ -1,6 +1,6 @@
 # Cockpit Edition Experience
 
-**Status:** Normative V1 product direction  
+**Status:** Background — V1 product direction, as of the 2026-09-08 normalization. Where it disagrees with `docs/DECISIONS.md`, `docs/IMPLEMENTATION-CONTRACT.md`, or `docs/JUDGMENT-CONTRACT.md`, they win.  
 **Date:** 2026-09-08
 
 Edition is Cockpit's finite rolling personalized newspaper.

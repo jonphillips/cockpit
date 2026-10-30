@@ -94,7 +94,7 @@ Two pieces of debt it created deliberately, both discharged by S2:
 
 `AGENTS.md`; `docs/IMPLEMENTATION-CONTRACT.md` §2, §5, §6; `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md`
 D4 and D6; `docs/LATER-LIBRARY-EXPERIENCE.md`; `docs/V1-SCOPE-AND-SEQUENCING.md` §1;
-`docs/handoff-1-report.md`; `jon-platform/docs/ios/persistence-and-sync.md` and `swift-style.md`.
+`docs/archive/handoff-1-report.md`; `jon-platform/docs/ios/persistence-and-sync.md` and `swift-style.md`.
 
 ### Scope
 
@@ -144,7 +144,7 @@ Not a design pass.
 8. Invariant 12 has a test: Library contains ContentPieces only.
 9. No `database.write` / `database.read` in any `*View.swift` — persistence logic lives in an
    `@Observable` model. The lint gate fails the build on this.
-10. `docs/handoff-2-report.md` written in the voice of `docs/handoff-1-report.md`: prose, what
+10. `docs/archive/handoff-2-report.md` written in the voice of `docs/archive/handoff-1-report.md`: prose, what
     you refused to build and why, every contract conflict, every constant with its derivation,
     and what you verified versus what you assumed.
 
@@ -183,7 +183,7 @@ the policy does not. Live Stream capture (that is S3). Anything Gmail.
 `AGENTS.md`; `docs/IMPLEMENTATION-CONTRACT.md` §2; `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md`
 D1, D2, D3; `docs/CONTENT-STREAM-MODEL.md` (Health); `docs/STREAM-MANAGEMENT-EXPERIENCE.md`;
 `docs/V1-SCOPE-AND-SEQUENCING.md` §1 Following/Streams; `docs/JUDGMENT-CONTRACT.md` §6;
-`docs/stream-handling-seeds.md`; `docs/handoff-2-report.md`.
+`docs/stream-handling-seeds.md`; `docs/archive/handoff-2-report.md`.
 
 ### This slice is larger than its name
 
@@ -274,7 +274,7 @@ feed is not regenerable, and they are the raw material S4 freezes.
    removed from the feed, and assert the older ContentPiece, its Artifact, and its `rawSourceText`
    are all still present. This is the adversarial fixture for the one failure that would silently
    cost two weeks.
-8. `docs/handoff-3-report.md`, in the established voice.
+8. `docs/archive/handoff-3-report.md`, in the established voice.
 
 ### Hazards specific to this slice
 

@@ -499,7 +499,7 @@ category-scoped, quota budget — note the 2026-09-18 quota correction: `message
 6,000/min/user), D3 (throttle/retry/partial-failure — S4 is all-or-nothing and must become per-message
 partial commit), D4 (the barrier depends on per-message commit), and the **"Open — measure before
 ratifying"** items (two documented constants to confirm on-account; two empirical items that need delta
-sync to exist); `docs/m4-s4-gmail-observations.md` (the S4 evidence the ADR rests on; superseded by the
+sync to exist); `docs/archive/m4-s4-gmail-observations.md` (the S4 evidence the ADR rests on; superseded by the
 ADR once these are recorded); `GmailInboxAPI` / `GmailIngestion` (the S4 read path to harden);
 DECISIONS §7 (the disposition barrier and what must be committed before mutation); V1-SCOPE Phase 3→4.
 

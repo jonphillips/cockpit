@@ -1,6 +1,6 @@
 # Cockpit Content Stream Model
 
-**Status:** Normative product/domain decision  
+**Status:** Background — product/domain decision, as of the 2026-09-08 normalization. Where it disagrees with `docs/DECISIONS.md`, `docs/IMPLEMENTATION-CONTRACT.md`, or `docs/JUDGMENT-CONTRACT.md`, they win.  
 **Date:** 2026-09-08
 
 ## 1. Core vocabulary

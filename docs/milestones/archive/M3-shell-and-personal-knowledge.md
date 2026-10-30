@@ -353,7 +353,7 @@ with the claims (S5). Numeric confidence / salience / half-life / trajectory (PK
 
 ### Read first
 
-`docs/PERSONAL-KNOWLEDGE-MODEL.md` §3, §5, §7, §8; `docs/CONTENT-EXPERIENCE.md`;
+`docs/PERSONAL-KNOWLEDGE-MODEL.md` §3, §5, §7, §8; `docs/archive/CONTENT-EXPERIENCE.md`;
 `docs/IPAD-FIRST-EXPERIENCE.md` §7 (the affordance sits with Dismiss / Save / Add to Library in the
 Reader); the M2 S4 Reader PR.
 

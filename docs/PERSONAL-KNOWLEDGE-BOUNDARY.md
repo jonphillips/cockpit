@@ -1,6 +1,6 @@
 # Cockpit Personal Knowledge Boundary
 
-**Status:** Normative boundary decision  
+**Status:** Background — boundary decision, as of the 2026-09-08 normalization. Where it disagrees with `docs/DECISIONS.md`, `docs/IMPLEMENTATION-CONTRACT.md`, or `docs/JUDGMENT-CONTRACT.md`, they win.  
 **Date:** 2026-09-08
 
 This document defines what Personal Knowledge is not, and how it relates to Current Context, evidence, agency, and other Jon Universe apps.

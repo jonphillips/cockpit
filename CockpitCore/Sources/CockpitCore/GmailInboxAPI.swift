@@ -128,7 +128,7 @@ extension GmailInboxAPI {
   /// category label at all), so filtering by that label under-reads. The `category:primary` search
   /// operator resolves to the tab as the user sees it. Primary is the attention surface S4 needs; the
   /// other categories are in scope for later stages (promo sifting, retail/wine Finds) but their
-  /// read/quota/delta strategy is a Gate-3 ADR decision, not S4's — see docs/m4-s4-gmail-observations.md.
+  /// read/quota/delta strategy is a Gate-3 ADR decision, not S4's — see docs/archive/m4-s4-gmail-observations.md.
   private static let maxMessagesToRead = 100
 
   private func listMessages() async throws -> (ids: [String], pageCount: Int) {

@@ -7,7 +7,7 @@ The former user-facing `Content` destination has been renamed and clarified as *
 
 The canonical experience document is now:
 
-- [`EDITION-EXPERIENCE.md`](EDITION-EXPERIENCE.md)
+- [`EDITION-EXPERIENCE.md`](../EDITION-EXPERIENCE.md)
 
 `Content` remains a valid broad subsystem/domain term, but it is not a primary navigation destination and should not be used as a synonym for Edition in new product or implementation work.
 
