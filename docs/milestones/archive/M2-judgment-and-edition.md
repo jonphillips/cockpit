@@ -267,7 +267,7 @@ milestone), the auto-Library policy.
 
 ### Read first
 
-`docs/CONTENT-EXPERIENCE.md`, `docs/EDITION-EXPERIENCE.md`, IMPLEMENTATION-CONTRACT §3–4 (Dismiss,
+`docs/archive/CONTENT-EXPERIENCE.md`, `docs/EDITION-EXPERIENCE.md`, IMPLEMENTATION-CONTRACT §3–4 (Dismiss,
 not Clear).
 
 ### Scope

@@ -23,7 +23,7 @@ dispositions are `Leave` / `Archive` / `Trash`; automatic Archive/Trash requires
 user-established policy; nothing mutates before a promised durable result is committed; no
 `Delete Forever`, no rules engine, no learned deletion in V1. This ADR does not reopen those
 decisions — it turns them into an executable contract and answers the mechanical questions §7 left
-open, using the evidence in `docs/m4-s4-gmail-observations.md`.
+open, using the evidence in `docs/archive/m4-s4-gmail-observations.md`.
 
 The device read forced one finding to the front: Gmail's category tabs all carry the `INBOX` label,
 so the real Inbox is ~40k messages (Promotions 16,212; Updates 14,295) behind a 41-message Primary
@@ -332,4 +332,4 @@ by construction, because Trash does not exist until then.
 
 On ratification: `docs/DECISIONS.md` §7 (from policy to executable contract; reference this ADR),
 `docs/V1-SCOPE-AND-SEQUENCING.md` Phase 4, `docs/EMAIL-INTELLIGENCE-MODEL.md` §5. Supersedes the
-open-questions list in `docs/m4-s4-gmail-observations.md` once its four measurements are recorded.
+open-questions list in `docs/archive/m4-s4-gmail-observations.md` once its four measurements are recorded.

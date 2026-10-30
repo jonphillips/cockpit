@@ -108,7 +108,7 @@ These three are the documents implementation agents work from. The essays below 
 - [`docs/IPAD-FIRST-EXPERIENCE.md`](docs/IPAD-FIRST-EXPERIENCE.md) — device philosophy and shell composition.
 - [`docs/CAPABILITY-REALITY-MAP.md`](docs/CAPABILITY-REALITY-MAP.md) — what is real in V1, what is only a concept, and what waits for evidence.
 
-`docs/CONTENT-EXPERIENCE.md` remains only as a compatibility pointer to `EDITION-EXPERIENCE.md`; `Edition` is the current user-facing noun.
+`docs/archive/CONTENT-EXPERIENCE.md` remains only as a compatibility pointer to `EDITION-EXPERIENCE.md`; `Edition` is the current user-facing noun.
 
 ## Implementation posture
 
