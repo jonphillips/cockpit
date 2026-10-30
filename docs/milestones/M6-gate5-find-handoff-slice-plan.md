@@ -1,10 +1,12 @@
 # M6 Gate 5 — First specialist Find handoff (Yes Chef): the cross-app boundary test (slice plan)
 
+**Status:** Blocked · **Summary:** S-c1 through S-c3 and S-y3 merged; S-join waits on Jon's device round trip, then S-c4 (on-device Food recipe extraction).
+
 > **Slice plan, not a single-slice spec.** Architect-recorded 2026-09-21, promoting
-> `M6-gate5-find-handoff-design.md` to a sliceable plan after the fresh-session investigation answered
+> `archive/M6-gate5-find-handoff-design.md` to a sliceable plan after the fresh-session investigation answered
 > its three open questions against real code. It is normative against `docs/APP-FAMILY-INTERACTION.md`
 > (§3/§6/§7/§9) and ADR-0002 D8, inherits the deferred/permanent ledger in
-> `M6-decisions-and-sequencing.md`, and does **not** restate the design note's rationale — read it first.
+> `archive/M6-decisions-and-sequencing.md`, and does **not** restate the design note's rationale — read it first.
 > Gate 5 spans **cockpit + Yes Chef** (`/Users/jon/code/cooking/yes-chef`); the contract is the only
 > coupling, so it is frozen first (S0) and the two repos build to it in parallel.
 >
@@ -204,7 +206,7 @@ outcomes:
 
 Contract first, then the two repos in parallel, then the join. Gate 5's **gate review trails Gate 4**
 (a Find's provenance/custody story rests on the ContentPiece/Stream separation being settled —
-`M6-decisions-and-sequencing.md`), so S-join must not ratify ahead of Gate 4. **Gate 4 closed
+`archive/M6-decisions-and-sequencing.md`), so S-join must not ratify ahead of Gate 4. **Gate 4 closed
 2026-09-25 (ADR-0002 D11), so S-join may ratify.**
 
 0. **S0 — Ratify the transport + freeze the wire format. ✅ Done 2026-09-24 (this plan's PR).** Jon

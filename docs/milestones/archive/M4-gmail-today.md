@@ -601,7 +601,7 @@ Three findings, none blocking S7 (all upstream of it or downstream in a later sl
    transactional/receipt sibling, or whether that is a Find, not a treatment. Jon's call; log it, do not
    auto-fix.
 2. **Email bodies render as one run-on stream (Reader/normalizer defect).** `HTMLText.normalizedText`
-   ([`Feed.swift`](../../CockpitCore/Sources/CockpitCore/Feed.swift)) inserts `\n` for block tags and then
+   ([`Feed.swift`](../../../CockpitCore/Sources/CockpitCore/Feed.swift)) inserts `\n` for block tags and then
    collapses every whitespace run — including those newlines — in its final `split/joined` pass, so all
    paragraph structure is lost. Formatting is **not** lost from the data (`rawSourceText` retains the full
    HTML); this is a normalization choice. The normalizer is shared with the RSS path, so the fix (collapse

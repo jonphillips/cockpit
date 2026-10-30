@@ -4,7 +4,7 @@
 > hand a *fresh* session a warm start. It captures every decision we locked so the return-channel
 > investigation and the two-repo build don't re-derive them. It is normative against
 > `docs/APP-FAMILY-INTERACTION.md` (§3/§6/§7/§9) and ADR-0002 D8, and inherits the deferred/permanent
-> ledger in `docs/milestones/M6-decisions-and-sequencing.md`.
+> ledger in `docs/milestones/archive/M6-decisions-and-sequencing.md`.
 >
 > **The three open questions below were answered against real code (2026-09-21) and this note is now a
 > sliceable plan: `M6-gate5-find-handoff-slice-plan.md` (the frozen contract, invariants, and

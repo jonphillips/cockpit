@@ -86,7 +86,7 @@ Edition finally sit side by side. See `docs/EMAIL-INTELLIGENCE-MODEL.md`.
 `Today · Edition · Later · Library · Settings` — with Following / Interest Areas / You (Personal
 Knowledge) / Pending Finds under **Settings**. iPad renders these as a sidebar, iPhone as a tab bar,
 from one structure. Every list is **list ∥ detail** feeding the one Reader; no full-width rows that
-push to a separate screen. See `docs/IPAD-FIRST-EXPERIENCE.md`, and `docs/milestones/M3-shell-and-personal-knowledge.md`
+push to a separate screen. See `docs/IPAD-FIRST-EXPERIENCE.md`, and `docs/milestones/archive/M3-shell-and-personal-knowledge.md`
 (S1) for how the current shell gets there.
 
 ---

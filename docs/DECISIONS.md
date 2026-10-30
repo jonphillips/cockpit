@@ -458,7 +458,7 @@ This is not new capability bolted on — it is surfacing what the model already 
 
 **Relationships.** This is the reading half of the same surface as **offline** (`Offline until [date]` / `Keep Offline`, currently M4-cutline): the body rendered inline is exactly the substance an offline promise must retain, so the two belong to one slice or adjacent ones (`docs/IPAD-FIRST-EXPERIENCE.md` §8). It also reconciles with §19: a **digest / skim** piece (non-substantive-primary) still renders as the compact contents-preview card §19 describes, **not** a full inline body — inline body is for read pieces with a real `full`/`truncated` body. And it does not touch the AI boundary: rendering held text is deterministic display, not judgment.
 
-**Not decided here:** exact typography/reader geometry (deferred, "Reader geometry details" below), HTML-vs-plain rendering fidelity, and the milestone placement of the slice (proposed M4-adjacent; see `docs/milestones/M3-shell-and-personal-knowledge.md` M4 cutline).
+**Not decided here:** exact typography/reader geometry (deferred, "Reader geometry details" below), HTML-vs-plain rendering fidelity, and the milestone placement of the slice (proposed M4-adjacent; see `docs/milestones/archive/M3-shell-and-personal-knowledge.md` M4 cutline).
 
 > **Updated 2026-09-18 — the HTML-vs-plain fidelity question is now resolved for email by §25:** the email Reader renders the held **original HTML** in an in-app WKWebView (reader-mode re-render dropped), a scoped, mitigated crossing of the "no remote fetch" boundary above. The non-email path described here is unchanged. Build targeted M6.
 
@@ -491,7 +491,7 @@ Resolve by: living with Phase 5. Watch whether (a) always-read Streams promoted 
 
 Raised 2026-09-15 from the M2-S2 baseline (`docs/eval-log.md`, 2026-09-13) while
 scoping the S5 Gate-2 run. **Amends §17 and resolves the agreement-definition
-tension the eval-log and `docs/milestones/M3-shell-and-personal-knowledge.md`
+tension the eval-log and `docs/milestones/archive/M3-shell-and-personal-knowledge.md`
 flagged for Gate 1/2.**
 
 The baseline read `agreement 0.421` and treated it as the number to move. On
@@ -597,7 +597,7 @@ newly designed here.
 
 - **Resolution (deferred, not designed here): move the PK-free type pass to a faster/cheaper model**
   once it can emit the schema — the M2-S1 cost lever, already parked in the M4 milestone's M5+ cutline
-  (`docs/milestones/M4-gmail-today.md`). That cuts the type pass's cost *and* latency at once, and the
+  (`docs/milestones/archive/M4-gmail-today.md`). That cuts the type pass's cost *and* latency at once, and the
   editorial frontier call stays on Sonnet. It sits behind the known schema blocker (the cheap/onboard
   model must reliably emit the classification schema first).
 
@@ -625,7 +625,7 @@ resolved: the breach is real, not a Mac-over-API artifact. Two facts sharpen the
   which cuts both cost and latency but sits behind the schema blocker.
 
 Sequencing: this is now scheduled as **M4 · S6 — Composition latency**
-(`docs/milestones/M4-gmail-today.md`), sequenced **before the Gmail spine (S4–S5)** because Gmail
+(`docs/milestones/archive/M4-gmail-today.md`), sequenced **before the Gmail spine (S4–S5)** because Gmail
 volume compounds the same monolithic composition. S6 does the safe near-term work (parallelize the
 type pass; measure on device); the model swap remains deferred to its M5+ slot unless S6 leaves the
 budget still breached.
@@ -855,7 +855,7 @@ disposition safety. The reader original-HTML pane (§25) stays M6.
 (finance disposition safety at S8), §18 (still deterministic, organize-not-judge).
 
 **Gate 4 ratification (2026-09-25, Jon) — §24's remit is email; RSS stays a filter.** The Gate 4 model
-review closed the two questions it had left open (`docs/milestones/M6-gate4-email-stream-separation.md`,
+review closed the two questions it had left open (`docs/milestones/archive/M6-gate4-email-stream-separation.md`,
 open questions #1 and #3). Recorded in ADR-0002 D11.
 
 - **Reachable-first applies to curated email only. RSS keeps the Edition's judged treatment.** Jon
@@ -953,7 +953,7 @@ no-server law — rules out proxying). Live docs: `docs/TODAY-EXPERIENCE.md` §5
 made unsubscribe links and article links unusable. A **user-activated** tap on an `http`, `https`, or
 `mailto` link now opens in the system browser/mail app; the web view itself still performs only the
 initial `loadHTMLString` and never navigates, and every other scheme or navigation stays cancelled. The
-webview is still not a browser. Slice: `docs/milestones/M6-reader-dogfood-slices.md` S-r3.
+webview is still not a browser. Slice: `docs/milestones/archive/M6-reader-dogfood-slices.md` S-r3.
 
 ---
 
@@ -974,7 +974,7 @@ compose, attachments, rich text, drafts, templates, signatures, send-later, AI-d
 reply on newsletter roles. Any of these needs its own decision.
 
 **Relates to:** ADR-0002 D7 (out-of-V1 list now points here), V1-SCOPE out-of-scope list, AGENTS.md Gmail
-boundary. Slice: `docs/milestones/M6-reader-dogfood-slices.md` S-r5.
+boundary. Slice: `docs/milestones/archive/M6-reader-dogfood-slices.md` S-r5.
 
 ---
 
@@ -1018,7 +1018,7 @@ cadence, and not before.
 
 **Relates to:** ADR-0002 D2 (amended), §7, §24 (Offers role), the M6 deferred ledger's "Promotions/Social
 at scale" row (Promotions now scheduled; Social stays deferred). Slice:
-`docs/milestones/M6-today-additions.md` S-t3.
+`docs/milestones/archive/M6-today-additions.md` S-t3.
 
 ---
 
@@ -1058,7 +1058,7 @@ the set-on-open, and Mark as Unread are unchanged. Confirmed on the device pass 
 **Relates to:** §7, ADR-0002 D1 (the message is the unit, so only the piece's own messages are marked,
 never the whole thread) and D5 (a fourth, non-destructive label operation), `TODAY-EXPERIENCE.md` and
 `EMAIL-INTELLIGENCE-MODEL.md` ("read/unread is not canonical attention state" still holds). Slice:
-`docs/milestones/M6-today-additions.md` S-t2.
+`docs/milestones/archive/M6-today-additions.md` S-t2.
 
 ---
 
@@ -1102,7 +1102,7 @@ an explicit order, a daily visited lifecycle, and one query (the ordered list wi
 None of the existing nouns fits without bending it.
 
 **Relates to:** §24 (Today stays orientation; this is orientation, not curation), the AGENTS.md AI
-boundary. Slice: `docs/milestones/M6-today-additions.md` S-t4.
+boundary. Slice: `docs/milestones/archive/M6-today-additions.md` S-t4.
 
 ---
 
@@ -1153,7 +1153,7 @@ of reviewed offers. Any new model call. Dismissing unkept Finds as part of Trash
 **Relates to:** §3 (Finds), §7 and ADR-0002 D4/D6/D7 (explicit batch disposition, per-message barrier
 and log), §24 (Offers role), §25 (remote image loads), §27 (Promotions intake feeds it), S-r6
 (confirmed-Find barrier, unchanged for policies), Gate 4 D-F (amended), `TODAY-EXPERIENCE.md` tier 4
-(its "compact aggregate with drill-in" is this door). Slices: `docs/milestones/M6-today-additions.md`
+(its "compact aggregate with drill-in" is this door). Slices: `docs/milestones/archive/M6-today-additions.md`
 S-t5 and S-t6.
 
 ---
@@ -1212,7 +1212,7 @@ is also not decided.
 
 **Status.** Resolved, and carried into the live docs 2026-09-27: §1, §28, §29, `AGENTS.md`, Gate 4
 D-D/D-E/D-F, `TODAY-EXPERIENCE.md`, `IPAD-FIRST-EXPERIENCE.md`, `PRODUCT-MODEL.md`, and `README.md`. The
-build order is `docs/milestones/M6-morning-edition.md` (S-v1 foundation, S-v2 Process tab and quick
+build order is `docs/milestones/archive/M6-morning-edition.md` (S-v1 foundation, S-v2 Process tab and quick
 look in default styling, then S-v3 Today and S-v4 reader visual adoption). Each visual slice is done
 when it matches the mockup on device (jon-platform `docs/ios/ui-and-platforms.md`, "Visual craft").
 
@@ -1244,7 +1244,7 @@ the slices can be built:
 
 **Relates to:** §1 (shell), §25 (email fidelity, pane rules), §28 (read state), §29 (Daily links
 placement), §30 (offer doors unchanged), Gate 4 D-F and the Highlights row
-(`docs/milestones/M6-gate4-email-stream-separation.md`).
+(`docs/milestones/archive/M6-gate4-email-stream-separation.md`).
 
 ---
 
@@ -1385,7 +1385,7 @@ of either is an amendment here. The schema change (`StreamHandling.listed` and t
 D11 ("RSS is unchanged" becomes "RSS defaults to Screened"), §31 (shell amended: Feeds tab), §15
 (Dismiss; Essential excluded), §29 (system open, opened rows dim), §30 (door precedent, out of the
 queue), `AGENTS.md` "Shell naming", `CONTENT-STREAM-MODEL.md` Handling, `IMPLEMENTATION-CONTRACT.md`
-(`Stream.handling` posture enum). Slices: `docs/milestones/M6-listed-feeds.md` (S-l1 … S-l3).
+(`Stream.handling` posture enum). Slices: `docs/milestones/archive/M6-listed-feeds.md` (S-l1 … S-l3).
 
 **Status.** Carried into the live docs 2026-10-03: §1, `AGENTS.md` "Shell naming", ADR-0002 D11,
 `CONTENT-STREAM-MODEL.md` Handling, `IMPLEMENTATION-CONTRACT.md`, `TODAY-EXPERIENCE.md`,

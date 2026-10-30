@@ -10,3 +10,8 @@ moves it into a milestone or effort and sets `docs/NEXT_UP.md`.
   clears; `docs/milestones/M6-gate5-find-handoff-slice-plan.md`.
 - **After M6.** Every M6 ledger item except S-join/S-c4 has merged. The architect's next plan PR
   proposes what follows (`docs/V1-SCOPE-AND-SEQUENCING.md`).
+- **M6 deferred ledger (parked 2026-10-30).** Wanted-but-deferred items (promote-into-the-package,
+  Find auto-routing, a second receiver, auto-Library, Promotions at scale, S1 follow-ups, iPhone
+  composition, …), the measurement-triggered type-call model swap, and the permanent "no" boundaries.
+  Read it when planning what follows M6:
+  [`milestones/archive/M6-decisions-and-sequencing.md`](milestones/archive/M6-decisions-and-sequencing.md).
