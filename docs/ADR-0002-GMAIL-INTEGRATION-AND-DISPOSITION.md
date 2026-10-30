@@ -95,7 +95,7 @@ load on this account, which the M5 S6 delta-sync build measures.
 `historyId` delta as Primary. It isn't on its own cadence and there's no backfill. Membership becomes
 Primary ∪ `category:promotions` received after a fixed Promotions epoch, set once at the first sync
 that knows about Promotions. The added cost is one `messages.list` per sync plus 20 units per new promo.
-Social, Updates, and Forums stay as stated above. Slice: `docs/milestones/M6-today-additions.md` S-t3.
+Social, Updates, and Forums stay as stated above. Slice: `docs/milestones/archive/M6-today-additions.md` S-t3.
 
 ---
 
@@ -155,7 +155,7 @@ and treated as success.
 message read (`messages.modify` removing `UNREAD`), and the Reader's Mark as Unread re-adds it. This is
 a non-destructive label operation Jon triggers by opening the message. It isn't a disposition: it
 doesn't go in the D6 log and it doesn't pass the D4 barrier, because Cockpit retains nothing on its
-strength. Slice: `docs/milestones/M6-today-additions.md` S-t2.
+strength. Slice: `docs/milestones/archive/M6-today-additions.md` S-t2.
 
 ---
 
@@ -178,7 +178,7 @@ hides its rows at once and runs the D4 sequence in the background. Undo is offer
 stays until the batch settles. Undo on a running batch stops the unstarted messages and reverses the
 ones that landed. A failure raises an alert and the failed rows return. The hiding is in memory only:
 nothing is logged ahead of the mutation, so D4's order and D6's log are unchanged, and a message whose
-call never ran simply stays in `INBOX`. Slices: `docs/milestones/M6-background-disposition.md`.
+call never ran simply stays in `INBOX`. Slices: `docs/milestones/archive/M6-background-disposition.md`.
 
 ---
 
@@ -278,7 +278,7 @@ permits `untrash`, and leaves ContentPiece custody plus any Find, Later, or Libr
 
 ## D11 — Curated Gmail is organized, never judged; RSS stays the judged tail (Gate 4, 2026-09-25).
 
-Ratifies Gate 4 (`docs/milestones/M6-gate4-email-stream-separation.md`) after the S-d0 build (PRs #60–#63),
+Ratifies Gate 4 (`docs/milestones/archive/M6-gate4-email-stream-separation.md`) after the S-d0 build (PRs #60–#63),
 Jon's S-d device evaluation, and the reader dogfood slices (S-r1 … S-r11).
 
 **Gmail never enters Edition judgment.** Curation role comes from routing, not from a model:

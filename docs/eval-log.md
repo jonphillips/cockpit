@@ -135,7 +135,7 @@ Gate rulings (architect, 2026-09-16):
 
 M4 opens on the Phase-3 cutline (Gmail read-only Today → Gate 3), carrying the
 type/editorial split, offline controls, and the inline-body Reader. See
-`docs/milestones/M4-gmail-today.md`.
+`docs/milestones/archive/M4-gmail-today.md`.
 
 ## M4 S1 — Type/editorial split
 

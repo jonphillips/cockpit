@@ -172,7 +172,7 @@ Both are superseded by:
 - **Feeds is its own tab (§33).** A system split view: sources in the sidebar, stories newest first
   under day headers, each tap opening the article through the system. Today's Feeds door switches to it.
 
-Build order: `docs/milestones/M6-morning-edition.md`; Feeds: `docs/milestones/M6-listed-feeds.md`.
+Build order: `docs/milestones/archive/M6-morning-edition.md`; Feeds: `docs/milestones/archive/M6-listed-feeds.md`.
 
 ### What this note does not settle
 

@@ -341,7 +341,7 @@ Same shape as M1: the work only Jon can do, gating what follows.
 
 ### Before S2 — the labelling pass
 
-Already specified in `docs/milestones/M1-persistence-and-destinations.md` ("After S4 — the labelling
+Already specified in `docs/milestones/archive/M1-persistence-and-destinations.md` ("After S4 — the labelling
 pass"). The 200 fixtures must carry a confirmed `label` and `isSubstantivePrimary`. **This gates
 S2.** When you hit a paywall teaser with no body, the contract's own definition says
 `isSubstantivePrimary = false` (IMPLEMENTATION-CONTRACT §1) — that is a rule, not a judgment call.

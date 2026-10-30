@@ -237,7 +237,7 @@ surface — an inviting brief made of unreadable paragraphs is not testable.
 ### Read first
 
 `M4-gmail-today.md` S7 device-pass finding #2 (the exact defect); `HTMLText.normalizedText(from:)`
-([`Feed.swift:210`](../../CockpitCore/Sources/CockpitCore/Feed.swift)) — it inserts `\n` for block
+([`Feed.swift:210`](../../../CockpitCore/Sources/CockpitCore/Feed.swift)) — it inserts `\n` for block
 tags and then collapses **every** whitespace run in its final `split`/`joined` pass, discarding those
 newlines; the RSS ingest path that shares this normalizer (the reason this is its own small change, not
 a Reader-only tweak); ADR-0001 D6 / DECISIONS §16 (normalized text is device-local, derived from
@@ -316,9 +316,9 @@ in the §24 hierarchy, not a Find. This slice carries the §24 amendment.
 DECISIONS §24 (the four-treatment taxonomy this extends; the organize-not-suppress guardrails the fifth
 inherits; the deterministic-first / no-learned-store discipline); `M4-gmail-today.md` S7 device finding
 #1 (the scatter this fixes; the explicit "add a treatment vs. make it a Find" question, now answered);
-`EmailTreatment` ([`EmailTreatmentDomain.swift`](../../CockpitCore/Sources/CockpitCore/EmailTreatmentDomain.swift))
+`EmailTreatment` ([`EmailTreatmentDomain.swift`](../../../CockpitCore/Sources/CockpitCore/EmailTreatmentDomain.swift))
 and the deterministic `EmailTreatmentClassifier`
-([`EmailTreatment.swift`](../../CockpitCore/Sources/CockpitCore/EmailTreatment.swift)); the S4-retained
+([`EmailTreatment.swift`](../../../CockpitCore/Sources/CockpitCore/EmailTreatment.swift)); the S4-retained
 provider headers (`GmailArtifactProvenance` / `GmailHeaderParser`) — the deterministic signals; the
 existing per-sender override (the correction mechanism the fifth treatment also uses).
 
