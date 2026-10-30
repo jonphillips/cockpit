@@ -18,22 +18,20 @@ Then, only as the work requires:
 4. `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md` when touching persistence, identity, sync, or ingest
 5. `docs/JUDGMENT-CONTRACT.md` when touching relevance, ranking, extraction, or any model call
 6. `docs/DECISIONS.md` when a cross-cutting product decision appears to be in question
-7. the focused essay in `docs/` for the area being changed
+7. the Background essay in `docs/` for the area being changed: context only, since the ledger and contracts win (`README.md` § Document authority)
 8. `ARCHITECTURE.md` and `PLATFORM-ADOPTION.md` when shared infrastructure or platform boundaries are involved
 
-Do not read the whole corpus before every task. It is roughly 25,000 words and reading it wholesale costs more context than the work. The contract exists so that it does not have to be read.
+New to the repo, or lost in the nouns: `docs/ORIENTATION.md` is the one-page map.
+
+Do not read the whole corpus before every task. It is roughly 65,000 words and reading it wholesale costs more context than the work. The contract exists so that it does not have to be read.
 
 Documents under `docs/archive/` are historical evidence only. They must not be used to resurrect superseded product language or architecture.
 
 ## How work is assigned
 
-Work comes from `docs/NEXT_UP.md`, never from chat: one dispatch (one or more slices), one branch + PR
-(`mN/sK-short-slug`, or `effort/<slug>`). The completing PR ticks the ledger box, adds a
-`docs/DONE-LOG.md` entry naming its branch, and advances `NEXT_UP.md` to the next dispatch in the
-milestone's order. The architect merges approved plan-order PRs and escalates to Jon on deviation,
-schema/migration, sync/sharing, or an owed device gate. Full protocol:
-`jon-platform/docs/agent-collaboration.md` and ADR-0005. The working directory is the scope, and a bare
-"go" means state your read of the board and one intended next action, then wait before any write.
+Work comes from `docs/NEXT_UP.md`, never from chat. The rest of the loop (branches, what the
+completing PR updates, merges and escalations, what a bare "go" means) is jon-platform's
+`AGENTS.md`, `docs/agent-collaboration.md`, and ADR-0005. This repo doesn't restate it.
 
 ## Shell naming
 

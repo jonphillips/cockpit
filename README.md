@@ -50,13 +50,10 @@ The live repository documentation describes the current system. Older design gen
 When live documents appear to conflict, use this precedence:
 
 1. `docs/DECISIONS.md` — ratified cross-cutting decisions and explicit deferrals.
-2. `docs/IMPLEMENTATION-CONTRACT.md` — schema, state machines, invariants, and the definitions of load-bearing words.
-3. `ARCHITECTURE.md` — software boundaries and architectural invariants.
-4. `docs/PRODUCT-MODEL.md` — product responsibilities and vocabulary.
-5. `docs/V1-SCOPE-AND-SEQUENCING.md` — what V1 actually builds and in what order.
-6. Focused live documents in `docs/` — detailed behavior for their named area.
-7. `PLATFORM-ADOPTION.md` — relationship to `jon-platform`.
-8. Archive material — historical context only.
+2. `docs/IMPLEMENTATION-CONTRACT.md`, `docs/JUDGMENT-CONTRACT.md`, and the ADRs in `docs/` — schema, state machines, invariants, judgment rules, and the definitions of load-bearing words.
+3. `docs/V1-SCOPE-AND-SEQUENCING.md` — what V1 actually builds and in what order.
+4. **Background** — `ARCHITECTURE.md`, `PLATFORM-ADOPTION.md`, `docs/PRODUCT-MODEL.md`, and the focused documents in `docs/`. They record design intent as of the 2026-09-08 normalization and give context for their area. When one disagrees with 1–3, it's the one that's wrong.
+5. Archive material — historical context only.
 
 Where `docs/DECISIONS.md` states product intent and `docs/IMPLEMENTATION-CONTRACT.md` states a shape, they are answering different questions and do not conflict. If they do conflict, the ledger wins on intent and the contract wins on shape; correct whichever is wrong in the same change.
 
@@ -108,7 +105,7 @@ These three are the documents implementation agents work from. The essays below 
 - [`docs/IPAD-FIRST-EXPERIENCE.md`](docs/IPAD-FIRST-EXPERIENCE.md) — device philosophy and shell composition.
 - [`docs/CAPABILITY-REALITY-MAP.md`](docs/CAPABILITY-REALITY-MAP.md) — what is real in V1, what is only a concept, and what waits for evidence.
 
-`docs/archive/CONTENT-EXPERIENCE.md` remains only as a compatibility pointer to `EDITION-EXPERIENCE.md`; `Edition` is the current user-facing noun.
+`Edition` is the current user-facing noun (`docs/EDITION-EXPERIENCE.md`).
 
 ## Implementation posture
 

@@ -1,6 +1,6 @@
 # Jon Brain Handoff
 
-**Status:** Normative V1 workflow  
+**Status:** Background — V1 workflow, as of the 2026-09-08 normalization. Where it disagrees with `docs/DECISIONS.md`, `docs/IMPLEMENTATION-CONTRACT.md`, or `docs/JUDGMENT-CONTRACT.md`, they win.  
 **Date:** 2026-09-08
 
 V1 supports a deliberately simple, human-mediated way to bootstrap Cockpit Personal Knowledge from ChatGPT or another AI system.

@@ -1,6 +1,6 @@
 # Cockpit ContentPiece, Find, Custody, and Offline Model
 
-**Status:** Normative domain decision  
+**Status:** Background — domain decision, as of the 2026-09-08 normalization. Where it disagrees with `docs/DECISIONS.md`, `docs/IMPLEMENTATION-CONTRACT.md`, or `docs/JUDGMENT-CONTRACT.md`, they win.  
 **Date:** 2026-09-08
 
 This document defines the smallest current content spine. It intentionally refuses a universal ontology.

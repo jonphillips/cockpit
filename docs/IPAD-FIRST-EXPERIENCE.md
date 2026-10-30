@@ -1,6 +1,6 @@
 # Cockpit iPad-First Experience
 
-**Status:** Normative device direction, intentionally not pixel-complete  
+**Status:** Background — device direction, intentionally not pixel-complete, as of the 2026-09-08 normalization. Where it disagrees with `docs/DECISIONS.md`, `docs/IMPLEMENTATION-CONTRACT.md`, or `docs/JUDGMENT-CONTRACT.md`, they win.  
 **Date:** 2026-09-08
 
 Cockpit is iPad-first for rich reading, browsing, curation, teaching, and management. iPhone remains important but should not force the app into one identical composition across devices.

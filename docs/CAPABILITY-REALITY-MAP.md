@@ -1,6 +1,6 @@
 # Cockpit Capability Reality Map
 
-**Status:** Normative scope/reality map  
+**Status:** Background — scope/reality map, as of the 2026-09-08 normalization. Where it disagrees with `docs/DECISIONS.md`, `docs/IMPLEMENTATION-CONTRACT.md`, or `docs/JUDGMENT-CONTRACT.md`, they win.  
 **Date:** 2026-09-08
 
 This document prevents conceptual nouns from being mistaken for already-required infrastructure. It classifies current capabilities as **V1**, **Deferred**, or **Evidence required**.

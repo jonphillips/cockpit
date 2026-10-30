@@ -52,7 +52,8 @@ Gmail message  ──┘   (raw)       (the substance)  └──  Library      
   "read it soon"; Library = "keep it for good." See `docs/LATER-LIBRARY-EXPERIENCE.md`.
 - **Personal Knowledge** — durable, explicit Facts / Tastes / Interests about you, built only from
   explicit intent (never passive clicks). It feeds the judgment pass so relevance reflects *you*. See
-  `docs/PERSONAL-KNOWLEDGE-MODEL.md`.
+  `docs/PERSONAL-KNOWLEDGE-MODEL.md`; its boundary with other apps is
+  `docs/PERSONAL-KNOWLEDGE-BOUNDARY.md`, and bulk teaching from Jon Brain is `docs/JON-BRAIN-HANDOFF.md`.
 - **Pending Find** — a useful opportunity (a restaurant, a wine, a product) extracted from a piece,
   parked until a specialist app can receive it. See `docs/PRODUCT-MODEL.md`, `docs/CONTENT-PIECE-MODEL.md`.
 

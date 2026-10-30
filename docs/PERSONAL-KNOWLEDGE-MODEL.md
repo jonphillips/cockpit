@@ -1,6 +1,6 @@
 # Cockpit Personal Knowledge Model
 
-**Status:** Normative V1 product/domain decision  
+**Status:** Background — V1 product/domain decision, as of the 2026-09-08 normalization. Where it disagrees with `docs/DECISIONS.md`, `docs/IMPLEMENTATION-CONTRACT.md`, or `docs/JUDGMENT-CONTRACT.md`, they win.  
 **Date:** 2026-09-08
 
 Personal Knowledge is Cockpit's durable explicit understanding of Jon.

@@ -1,6 +1,6 @@
 # Cockpit App-Family Interaction
 
-**Status:** Normative cross-app boundary  
+**Status:** Background — cross-app boundary, as of the 2026-09-08 normalization. Where it disagrees with `docs/DECISIONS.md`, `docs/IMPLEMENTATION-CONTRACT.md`, or `docs/JUDGMENT-CONTRACT.md`, they win.  
 **Date:** 2026-09-08
 
 Cockpit participates in the Jon Universe without becoming its universal database or workflow hub.

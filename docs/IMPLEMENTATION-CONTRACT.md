@@ -5,7 +5,7 @@
 
 This is the compact document implementation agents read. It states the schema, the state machines, the invariants, and the definitions of load-bearing words.
 
-The essays in `docs/` remain normative for product reasoning and are consulted by name when a specific area is being changed. This document is consulted **every session**.
+The essays in `docs/` are Background: design intent as of the 2026-09-08 normalization, consulted by name for context when a specific area is being changed. This document is consulted **every session**.
 
 If this document and an essay disagree about a *shape*, this document wins and the essay is corrected. If they disagree about *product intent*, `docs/DECISIONS.md` wins and this document is corrected.
 
