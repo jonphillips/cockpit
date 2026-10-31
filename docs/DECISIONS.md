@@ -1199,6 +1199,8 @@ visual spec.
   and dark values, named as the global accent in `project.yml`, so it also drives the system tint.
   `Theme.accent` is `Color.accentColor`, and the chip colors are mixed from it. Changing the accent
   means changing that one color set.
+- The root tab view applies `.tint(Theme.accent)` as well, so SDK 27 system chrome receives the same
+  semantic accent when the global asset setting alone does not reach it.
 
 **Follows from the mockup; confirm on device.** The Highlights row is dropped (amends Gate 4's
 pointer-only Highlights row). Daily links move into the Today masthead (amends §29's trailing icon

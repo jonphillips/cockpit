@@ -115,23 +115,15 @@ struct TodayTailSectionView: View {
           .padding(.vertical, 7)
       }
       ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-        HStack(alignment: .top, spacing: 8) {
-          Button { openQuickLook(row.contentPieceID) } label: {
-            HeadlineRow(
-              title: row.title, byline: row.publisher, time: "", detail: row.rationale,
-              showsTopRule: index > 0)
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .matchedTransitionSource(id: row.contentPieceID, in: readerNamespace)
-              .contentShape(Rectangle())
-          }
-          .buttonStyle(.plain)
-          Menu { tailActions(row) } label: {
-            Image(systemName: "ellipsis.circle")
-              .foregroundStyle(Theme.inkTertiary)
-              .padding(.top, 6)
-          }
-          .accessibilityLabel("Tail story actions")
+        Button { openQuickLook(row.contentPieceID) } label: {
+          HeadlineRow(
+            title: row.title, byline: row.publisher, time: "", detail: row.rationale,
+            showsTopRule: index > 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .matchedTransitionSource(id: row.contentPieceID, in: readerNamespace)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
           Button("Dismiss", systemImage: "xmark.circle", role: .destructive) {
             dismiss(row)

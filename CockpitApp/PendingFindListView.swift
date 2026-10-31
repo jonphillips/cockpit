@@ -58,13 +58,12 @@ struct PendingFindListView: View {
     .navigationTitle("Finds")
     .toolbar {
       ToolbarItem(placement: .topBarTrailing) {
-        Menu {
-          Toggle("Show Dismissed", isOn: Binding(
-            get: { model.showDismissed },
-            set: { show in model.setShowDismissed(show) }
-          ))
+        Button {
+          model.setShowDismissed(!model.showDismissed)
         } label: {
-          Image(systemName: "ellipsis.circle")
+          Label(
+            model.showDismissed ? "Hide Dismissed" : "Show Dismissed",
+            systemImage: model.showDismissed ? "eye.slash" : "eye")
         }
       }
     }
@@ -119,6 +118,37 @@ private struct PendingFindListRow: View {
         .tint(.accentColor)
       }
     }
+    .contextMenu {
+      if row.state == .pending || row.state == .dismissed {
+        Button("Save", systemImage: "bookmark.fill") {
+          Task { await model.confirm(row.id) }
+        }
+      }
+      if row.state == .pending {
+        Button("Dismiss", systemImage: "xmark", role: .destructive) {
+          Task { await model.dismiss(row.id) }
+        }
+      }
+      if canSendToYesChef {
+        Button("Send to Yes Chef", systemImage: "arrow.up.forward.app") {
+          Task { await model.sendToYesChef(row.id) }
+        }
+      }
+      if let strand = model.strandedReferrals[row.id] {
+        if case .unconsumed = strand {
+          Button("Open Yes Chef Again", systemImage: "arrow.clockwise") {
+            Task { await model.retryStrandedReferral(for: row.id) }
+          }
+        }
+        Button("Return to Confirmed", systemImage: "arrow.uturn.backward") {
+          Task { await model.returnStrandedReferralToConfirmed(for: row.id) }
+        }
+      }
+    }
+  }
+
+  private var canSendToYesChef: Bool {
+    RecipeCandidateKind.matches(row.kind) && (row.state == .pending || row.state == .confirmed)
   }
 }
 
