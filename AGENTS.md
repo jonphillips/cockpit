@@ -10,8 +10,8 @@ Every session, read:
 2. `docs/IMPLEMENTATION-CONTRACT.md` — schema, Edition state machine, invariants, definitions
 3. the brief sections `NEXT_UP.md` links, plus that milestone's standing rules; `docs/verification.md`
 
-The architect also reads `docs/V1-SCOPE-AND-SEQUENCING.md` (phase and gate) and `docs/open-questions.md`
-(candidates; the executor never reads it).
+The architect also reads `docs/V1-SCOPE-AND-SEQUENCING.md` (phase and gate), `docs/efforts/README.md` (the
+effort queue), and `docs/open-questions.md` (candidates; the executor never reads it).
 
 Then, only as the work requires:
 
