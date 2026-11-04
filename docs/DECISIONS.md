@@ -317,6 +317,9 @@ The shell is complete, but Edition and Today may be substantially deeper than La
 
 ## 13. Execution model and derived identity — RESOLVED
 
+**Amended 2026-11-04 by §34.** Jon's own always-on Mac may run a read-and-notify mail client. It's a client,
+not a server, under the conditions there, and it does none of Cockpit's ingestion or Edition work.
+
 Ingestion, judgment, and enrichment run **on device**. No server, no hosted worker.
 
 The morning Edition was considered as the product requirement that might justify one, and rejected: putting Gmail ingest on a third-party server converts a defensible personal-use exemption for restricted scopes into a plausible annual security-assessment obligation, which is a four-figure recurring cost for a single-user app.
@@ -1390,6 +1393,43 @@ queue), `AGENTS.md` "Shell naming", `CONTENT-STREAM-MODEL.md` Handling, `IMPLEME
 **Status.** Carried into the live docs 2026-10-03: §1, `AGENTS.md` "Shell naming", ADR-0002 D11,
 `CONTENT-STREAM-MODEL.md` Handling, `IMPLEMENTATION-CONTRACT.md`, `TODAY-EXPERIENCE.md`,
 `IPAD-FIRST-EXPERIENCE.md`, and `PRODUCT-MODEL.md`.
+
+---
+
+## 34. Offer watch: Jon's own Mac may read Gmail and notify, as a mail client — RESOLVED (2026-11-04, Jon)
+
+**Evidence.** Cockpit reads mail only when it's open, so an offer that can sell out can be gone before
+Jon sees it. iOS background work can't promise timing. Jon has an Apple Silicon Mac mini arriving in about
+two weeks, and asked whether it could poll Gmail, filter for such offers, and notify his devices. Asked
+whether that breaks the no-server rule (§13), he said: "It's essentially another client with the power to
+read and notify. Sounds like an email client to me."
+
+**Decision.**
+
+- **It's a client, so §13 stands.** Jon's own Mac may run a read-only Gmail client. Hardware he owns, one
+  mailbox, outbound requests only, no listener or endpoint, token in that Mac's keychain, mail-derived data
+  kept on that Mac apart from the alert itself. Breaking any of those reopens §13. A rented or hosted Mac
+  doesn't qualify.
+- **Read and notify, nothing else.** `gmail.readonly`. It never writes Cockpit's database or CloudKit, and
+  never changes anything on Today. Provider disposition stays with Cockpit (ADR-0002), and Gmail stays out
+  of Edition judgment (ADR-0002 D11).
+- **This is the mandate for one kind of notification** ("Knowledge does not grant agency", above): a
+  time-limited offer that could sell out. Anything else needs its own decision.
+- **Judgment stays on the Mac and costs nothing per email.** A deterministic gate, then the on-device model
+  for what survives. The Mac holds no model API key.
+- **Silent first.** Nothing notifies until a silent trial on Jon's real mail meets the bar in the brief.
+
+**Why.** The §13 rejection was about a third-party server: the assessment, and credential custody and
+operations for one user. A Mac on Jon's desk that behaves like a mail client left running doesn't change
+the personal-use position. Full reasoning, Google's wording, and the rejected options are in
+[ADR-0003](ADR-0003-OFFER-WATCH-MAIL-CLIENT.md).
+
+**Still out.** Any Gmail write from the Mac. Push notifications for other reasons, including §33's "feed
+published" case. A full Cockpit peer on the Mac. A frontier model call from the Mac. Booking links in an
+alert.
+
+**Amends.** §13 and ADR-0001 D1 (both now point here). Brief: `docs/efforts/offer-watch.md` (S-w1, the trial
+gate, S-w2).
 
 ---
 
