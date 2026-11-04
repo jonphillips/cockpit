@@ -16,7 +16,7 @@ Review of the corpus found three further questions that are expensive to reverse
 
 ## D1 — Processing runs on device. Foreground-first, background best-effort.
 
-*Amended 2026-11-04 by [ADR-0003](ADR-0003-OFFER-WATCH-MAIL-CLIENT.md) and DECISIONS §34: Jon's own always-on Mac may run a read-and-notify mail client. It's a client under the conditions in ADR-0003 D1, and it isn't part of the pipeline below.*
+*Amended 2026-11-04 by [ADR-0003](ADR-0003-OFFER-WATCH-CLIENT.md) and DECISIONS §34: Jon's own always-on Mac may run a read-and-notify client. It's a client under the conditions in ADR-0003 D1, and it isn't part of the pipeline below.*
 
 Cockpit ingests, judges, and enriches entirely on the user's devices. No server, no worker, no hosted ingest.
 

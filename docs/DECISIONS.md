@@ -317,8 +317,8 @@ The shell is complete, but Edition and Today may be substantially deeper than La
 
 ## 13. Execution model and derived identity — RESOLVED
 
-**Amended 2026-11-04 by §34.** Jon's own always-on Mac may run a read-and-notify mail client. It's a client,
-not a server, under the conditions there, and it does none of Cockpit's ingestion or Edition work.
+**Amended 2026-11-04 by §34.** Jon's own always-on Mac may run a read-and-notify client. It's a client, not a
+server, under the conditions there, and it does none of Cockpit's ingestion or Edition work.
 
 Ingestion, judgment, and enrichment run **on device**. No server, no hosted worker.
 
@@ -1396,40 +1396,50 @@ queue), `AGENTS.md` "Shell naming", `CONTENT-STREAM-MODEL.md` Handling, `IMPLEME
 
 ---
 
-## 34. Offer watch: Jon's own Mac may read Gmail and notify, as a mail client — RESOLVED (2026-11-04, Jon)
+## 34. Offer watch: Jon's own Mac may read Gmail and pages he lists, and notify, as a client — RESOLVED (2026-11-04, Jon)
 
 **Evidence.** Cockpit reads mail only when it's open, so an offer that can sell out can be gone before
 Jon sees it. iOS background work can't promise timing. Jon has an Apple Silicon Mac mini arriving in about
 two weeks, and asked whether it could poll Gmail, filter for such offers, and notify his devices. Asked
 whether that breaks the no-server rule (§13), he said: "It's essentially another client with the power to
-read and notify. Sounds like an email client to me."
+read and notify. Sounds like an email client to me." He then added particular senders that should always get
+through, and polling of event pages, and ruled out automated reservations. The same day, Resy's and
+OpenTable's terms were read: both bar automated crawling or monitoring of their services, whether or not
+anything is booked, and both reserve cancelling reservations and closing accounts.
 
 **Decision.**
 
-- **It's a client, so §13 stands.** Jon's own Mac may run a read-only Gmail client. Hardware he owns, one
-  mailbox, outbound requests only, no listener or endpoint, token in that Mac's keychain, mail-derived data
-  kept on that Mac apart from the alert itself. Breaking any of those reopens §13. A rented or hosted Mac
-  doesn't qualify.
-- **Read and notify, nothing else.** `gmail.readonly`. It never writes Cockpit's database or CloudKit, and
-  never changes anything on Today. Provider disposition stays with Cockpit (ADR-0002), and Gmail stays out
-  of Edition judgment (ADR-0002 D11).
-- **This is the mandate for one kind of notification** ("Knowledge does not grant agency", above): a
-  time-limited offer that could sell out. Anything else needs its own decision.
-- **Judgment stays on the Mac and costs nothing per email.** A deterministic gate, then the on-device model
-  for what survives. The Mac holds no model API key.
-- **Silent first.** Nothing notifies until a silent trial on Jon's real mail meets the bar in the brief.
+- **It's a client, so §13 stands.** Jon's own Mac may run a read-only client. Hardware he owns, one mailbox
+  plus public pages he lists, outbound requests only, no listener or endpoint, token in that Mac's keychain,
+  mail-derived data kept on that Mac apart from the alert itself. Breaking any of those reopens §13. A rented
+  or hosted Mac doesn't qualify.
+- **Read and notify, nothing else.** `gmail.readonly`, and plain anonymous fetches of listed pages. It never
+  writes Cockpit's database or CloudKit, and never changes anything on Today. Provider disposition stays with
+  Cockpit (ADR-0002), and Gmail stays out of Edition judgment (ADR-0002 D11).
+- **Watched senders always get through.** Mail from an address Jon lists alerts with no filter and no model.
+  This comes first, because it has no filter to prove. It's a list of addresses, not a rules engine.
+- **Other offers are filtered on the Mac, at no cost per email.** A deterministic gate, then the on-device
+  model for what survives. The Mac holds no model API key. This route stays silent until a trial on Jon's real
+  mail meets the bar in the brief.
+- **Restaurants' own sites may be polled**, politely, from a list, where their terms and `robots.txt` allow it.
+  Hourly, the page's own HTML only, and it stops when told to. This route also stays silent until a trial passes.
+- **Booking platforms are out, permanently.** No automated booking, and no fetching of Resy, OpenTable, Tock, or
+  SevenRooms pages by this watcher or by a third-party monitor. Their own alert emails are ordinary mail and can
+  be Watched. Reconsider only if a platform offers authorized access for this use.
+- **This is the mandate for one notification feature** ("Knowledge does not grant agency", above): mail from
+  Watched senders, and time-limited offers that could sell out. Anything else needs its own decision.
 
 **Why.** The §13 rejection was about a third-party server: the assessment, and credential custody and
-operations for one user. A Mac on Jon's desk that behaves like a mail client left running doesn't change
-the personal-use position. Full reasoning, Google's wording, and the rejected options are in
-[ADR-0003](ADR-0003-OFFER-WATCH-MAIL-CLIENT.md).
+operations for one user. A Mac on Jon's desk that behaves like a mail app and feed reader left running doesn't
+change the personal-use position. Full reasoning, Google's wording, and the rejected options are in
+[ADR-0003](ADR-0003-OFFER-WATCH-CLIENT.md).
 
 **Still out.** Any Gmail write from the Mac. Push notifications for other reasons, including §33's "feed
-published" case. A full Cockpit peer on the Mac. A frontier model call from the Mac. Booking links in an
-alert.
+published" case. A full Cockpit peer on the Mac. A frontier model call from the Mac. Links from content in an
+alert. Rendered browsing, sign-in to any site, or working around a block.
 
-**Amends.** §13 and ADR-0001 D1 (both now point here). Brief: `docs/efforts/offer-watch.md` (S-w1, the trial
-gate, S-w2).
+**Amends.** §13 and ADR-0001 D1 (both now point here). Brief: `docs/efforts/offer-watch.md` (S-w1 Watched senders
+and alerts, S-w2 the silent filter and its trial, S-w3 restaurants' own sites).
 
 ---
 
