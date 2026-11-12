@@ -79,24 +79,15 @@ struct TodayRoleSectionView: View {
   }
 
   private func emailRow(_ row: TodayRequest.Row, showsTopRule: Bool) -> some View {
-    HStack(alignment: .top, spacing: 8) {
-      Button { openQuickLook(row.id) } label: {
-        HeadlineRow(
-          title: row.title, byline: row.sender,
-          time: TodayArrivalLabel.text(row.arrivedAt), isUnread: row.isUnread,
-          showsTopRule: showsTopRule)
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .matchedTransitionSource(id: row.id, in: readerNamespace)
-      }
-      .buttonStyle(.plain)
-
-      Menu { emailActions(row) } label: {
-        Image(systemName: "ellipsis.circle")
-          .foregroundStyle(Theme.inkTertiary)
-          .padding(.top, 7)
-      }
-      .accessibilityLabel("Message actions")
+    Button { openQuickLook(row.id) } label: {
+      HeadlineRow(
+        title: row.title, byline: row.sender,
+        time: TodayArrivalLabel.text(row.arrivedAt), isUnread: row.isUnread,
+        showsTopRule: showsTopRule)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .matchedTransitionSource(id: row.id, in: readerNamespace)
     }
+    .buttonStyle(.plain)
     .swipeActions(edge: .leading, allowsFullSwipe: false) {
       Button("Later", systemImage: "clock") { saveForLater(row) }
     }

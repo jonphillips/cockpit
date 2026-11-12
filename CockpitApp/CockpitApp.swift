@@ -96,6 +96,7 @@ private struct CockpitRootView: View {
       }
     }
     .tabViewStyle(.sidebarAdaptable)
+    .tint(Theme.accent)
     .task {
       shellModel.connectProcessSelection { contentPieceID in
         if let contentPieceID {
