@@ -12,3 +12,6 @@ move to `archive/` with `jon-platform/scripts/archive-brief`. The order of the r
 
 - [control-conventions-conformance.md](control-conventions-conformance.md) — **Ready** · Rows lose the circled
   `…` for context menus, and the amber accent that the decisions specify actually reaches the screen.
+- [offer-watch.md](offer-watch.md) — **Ready** · A read-only client on Jon's Mac alerts his iPad and iPhone about
+  mail from senders he lists, then adds an on-device filter for other offers and polling of restaurants' own sites,
+  each proven silently first.
