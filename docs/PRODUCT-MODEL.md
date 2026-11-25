@@ -108,7 +108,7 @@ A Find is not automatically Library material. When a specialist app exists, Cock
 
 ## 4. Edition semantics
 
-Edition is not an accumulating unread queue. It is a materialized entity composed once per day at first launch after the day boundary, then stable — see `docs/IMPLEMENTATION-CONTRACT.md` §3 and `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md` D1.
+Edition is not an accumulating unread queue. It is a materialized entity composed at most once per day, on request, then stable — see `docs/IMPLEMENTATION-CONTRACT.md` §3 and `docs/ADR-0001-PERSISTENCE-AND-EXECUTION.md` D1.
 
 A morning edition combines:
 

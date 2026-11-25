@@ -6,6 +6,15 @@ History, newest first. The PR that completes a dispatch adds an entry naming its
 History before 2026-09-29 lives in the milestone ledgers (`docs/milestones/`), the
 `docs/handoff-*-report.md` files, and merged PRs.
 
+## 2026-11-12 — Control conventions conformance (`feature/control-conventions-conformance`)
+
+Recorded 2026-11-25 by the morning-prep plan PR, because cockpit PR 128 merged without closeout.
+
+- **Result:** The amber tint is applied at the root tab view. Today email rows, tail rows, and Pending Find rows use
+  context menus in place of the `…` glyph.
+- **Verification:** Per the PR body: `swift test` (350 tests), strict SwiftLint, unsigned iOS build, `check-handoff`.
+- **Owed:** Jon's device pass for amber chrome and the context menus.
+
 ## 2026-10-12 — M6 S-d1/S-d2 Background disposition (`effort/background-disposition`)
 
 Added the shared in-memory Gmail disposition queue. Explicit Trash/Archive now hides rows at submit,

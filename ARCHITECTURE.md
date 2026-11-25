@@ -59,7 +59,7 @@ The morning Edition is the obvious candidate for that exception and it was consi
 
 All ingestion, judgment, and enrichment run on device.
 
-An Edition is composed once per day, at first launch after the day boundary, and is then stable. `BGProcessingTask` is an opportunistic pre-warm and is never relied upon; when it has not run, composition happens in the foreground behind a visible state.
+An Edition is composed at most once per day, when Jon asks for the tail, and is then stable. Composition happens in the foreground behind a visible state. Mail and feeds refresh on open, with best-effort unattended prep that is never relied upon (DECISIONS §35).
 
 One device is designated as the ingester to avoid duplicated model cost. Correctness does not depend on that designation, because ContentPiece identity is derived (ADR-0001 D3) and concurrent ingest converges rather than duplicating.
 

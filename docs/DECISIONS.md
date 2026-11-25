@@ -320,11 +320,14 @@ The shell is complete, but Edition and Today may be substantially deeper than La
 **Amended 2026-11-04 by §34.** Jon's own always-on Mac may run a read-and-notify client. It's a client, not a
 server, under the conditions there, and it does none of Cockpit's ingestion or Edition work.
 
+**Amended 2026-11-25 by §35.** Mail and feeds get best-effort unattended prep on the iPad. The tail is composed on
+request, not at first launch, and no `BGProcessingTask` was ever registered.
+
 Ingestion, judgment, and enrichment run **on device**. No server, no hosted worker.
 
 The morning Edition was considered as the product requirement that might justify one, and rejected: putting Gmail ingest on a third-party server converts a defensible personal-use exemption for restricted scopes into a plausible annual security-assessment obligation, which is a four-figure recurring cost for a single-user app.
 
-Morning stability is achieved by *materializing* the Edition at first launch after the day boundary, not by composing it early. `BGProcessingTask` pre-warms opportunistically and is never relied upon.
+Morning stability is achieved by *materializing* the Edition when Jon asks for it, not by composing it early.
 
 One device is designated as ingester to avoid duplicated model cost. Correctness does not depend on it: `ContentPiece.id` is a UUIDv5 over a canonical identity string, so concurrent ingest on two devices converges on one row rather than producing duplicates.
 
@@ -1442,6 +1445,36 @@ alert. Rendered browsing, sign-in to any site, or working around a block.
 
 **Amends.** §13 and ADR-0001 D1 (both now point here). Brief: `docs/efforts/offer-watch.md` (S-w1 Watched senders
 and alerts, S-w2 the silent filter and its trial, S-w3 restaurants' own sites).
+
+---
+
+## 35. Morning prep: the iPad refreshes mail and feeds unattended, best effort — RESOLVED when its plan PR merges (2026-11-25, Jon)
+
+**Evidence.** Jon asked how specific "start a background process at 7AM … and get Cockpit ready for Jon to just open
+and go" could be. The code has no background refresh at all, although ADR-0001 D1 and §13 said one was registered. Feeds
+poll only on a cold launch, so a morning return to a suspended app shows yesterday's. And iPadOS gives an app no
+reliable clock trigger: `BGTaskScheduler` promises "not before", and a Shortcuts automation is a set time but
+unproven on a locked, idle iPad.
+
+**Decision.**
+
+- **The promise is "usually ready by 7; if not, it catches up visibly on open."** Nothing depends on a trigger firing.
+- **One operation, several triggers.** Opening Cockpit, refreshing by hand, a Shortcuts automation (main), and
+  background refresh (backup) all run the same refresh. Shortcuts owns the time of day.
+- **Mail, then feeds, then on-device offer summaries.** No frontier call runs unattended. The tail stays on request.
+- **An unattended run makes no Gmail write.** Enabled trash policies wait until Jon opens or refreshes Cockpit.
+- **It shows its work.** Today says when Cockpit was made ready, or what's missing. Device-local run history only, with
+  no mail content.
+- **A trial decides.** 8 of 10 mornings ready before Jon opens the app.
+
+**Why not the Mac mini.** Cockpit is iPad-only, Artifacts and Today attention are device-local (ADR-0001 D6), and
+ADR-0003 rejected a full Mac peer. If the trial fails, a silent push from the mini is the next candidate. It would
+widen ADR-0003 D2, so it needs its own decision.
+
+**Still out.** Notifications. Silent push. Composing the tail early. `BGProcessingTask`. Any Gmail write without Jon there.
+
+**Amends.** §13, ADR-0001 D1, ADR-0002 D7, `ARCHITECTURE.md` § Execution model, `IMPLEMENTATION-CONTRACT.md` §3,
+`PRODUCT-MODEL.md` §4, and `CAPABILITY-REALITY-MAP.md` §13. Brief: `docs/efforts/morning-prep.md`.
 
 ---
 
