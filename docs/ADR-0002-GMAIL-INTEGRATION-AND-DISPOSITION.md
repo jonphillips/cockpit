@@ -194,6 +194,10 @@ reply/composition (V1-SCOPE out-of-scope list; the narrow in-thread plain-text r
 DECISIONS §26). Add only the smallest explicit recurring policies
 needed to prove the authority model (V1-SCOPE Phase 4).
 
+*Amended 2026-11-25 (DECISIONS §35):* an unattended run (a Shortcuts automation, or background refresh) makes no
+Gmail write, policies included. Enabled policies apply when Jon opens or refreshes Cockpit, so every policy Trash
+happens while Jon is there to see it and Undo it.
+
 ---
 
 ## D8 — Account and Artifact→ContentPiece relationship.

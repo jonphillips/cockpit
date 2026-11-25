@@ -240,8 +240,8 @@ Shapes live in `docs/IMPLEMENTATION-CONTRACT.md`; this map only says what is in 
 | Capability | Reality |
 |---|---|
 | On-device ingestion, judgment, enrichment | V1 architecture |
-| Edition materialized at first launch after day boundary | V1 |
-| `BGProcessingTask` opportunistic pre-warm | V1, never relied upon |
+| Edition tail materialized on request, at most once a day | V1 |
+| Unattended mail and feed prep (Shortcuts automation, background refresh) | Planned, best effort, never relied upon (DECISIONS §35) |
 | Designated ingesting device | V1 |
 | Server / hosted worker / ingest service | Rejected for V1; reopenable at Gate 1 on cost and latency evidence |
 | Composition cost and latency recorded on `Edition` | V1 |

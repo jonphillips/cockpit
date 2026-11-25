@@ -158,7 +158,7 @@ Essential protection apply only to that tail.
 
 `Edition.state`: `composing → open → closed`.
 
-An Edition is composed once per day at first app launch after the day boundary. Once `open`, its entry set is stable for the day except for intraday admission of Essential or time-critical material, which appends and never reorders.
+An Edition is composed at most once per day, when Jon asks for the tail (Compose Tail). Opening Today never composes it. Once `open`, its entry set is stable for the day except for intraday admission of Essential or time-critical material, which appends and never reorders.
 
 `EditionEntry.entryState`:
 

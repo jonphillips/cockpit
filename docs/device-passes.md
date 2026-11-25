@@ -22,3 +22,6 @@ Device work belongs to Jon. Agents do not drive UI, simulator, or device.
   messages untouched, and leaving review carries Undo to Today; forced Gmail failure shows the alert
   over Today and Offer Review and returns failed rows; token reuse works across token expiry. Brief:
   [`archive/M6-background-disposition.md`](milestones/archive/M6-background-disposition.md).
+- **Control conventions (cockpit PR 128).** Today's chrome and unread dots are amber on the iPad, and each row action the `…`
+  used to hold is in the row's context menu on Today, the tail, and Finds. Brief:
+  [`archive/control-conventions-conformance.md`](efforts/archive/control-conventions-conformance.md).

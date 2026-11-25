@@ -10,8 +10,8 @@ move to `archive/` with `jon-platform/scripts/archive-brief`. The order of the r
 
 ## Live
 
-- [control-conventions-conformance.md](control-conventions-conformance.md) — **Ready** · Rows lose the circled
-  `…` for context menus, and the amber accent that the decisions specify actually reaches the screen.
+- [morning-prep.md](morning-prep.md) — **Ready** · One refresh operation gets mail and feeds ready before Jon opens
+  Cockpit, started by a Shortcuts automation, backed up by background refresh, and caught up visibly on open.
 - [offer-watch.md](offer-watch.md) — **Ready** · A read-only client on Jon's Mac alerts his iPad and iPhone about
   mail from senders he lists, then adds an on-device filter for other offers and polling of restaurants' own sites,
   each proven silently first.

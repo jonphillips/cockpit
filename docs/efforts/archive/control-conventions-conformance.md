@@ -4,7 +4,7 @@ Status: Ready
 Summary: Rows lose the circled `…` for context menus, and the amber accent that the decisions specify actually reaches the screen.
 
 Implements: jon-platform `docs/ios/ui-and-platforms.md` § Controls (adopted 2026-10-31) and
-[DECISIONS.md](../DECISIONS.md) §31 (the accent is amber, defined once; the chrome is the system's apart
+[DECISIONS.md](../../DECISIONS.md) §31 (the accent is amber, defined once; the chrome is the system's apart
 from the tint). No schema change, and no change to disposition semantics.
 
 ## 1. The accent doesn't reach the screen (defect, do first)

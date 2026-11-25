@@ -18,12 +18,17 @@ Review of the corpus found three further questions that are expensive to reverse
 
 *Amended 2026-11-04 by [ADR-0003](ADR-0003-OFFER-WATCH-CLIENT.md) and DECISIONS §34: Jon's own always-on Mac may run a read-and-notify client. It's a client under the conditions in ADR-0003 D1, and it isn't part of the pipeline below.*
 
+*Amended 2026-11-25 by DECISIONS §35, to match what shipped. No `BGProcessingTask` was ever registered. And since
+Gate 4 (M6 S-d0b), opening Today doesn't compose: the tail is composed when Jon asks (Compose Tail), because it's a paid
+call that can run for minutes. The text below is updated for both. "No server", on-device processing, and an Edition
+that's stable once open all stand. What refreshes ahead of time is **mail and feeds**, by the best-effort prep in §35.*
+
 Cockpit ingests, judges, and enriches entirely on the user's devices. No server, no worker, no hosted ingest.
 
-Composition happens at **first app launch after the day boundary**:
+Composition happens when Jon asks for the tail *(originally: at first app launch after the day boundary)*:
 
 ```
-launch → is there an open Edition for today?
+Compose Tail → is there an open Edition for today?
   no  → fetch all following Streams
       → normalize Artifacts
       → derive ContentPieces
@@ -32,7 +37,7 @@ launch → is there an open Edition for today?
   yes → present the existing Edition unchanged
 ```
 
-`BGProcessingTask` is registered as an opportunistic pre-warm so the common case is that the morning Edition is already composed. It is never relied upon. If it did not run, the app composes in the foreground behind a visible "composing today's edition" state.
+*(Superseded 2026-11-25, above: no pre-warm composes the Edition.)* Composition runs in the foreground behind a visible "composing today's edition" state. Mail and feeds have their own best-effort prep (DECISIONS §35), which is never relied upon.
 
 Once `Edition.state = open`, the entry set is stable for the day. Intraday admission appends; it never recomposes or reorders.
 
@@ -46,11 +51,11 @@ A server is the technically obvious answer to "compose the Edition before Jon wa
 
 ### Honest consequence
 
-Morning stability is achieved by **materializing** the Edition, not by composing it early. The first launch of the day pays a visible composition cost. That is the accepted trade.
+Morning stability is achieved by **materializing** the Edition, not by composing it early. Composing the tail has a visible cost, paid when Jon asks for it. That is the accepted trade.
 
 ### What would reverse this
 
-Composition latency at real Stream volume exceeding roughly 60 seconds on a warm device, or `BGProcessingTask` proving so unreliable that every morning is a foreground wait. Measure at Gate 1.
+Composition latency at real Stream volume exceeding roughly 60 seconds on a warm device. Measure at Gate 1. Mail and feed prep failing its trial doesn't reverse this: opening the app still catches up (§35).
 
 ---
 
