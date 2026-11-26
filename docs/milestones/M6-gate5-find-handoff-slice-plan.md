@@ -7,7 +7,7 @@
 > its three open questions against real code. It is normative against `docs/APP-FAMILY-INTERACTION.md`
 > (§3/§6/§7/§9) and ADR-0002 D8, inherits the deferred/permanent ledger in
 > `archive/M6-decisions-and-sequencing.md`, and does **not** restate the design note's rationale — read it first.
-> Gate 5 spans **cockpit + Yes Chef** (`/Users/jon/code/cooking/yes-chef`); the contract is the only
+> Gate 5 spans **cockpit + Yes Chef** (`/Users/jon/code/yes-chef`); the contract is the only
 > coupling, so it is frozen first (S0) and the two repos build to it in parallel.
 >
 > **Revised 2026-09-24 after Yes Chef PR #322 (`jonphillips/yes-chef`, merged `94819d7`).** That PR built
@@ -371,7 +371,7 @@ S-join needs both.
   - For Gmail, `rawText` must come from the stored `LocalNormalizedText.normalizedText` exposed as
     `readerRow.localNormalizedText`. Do not re-parse `Artifact.rawSourceText` or pass raw email HTML;
     the stored value is Cockpit's readable message text, including its existing chrome normalization.
-- **Yes Chef (`/Users/jon/code/cooking/yes-chef`):**
+- **Yes Chef (`/Users/jon/code/yes-chef`):**
   - Stage through `CreateRecipeCoordinator.stage(referral:)`; don't add a second staging path.
   - Keep `FindReturnEmitter` as the seam; the mailbox writer is its `liveValue`.
   - Do **not** reach for the `AIHandoff` token types — that is the outboard-chat axis, not app-to-app.
