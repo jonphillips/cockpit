@@ -2,8 +2,6 @@ import CockpitCore
 import GoogleSignIn
 import GoogleSignInSwift
 import Observation
-import Dependencies
-import SQLiteData
 import SwiftUI
 import UIKit
 
@@ -68,91 +66,9 @@ final class GmailAuthorizationProbe {
   }
 }
 
-@MainActor
-@Observable
-final class GmailInboxIngestModel {
-  enum Status: Equatable, Sendable {
-    case ready
-    case ingesting
-    case ingested(GmailInboxIngestReport)
-    case failed(message: String)
-  }
-
-  @ObservationIgnored @Dependency(\.defaultDatabase) private var database
-  @ObservationIgnored @Dependency(\.gmailDispositionClient) private var dispositionClient
-  private(set) var status = Status.ready
-  private var lastAttemptAt: Date?
-
-  /// Returns whether an automatic sync was attempted. Missing authorization is expected when Gmail
-  /// has not been connected and is intentionally left off the Today error banner.
-  func autoSyncIfNeeded() async -> Bool {
-    let now = Date()
-    let lastSyncedAt = try? await GmailAutoSyncPolicy.lastSyncedAt(in: database)
-    guard GmailAutoSyncPolicy.shouldSync(
-      lastSyncedAt: lastSyncedAt, lastAttemptAt: lastAttemptAt, now: now,
-      isSyncing: status == .ingesting)
-    else { return false }
-    await ingestCurrentInbox()
-    return true
-  }
-
-  func ingestCurrentInbox() async {
-    guard status != .ingesting else { return }
-    lastAttemptAt = Date()
-    status = .ingesting
-    do {
-      let accessToken = try await authorizedAccessToken()
-      let report = try await GmailInboxIngestor(
-        client: .live(accessToken: accessToken), treatmentProcessor: EmailTreatmentProcessor()
-      ).ingest(into: database)
-      status = .ingested(report)
-      // Established policies run over the freshly classified messages, through the same barrier and
-      // Undo log as a manual disposition. A failure here must not fail the read that already landed.
-      _ = try? await GmailDispositionPolicyService(client: dispositionClient)
-        .applyEnabledPolicies(in: database)
-    } catch is CancellationError {
-      status = .ready
-    } catch {
-      status = .failed(message: error.localizedDescription)
-    }
-  }
-
-  /// Restores and refreshes the stored authorization, returning only the `Sendable` access token.
-  /// The non-`Sendable` `GIDGoogleUser` never crosses the continuation boundary.
-  private func authorizedAccessToken() async throws -> String {
-    try await withCheckedThrowingContinuation { continuation in
-      GIDSignIn.sharedInstance.restorePreviousSignIn { user, error in
-        guard let user else {
-          continuation.resume(throwing: error ?? GmailInboxIngestError.missingAuthorization)
-          return
-        }
-        user.refreshTokensIfNeeded { refreshedUser, refreshError in
-          if let refreshedUser {
-            continuation.resume(returning: refreshedUser.accessToken.tokenString)
-          } else {
-            continuation.resume(throwing: refreshError ?? GmailInboxIngestError.missingToken)
-          }
-        }
-      }
-    }
-  }
-}
-
-private enum GmailInboxIngestError: LocalizedError {
-  case missingAuthorization
-  case missingToken
-
-  var errorDescription: String? {
-    switch self {
-    case .missingAuthorization: "No stored Google authorization was found."
-    case .missingToken: "Google returned no refreshed Gmail access token."
-    }
-  }
-}
-
 struct GmailAuthorizationProbeView: View {
   let probe: GmailAuthorizationProbe
-  @State private var inboxIngest = GmailInboxIngestModel()
+  let morningPrep: MorningPrep
 
   var body: some View {
     Form {
@@ -190,36 +106,20 @@ struct GmailAuthorizationProbeView: View {
       }
 
       Section {
-        switch inboxIngest.status {
-        case .ready:
-          Button("Read Current Inbox", systemImage: "tray.and.arrow.down") {
-            Task { await inboxIngest.ingestCurrentInbox() }
-          }
-        case .ingesting:
+        if morningPrep.isRunning {
           HStack {
             ProgressView()
-            Text("Reading Inbox…")
+            Text("Preparing Cockpit…")
           }
-        case let .ingested(report):
-          Label(
-            "Read \(report.messageCount) \(report.messageCount == 1 ? "message" : "messages")",
-            systemImage: "checkmark.circle.fill"
-          )
-          .foregroundStyle(.green)
-          Text("\(report.accountID) · \(report.pageCount) \(report.pageCount == 1 ? "page" : "pages")")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        case let .failed(message):
-          Text(message)
-            .foregroundStyle(.red)
-          Button("Try Again") {
-            Task { await inboxIngest.ingestCurrentInbox() }
+        } else {
+          Button("Prepare Cockpit", systemImage: "sunrise") {
+            Task { _ = await morningPrep.run(.init(trigger: .automation)) }
           }
         }
       } header: {
-        Text("Read-only Inbox ingest")
+        Text("Refresh")
       } footer: {
-        Text("Cockpit reads the current Inbox, creates local provider Artifacts and email ContentPieces, and does not change Gmail state.")
+        Text("This uses the background-safe refresh path. It reads Gmail and refreshes feeds without applying Gmail policies.")
       }
     }
     .navigationTitle("Gmail Probe")

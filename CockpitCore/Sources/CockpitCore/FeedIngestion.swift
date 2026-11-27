@@ -34,7 +34,6 @@ public enum FeedDiscovery {
     return nil
   }
 }
-
 public struct FeedIngestor {
   @Dependency(\.uuid) private var uuid
 
@@ -64,6 +63,7 @@ public struct FeedIngestor {
     do {
       discovery = try await FeedDiscovery.discover(from: streamURL, using: client)
     } catch {
+      if Self.isCancellation(error) { throw error }
       await markFailed(stream: stream, error: error, in: database)
       throw error
     }
@@ -97,6 +97,7 @@ public struct FeedIngestor {
         return pieces
       }
     } catch {
+      if Self.isCancellation(error) { throw error }
       await markFailed(stream: stream, error: error, in: database)
       throw error
     }
@@ -116,6 +117,11 @@ public struct FeedIngestor {
         )
       }.execute(db)
     }
+  }
+
+  private static func isCancellation(_ error: any Error) -> Bool {
+    if error is CancellationError { return true }
+    return (error as? URLError)?.code == .cancelled
   }
 }
 
@@ -189,7 +195,7 @@ extension FeedIngestor {
     acquiredAt: Date,
     in db: Database
   ) throws {
-    let providerID = (entry.providerID ?? entry.guid)?.nilIfEmpty
+    let providerID = (entry.providerID ?? entry.guid)?.feedNilIfEmpty
     let existing: Artifact?
     if let providerID {
       existing = try Artifact.where {
@@ -220,28 +226,4 @@ extension FeedIngestor {
     )
     try Artifact.insert { Artifact.Draft(artifact) }.execute(db)
   }
-}
-
-extension String {
-  fileprivate func matches(for pattern: String) -> [String] {
-    guard let expression = try? NSRegularExpression(pattern: pattern) else { return [] }
-    let range = NSRange(startIndex..., in: self)
-    return expression.matches(in: self, range: range).compactMap { match in
-      Range(match.range, in: self).map { String(self[$0]) }
-    }
-  }
-
-  fileprivate var attributePairs: [(String, String)] {
-    let pattern = "(?i)([a-z][a-z0-9:_-]*)\\s*=\\s*([\\\"'])(.*?)\\2"
-    guard let expression = try? NSRegularExpression(pattern: pattern) else { return [] }
-    let range = NSRange(startIndex..., in: self)
-    return expression.matches(in: self, range: range).compactMap { match in
-      guard let keyRange = Range(match.range(at: 1), in: self),
-        let valueRange = Range(match.range(at: 3), in: self)
-      else { return nil }
-      return (String(self[keyRange]).lowercased(), String(self[valueRange]))
-    }
-  }
-
-  fileprivate var nilIfEmpty: Self? { isEmpty ? nil : self }
 }

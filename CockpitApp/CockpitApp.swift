@@ -17,6 +17,7 @@ struct CockpitApp: App {
       $0.gmailReplyClient = GmailReplyWiring.liveClient
       $0.findReferralHandoffClient = FindReferralHandoffWiring.liveClient
     }
+    _ = MorningPrepWiring.shared
     Task { await CockpitCloudSync.startIfEnabled() }
   }
 
@@ -41,11 +42,12 @@ private struct CockpitRootView: View {
   @State private var readingQueueModel: TodayReadingQueueModel
   @State private var dailyLinkModel = DailyLinkModel()
   @State private var pendingFindModel = PendingFindListModel()
-  @State private var inboxIngest = GmailInboxIngestModel()
+  @State private var morningPrep: MorningPrep
   @State private var feedSelection: FeedsSelection? = .all
   @Environment(\.scenePhase) private var scenePhase
 
   init() {
+    let morningPrep = MorningPrepWiring.shared
     let listedFeedsModel = ListedFeedsModel()
     let dispositionQueue = GmailDispositionQueue.shared
     _listedFeedsModel = State(initialValue: listedFeedsModel)
@@ -53,6 +55,8 @@ private struct CockpitRootView: View {
     _todayModel = State(initialValue: TodayModel(
       listedFeedsModel: listedFeedsModel, dispositionQueue: dispositionQueue))
     _readingQueueModel = State(initialValue: TodayReadingQueueModel(dispositionQueue: dispositionQueue))
+    _morningPrep = State(initialValue: morningPrep)
+    _followingModel = State(initialValue: FollowingModel(morningPrep: morningPrep))
   }
 
   var body: some View {
@@ -63,7 +67,7 @@ private struct CockpitRootView: View {
           model: todayModel,
           queueModel: readingQueueModel,
           tailModel: editionModel,
-          inboxIngest: inboxIngest,
+          morningPrep: morningPrep,
           dailyLinkModel: dailyLinkModel,
           shellModel: shellModel,
           feedSelection: $feedSelection,
@@ -92,7 +96,7 @@ private struct CockpitRootView: View {
       Tab("Settings", systemImage: "gearshape", value: .settings) {
         SettingsView(
           model: shellModel, followingModel: followingModel, pendingFindModel: pendingFindModel,
-          dailyLinkModel: dailyLinkModel)
+          dailyLinkModel: dailyLinkModel, morningPrep: morningPrep)
       }
     }
     .tabViewStyle(.sidebarAdaptable)
@@ -106,10 +110,11 @@ private struct CockpitRootView: View {
       await readingQueueModel.reload()
     }
     .task {
-      await followingModel.acquireOnLaunchOrRefresh()
+      morningPrep.recordOpen()
+      _ = await morningPrep.run(.init(trigger: .open))
+      await reloadTodayAndQueue()
       try? await listedFeedsModel.reload()
     }
-    .task { _ = await inboxIngest.autoSyncIfNeeded() }
     .task { await pendingFindModel.refreshHandoffState() }
     .onChange(of: shellModel.selection) { oldSelection, newSelection in
       guard oldSelection == .process, newSelection != .process else { return }
@@ -122,8 +127,11 @@ private struct CockpitRootView: View {
       guard phase == .active else { return }
       Task {
         await pendingFindModel.refreshHandoffState()
-        _ = await inboxIngest.autoSyncIfNeeded()
+        morningPrep.recordOpen()
+        _ = await morningPrep.run(.init(trigger: .open))
         await readingQueueModel.reload()
+        try? await todayModel.$content.load()
+        try? await todayModel.$offers.load()
         try? await listedFeedsModel.reload()
       }
     }

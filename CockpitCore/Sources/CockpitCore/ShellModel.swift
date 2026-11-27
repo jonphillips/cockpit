@@ -77,4 +77,5 @@ public enum SettingsRoute: Hashable, Sendable {
   case dailyLinks
   case reader(contentPieceID: UUID)
   case gmailAuthorizationProbe
+  case morningPrep
 }

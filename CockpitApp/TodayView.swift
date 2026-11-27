@@ -5,7 +5,7 @@ struct TodayView: View {
   @Bindable var model: TodayModel
   @Bindable var queueModel: TodayReadingQueueModel
   @Bindable var tailModel: EditionModel
-  @Bindable var inboxIngest: GmailInboxIngestModel
+  @Bindable var morningPrep: MorningPrep
   @Bindable var dailyLinkModel: DailyLinkModel
   @Bindable var shellModel: ShellModel
   @Binding var feedSelection: FeedsSelection?
@@ -79,8 +79,7 @@ struct TodayView: View {
       try? await model.$offers.load()
       await queueModel.reload()
     }
-    .onChange(of: inboxIngest.status) { _, status in
-      guard case .ingested = status else { return }
+    .onChange(of: morningPrep.records) { _, _ in
       Task { await didChangeQueue() }
     }
     .confirmationDialog(
@@ -144,7 +143,7 @@ private extension TodayView {
   @ToolbarContentBuilder
   var todayToolbar: some ToolbarContent {
     ToolbarItem(placement: .topBarLeading) {
-      if inboxIngest.status == .ingesting {
+      if morningPrep.isRunning {
         ProgressView()
           .accessibilityLabel("Refreshing Today")
       } else {
@@ -228,10 +227,7 @@ private extension TodayView {
   }
 
   private func refreshToday() async {
-    await inboxIngest.ingestCurrentInbox()
-    if case let .failed(message) = inboxIngest.status {
-      model.errorMessage = message
-    }
+    _ = await morningPrep.run(.init(trigger: .manual))
     await didChangeQueue()
   }
 

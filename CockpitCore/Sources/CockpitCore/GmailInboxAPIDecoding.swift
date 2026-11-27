@@ -79,6 +79,14 @@ struct GmailInboxError: LocalizedError {
   }
 }
 
+public enum GmailInboxAuthorization {
+  /// Identifies a rejected bearer token without exposing the transport's full error type.
+  public static func isRejected(_ error: any Error) -> Bool {
+    guard let error = error as? GmailInboxError else { return false }
+    return error.status == 401 || error.reason == "authError"
+  }
+}
+
 struct GmailMessageReads: Sendable {
   var messages: [GmailInboxMessage] = []
   var failures: [GmailInboxMessageFailure] = []
