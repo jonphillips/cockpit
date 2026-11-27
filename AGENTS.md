@@ -27,11 +27,9 @@ Do not read the whole corpus before every task. It is roughly 65,000 words and r
 
 Documents under `docs/archive/` are historical evidence only. They must not be used to resurrect superseded product language or architecture.
 
-## How work is assigned
+## Working mode
 
-Work comes from `docs/NEXT_UP.md`, never from chat. The rest of the loop (branches, what the
-completing PR updates, merges and escalations, what a bare "go" means) is jon-platform's
-`AGENTS.md`, `docs/agent-collaboration.md`, and ADR-0005. This repo doesn't restate it.
+Architect / executor, per jon-platform `AGENTS.md`.
 
 ## Shell naming
 
@@ -113,8 +111,6 @@ availability.
 
 ## Persistence discipline
 
-Use SQLiteData and the jon-platform local-first architecture.
-
 Before adding a table/type/protocol, ask what stable identity, lifecycle, relationship, or query requirement has been demonstrated.
 
 Do not create canonical persistence systems merely because a noun appears in design prose.
@@ -134,11 +130,11 @@ Cockpit consumes proven domain-neutral infrastructure and owns Cockpit domain se
 
 Do not create or extract `ContentStreamKit`, `PersonalKnowledgeKit`, `FamilyContextKit`, `JonLibraryKit`, or another shared package based on a single Cockpit use.
 
-Before proposing a jon-platform change: inspect its package/docs/seam ledger, identify the
-existing Galavant and Yes Chef consumers, confirm Cockpit is actually blocked, prefer app-local
-until repeated evidence proves a neutral seam, and migrate existing consumers deliberately.
+Before proposing a jon-platform change, read `SEAM-LEDGER.md` there (jon-platform `AGENTS.md` §
+The non-negotiables) and confirm Cockpit is actually blocked.
 
-`LLMHandoffKit` is not an approved full Cockpit dependency in its current Galavant-shaped form.
+`LLMHandoffKit` is not an approved full Cockpit dependency in its current Galavant-shaped form (its
+`SEAM-LEDGER.md` row names the trigger).
 
 ## V1 sequencing
 
@@ -158,8 +154,7 @@ frameworks/services/models sit behind injectable clients.
 
 ### No UI, simulator, or device testing
 
-Agents verify per `docs/verification.md`: `swift test`, `swiftlint lint --strict`, and an unsigned
-build, each through jon-platform's `quiet-run`. Driving the Simulator or a device is
+Agents verify per `docs/verification.md`. Driving the Simulator or a device is
 Jon's job, not an agent's: UI work is verified by testing the `@Observable` model that owns the
 behavior. A defect class only a device can catch (a migration against real rows, live CloudKit,
 provider authorization) is named in the handoff report as an unverified risk — never closed by
