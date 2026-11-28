@@ -154,8 +154,10 @@ struct MorningPrepTests {
     #expect(summaryCalls.withLock { $0 } == 1)
   }
 
-  @Test("Manual refresh runs after an in-flight open skipped fresh data")
-  func manualRefreshFollowsOpen() async {
+  @Test(
+    "Manual refresh and the Prepare button run after an in-flight open skipped fresh data",
+    arguments: [MorningPrepTrigger.manual, .manualPrepare])
+  func manualRefreshFollowsOpen(trigger: MorningPrepTrigger) async {
     let now = Date(timeIntervalSince1970: 1_800_000_000)
     let mailCalls = Mutex(0)
     let feedCalls = Mutex(0)
@@ -174,14 +176,14 @@ struct MorningPrepTests {
     let model = MorningPrep(client: client, store: .inMemory(), now: { now })
     let opening = Task { await model.run(.init(trigger: .open)) }
     await gate.waitUntilEntered()
-    let manual = Task { await model.run(.init(trigger: .manual)) }
+    let manual = Task { await model.run(.init(trigger: trigger)) }
     await Task.yield()
     await gate.release()
 
     _ = await opening.value
     let result = await manual.value
 
-    #expect(result.trigger == .manual)
+    #expect(result.trigger == trigger)
     #expect(mailCalls.withLock { $0 } == 1)
     #expect(feedCalls.withLock { $0 } == 1)
     #expect(offerCalls.withLock { $0 } == 2)

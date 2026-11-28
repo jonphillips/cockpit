@@ -9,12 +9,7 @@ extension MorningPrep {
     activeTask = task
     activeTrigger = request.trigger
     activeID = id
-    if let joinedID {
-      followUpTasks[joinedID] = task
-      if followUpTasks.count > 32, let oldestID = followUpTasks.keys.first {
-        followUpTasks.removeValue(forKey: oldestID)
-      }
-    }
+    if let joinedID { followUp = (joinedID, task) }
     isRunning = true
     let result = await task.value
     if activeID == id {
@@ -42,7 +37,7 @@ extension MorningPrep {
     do {
       let last = try await client.lastMailSync()
       let shouldSync = !request.trigger.skipsFreshData || GmailAutoSyncPolicy.shouldSync(
-        lastSyncedAt: last, lastAttemptAt: nil, now: now(), isSyncing: false)
+        lastSyncedAt: last, now: now(), isSyncing: false)
       if !shouldSync {
         run.mail = .skippedFresh
       } else if outOfTime() {

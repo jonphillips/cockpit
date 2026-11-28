@@ -19,7 +19,8 @@ public final class MorningPrep {
   var activeTask: Task<MorningPrepRun, Never>?
   var activeTrigger: MorningPrepTrigger?
   var activeID: UUID?
-  var followUpTasks: [UUID: Task<MorningPrepRun, Never>] = [:]
+  /// The one follow-up started after the run `joinedID` finished; later waiters on that run join it.
+  var followUp: (joinedID: UUID, task: Task<MorningPrepRun, Never>)?
 
   public init(
     client: MorningPrepClient, store: MorningPrepRecordStore = .live(),
@@ -45,13 +46,13 @@ public final class MorningPrep {
       let joinedID = activeID
       let joinedTrigger = activeTrigger
       let existing = await activeTask.value
-      if let followUpTask = followUpTasks[joinedID] { return await followUpTask.value }
+      if let followUp, followUp.joinedID == joinedID { return await followUp.task.value }
       // Another waiter may already have started the one shared follow-up operation.
       if self.activeID != nil, self.activeID != joinedID { return await run(request) }
       let needsPolicyPass = joinedTrigger?.isUnattended == true && request.trigger.appliesPolicies
-      let manualSkippedFreshData = request.trigger == .manual &&
+      let bypassSkippedFreshData = !request.trigger.skipsFreshData &&
         (existing.mail == .skippedFresh || existing.feeds == .skippedFresh)
-      if needsPolicyPass || manualSkippedFreshData {
+      if needsPolicyPass || bypassSkippedFreshData {
         return await start(request, following: joinedID)
       }
       return existing
