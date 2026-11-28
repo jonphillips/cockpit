@@ -10,14 +10,12 @@ struct GmailAutoSyncPolicyTests {
     let stale = now.addingTimeInterval(-6 * 60)
 
     #expect(GmailAutoSyncPolicy.shouldSync(
-      lastSyncedAt: nil, lastAttemptAt: nil, now: now, isSyncing: false))
+      lastSyncedAt: nil, now: now, isSyncing: false))
     #expect(!GmailAutoSyncPolicy.shouldSync(
-      lastSyncedAt: recent, lastAttemptAt: nil, now: now, isSyncing: false))
+      lastSyncedAt: recent, now: now, isSyncing: false))
     #expect(GmailAutoSyncPolicy.shouldSync(
-      lastSyncedAt: stale, lastAttemptAt: nil, now: now, isSyncing: false))
+      lastSyncedAt: stale, now: now, isSyncing: false))
     #expect(!GmailAutoSyncPolicy.shouldSync(
-      lastSyncedAt: stale, lastAttemptAt: nil, now: now, isSyncing: true))
-    #expect(!GmailAutoSyncPolicy.shouldSync(
-      lastSyncedAt: stale, lastAttemptAt: recent, now: now, isSyncing: false))
+      lastSyncedAt: stale, now: now, isSyncing: true))
   }
 }

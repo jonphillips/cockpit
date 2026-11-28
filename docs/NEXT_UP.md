@@ -1,6 +1,6 @@
-# Next Up — Morning prep: one refresh, the intent, and feeds on return
+# Next Up — Morning prep: the backup trigger and the line on Today
 
-**Slices:** effort `morning-prep`, S-p1
-**Briefs:** [docs/efforts/morning-prep.md](efforts/morning-prep.md) § S-p1, with "What's there now"
-**Done when:** per the brief's S-p1
+**Slices:** effort `morning-prep`, S-p2
+**Briefs:** [docs/efforts/morning-prep.md](efforts/morning-prep.md) § S-p2
+**Done when:** per the brief's S-p2
 **Owed:** see [device-passes.md](device-passes.md)

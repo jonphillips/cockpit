@@ -4,6 +4,7 @@ import Dependencies
 import DependenciesTestSupport
 import Foundation
 import SQLiteData
+import Synchronization
 import Testing
 
 @Suite(
@@ -103,38 +104,46 @@ struct FollowingTests {
     #expect(model.proposedStream == nil)
   }
 
-  @Test("One launch and refresh entry point seeds five streams and skips paused and stopped streams")
-  func launchAndRefreshRespectFollowState() async throws {
-    let recorder = URLRecorder()
-    let data = StreamFixture.data(named: "point-free")
-    let model = withDependencies {
-      $0.feedClient = FeedClient(load: { url in
-        await recorder.record(url)
-        return data
-      })
-    } operation: {
-      FollowingModel()
-    }
+  @Test("Following refresh delegates to the shared MorningPrep operation")
+  func refreshDelegatesToMorningPrep() async {
+    let feedCalls = Mutex(0)
+    let client = MorningPrepClient(
+      lastMailSync: { nil }, syncMail: { 0 }, lastFeedPoll: { nil },
+      pollFeeds: { _, _ in feedCalls.withLock { $0 += 1 }; return (1, 1) },
+      processOffers: { _ in (0, 0) })
+    let morningPrep = MorningPrep(client: client, store: .inMemory())
+    let model = FollowingModel(morningPrep: morningPrep)
 
     await model.acquireOnLaunchOrRefresh()
-    try await model.$following.load()
-    expectNoDifference(model.rows.count, 5)
-    let initialPollCount = await recorder.count()
-    expectNoDifference(initialPollCount, 5)
-    let paused = try #require(model.rows.first)
-    let stopped = try #require(model.rows.dropFirst().first)
-    await model.followStateButtonTapped(.paused, for: paused.id)
-    await model.followStateButtonTapped(.stopped, for: stopped.id)
+    await model.acquireOnLaunchOrRefresh()
+    #expect(feedCalls.withLock { $0 } == 2)
+  }
+
+  @Test("Feed polling seeds all five Streams and ignores paused and stopped Streams")
+  func feedPollingCoverage() async throws {
+    let data = StreamFixture.data(named: "point-free")
+    let recorder = URLRecorder()
+    let client = FeedClient(load: { url in
+      await recorder.record(url)
+      return data
+    })
+
+    let seeded = await FeedPollCoordinator.poll(
+      maximumConcurrent: 4, totalTimeout: .seconds(10), client: client, database: database)
+    #expect(seeded == (5, 5))
+    try await database.write { db in
+      try StreamOperations.setFollowState(.paused, for: StreamSeed.streams[0].id, in: db)
+      try StreamOperations.setFollowState(.stopped, for: StreamSeed.streams[1].id, in: db)
+    }
     await recorder.reset()
 
-    await model.acquireOnLaunchOrRefresh()
-    let refreshPollCount = await recorder.count()
-    expectNoDifference(refreshPollCount, 3)
-    let states = try await database.read { db in
-      try Stream.all.fetchAll(db).map { ($0.name, $0.followState) }
-    }
-    #expect(states.contains { $0.0 == paused.name && $0.1 == .paused })
-    #expect(states.contains { $0.0 == stopped.name && $0.1 == .stopped })
+    let active = await FeedPollCoordinator.poll(
+      maximumConcurrent: 4, totalTimeout: .seconds(10), client: client, database: database)
+    let urls = await recorder.all()
+    #expect(active == (3, 3))
+    #expect(urls.count == 3)
+    #expect(!urls.contains(URL(string: StreamSeed.streams[0].locator)!))
+    #expect(!urls.contains(URL(string: StreamSeed.streams[1].locator)!))
   }
 }
 
@@ -170,4 +179,5 @@ private actor URLRecorder {
   func record(_ url: URL) { urls.append(url) }
   func reset() { urls.removeAll() }
   func count() -> Int { urls.count }
+  func all() -> [URL] { urls }
 }

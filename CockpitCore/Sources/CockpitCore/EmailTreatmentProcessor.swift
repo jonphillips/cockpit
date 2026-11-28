@@ -1,14 +1,21 @@
 import Foundation
 import LLMClientKit
 import SQLiteData
+import Synchronization
 
 /// Summarizes an offer and proposes one Find from its own body. Grab-bag issues remain whole and
 /// readable without model processing.
 public struct EmailTreatmentProcessor: Sendable {
   private let modelClient: any ModelClient
+  private let processingCursor = EmailTreatmentProcessingCursor()
+  private let now: @Sendable () -> Date
 
-  public init(modelClient: any ModelClient = JudgmentModel.makeClient()) {
+  public init(
+    modelClient: any ModelClient = JudgmentModel.makeClient(),
+    now: @escaping @Sendable () -> Date = Date.init
+  ) {
     self.modelClient = modelClient
+    self.now = now
   }
 
   /// Model failures leave the message visible with S7's plain treatment row. A treatment may add
@@ -21,24 +28,40 @@ public struct EmailTreatmentProcessor: Sendable {
     let candidates = try await database.read { db in
       try ids.compactMap { id in try candidate(for: id, in: db) }
     }
-    var outputs: [EmailTreatmentOutput] = []
+    var outputs: [EmailTreatmentDetails] = []
     for candidate in candidates {
       try Task.checkCancellation()
       if let output = try? await extract(candidate) {
-        outputs.append(output)
+        outputs.append(try await persist(output, in: database))
       }
     }
-    guard !outputs.isEmpty else { return [] }
-    let persistedOutputs = outputs
-    return try await database.write { db in
-      try persistedOutputs.map { output in
-        let details = try persist(output, in: db)
-        if let find = output.find {
-          try PendingFindOperations.persist([find], for: output.contentPieceID, in: db)
-        }
-        return details
-      }
+    return outputs
+  }
+
+  /// Retry-safe background work: use stored Today state, rotate the starting point, and attempt
+  /// at most the requested number. Failed candidates remain eligible on later runs.
+  @discardableResult
+  public func processUnextractedPieces(
+    limit: Int = 10, in database: any DatabaseWriter
+  ) async throws -> (done: Int, waiting: Int) {
+    let candidates = try await database.read { db in
+      try TodayRequest().fetch(db).rows
+        .filter { OfferPieces.isOffer(role: $0.role, treatment: $0.treatment) && $0.treatmentSummary == nil }
+        .sorted { $0.arrivedAt > $1.arrivedAt }
+        .compactMap { try candidate(for: $0.id, in: db) }
     }
+    guard !candidates.isEmpty else { return (0, 0) }
+    let selection = processingCursor.value.withLock { cursor -> [EmailTreatmentCandidate] in
+      let timeSlot = Int(now().timeIntervalSince1970 / 60) % candidates.count
+      let start = (cursor + timeSlot + candidates.count) % candidates.count
+      let rotated = Array(candidates[start...]) + Array(candidates[..<start])
+      let selected = Array(rotated.prefix(max(0, limit)))
+      cursor = (start + max(1, selected.count)) % candidates.count
+      return selected
+    }
+    let ids = selection.map(\.id)
+    let output = try await process(emailContentPieceIDs: ids, in: database)
+    return (output.count, max(0, candidates.count - output.count))
   }
 
   private func candidate(for id: ContentPiece.ID, in db: Database) throws -> EmailTreatmentCandidate? {
@@ -85,6 +108,18 @@ public struct EmailTreatmentProcessor: Sendable {
       contentPieceID: output.contentPieceID, offerSummary: output.summary)
     try EmailTreatmentDetails.upsert { EmailTreatmentDetails.Draft(details) }.execute(db)
     return details
+  }
+
+  private func persist(
+    _ output: EmailTreatmentOutput, in database: any DatabaseWriter
+  ) async throws -> EmailTreatmentDetails {
+    try await database.write { db in
+      let details = try persist(output, in: db)
+      if let find = output.find {
+        try PendingFindOperations.persist([find], for: output.contentPieceID, in: db)
+      }
+      return details
+    }
   }
 }
 

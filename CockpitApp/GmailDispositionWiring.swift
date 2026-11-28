@@ -33,7 +33,7 @@ enum GmailDispositionWiring {
   fileprivate static func accessTokenForReply() async throws -> String { try await accessToken() }
 
   @MainActor
-  private static func accessToken() async throws -> String {
+  static func refreshedAccessToken() async throws -> String {
     if let currentUser = GIDSignIn.sharedInstance.currentUser {
       return try await withCheckedThrowingContinuation { continuation in
         currentUser.refreshTokensIfNeeded { refreshedUser, error in
@@ -62,6 +62,8 @@ enum GmailDispositionWiring {
       }
     }
   }
+
+  private static func accessToken() async throws -> String { try await refreshedAccessToken() }
 }
 
 /// Supplies the reply client using the same refreshed Gmail token as source disposition. Unlike

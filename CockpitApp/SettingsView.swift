@@ -7,6 +7,7 @@ struct SettingsView: View {
   let followingModel: FollowingModel
   let pendingFindModel: PendingFindListModel
   let dailyLinkModel: DailyLinkModel
+  let morningPrep: MorningPrep
   @State private var gmailAuthorizationProbe = GmailAuthorizationProbe()
   @State private var dispositionPolicyModel = GmailDispositionPolicyModel()
 
@@ -35,6 +36,9 @@ struct SettingsView: View {
         Section {
           NavigationLink(value: SettingsRoute.dailyLinks) {
             Label("Daily links", systemImage: "link")
+          }
+          NavigationLink(value: SettingsRoute.morningPrep) {
+            Label("Morning prep", systemImage: "sunrise")
           }
         }
 
@@ -95,7 +99,9 @@ struct SettingsView: View {
             onSourceDisposed: { model.popSettings(ifShowing: route) }
           )
         case .gmailAuthorizationProbe:
-          GmailAuthorizationProbeView(probe: gmailAuthorizationProbe)
+          GmailAuthorizationProbeView(probe: gmailAuthorizationProbe, morningPrep: morningPrep)
+        case .morningPrep:
+          MorningPrepSettingsView(model: morningPrep)
         }
       }
     }

@@ -9,6 +9,7 @@ public final class FollowingModel {
   @ObservationIgnored @Dependency(\.defaultDatabase) private var database
   @ObservationIgnored @Dependency(\.feedClient) private var feedClient
   @ObservationIgnored @Dependency(\.uuid) private var uuid
+  @ObservationIgnored private let morningPrep: MorningPrep?
   @ObservationIgnored @Fetch(FollowingRequest()) public var following = .init()
   @ObservationIgnored @Fetch(TransactionalCorrectionRequest())
   public var transactionalCorrections = TransactionalCorrectionRequest.Value()
@@ -20,33 +21,14 @@ public final class FollowingModel {
   public var discoveredLocators: [DiscoveredLocator] = []
   public var errorMessage: String?
 
-  public init() {}
+  public init(morningPrep: MorningPrep? = nil) { self.morningPrep = morningPrep }
 
   public var rows: [FollowingRequest.Row] { following.rows }
 
-  /// The sole launch and pull-to-refresh acquisition entry point. Seeding precedes the first
-  /// poll so a fresh installation immediately starts accumulating the S4 fixture pool.
+  /// Pull-to-refresh delegates to the shared acquisition operation.
   public func acquireOnLaunchOrRefresh() async {
-    await insertSeedsIfNeeded()
-    let streams: [Stream]
-    do {
-      streams = try await database.read { db in try StreamOperations.activeStreams(in: db) }
-    } catch is CancellationError {
-      return
-    } catch {
-      errorMessage = error.localizedDescription
-      return
-    }
-    for stream in streams {
-      do {
-        _ = try await FeedIngestor(client: feedClient).ingest(stream: stream, into: database)
-      } catch is CancellationError {
-        return
-      } catch {
-        // The Stream row records the exact failure and exposes it in Following. One bad feed
-        // must not stop acquisition from the remaining active Streams.
-      }
-    }
+    guard let morningPrep else { return }
+    _ = await morningPrep.run(.init(trigger: .manual))
   }
 
   public func discoverButtonTapped() async {
@@ -104,15 +86,6 @@ public final class FollowingModel {
   public func followStateButtonTapped(_ state: StreamFollowState, for id: Stream.ID) async {
     do {
       try await database.write { db in try StreamOperations.setFollowState(state, for: id, in: db) }
-    } catch is CancellationError {
-    } catch {
-      errorMessage = error.localizedDescription
-    }
-  }
-
-  private func insertSeedsIfNeeded() async {
-    do {
-      try await database.write { db in try StreamOperations.insertSeedsIfMissing(in: db) }
     } catch is CancellationError {
     } catch {
       errorMessage = error.localizedDescription

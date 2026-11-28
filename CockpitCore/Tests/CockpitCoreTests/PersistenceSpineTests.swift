@@ -340,6 +340,47 @@ struct PersistenceSpineTests {
     )
   }
 
+  @Test("Cancellation leaves StreamPollState untouched; a request timeout is a failure")
+  func cancellationAndTimeoutPollState() async throws {
+    let stream = CockpitCore.Stream(
+      id: UUID(-1), name: "Test", publisher: "Test Publisher", transport: .rss,
+      locator: "https://example.com/feed.xml"
+    )
+    try await insert(stream: stream)
+    let ingestor = FeedIngestor(client: FeedClient(load: { _ in
+      try Task.checkCancellation()
+      return Data()
+    }))
+    let cancelled = Task { try await ingestor.ingest(stream: stream, into: database) }
+    cancelled.cancel()
+    await #expect(throws: CancellationError.self) { try await cancelled.value }
+    let afterCancellation = try await database.read { db in
+      try StreamPollState.find(stream.id).fetchOne(db)
+    }
+    #expect(afterCancellation == nil)
+
+    await FeedIngestor.recordTimeout(stream: stream, in: database)
+    let afterTimeout = try await database.read { db in
+      try StreamPollState.find(stream.id).fetchOne(db)
+    }
+    expectNoDifference(afterTimeout?.health, .failed)
+    expectNoDifference(afterTimeout?.consecutiveFailureCount, 1)
+
+    try await database.write { db in
+      try StreamPollState.upsert {
+        StreamPollState.Draft(StreamPollState(
+          streamID: stream.id, health: .healthy,
+          lastReceivedAt: Date(timeIntervalSince1970: 10), consecutiveFailureCount: 0))
+      }.execute(db)
+    }
+    await FeedIngestor.recordTimeout(stream: stream, ifUnchangedFrom: afterTimeout, in: database)
+    let afterLateTimeout = try await database.read { db in
+      try StreamPollState.find(stream.id).fetchOne(db)
+    }
+    expectNoDifference(afterLateTimeout?.health, .healthy)
+    expectNoDifference(afterLateTimeout?.lastReceivedAt, Date(timeIntervalSince1970: 10))
+  }
+
   private func insert(stream: CockpitCore.Stream) async throws {
     try await database.write { db in
       try CockpitCore.Stream.insert { CockpitCore.Stream.Draft(stream) }.execute(db)

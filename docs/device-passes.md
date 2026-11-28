@@ -25,3 +25,4 @@ Device work belongs to Jon. Agents do not drive UI, simulator, or device.
 - **Control conventions (cockpit PR 128).** Today's chrome and unread dots are amber on the iPad, and each row action the `…`
   used to hold is in the row's context menu on Today, the tail, and Finds. Brief:
   [`archive/control-conventions-conformance.md`](efforts/archive/control-conventions-conformance.md).
+- **morning-prep, S-p1:** Jon tests the Prepare Cockpit Time of Day automation with the iPad locked and idle, Cockpit suspended, and Cockpit system-killed; Settings › Morning prep shows the outcomes. ([brief](efforts/morning-prep.md))

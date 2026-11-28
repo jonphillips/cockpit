@@ -6,6 +6,12 @@ History, newest first. The PR that completes a dispatch adds an entry naming its
 History before 2026-09-29 lives in the milestone ledgers (`docs/milestones/`), the
 `docs/handoff-*-report.md` files, and merged PRs.
 
+## 2026-11-27 — Morning prep: shared refresh and Shortcuts intent (`effort/morning-prep-s-p1`)
+
+- **Result:** Added a shared, budgeted mail and feed refresh operation, the Prepare Cockpit Shortcuts intent, and device-local run history in Settings. Moved offer summaries after the Gmail cursor commit and made feed cancellation leave poll health unchanged.
+- **Verification:** 357 CockpitCore tests, strict SwiftLint, and the unsigned iOS build passed.
+- **Owed:** morning-prep, S-p1's device gate, in [device-passes.md](device-passes.md).
+
 ## 2026-11-12 — Control conventions conformance (`feature/control-conventions-conformance`)
 
 Recorded 2026-11-25 by the morning-prep plan PR, because cockpit PR 128 merged without closeout.

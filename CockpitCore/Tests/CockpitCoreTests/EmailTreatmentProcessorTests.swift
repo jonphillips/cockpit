@@ -57,6 +57,49 @@ struct EmailTreatmentProcessorTests {
     #expect(model.content.rows.first(where: { $0.id == pieceID })?.treatmentSummary == persisted.0?.offerSummary)
   }
 
+  @Test("Repeated extraction failures rotate so older offers still get a turn")
+  func failedOffersDoNotStarveOlderCandidates() async throws {
+    let base = Date(timeIntervalSince1970: 1_800_000_000)
+    let ids = (0..<11).map { UUID(8_500 + $0) }
+    try await database.write { db in
+      for (index, id) in ids.enumerated() {
+        try ContentPiece.insert {
+          ContentPiece.Draft(
+            id: id, kind: .email, title: "Offer \(index)", publisher: "Sender",
+            emailTreatment: .offer, createdAt: base.addingTimeInterval(Double(index)))
+        }.execute(db)
+        try Artifact.insert {
+          Artifact.Draft(
+            id: UUID(8_600 + index), transport: .gmail, providerID: "offer-\(index)",
+            acquiredAt: base.addingTimeInterval(Double(index)), rawSourceText: "Offer evidence \(index)",
+            providerProvenance: "{}", contentPieceID: id)
+        }.execute(db)
+        try NormalizedTextOperations.store("Offer evidence \(index)", for: id, in: db)
+      }
+    }
+    let requests = Mutex(0)
+    let modelClient = StubModelClient { _ in
+      let count = requests.withLock { value -> Int in value += 1; return value }
+      if count <= 10 { throw StubError.failed }
+      return ModelResponse(text: #"{"summary":"The older offer has useful details.","find":{"kind":"event","name":"Older offer","descriptor":"A specific event offer.","rationale":"The message describes it."}}"#)
+    }
+    let processor = EmailTreatmentProcessor(
+      modelClient: modelClient, now: { Date(timeIntervalSince1970: 0) })
+
+    let recentBatch = try await processor.processUnextractedPieces(limit: 10, in: database)
+    let retryingProcessor = EmailTreatmentProcessor(
+      modelClient: modelClient, now: { Date(timeIntervalSince1970: 60) })
+    let olderBatch = try await retryingProcessor.processUnextractedPieces(limit: 10, in: database)
+    let olderSummary = try await database.read { db in
+      try EmailTreatmentDetails.find(ids[0]).fetchOne(db)?.offerSummary
+    }
+
+    #expect(recentBatch.done == 0)
+    #expect(olderBatch.done > 0)
+    #expect(olderSummary == "The older offer has useful details.")
+    #expect(requests.withLock { $0 } > 10)
+  }
+
   @Test("A newly ingested Promotions message is summarized as an Offer with one Pending Find")
   func promotionsIngestRunsOfferPipeline() async throws {
     let cursorDate = Date(timeIntervalSince1970: 1_790_000_000)
