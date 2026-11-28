@@ -4,12 +4,13 @@ import Synchronization
 public enum MorningPrepTrigger: String, Codable, Sendable {
   case open
   case manual
+  case manualPrepare
   case automation
   case backgroundRefresh
 
   var isUnattended: Bool { self == .automation || self == .backgroundRefresh }
   var appliesPolicies: Bool { self == .open || self == .manual }
-  var skipsFreshData: Bool { self != .manual }
+  var skipsFreshData: Bool { self != .manual && self != .manualPrepare }
 }
 
 public struct MorningPrepRequest: Sendable {

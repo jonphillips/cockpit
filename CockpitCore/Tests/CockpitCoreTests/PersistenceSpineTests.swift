@@ -365,6 +365,20 @@ struct PersistenceSpineTests {
     }
     expectNoDifference(afterTimeout?.health, .failed)
     expectNoDifference(afterTimeout?.consecutiveFailureCount, 1)
+
+    try await database.write { db in
+      try StreamPollState.upsert {
+        StreamPollState.Draft(StreamPollState(
+          streamID: stream.id, health: .healthy,
+          lastReceivedAt: Date(timeIntervalSince1970: 10), consecutiveFailureCount: 0))
+      }.execute(db)
+    }
+    await FeedIngestor.recordTimeout(stream: stream, ifUnchangedFrom: afterTimeout, in: database)
+    let afterLateTimeout = try await database.read { db in
+      try StreamPollState.find(stream.id).fetchOne(db)
+    }
+    expectNoDifference(afterLateTimeout?.health, .healthy)
+    expectNoDifference(afterLateTimeout?.lastReceivedAt, Date(timeIntervalSince1970: 10))
   }
 
   private func insert(stream: CockpitCore.Stream) async throws {

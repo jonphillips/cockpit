@@ -227,7 +227,13 @@ private extension TodayView {
   }
 
   private func refreshToday() async {
-    _ = await morningPrep.run(.init(trigger: .manual))
+    let run = await morningPrep.run(.init(trigger: .manual))
+    switch run.mail {
+    case let .failed(message): model.errorMessage = message
+    case .notAuthorized: model.errorMessage = "Reconnect Gmail to refresh your messages."
+    case .outOfTime: model.errorMessage = "Gmail refresh ran out of time. Try again."
+    default: model.errorMessage = nil
+    }
     await didChangeQueue()
   }
 

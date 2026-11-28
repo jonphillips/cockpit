@@ -118,6 +118,33 @@ struct FollowingTests {
     await model.acquireOnLaunchOrRefresh()
     #expect(feedCalls.withLock { $0 } == 2)
   }
+
+  @Test("Feed polling seeds all five Streams and ignores paused and stopped Streams")
+  func feedPollingCoverage() async throws {
+    let data = StreamFixture.data(named: "point-free")
+    let recorder = URLRecorder()
+    let client = FeedClient(load: { url in
+      await recorder.record(url)
+      return data
+    })
+
+    let seeded = await FeedPollCoordinator.poll(
+      maximumConcurrent: 4, totalTimeout: .seconds(10), client: client, database: database)
+    #expect(seeded == (5, 5))
+    try await database.write { db in
+      try StreamOperations.setFollowState(.paused, for: StreamSeed.streams[0].id, in: db)
+      try StreamOperations.setFollowState(.stopped, for: StreamSeed.streams[1].id, in: db)
+    }
+    await recorder.reset()
+
+    let active = await FeedPollCoordinator.poll(
+      maximumConcurrent: 4, totalTimeout: .seconds(10), client: client, database: database)
+    let urls = await recorder.all()
+    #expect(active == (3, 3))
+    #expect(urls.count == 3)
+    #expect(!urls.contains(URL(string: StreamSeed.streams[0].locator)!))
+    #expect(!urls.contains(URL(string: StreamSeed.streams[1].locator)!))
+  }
 }
 
 private enum StreamFixture {
@@ -152,4 +179,5 @@ private actor URLRecorder {
   func record(_ url: URL) { urls.append(url) }
   func reset() { urls.removeAll() }
   func count() -> Int { urls.count }
+  func all() -> [URL] { urls }
 }

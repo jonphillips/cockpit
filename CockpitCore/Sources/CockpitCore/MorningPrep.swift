@@ -19,7 +19,7 @@ public final class MorningPrep {
   var activeTask: Task<MorningPrepRun, Never>?
   var activeTrigger: MorningPrepTrigger?
   var activeID: UUID?
-  var lastMailAttemptAt: Date?
+  var followUpTasks: [UUID: Task<MorningPrepRun, Never>] = [:]
 
   public init(
     client: MorningPrepClient, store: MorningPrepRecordStore = .live(),
@@ -41,14 +41,18 @@ public final class MorningPrep {
   }
 
   public func run(_ request: MorningPrepRequest) async -> MorningPrepRun {
-    if let activeTask {
-      let unattended = activeTrigger?.isUnattended == true
+    if let activeTask, let activeID {
+      let joinedID = activeID
+      let joinedTrigger = activeTrigger
       let existing = await activeTask.value
-      if unattended && request.trigger.appliesPolicies {
-        if existing.mail == .outOfTime || existing.feeds == .outOfTime || existing.summaries == .outOfTime {
-          return await start(request, forceMail: existing.mail == .outOfTime)
-        }
-        await client.applyPolicies()
+      if let followUpTask = followUpTasks[joinedID] { return await followUpTask.value }
+      // Another waiter may already have started the one shared follow-up operation.
+      if self.activeID != nil, self.activeID != joinedID { return await run(request) }
+      let needsPolicyPass = joinedTrigger?.isUnattended == true && request.trigger.appliesPolicies
+      let manualSkippedFreshData = request.trigger == .manual &&
+        (existing.mail == .skippedFresh || existing.feeds == .skippedFresh)
+      if needsPolicyPass || manualSkippedFreshData {
+        return await start(request, following: joinedID)
       }
       return existing
     }
@@ -67,8 +71,8 @@ public final class MorningPrep {
       guard run.trigger.isUnattended, run.state == .finished, let end = run.endedAt,
         calendar.isDate(end, inSameDayAs: day.firstOpenAt), end < day.firstOpenAt,
         calendar.component(.hour, from: end) >= 4,
-        run.mail == .skippedFresh || (ifSynced(run.mail)),
-        case let .completed(_, attempted)? = run.feeds, attempted > 0
+        run.mail == .skippedFresh || ifSynced(run.mail),
+        case let .completed(succeeded, _)? = run.feeds, succeeded > 0
       else { return false }
       return true
     }

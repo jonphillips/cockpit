@@ -1,12 +1,20 @@
 import Foundation
 
 extension MorningPrep {
-  func start(_ request: MorningPrepRequest, forceMail: Bool = false) async -> MorningPrepRun {
+  func start(
+    _ request: MorningPrepRequest, following joinedID: UUID? = nil
+  ) async -> MorningPrepRun {
     let id = UUID()
-    let task = Task { await self.execute(request, forceMail: forceMail) }
+    let task = Task { await self.execute(request) }
     activeTask = task
     activeTrigger = request.trigger
     activeID = id
+    if let joinedID {
+      followUpTasks[joinedID] = task
+      if followUpTasks.count > 32, let oldestID = followUpTasks.keys.first {
+        followUpTasks.removeValue(forKey: oldestID)
+      }
+    }
     isRunning = true
     let result = await task.value
     if activeID == id {
@@ -20,7 +28,7 @@ extension MorningPrep {
     return result
   }
 
-  func execute(_ request: MorningPrepRequest, forceMail: Bool) async -> MorningPrepRun {
+  func execute(_ request: MorningPrepRequest) async -> MorningPrepRun {
     let client = self.client
     let started = now()
     let budget = request.timeBudget ?? (request.trigger.isUnattended ? Self.unattendedBudget : nil)
@@ -33,17 +41,16 @@ extension MorningPrep {
 
     do {
       let last = try await client.lastMailSync()
-      let shouldSync = forceMail || !request.trigger.skipsFreshData || GmailAutoSyncPolicy.shouldSync(
-        lastSyncedAt: last, lastAttemptAt: lastMailAttemptAt, now: now(), isSyncing: false)
+      let shouldSync = !request.trigger.skipsFreshData || GmailAutoSyncPolicy.shouldSync(
+        lastSyncedAt: last, lastAttemptAt: nil, now: now(), isSyncing: false)
       if !shouldSync {
         run.mail = .skippedFresh
       } else if outOfTime() {
         run.mail = .outOfTime
       } else {
-        lastMailAttemptAt = now()
         do {
           let count = try await withTimeBudget(until: deadline, now: monotonicNow) { try await client.syncMail() }
-          run.mail = outOfTime() ? .outOfTime : .synced(count)
+          run.mail = .synced(count)
         }
         catch MorningPrepAuthorizationError.notAuthorized { run.mail = .notAuthorized }
         catch is MorningPrepTimeBudgetExpired { run.mail = .outOfTime }
@@ -63,17 +70,19 @@ extension MorningPrep {
         let values = try await withTimeBudget(until: deadline, now: monotonicNow) {
           await client.pollFeeds(4, .seconds(10))
         }
-        run.feeds = outOfTime() ? .outOfTime : .completed(succeeded: values.succeeded, attempted: values.attempted)
+        run.feeds = .completed(succeeded: values.succeeded, attempted: values.attempted)
       }
     } catch is MorningPrepTimeBudgetExpired { run.feeds = .outOfTime }
     catch { run.feeds = .completed(succeeded: 0, attempted: 0) }
     persist()
 
-    if outOfTime() { run.summaries = .outOfTime }
+    if request.trigger.skipsFreshData, hasFreshSummary(now: now()) {
+      run.summaries = .skipped
+    } else if outOfTime() { run.summaries = .outOfTime }
     else {
       do {
         let values = try await withTimeBudget(until: deadline, now: monotonicNow) { await client.processOffers(10) }
-        run.summaries = outOfTime() ? .outOfTime : .completed(done: values.done, waiting: values.waiting)
+        run.summaries = .completed(done: values.done, waiting: values.waiting)
       } catch is MorningPrepTimeBudgetExpired {
         run.summaries = .outOfTime
       } catch {
@@ -84,6 +93,17 @@ extension MorningPrep {
     run.state = .finished
     persist()
     return run
+  }
+
+  private func hasFreshSummary(now: Date) -> Bool {
+    store.records.contains { run in
+      guard run.state == .finished, let endedAt = run.endedAt,
+        now.timeIntervalSince(endedAt) >= 0,
+        now.timeIntervalSince(endedAt) < 30 * 60,
+        case let .completed(done, _)? = run.summaries
+      else { return false }
+      return done > 0
+    }
   }
 }
 

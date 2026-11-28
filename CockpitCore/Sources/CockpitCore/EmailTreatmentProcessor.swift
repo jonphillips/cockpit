@@ -1,14 +1,21 @@
 import Foundation
 import LLMClientKit
 import SQLiteData
+import Synchronization
 
 /// Summarizes an offer and proposes one Find from its own body. Grab-bag issues remain whole and
 /// readable without model processing.
 public struct EmailTreatmentProcessor: Sendable {
   private let modelClient: any ModelClient
+  private let processingCursor = EmailTreatmentProcessingCursor()
+  private let now: @Sendable () -> Date
 
-  public init(modelClient: any ModelClient = JudgmentModel.makeClient()) {
+  public init(
+    modelClient: any ModelClient = JudgmentModel.makeClient(),
+    now: @escaping @Sendable () -> Date = Date.init
+  ) {
     self.modelClient = modelClient
+    self.now = now
   }
 
   /// Model failures leave the message visible with S7's plain treatment row. A treatment may add
@@ -31,8 +38,8 @@ public struct EmailTreatmentProcessor: Sendable {
     return outputs
   }
 
-  /// Retry-safe background work: use stored Today state, newest first, and attempt at most the
-  /// requested number. A failed attempt remains eligible on the next run.
+  /// Retry-safe background work: use stored Today state, rotate the starting point, and attempt
+  /// at most the requested number. Failed candidates remain eligible on later runs.
   @discardableResult
   public func processUnextractedPieces(
     limit: Int = 10, in database: any DatabaseWriter
@@ -41,8 +48,18 @@ public struct EmailTreatmentProcessor: Sendable {
       try TodayRequest().fetch(db).rows
         .filter { OfferPieces.isOffer(role: $0.role, treatment: $0.treatment) && $0.treatmentSummary == nil }
         .sorted { $0.arrivedAt > $1.arrivedAt }
+        .compactMap { try candidate(for: $0.id, in: db) }
     }
-    let ids = Array(candidates.prefix(max(0, limit)).map(\.id))
+    guard !candidates.isEmpty else { return (0, 0) }
+    let selection = processingCursor.value.withLock { cursor -> [EmailTreatmentCandidate] in
+      let timeSlot = Int(now().timeIntervalSince1970 / 60) % candidates.count
+      let start = (cursor + timeSlot + candidates.count) % candidates.count
+      let rotated = Array(candidates[start...]) + Array(candidates[..<start])
+      let selected = Array(rotated.prefix(max(0, limit)))
+      cursor = (start + max(1, selected.count)) % candidates.count
+      return selected
+    }
+    let ids = selection.map(\.id)
     let output = try await process(emailContentPieceIDs: ids, in: database)
     return (output.count, max(0, candidates.count - output.count))
   }

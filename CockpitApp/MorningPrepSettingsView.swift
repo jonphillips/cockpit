@@ -30,7 +30,7 @@ struct MorningPrepSettingsView: View {
                   Text(run.startedAt.formatted(date: .abbreviated, time: .shortened))
                     .foregroundStyle(.secondary)
                 }
-                Text("\(run.trigger.rawValue.capitalized) · \(run.endedAt?.formatted(date: .omitted, time: .shortened) ?? "Didn't finish")")
+                Text("\(triggerName(run.trigger)) · \(run.endedAt?.formatted(date: .omitted, time: .shortened) ?? "Didn't finish")")
                   .font(.caption)
                   .foregroundStyle(.secondary)
               }
@@ -49,6 +49,13 @@ struct MorningPrepSettingsView: View {
       return calendar.isDate(run.startedAt, inSameDayAs: value.firstOpenAt)
     }) else { return "Not ready" }
     return model.readyRun(on: day)?.id == run.id ? "Ready" : "Not ready"
+  }
+
+  private func triggerName(_ trigger: MorningPrepTrigger) -> String {
+    switch trigger {
+    case .manualPrepare: "Prepare button"
+    default: trigger.rawValue.capitalized
+    }
   }
 
   private func mailDescription(_ result: MorningPrepMailResult?) -> String {

@@ -113,7 +113,7 @@ struct GmailAuthorizationProbeView: View {
           }
         } else {
           Button("Prepare Cockpit", systemImage: "sunrise") {
-            Task { _ = await morningPrep.run(.init(trigger: .automation)) }
+            Task { _ = await morningPrep.run(.init(trigger: .manualPrepare)) }
           }
         }
       } header: {
