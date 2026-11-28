@@ -23,7 +23,10 @@ extension MorningPrep {
     let date = date ?? now()
     if isRunning { return .running }
     let localCalendar = calendar()
-    let todayRuns = records.filter { localCalendar.isDate($0.startedAt, inSameDayAs: date) }
+    // An "already ready" marker did no work, so it never sets the line's time or state.
+    let todayRuns = records.filter {
+      $0.outcome == nil && localCalendar.isDate($0.startedAt, inSameDayAs: date)
+    }
       .sorted { $0.startedAt > $1.startedAt }
     guard let latest = todayRuns.first else { return nil }
     if latest.state == .interrupted { return .problem("Update didn't finish") }

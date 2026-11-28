@@ -416,6 +416,32 @@ struct MorningPrepTests {
     _ = await runningTask.value
   }
 
+  @Test("An already-ready marker never sets Today's line")
+  func alreadyReadyMarkerDoesNotSetTodayLine() async {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "America/New_York")!
+    let testCalendar = calendar
+    let firstOpen = calendar.date(from: DateComponents(year: 2026, month: 11, day: 27, hour: 6))!
+    let now = calendar.date(from: DateComponents(year: 2026, month: 11, day: 27, hour: 7, minute: 30))!
+    let store = MorningPrepRecordStore.inMemory()
+    store.recordFirstOpen(at: firstOpen, calendar: testCalendar)
+    // The automation finished after first open, so it can't make the day ready, but it stops a later background run.
+    let automationEnd = calendar.date(from: DateComponents(year: 2026, month: 11, day: 27, hour: 6, minute: 52))!
+    store.save(MorningPrepRun(
+      trigger: .automation, startedAt: automationEnd.addingTimeInterval(-60), endedAt: automationEnd,
+      state: .finished, mail: .synced(1), feeds: .completed(succeeded: 3, attempted: 3),
+      summaries: .completed(done: 0, waiting: 0)), now: automationEnd)
+    let client = MorningPrepClient(
+      lastMailSync: { nil }, syncMail: { 0 }, lastFeedPoll: { nil },
+      pollFeeds: { _, _ in (0, 0) }, processOffers: { _ in (0, 0) })
+    let model = MorningPrep(client: client, store: store, now: { now }, calendar: { testCalendar })
+
+    let marker = await model.run(.init(trigger: .backgroundRefresh))
+
+    #expect(marker.outcome == .alreadyReady)
+    #expect(model.todayStatus(at: now) == .updated(automationEnd))
+  }
+
   @Test("Today status text covers ready, running, updated, and problems")
   func todayStatusLines() {
     let date = Date(timeIntervalSince1970: 1_800_000_000)
