@@ -2,8 +2,40 @@ import Foundation
 
 /// The transport is intentionally isolated from persistence: every request is an authenticated
 /// Gmail GET, and `GmailInboxIngestor` owns the resulting canonical writes.
-struct GmailInboxAPI {
-  let accessToken: String
+public struct GmailInboxAPI: Sendable {
+  private let accessToken: String
+
+  public init(accessToken: String) { self.accessToken = accessToken }
+
+  public func accountEmail() async throws -> String {
+    let profile: GmailProfile = try await get(path: "profile")
+    return profile.emailAddress.lowercased()
+  }
+
+  /// Lists message IDs only. The watcher drops known IDs before paying for a `messages.get`.
+  public func messageIDs(from sender: String, after date: Date) async throws -> [String] {
+    // Rounding upward keeps Gmail's whole-second `after:` query from including mail received before the baseline.
+    let epochSeconds = Int(date.timeIntervalSince1970.rounded(.up))
+    let query = "from:\(sender) after:\(epochSeconds)"
+    var ids: [String] = []
+    var pageToken: String?
+    repeat {
+      // Gmail messages.list accepts at most 500 results per page; follow its cursor to avoid omissions.
+      var items = [
+        URLQueryItem(name: "q", value: query), URLQueryItem(name: "maxResults", value: "500")
+      ]
+      if let pageToken { items.append(URLQueryItem(name: "pageToken", value: pageToken)) }
+      let page: GmailMessageList = try await get(path: "messages", query: items)
+      ids.append(contentsOf: page.messages?.map(\.id) ?? [])
+      pageToken = page.nextPageToken
+    } while pageToken != nil
+    return ids
+  }
+
+  /// Reads one complete message after the caller has excluded IDs already present in its ledger.
+  public func message(id: String) async throws -> GmailInboxMessage {
+    try await message(id: id, category: .primary)
+  }
 
   /// Gmail bills each `messages.get` at 20 quota units against a 6,000 unit/user/minute ceiling.
   /// Fetching every Inbox message at once trips HTTP 429, so per-message reads run through a
@@ -203,7 +235,10 @@ extension GmailInboxAPI {
       bodyHTML: response.payload.text(matching: "text/html"),
       bodyPlainText: response.payload.text(matching: "text/plain"),
       labelIDs: response.labelIDs,
-      inboxCategory: category
+      inboxCategory: category,
+      internalDate: response.internalDate.flatMap { milliseconds in
+        Double(milliseconds).map { Date(timeIntervalSince1970: $0 / 1_000) }
+      }
     )
   }
 

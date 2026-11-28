@@ -78,4 +78,6 @@ public enum SettingsRoute: Hashable, Sendable {
   case reader(contentPieceID: UUID)
   case gmailAuthorizationProbe
   case morningPrep
+  case offerAlerts
+  case offerAlert(messageID: String)
 }

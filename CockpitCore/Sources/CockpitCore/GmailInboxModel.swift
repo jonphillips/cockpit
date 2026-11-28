@@ -93,6 +93,7 @@ public struct GmailInboxMessage: Equatable, Sendable {
   public let bodyPlainText: String?
   public let labelIDs: [String]
   public let inboxCategory: GmailInboxCategory
+  public let internalDate: Date?
 
   public init(
     id: String,
@@ -101,7 +102,8 @@ public struct GmailInboxMessage: Equatable, Sendable {
     bodyHTML: String? = nil,
     bodyPlainText: String? = nil,
     labelIDs: [String] = [],
-    inboxCategory: GmailInboxCategory = .primary
+    inboxCategory: GmailInboxCategory = .primary,
+    internalDate: Date? = nil
   ) {
     self.id = id
     self.threadID = threadID
@@ -110,6 +112,7 @@ public struct GmailInboxMessage: Equatable, Sendable {
     self.bodyPlainText = bodyPlainText
     self.labelIDs = labelIDs
     self.inboxCategory = inboxCategory
+    self.internalDate = internalDate
   }
 
   public func header(named name: String) -> String? {

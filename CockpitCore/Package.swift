@@ -9,6 +9,9 @@ let package = Package(
     .library(name: "CockpitCore", targets: ["CockpitCore"]),
     .executable(name: "JudgmentFixtureHarvest", targets: ["JudgmentFixtureHarvest"]),
     .executable(name: "GmailFixtureToken", targets: ["GmailFixtureToken"]),
+    .library(name: "GmailDesktopAuth", targets: ["GmailDesktopAuth"]),
+    .library(name: "OfferWatchSupport", targets: ["OfferWatchSupport"]),
+    .executable(name: "OfferWatch", targets: ["OfferWatch"]),
   ],
   dependencies: [
     .package(url: "https://github.com/pointfreeco/sqlite-data", from: "1.8.0"),
@@ -42,11 +45,15 @@ let package = Package(
     ),
     // A Mac-only OAuth helper (system frameworks only — no CockpitCore/app dependency) that mints a
     // short-lived Gmail access token for the harvest. Never shipped, never on a launch path.
-    .executableTarget(name: "GmailFixtureToken"),
+    .target(name: "GmailDesktopAuth"),
+    .executableTarget(name: "GmailFixtureToken", dependencies: ["GmailDesktopAuth"]),
+    .target(name: "OfferWatchSupport", dependencies: ["CockpitCore", "GmailDesktopAuth"]),
+    .executableTarget(name: "OfferWatch", dependencies: ["OfferWatchSupport", "GmailDesktopAuth"]),
     .testTarget(
       name: "CockpitCoreTests",
       dependencies: [
         "CockpitCore",
+        "OfferWatchSupport",
         "JudgmentFixtureSupport",
         .product(name: "CustomDump", package: "swift-custom-dump"),
         .product(name: "DependenciesTestSupport", package: "swift-dependencies"),

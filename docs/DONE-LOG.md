@@ -6,6 +6,12 @@ History, newest first. The PR that completes a dispatch adds an entry naming its
 History before 2026-09-29 lives in the milestone ledgers (`docs/milestones/`), the
 `docs/handoff-*-report.md` files, and merged PRs.
 
+## 2026-11-28 — S-w1 Offer Watch review fixes (`effort/offer-watch`)
+
+- **Result:** S-w1 now lists message IDs before fetching unknown messages, bounds reads to the recent window, and runs unattended with refresh-only OAuth, typed status reports, retry backoff, and per-device pairing storage. Cold-launch notification routing and device registration state are preserved in the app.
+- **Verification:** Ran against 1d60104 (pushed to origin/effort/offer-watch). Passed: xcodebuild -scheme Cockpit -destination generic/platform=iOS Simulator -skipMacroValidation build-for-testing; xcodebuild -scheme Cockpit -destination generic/platform=iOS -skipMacroValidation CODE_SIGNING_ALLOWED=NO build; swiftlint lint --strict --no-cache; swift test --package-path CockpitCore. Failed: none. 390 Swift tests passed; SwiftLint passed; unsigned iOS build and iOS Simulator build-for-testing passed. Jon verifies live-device, Focus, APNs, and LaunchAgent behavior on his devices.
+- **Owed:** offer-watch's device gate, in [device-passes.md](device-passes.md).
+
 ## 2026-11-27 — Morning prep S-p2: backup trigger and Today status (`effort/morning-prep-s-p2`)
 
 - **Result:** Added the 5:30 local app-refresh backup, explicit “Already ready” records, actionable scheduler refusal messages, and the status line on Today. Ready follows the brief’s attempted-feed rule, including when feed requests fail.

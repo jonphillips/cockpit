@@ -17,11 +17,13 @@ struct GmailMessageResponse: Decodable {
   let id: String
   let threadID: String
   let labelIDs: [String]
+  let internalDate: String?
   let payload: GmailPayload
   enum CodingKeys: String, CodingKey {
     case id
     case threadID = "threadId"
     case labelIDs = "labelIds"
+    case internalDate
     case payload
   }
 }

@@ -13,7 +13,7 @@
 </style>
 
 <h1>Cockpit — Privacy Policy</h1>
-<p class="date">Last updated: 11 September 2026</p>
+<p class="date">Last updated: 28 November 2026</p>
 
 <p>Cockpit is a personal application built and used by one person, Jon Phillips. It is not
 offered to the public, has no other users, and has no accounts to create. Questions:
@@ -26,24 +26,27 @@ offered to the public, has no other users, and has no accounts to create. Questi
   <li><strong>Gmail content.</strong> Under the <code>gmail.modify</code> scope, Cockpit reads
       message content and metadata from the connected mailbox, and applies labels, archives, or
       trashes messages only at the user's direction. It never sends mail.</li>
+  <li><strong>Offer alerts.</strong> A read-only watcher on Jon's own Mac reads Gmail messages from the sender addresses he lists. The watcher keeps mail-derived data on that Mac and sends one short subject line through Apple Push Notification service to his paired devices. Email bodies and content links are not included in the notification.</li>
   <li><strong>Web content.</strong> Articles and posts from the RSS and Atom feeds the user
       chooses to follow.</li>
 </ul>
 
 <h2>Where it is stored</h2>
-<p>Cockpit runs on the user's own Apple devices. There is no Cockpit server, no hosted ingest,
+<p>Cockpit runs on the user's own Apple devices. Offer Watch also runs on Jon's own Mac. Its local
+mail state stays on that Mac. There is no Cockpit server, no hosted ingest,
 and no developer-side database. Content is stored locally on the device and synchronized only
 through the user's own private Apple iCloud (CloudKit) container, which the developer has no
 access to.</p>
 
 <h2>Who else sees it</h2>
-<p>One exception to the above. Cockpit uses a large language model to select and summarize each
+<p>Two exceptions to the above. Apple Push Notification service receives one short line derived
+from an email to deliver an Offer Watch alert. Cockpit also uses a large language model to select and summarize each
 day's reading. Text derived from feeds — and, where a mailbox is connected, from email messages —
 may be sent to a model provider's API (Anthropic and/or OpenAI) for that purpose, or handled
 entirely on-device where an on-device model is used. This happens only to produce results shown
 to the user. Cockpit sends that content under standard API terms, which do not grant the provider
-rights to train models on it. Nothing is sold, shared for advertising, or disclosed to anyone
-else, and no data is used to train any model by Cockpit or its developer.</p>
+rights to train models on it. Nothing is sold or shared for advertising, and no data is used to
+train any model by Cockpit or its developer.</p>
 
 <h2>Google user data</h2>
 <p>Cockpit's use and transfer of information received from Google APIs to any other app will

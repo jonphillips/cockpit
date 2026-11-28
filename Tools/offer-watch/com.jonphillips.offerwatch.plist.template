@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.jonphillips.offerwatch</string>
+  <key>ProgramArguments</key><array><string>OFFERWATCH_BINARY_PATH</string><string>run</string></array>
+  <key>EnvironmentVariables</key><dict>
+    <key>OFFERWATCH_CLIENT_JSON</key><string>DESKTOP_OAUTH_JSON_PATH</string>
+    <key>OFFERWATCH_APNS_KEY_ID</key><string>APNS_KEY_ID</string>
+    <key>OFFERWATCH_TEAM_ID</key><string>APPLE_TEAM_ID</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
+  <key>StandardOutPath</key><string>USER_HOME/Library/Logs/OfferWatch.log</string>
+  <key>StandardErrorPath</key><string>USER_HOME/Library/Logs/OfferWatch.error.log</string>
+</dict>
+</plist>
