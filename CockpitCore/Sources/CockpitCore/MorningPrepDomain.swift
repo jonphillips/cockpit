@@ -23,6 +23,48 @@ public struct MorningPrepRequest: Sendable {
   }
 }
 
+public enum MorningPrepSchedule {
+  /// The next local 5:30 AM boundary. `nextDate` handles daylight-saving transitions in `calendar`.
+  public static func nextRefresh(after date: Date, calendar: Calendar = .current) -> Date? {
+    calendar.nextDate(
+      after: date,
+      matching: DateComponents(hour: 5, minute: 30),
+      matchingPolicy: .nextTime,
+      repeatedTimePolicy: .first,
+      direction: .forward
+    )
+  }
+}
+
+public struct MorningPrepSchedulerClient: Sendable {
+  public var schedule: @MainActor @Sendable (Date) async throws -> Void
+
+  public init(schedule: @escaping @MainActor @Sendable (Date) async throws -> Void) {
+    self.schedule = schedule
+  }
+}
+
+public enum MorningPrepTodayStatus: Equatable, Sendable {
+  case running
+  case ready(Date)
+  case updated(Date)
+  case problem(String)
+
+  public func line(locale: Locale = .current) -> String {
+    let time = Date.FormatStyle.dateTime.hour().minute().locale(locale)
+    switch self {
+    case .running:
+      return "Catching up…"
+    case let .ready(date):
+      return "Ready at \(date.formatted(time))"
+    case let .updated(date):
+      return "Updated at \(date.formatted(time))"
+    case let .problem(message):
+      return message
+    }
+  }
+}
+
 public enum MorningPrepMailResult: Codable, Equatable, Sendable {
   case synced(Int)
   case skippedFresh
@@ -45,19 +87,21 @@ public enum MorningPrepSummariesResult: Codable, Equatable, Sendable {
 
 public struct MorningPrepRun: Codable, Equatable, Identifiable, Sendable {
   public enum State: String, Codable, Sendable { case running, finished, interrupted }
+  public enum Outcome: String, Codable, Sendable { case alreadyReady }
 
   public let id: UUID
   public let trigger: MorningPrepTrigger
   public let startedAt: Date
   public var endedAt: Date?
   public var state: State
+  public var outcome: Outcome?
   public var mail: MorningPrepMailResult?
   public var feeds: MorningPrepFeedsResult?
   public var summaries: MorningPrepSummariesResult?
 
   public init(
     id: UUID = UUID(), trigger: MorningPrepTrigger, startedAt: Date,
-    endedAt: Date? = nil, state: State = .running,
+    endedAt: Date? = nil, state: State = .running, outcome: Outcome? = nil,
     mail: MorningPrepMailResult? = nil, feeds: MorningPrepFeedsResult? = nil,
     summaries: MorningPrepSummariesResult? = nil
   ) {
@@ -66,6 +110,7 @@ public struct MorningPrepRun: Codable, Equatable, Identifiable, Sendable {
     self.startedAt = startedAt
     self.endedAt = endedAt
     self.state = state
+    self.outcome = outcome
     self.mail = mail
     self.feeds = feeds
     self.summaries = summaries
@@ -160,6 +205,41 @@ public struct MorningPrepRecordStore: Sendable {
       saveRecords: { newValue in records.withLock { $0 = newValue } },
       loadDays: { days.withLock { $0 } },
       saveDays: { newValue in days.withLock { $0 = newValue } }
+    )
+  }
+}
+
+/// Device-local explanation for why the backup request was refused. This is not synced or canonical data.
+public struct MorningPrepScheduleStore: Sendable {
+  private let loadFailure: @Sendable () -> String?
+  private let writeFailure: @Sendable (String?) -> Void
+
+  public init(
+    loadFailure: @escaping @Sendable () -> String?,
+    saveFailure writeFailure: @escaping @Sendable (String?) -> Void
+  ) {
+    self.loadFailure = loadFailure
+    self.writeFailure = writeFailure
+  }
+
+  public var failure: String? { loadFailure() }
+  public func saveFailure(_ failure: String?) { writeFailure(failure) }
+
+  public static func live(defaults: UserDefaults = .standard) -> Self {
+    let defaults = MorningPrepDefaults(defaults)
+    return Self(
+      loadFailure: { defaults.value.string(forKey: "cockpit.morningPrep.scheduleFailure") },
+      saveFailure: { failure in
+        defaults.value.set(failure, forKey: "cockpit.morningPrep.scheduleFailure")
+      }
+    )
+  }
+
+  public static func inMemory() -> Self {
+    let failure = Mutex<String?>(nil)
+    return Self(
+      loadFailure: { failure.withLock { $0 } },
+      saveFailure: { value in failure.withLock { $0 = value } }
     )
   }
 }

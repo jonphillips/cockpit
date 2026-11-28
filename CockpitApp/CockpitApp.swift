@@ -28,6 +28,9 @@ struct CockpitApp: App {
           _ = GIDSignIn.sharedInstance.handle(url)
         }
     }
+    .backgroundTask(.appRefresh(MorningPrepWiring.backgroundTaskIdentifier)) {
+      await MorningPrepWiring.handleBackgroundRefresh()
+    }
   }
 }
 
@@ -124,6 +127,9 @@ private struct CockpitRootView: View {
       }
     }
     .onChange(of: scenePhase) { _, phase in
+      if phase == .background {
+        Task { await morningPrep.scheduleNextRefresh() }
+      }
       guard phase == .active else { return }
       Task {
         await pendingFindModel.refreshHandoffState()

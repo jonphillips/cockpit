@@ -189,8 +189,8 @@ struct MorningPrepTests {
     #expect(offerCalls.withLock { $0 } == 2)
   }
 
-  @Test("A failed feed set cannot satisfy the ready rule")
-  func allFeedsFailIsNotReady() async {
+  @Test("A failed feed request counts as attempted for the ready rule")
+  func attemptedFeedFailuresCanBeReady() async {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = TimeZone(identifier: "America/New_York")!
     let firstOpen = calendar.date(from: DateComponents(year: 2026, month: 11, day: 27, hour: 7))!
@@ -208,7 +208,7 @@ struct MorningPrepTests {
       pollFeeds: { _, _ in (0, 0) }, processOffers: { _ in (0, 0) })
     let model = MorningPrep(client: client, store: store)
 
-    #expect(model.readyRun(on: store.days[0]) == nil)
+    #expect(model.readyRun(on: store.days[0])?.id == run.id)
   }
 
   @Test("Unfinished runs stay recorded as interrupted and first open is idempotent")
@@ -253,6 +253,216 @@ struct MorningPrepTests {
     #expect(result.feeds == .completed(succeeded: 3, attempted: 3))
     #expect(result.endedAt! < store.days[0].firstOpenAt)
     #expect(model.readyRun(on: store.days[0]) != nil)
+  }
+
+  @Test("The next refresh is 5:30 local across midnight and daylight-saving changes")
+  func nextRefreshDate() {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "America/New_York")!
+    let beforeFallBackDay = calendar.date(from: DateComponents(year: 2026, month: 10, day: 31, hour: 5, minute: 31))!
+    let lateEvening = calendar.date(from: DateComponents(year: 2026, month: 10, day: 31, hour: 23, minute: 50))!
+    let fallBackNextMorning = calendar.date(from: DateComponents(year: 2026, month: 11, day: 1, hour: 5, minute: 30))!
+    let beforeBoundary = calendar.date(from: DateComponents(year: 2026, month: 11, day: 1, hour: 5, minute: 29))!
+    let afterBoundary = calendar.date(from: DateComponents(year: 2026, month: 11, day: 1, hour: 5, minute: 31))!
+    let nextDay = calendar.date(from: DateComponents(year: 2026, month: 11, day: 2, hour: 5, minute: 30))!
+    let springBeforeBoundary = calendar.date(from: DateComponents(year: 2026, month: 3, day: 7, hour: 5, minute: 31))!
+    let springNextDay = calendar.date(from: DateComponents(year: 2026, month: 3, day: 8, hour: 5, minute: 30))!
+
+    #expect(MorningPrepSchedule.nextRefresh(after: beforeFallBackDay, calendar: calendar) == fallBackNextMorning)
+    #expect(MorningPrepSchedule.nextRefresh(after: lateEvening, calendar: calendar) == fallBackNextMorning)
+    #expect(MorningPrepSchedule.nextRefresh(after: beforeBoundary, calendar: calendar) ==
+      calendar.date(from: DateComponents(year: 2026, month: 11, day: 1, hour: 5, minute: 30)))
+    #expect(MorningPrepSchedule.nextRefresh(after: afterBoundary, calendar: calendar) == nextDay)
+    #expect(MorningPrepSchedule.nextRefresh(after: springBeforeBoundary, calendar: calendar) == springNextDay)
+  }
+
+  @Test("A background run reschedules first and reports a refused request")
+  func backgroundScheduleFailure() async {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+    let testCalendar = calendar
+    let scheduledDate = Mutex<Date?>(nil)
+    let client = MorningPrepClient(
+      lastMailSync: { nil }, syncMail: { throw NSError(domain: "mail", code: 1) },
+      lastFeedPoll: { nil }, pollFeeds: { _, _ in (0, 0) }, processOffers: { _ in (0, 0) })
+    let scheduler = MorningPrepSchedulerClient { date in
+      scheduledDate.withLock { $0 = date }
+      throw NSError(domain: "scheduler", code: 1, userInfo: [NSLocalizedDescriptionKey: "Background App Refresh is unavailable"])
+    }
+    let scheduleStore = MorningPrepScheduleStore.inMemory()
+    let model = MorningPrep(
+      client: client, scheduler: scheduler, scheduleStore: scheduleStore, store: .inMemory(),
+      now: { now }, calendar: { testCalendar })
+
+    _ = await model.run(.init(trigger: .backgroundRefresh))
+
+    #expect(scheduledDate.withLock { $0 } == MorningPrepSchedule.nextRefresh(after: now, calendar: testCalendar))
+    #expect(model.scheduleFailure == "Background App Refresh is unavailable")
+    let reopened = MorningPrep(client: client, scheduleStore: scheduleStore, store: .inMemory(), now: { now })
+    #expect(reopened.scheduleFailure == "Background App Refresh is unavailable")
+  }
+
+  @Test("A background refresh stops when today's unattended run is already ready")
+  func alreadyReadyBackgroundRefresh() async throws {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "America/New_York")!
+    let testCalendar = calendar
+    let now = calendar.date(from: DateComponents(year: 2026, month: 11, day: 27, hour: 7))!
+    let store = MorningPrepRecordStore.inMemory()
+    var ready = MorningPrepRun(trigger: .automation, startedAt: now.addingTimeInterval(-600))
+    ready.mail = .synced(2)
+    ready.feeds = .completed(succeeded: 0, attempted: 4)
+    ready.summaries = .completed(done: 0, waiting: 0)
+    ready.endedAt = now.addingTimeInterval(-540)
+    ready.state = .finished
+    store.save(ready, now: now)
+    store.recordFirstOpen(at: now, calendar: testCalendar)
+    let workCalls = Mutex(0)
+    let client = MorningPrepClient(
+      lastMailSync: { nil }, syncMail: { workCalls.withLock { $0 += 1 }; return 0 },
+      lastFeedPoll: { nil },
+      pollFeeds: { _, _ in workCalls.withLock { $0 += 1 }; return (1, 1) },
+      processOffers: { _ in workCalls.withLock { $0 += 1 }; return (0, 0) })
+    let model = MorningPrep(client: client, store: store, now: { now }, calendar: { testCalendar })
+
+    let result = await model.run(.init(trigger: .backgroundRefresh))
+
+    #expect(result.trigger == .backgroundRefresh)
+    #expect(result.outcome == .alreadyReady)
+    #expect(result.state == .finished)
+    #expect(result.endedAt == now)
+    #expect(model.records.count == 2)
+    #expect(workCalls.withLock { $0 } == 0)
+    #expect(model.readyRun(on: model.days[0])?.id == ready.id)
+    #expect(model.todayStatus(at: now) == .ready(ready.endedAt!))
+
+    let encodedMarker = try #require(try? JSONEncoder().encode(result))
+    var oldRecord = try #require(try? JSONSerialization.jsonObject(with: encodedMarker) as? [String: Any])
+    oldRecord.removeValue(forKey: "outcome")
+    let oldData = try #require(try? JSONSerialization.data(withJSONObject: oldRecord))
+    let decoded = try #require(try? JSONDecoder().decode(MorningPrepRun.self, from: oldData))
+    #expect(decoded.outcome == nil)
+  }
+
+  @Test("Today status derives every state from today's run records")
+  func todayStatusDerivation() async {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+    let testCalendar = calendar
+    let now = calendar.date(from: DateComponents(year: 2026, month: 11, day: 27, hour: 7))!
+    let updateEnd = now.addingTimeInterval(4 * 60)
+    let emptyClient = MorningPrepClient(
+      lastMailSync: { nil }, syncMail: { 2 }, lastFeedPoll: { nil },
+      pollFeeds: { _, _ in (7, 9) }, processOffers: { _ in (0, 0) })
+
+    let emptyStore = MorningPrepRecordStore.inMemory()
+    let oldRun = storedRun(
+      trigger: .open, startedAt: now.addingTimeInterval(-24 * 60 * 60),
+      endedAt: now.addingTimeInterval(-24 * 60 * 60 + 60), mail: .synced(1),
+      feeds: .completed(succeeded: 1, attempted: 1))
+    emptyStore.save(oldRun, now: now)
+    let noRunToday = MorningPrep(client: emptyClient, store: emptyStore, now: { now }, calendar: { testCalendar })
+    #expect(noRunToday.todayStatus(at: now) == nil)
+
+    let readyStore = MorningPrepRecordStore.inMemory()
+    readyStore.recordFirstOpen(at: now, calendar: testCalendar)
+    let ready = storedRun(
+      trigger: .automation, startedAt: now.addingTimeInterval(-10 * 60),
+      endedAt: now.addingTimeInterval(-8 * 60), mail: .synced(2),
+      feeds: .completed(succeeded: 7, attempted: 9))
+    readyStore.save(ready, now: now)
+    let readyModel = MorningPrep(client: emptyClient, store: readyStore, now: { now }, calendar: { testCalendar })
+    #expect(readyModel.todayStatus(at: now) == .ready(ready.endedAt!))
+
+    let updatedStore = MorningPrepRecordStore.inMemory()
+    updatedStore.recordFirstOpen(at: now, calendar: testCalendar)
+    updatedStore.save(storedRun(
+      trigger: .open, startedAt: now, endedAt: updateEnd, mail: .synced(2),
+      feeds: .completed(succeeded: 9, attempted: 9)), now: updateEnd)
+    let updatedModel = MorningPrep(client: emptyClient, store: updatedStore, now: { updateEnd }, calendar: { testCalendar })
+    #expect(updatedModel.todayStatus(at: now) == .updated(updateEnd))
+
+    let interruptedStore = MorningPrepRecordStore.inMemory()
+    interruptedStore.save(storedRun(
+      trigger: .backgroundRefresh, startedAt: now, endedAt: nil, mail: nil, feeds: nil,
+      state: .interrupted), now: now)
+    let interruptedModel = MorningPrep(client: emptyClient, store: interruptedStore, now: { now }, calendar: { testCalendar })
+    #expect(interruptedModel.todayStatus(at: now) == .problem("Update didn't finish"))
+
+    let unauthorizedStore = MorningPrepRecordStore.inMemory()
+    unauthorizedStore.save(storedRun(
+      trigger: .open, startedAt: now, endedAt: updateEnd, mail: .notAuthorized,
+      feeds: .completed(succeeded: 9, attempted: 9)), now: updateEnd)
+    let unauthorizedModel = MorningPrep(client: emptyClient, store: unauthorizedStore, now: { updateEnd }, calendar: { testCalendar })
+    #expect(unauthorizedModel.todayStatus(at: now) == .problem("Mail not updated: sign in to Gmail"))
+
+    let failedFeedsStore = MorningPrepRecordStore.inMemory()
+    failedFeedsStore.save(storedRun(
+      trigger: .open, startedAt: now, endedAt: updateEnd, mail: .synced(2),
+      feeds: .completed(succeeded: 7, attempted: 9)), now: updateEnd)
+    let failedFeedsModel = MorningPrep(client: emptyClient, store: failedFeedsStore, now: { updateEnd }, calendar: { testCalendar })
+    #expect(failedFeedsModel.todayStatus(at: now) == .problem("2 of 9 feeds didn't load"))
+
+    let gate = AsyncGate()
+    let runningClient = MorningPrepClient(
+      lastMailSync: { nil }, syncMail: { 2 }, lastFeedPoll: { nil },
+      pollFeeds: { _, _ in (9, 9) }, processOffers: { _ in await gate.pause(); return (0, 0) })
+    let runningModel = MorningPrep(client: runningClient, store: .inMemory(), now: { now }, calendar: { testCalendar })
+    let runningTask = Task { await runningModel.run(.init(trigger: .open)) }
+    await gate.waitUntilEntered()
+    #expect(runningModel.todayStatus(at: now) == .running)
+    await gate.release()
+    _ = await runningTask.value
+  }
+
+  @Test("An already-ready marker never sets Today's line")
+  func alreadyReadyMarkerDoesNotSetTodayLine() async {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "America/New_York")!
+    let testCalendar = calendar
+    let firstOpen = calendar.date(from: DateComponents(year: 2026, month: 11, day: 27, hour: 6))!
+    let now = calendar.date(from: DateComponents(year: 2026, month: 11, day: 27, hour: 7, minute: 30))!
+    let store = MorningPrepRecordStore.inMemory()
+    store.recordFirstOpen(at: firstOpen, calendar: testCalendar)
+    // The automation finished after first open, so it can't make the day ready, but it stops a later background run.
+    let automationEnd = calendar.date(from: DateComponents(year: 2026, month: 11, day: 27, hour: 6, minute: 52))!
+    store.save(MorningPrepRun(
+      trigger: .automation, startedAt: automationEnd.addingTimeInterval(-60), endedAt: automationEnd,
+      state: .finished, mail: .synced(1), feeds: .completed(succeeded: 3, attempted: 3),
+      summaries: .completed(done: 0, waiting: 0)), now: automationEnd)
+    let client = MorningPrepClient(
+      lastMailSync: { nil }, syncMail: { 0 }, lastFeedPoll: { nil },
+      pollFeeds: { _, _ in (0, 0) }, processOffers: { _ in (0, 0) })
+    let model = MorningPrep(client: client, store: store, now: { now }, calendar: { testCalendar })
+
+    let marker = await model.run(.init(trigger: .backgroundRefresh))
+
+    #expect(marker.outcome == .alreadyReady)
+    #expect(model.todayStatus(at: now) == .updated(automationEnd))
+  }
+
+  @Test("Today status text covers ready, running, updated, and problems")
+  func todayStatusLines() {
+    let date = Date(timeIntervalSince1970: 1_800_000_000)
+    let locale = Locale(identifier: "en_US")
+    let time = date.formatted(.dateTime.hour().minute().locale(locale))
+
+    #expect(MorningPrepTodayStatus.running.line() == "Catching up…")
+    #expect(MorningPrepTodayStatus.ready(date).line(locale: locale) == "Ready at \(time)")
+    #expect(MorningPrepTodayStatus.updated(date).line(locale: locale) == "Updated at \(time)")
+    #expect(MorningPrepTodayStatus.problem("Mail not updated: sign in to Gmail").line() == "Mail not updated: sign in to Gmail")
+  }
+
+  private func storedRun(
+    trigger: MorningPrepTrigger, startedAt: Date, endedAt: Date?,
+    mail: MorningPrepMailResult?, feeds: MorningPrepFeedsResult?,
+    state: MorningPrepRun.State = .finished
+  ) -> MorningPrepRun {
+    MorningPrepRun(
+      trigger: trigger, startedAt: startedAt, endedAt: endedAt,
+      state: state, mail: mail, feeds: feeds,
+      summaries: endedAt == nil ? nil : .completed(done: 0, waiting: 0))
   }
 }
 
