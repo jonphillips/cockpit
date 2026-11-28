@@ -1,10 +1,13 @@
 import CockpitCore
+import BackgroundTasks
 import Dependencies
 import Foundation
 import SQLiteData
 
 @MainActor
 enum MorningPrepWiring {
+  // Must match project.yml's permitted scheduler identifier and Scene's registered task.
+  static let backgroundTaskIdentifier = "com.jonphillips.cockpit.morning-prep"
   static let shared = make()
 
   static func make() -> MorningPrep {
@@ -56,7 +59,16 @@ enum MorningPrepWiring {
         return value
       }
     )
-    return MorningPrep(client: client)
+    let scheduler = MorningPrepSchedulerClient { date in
+      let request = BGAppRefreshTaskRequest(identifier: backgroundTaskIdentifier)
+      request.earliestBeginDate = date
+      try await BGTaskScheduler.shared.submitTaskRequest(request)
+    }
+    return MorningPrep(client: client, scheduler: scheduler)
+  }
+
+  static func handleBackgroundRefresh() async {
+    _ = await shared.run(.init(trigger: .backgroundRefresh, timeBudget: MorningPrep.unattendedBudget))
   }
 
 }

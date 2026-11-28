@@ -26,12 +26,14 @@ struct TodayView: View {
         model: model,
         queueModel: queueModel,
         tailModel: tailModel,
+        morningPrep: morningPrep,
         dailyLinkModel: dailyLinkModel,
         readerNamespace: readerTransition,
         openFeeds: {
           feedSelection = .all
           shellModel.select(.feeds)
         },
+        openSettings: { shellModel.select(.settings) },
         readableContentPieceIDs: readingQueueContentPieceIDs,
         didChangeQueue: didChangeQueue,
         openQuickLook: openQuickLook,

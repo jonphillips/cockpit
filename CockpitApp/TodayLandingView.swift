@@ -5,9 +5,11 @@ struct TodayLandingView: View {
   @Bindable var model: TodayModel
   @Bindable var queueModel: TodayReadingQueueModel
   @Bindable var tailModel: EditionModel
+  @Bindable var morningPrep: MorningPrep
   @Bindable var dailyLinkModel: DailyLinkModel
   let readerNamespace: Namespace.ID
   let openFeeds: () -> Void
+  let openSettings: () -> Void
   let readableContentPieceIDs: Set<ContentPiece.ID>
   let didChangeQueue: @MainActor () async -> Void
   let openQuickLook: (ContentPiece.ID) -> Void
@@ -70,6 +72,20 @@ private extension TodayLandingView {
         .foregroundStyle(Theme.ink)
         .lineLimit(1)
         .minimumScaleFactor(0.7)
+
+      if let status = morningPrep.todayStatus(at: date) {
+        let line = status.line()
+        ViewThatFits(in: .horizontal) {
+          Button(line, action: openSettings)
+            .font(Theme.meta)
+            .foregroundStyle(Theme.inkSecondary)
+            .lineLimit(1)
+            .fixedSize()
+            .buttonStyle(.plain)
+            .accessibilityLabel(line)
+          EmptyView()
+        }
+      }
 
       Text("\(date.formatted(.dateTime.month(.wide).day())) · \(queueModel.rows.count) to process")
         .font(Theme.byline)

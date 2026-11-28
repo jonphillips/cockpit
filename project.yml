@@ -63,7 +63,9 @@ targets:
               - com.googleusercontent.apps.305782585157-80plee5p6augqkg5l5ps60bft7fe8r29
         GIDClientID: 305782585157-80plee5p6augqkg5l5ps60bft7fe8r29.apps.googleusercontent.com
         UILaunchScreen: {}
-        UIBackgroundModes: [remote-notification]
+        UIBackgroundModes: [remote-notification, fetch]
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.jonphillips.cockpit.morning-prep
         UIAppFonts:
           - Newsreader-Regular.ttf
           - Newsreader-Italic.ttf

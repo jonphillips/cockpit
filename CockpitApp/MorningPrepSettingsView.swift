@@ -9,6 +9,10 @@ struct MorningPrepSettingsView: View {
       Section {
         Text("Set up a personal automation in Shortcuts: choose Time of Day, set 6:50 AM, add Prepare Cockpit, and turn off Ask Before Running.")
           .font(.callout)
+        if let failure = model.scheduleFailure {
+          Text("Background refresh couldn't be scheduled: \(failure)")
+            .foregroundStyle(.secondary)
+        }
       } header: {
         Text("Set up the automation")
       }

@@ -11,10 +11,14 @@ public final class MorningPrep {
   public internal(set) var records: [MorningPrepRun]
   public internal(set) var days: [MorningPrepDay]
   public internal(set) var isRunning = false
+  public internal(set) var scheduleFailure: String?
 
   let client: MorningPrepClient
+  let scheduler: MorningPrepSchedulerClient
+  let scheduleStore: MorningPrepScheduleStore
   let store: MorningPrepRecordStore
   let now: @Sendable () -> Date
+  let calendar: @Sendable () -> Calendar
   let monotonicNow: @Sendable () -> ContinuousClock.Instant
   var activeTask: Task<MorningPrepRun, Never>?
   var activeTrigger: MorningPrepTrigger?
@@ -23,14 +27,22 @@ public final class MorningPrep {
   var followUp: (joinedID: UUID, task: Task<MorningPrepRun, Never>)?
 
   public init(
-    client: MorningPrepClient, store: MorningPrepRecordStore = .live(),
+    client: MorningPrepClient,
+    scheduler: MorningPrepSchedulerClient = .init(schedule: { _ in }),
+    scheduleStore: MorningPrepScheduleStore = .live(),
+    store: MorningPrepRecordStore = .live(),
     now: @escaping @Sendable () -> Date = Date.init,
+    calendar: @escaping @Sendable () -> Calendar = { .current },
     monotonicNow: @escaping @Sendable () -> ContinuousClock.Instant = { ContinuousClock().now }
   ) {
     self.client = client
+    self.scheduler = scheduler
+    self.scheduleStore = scheduleStore
     self.store = store
     self.now = now
+    self.calendar = calendar
     self.monotonicNow = monotonicNow
+    self.scheduleFailure = scheduleStore.failure
     self.records = store.records.map { run in
       guard run.state == .running else { return run }
       var interrupted = run
@@ -42,6 +54,7 @@ public final class MorningPrep {
   }
 
   public func run(_ request: MorningPrepRequest) async -> MorningPrepRun {
+    if request.trigger == .backgroundRefresh { await scheduleNextRefresh() }
     if let activeTask, let activeID {
       let joinedID = activeID
       let joinedTrigger = activeTrigger
@@ -56,6 +69,9 @@ public final class MorningPrep {
         return await start(request, following: joinedID)
       }
       return existing
+    }
+    if request.trigger == .backgroundRefresh, let ready = readyUnattendedRun(at: now()) {
+      return ready
     }
     return await start(request)
   }
@@ -73,7 +89,7 @@ public final class MorningPrep {
         calendar.isDate(end, inSameDayAs: day.firstOpenAt), end < day.firstOpenAt,
         calendar.component(.hour, from: end) >= 4,
         run.mail == .skippedFresh || ifSynced(run.mail),
-        case let .completed(succeeded, _)? = run.feeds, succeeded > 0
+        case .completed(_, _)? = run.feeds
       else { return false }
       return true
     }
