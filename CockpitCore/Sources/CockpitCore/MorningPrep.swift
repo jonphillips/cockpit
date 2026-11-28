@@ -70,8 +70,15 @@ public final class MorningPrep {
       }
       return existing
     }
-    if request.trigger == .backgroundRefresh, let ready = readyUnattendedRun(at: now()) {
-      return ready
+    if request.trigger == .backgroundRefresh, readyUnattendedRun(at: now()) != nil {
+      let startedAt = now()
+      let alreadyReady = MorningPrepRun(
+        trigger: .backgroundRefresh, startedAt: startedAt, endedAt: startedAt,
+        state: .finished, outcome: .alreadyReady)
+      store.save(alreadyReady, now: startedAt)
+      records = store.records
+      days = store.days
+      return alreadyReady
     }
     return await start(request)
   }
@@ -82,22 +89,12 @@ public final class MorningPrep {
   }
 
   public func readyRun(on day: MorningPrepDay) -> MorningPrepRun? {
-    records.first { run in
-      var calendar = Calendar(identifier: .gregorian)
-      calendar.timeZone = TimeZone(identifier: day.timeZoneID) ?? .current
-      guard run.trigger.isUnattended, run.state == .finished, let end = run.endedAt,
-        calendar.isDate(end, inSameDayAs: day.firstOpenAt), end < day.firstOpenAt,
-        calendar.component(.hour, from: end) >= 4,
-        run.mail == .skippedFresh || ifSynced(run.mail),
-        case .completed(_, _)? = run.feeds
-      else { return false }
-      return true
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: day.timeZoneID) ?? .current
+    return records.first { run in
+      isReadyCandidate(run, on: day.firstOpenAt, calendar: calendar)
+        && (run.endedAt.map { $0 < day.firstOpenAt } ?? false)
     }
-  }
-
-  private func ifSynced(_ mail: MorningPrepMailResult?) -> Bool {
-    if case .synced = mail { return true }
-    return false
   }
 
 }

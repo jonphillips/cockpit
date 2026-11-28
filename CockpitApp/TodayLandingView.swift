@@ -72,6 +72,13 @@ private extension TodayLandingView {
         .foregroundStyle(Theme.ink)
         .lineLimit(1)
         .minimumScaleFactor(0.7)
+        .layoutPriority(1)
+
+      Text("\(date.formatted(.dateTime.month(.wide).day())) · \(queueModel.rows.count) to process")
+        .font(Theme.byline)
+        .foregroundStyle(Theme.inkSecondary)
+        .lineLimit(1)
+        .layoutPriority(1)
 
       if let status = morningPrep.todayStatus(at: date) {
         let line = status.line()
@@ -82,15 +89,9 @@ private extension TodayLandingView {
             .lineLimit(1)
             .fixedSize()
             .buttonStyle(.plain)
-            .accessibilityLabel(line)
           EmptyView()
         }
       }
-
-      Text("\(date.formatted(.dateTime.month(.wide).day())) · \(queueModel.rows.count) to process")
-        .font(Theme.byline)
-        .foregroundStyle(Theme.inkSecondary)
-        .lineLimit(1)
 
       Spacer(minLength: 8)
 

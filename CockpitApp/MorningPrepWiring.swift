@@ -60,9 +60,7 @@ enum MorningPrepWiring {
       }
     )
     let scheduler = MorningPrepSchedulerClient { date in
-      let request = BGAppRefreshTaskRequest(identifier: backgroundTaskIdentifier)
-      request.earliestBeginDate = date
-      try await BGTaskScheduler.shared.submitTaskRequest(request)
+      try await scheduleBackgroundRefresh(at: date)
     }
     return MorningPrep(client: client, scheduler: scheduler)
   }
@@ -71,4 +69,31 @@ enum MorningPrepWiring {
     _ = await shared.run(.init(trigger: .backgroundRefresh, timeBudget: MorningPrep.unattendedBudget))
   }
 
+  private static func scheduleBackgroundRefresh(at date: Date) async throws {
+    let request = BGAppRefreshTaskRequest(identifier: backgroundTaskIdentifier)
+    request.earliestBeginDate = date
+    do {
+      try await BGTaskScheduler.shared.submitTaskRequest(request)
+    } catch let error as BGTaskScheduler.Error {
+      switch error.code {
+      case .unavailable:
+        throw MorningPrepSchedulerMessage(
+          "Background App Refresh is off for Cockpit, or iPadOS can't schedule it right now.")
+      case .tooManyPendingTaskRequests:
+        throw MorningPrepSchedulerMessage("Too many Cockpit background refresh requests are pending.")
+      case .notPermitted:
+        throw MorningPrepSchedulerMessage(
+          "Cockpit's background refresh identifier or mode is missing from Info.plist.")
+      default:
+        throw error
+      }
+    }
+  }
+}
+
+private struct MorningPrepSchedulerMessage: LocalizedError {
+  let message: String
+  var errorDescription: String? { message }
+
+  init(_ message: String) { self.message = message }
 }

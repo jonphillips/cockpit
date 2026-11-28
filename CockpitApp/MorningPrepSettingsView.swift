@@ -23,9 +23,13 @@ struct MorningPrepSettingsView: View {
         } else {
           ForEach(model.records) { run in
             DisclosureGroup {
-              LabeledContent("Mail", value: mailDescription(run.mail))
-              LabeledContent("Feeds", value: feedsDescription(run.feeds))
-              LabeledContent("Offer summaries", value: summariesDescription(run.summaries))
+              if run.outcome == .alreadyReady {
+                LabeledContent("Result", value: "Already ready")
+              } else {
+                LabeledContent("Mail", value: mailDescription(run.mail))
+                LabeledContent("Feeds", value: feedsDescription(run.feeds))
+                LabeledContent("Offer summaries", value: summariesDescription(run.summaries))
+              }
             } label: {
               VStack(alignment: .leading, spacing: 3) {
                 HStack {
@@ -47,6 +51,7 @@ struct MorningPrepSettingsView: View {
   }
 
   private func status(for run: MorningPrepRun) -> String {
+    if run.outcome == .alreadyReady { return "Already ready" }
     guard let day = model.days.first(where: { value in
       var calendar = Calendar(identifier: .gregorian)
       calendar.timeZone = TimeZone(identifier: value.timeZoneID) ?? .current

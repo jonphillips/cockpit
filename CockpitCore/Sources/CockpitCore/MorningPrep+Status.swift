@@ -38,18 +38,20 @@ extension MorningPrep {
 
   func readyUnattendedRun(at date: Date) -> MorningPrepRun? {
     let localCalendar = calendar()
-    guard let fourAM = localCalendar.date(bySettingHour: 4, minute: 0, second: 0, of: date) else {
-      return nil
-    }
     return records.first { run in
-      guard run.trigger.isUnattended, run.state == .finished,
-        let endedAt = run.endedAt, endedAt >= fourAM,
-        localCalendar.isDate(endedAt, inSameDayAs: date),
-        run.mail == .skippedFresh || isSynced(run.mail),
-        case .completed(_, _)? = run.feeds
-      else { return false }
-      return true
+      isReadyCandidate(run, on: date, calendar: localCalendar)
     }
+  }
+
+  func isReadyCandidate(_ run: MorningPrepRun, on date: Date, calendar: Calendar) -> Bool {
+    guard run.outcome == nil, run.trigger.isUnattended, run.state == .finished,
+      let endedAt = run.endedAt,
+      calendar.isDate(endedAt, inSameDayAs: date),
+      calendar.component(.hour, from: endedAt) >= 4,
+      run.mail == .skippedFresh || isSynced(run.mail),
+      case .completed(_, _)? = run.feeds
+    else { return false }
+    return true
   }
 
   private func isSynced(_ result: MorningPrepMailResult?) -> Bool {

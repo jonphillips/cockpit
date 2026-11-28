@@ -87,19 +87,21 @@ public enum MorningPrepSummariesResult: Codable, Equatable, Sendable {
 
 public struct MorningPrepRun: Codable, Equatable, Identifiable, Sendable {
   public enum State: String, Codable, Sendable { case running, finished, interrupted }
+  public enum Outcome: String, Codable, Sendable { case alreadyReady }
 
   public let id: UUID
   public let trigger: MorningPrepTrigger
   public let startedAt: Date
   public var endedAt: Date?
   public var state: State
+  public var outcome: Outcome?
   public var mail: MorningPrepMailResult?
   public var feeds: MorningPrepFeedsResult?
   public var summaries: MorningPrepSummariesResult?
 
   public init(
     id: UUID = UUID(), trigger: MorningPrepTrigger, startedAt: Date,
-    endedAt: Date? = nil, state: State = .running,
+    endedAt: Date? = nil, state: State = .running, outcome: Outcome? = nil,
     mail: MorningPrepMailResult? = nil, feeds: MorningPrepFeedsResult? = nil,
     summaries: MorningPrepSummariesResult? = nil
   ) {
@@ -108,6 +110,7 @@ public struct MorningPrepRun: Codable, Equatable, Identifiable, Sendable {
     self.startedAt = startedAt
     self.endedAt = endedAt
     self.state = state
+    self.outcome = outcome
     self.mail = mail
     self.feeds = feeds
     self.summaries = summaries

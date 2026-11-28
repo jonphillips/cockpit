@@ -259,12 +259,17 @@ struct MorningPrepTests {
   func nextRefreshDate() {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = TimeZone(identifier: "America/New_York")!
+    let beforeFallBackDay = calendar.date(from: DateComponents(year: 2026, month: 10, day: 31, hour: 5, minute: 31))!
+    let lateEvening = calendar.date(from: DateComponents(year: 2026, month: 10, day: 31, hour: 23, minute: 50))!
+    let fallBackNextMorning = calendar.date(from: DateComponents(year: 2026, month: 11, day: 1, hour: 5, minute: 30))!
     let beforeBoundary = calendar.date(from: DateComponents(year: 2026, month: 11, day: 1, hour: 5, minute: 29))!
     let afterBoundary = calendar.date(from: DateComponents(year: 2026, month: 11, day: 1, hour: 5, minute: 31))!
     let nextDay = calendar.date(from: DateComponents(year: 2026, month: 11, day: 2, hour: 5, minute: 30))!
     let springBeforeBoundary = calendar.date(from: DateComponents(year: 2026, month: 3, day: 7, hour: 5, minute: 31))!
     let springNextDay = calendar.date(from: DateComponents(year: 2026, month: 3, day: 8, hour: 5, minute: 30))!
 
+    #expect(MorningPrepSchedule.nextRefresh(after: beforeFallBackDay, calendar: calendar) == fallBackNextMorning)
+    #expect(MorningPrepSchedule.nextRefresh(after: lateEvening, calendar: calendar) == fallBackNextMorning)
     #expect(MorningPrepSchedule.nextRefresh(after: beforeBoundary, calendar: calendar) ==
       calendar.date(from: DateComponents(year: 2026, month: 11, day: 1, hour: 5, minute: 30)))
     #expect(MorningPrepSchedule.nextRefresh(after: afterBoundary, calendar: calendar) == nextDay)
@@ -299,7 +304,7 @@ struct MorningPrepTests {
   }
 
   @Test("A background refresh stops when today's unattended run is already ready")
-  func alreadyReadyBackgroundRefresh() async {
+  func alreadyReadyBackgroundRefresh() async throws {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = TimeZone(identifier: "America/New_York")!
     let testCalendar = calendar
@@ -312,6 +317,7 @@ struct MorningPrepTests {
     ready.endedAt = now.addingTimeInterval(-540)
     ready.state = .finished
     store.save(ready, now: now)
+    store.recordFirstOpen(at: now, calendar: testCalendar)
     let workCalls = Mutex(0)
     let client = MorningPrepClient(
       lastMailSync: { nil }, syncMail: { workCalls.withLock { $0 += 1 }; return 0 },
@@ -322,9 +328,92 @@ struct MorningPrepTests {
 
     let result = await model.run(.init(trigger: .backgroundRefresh))
 
-    #expect(result.id == ready.id)
-    #expect(model.records.count == 1)
+    #expect(result.trigger == .backgroundRefresh)
+    #expect(result.outcome == .alreadyReady)
+    #expect(result.state == .finished)
+    #expect(result.endedAt == now)
+    #expect(model.records.count == 2)
     #expect(workCalls.withLock { $0 } == 0)
+    #expect(model.readyRun(on: model.days[0])?.id == ready.id)
+    #expect(model.todayStatus(at: now) == .ready(ready.endedAt!))
+
+    let encodedMarker = try #require(try? JSONEncoder().encode(result))
+    var oldRecord = try #require(try? JSONSerialization.jsonObject(with: encodedMarker) as? [String: Any])
+    oldRecord.removeValue(forKey: "outcome")
+    let oldData = try #require(try? JSONSerialization.data(withJSONObject: oldRecord))
+    let decoded = try #require(try? JSONDecoder().decode(MorningPrepRun.self, from: oldData))
+    #expect(decoded.outcome == nil)
+  }
+
+  @Test("Today status derives every state from today's run records")
+  func todayStatusDerivation() async {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+    let testCalendar = calendar
+    let now = calendar.date(from: DateComponents(year: 2026, month: 11, day: 27, hour: 7))!
+    let updateEnd = now.addingTimeInterval(4 * 60)
+    let emptyClient = MorningPrepClient(
+      lastMailSync: { nil }, syncMail: { 2 }, lastFeedPoll: { nil },
+      pollFeeds: { _, _ in (7, 9) }, processOffers: { _ in (0, 0) })
+
+    let emptyStore = MorningPrepRecordStore.inMemory()
+    let oldRun = storedRun(
+      trigger: .open, startedAt: now.addingTimeInterval(-24 * 60 * 60),
+      endedAt: now.addingTimeInterval(-24 * 60 * 60 + 60), mail: .synced(1),
+      feeds: .completed(succeeded: 1, attempted: 1))
+    emptyStore.save(oldRun, now: now)
+    let noRunToday = MorningPrep(client: emptyClient, store: emptyStore, now: { now }, calendar: { testCalendar })
+    #expect(noRunToday.todayStatus(at: now) == nil)
+
+    let readyStore = MorningPrepRecordStore.inMemory()
+    readyStore.recordFirstOpen(at: now, calendar: testCalendar)
+    let ready = storedRun(
+      trigger: .automation, startedAt: now.addingTimeInterval(-10 * 60),
+      endedAt: now.addingTimeInterval(-8 * 60), mail: .synced(2),
+      feeds: .completed(succeeded: 7, attempted: 9))
+    readyStore.save(ready, now: now)
+    let readyModel = MorningPrep(client: emptyClient, store: readyStore, now: { now }, calendar: { testCalendar })
+    #expect(readyModel.todayStatus(at: now) == .ready(ready.endedAt!))
+
+    let updatedStore = MorningPrepRecordStore.inMemory()
+    updatedStore.recordFirstOpen(at: now, calendar: testCalendar)
+    updatedStore.save(storedRun(
+      trigger: .open, startedAt: now, endedAt: updateEnd, mail: .synced(2),
+      feeds: .completed(succeeded: 9, attempted: 9)), now: updateEnd)
+    let updatedModel = MorningPrep(client: emptyClient, store: updatedStore, now: { updateEnd }, calendar: { testCalendar })
+    #expect(updatedModel.todayStatus(at: now) == .updated(updateEnd))
+
+    let interruptedStore = MorningPrepRecordStore.inMemory()
+    interruptedStore.save(storedRun(
+      trigger: .backgroundRefresh, startedAt: now, endedAt: nil, mail: nil, feeds: nil,
+      state: .interrupted), now: now)
+    let interruptedModel = MorningPrep(client: emptyClient, store: interruptedStore, now: { now }, calendar: { testCalendar })
+    #expect(interruptedModel.todayStatus(at: now) == .problem("Update didn't finish"))
+
+    let unauthorizedStore = MorningPrepRecordStore.inMemory()
+    unauthorizedStore.save(storedRun(
+      trigger: .open, startedAt: now, endedAt: updateEnd, mail: .notAuthorized,
+      feeds: .completed(succeeded: 9, attempted: 9)), now: updateEnd)
+    let unauthorizedModel = MorningPrep(client: emptyClient, store: unauthorizedStore, now: { updateEnd }, calendar: { testCalendar })
+    #expect(unauthorizedModel.todayStatus(at: now) == .problem("Mail not updated: sign in to Gmail"))
+
+    let failedFeedsStore = MorningPrepRecordStore.inMemory()
+    failedFeedsStore.save(storedRun(
+      trigger: .open, startedAt: now, endedAt: updateEnd, mail: .synced(2),
+      feeds: .completed(succeeded: 7, attempted: 9)), now: updateEnd)
+    let failedFeedsModel = MorningPrep(client: emptyClient, store: failedFeedsStore, now: { updateEnd }, calendar: { testCalendar })
+    #expect(failedFeedsModel.todayStatus(at: now) == .problem("2 of 9 feeds didn't load"))
+
+    let gate = AsyncGate()
+    let runningClient = MorningPrepClient(
+      lastMailSync: { nil }, syncMail: { 2 }, lastFeedPoll: { nil },
+      pollFeeds: { _, _ in (9, 9) }, processOffers: { _ in await gate.pause(); return (0, 0) })
+    let runningModel = MorningPrep(client: runningClient, store: .inMemory(), now: { now }, calendar: { testCalendar })
+    let runningTask = Task { await runningModel.run(.init(trigger: .open)) }
+    await gate.waitUntilEntered()
+    #expect(runningModel.todayStatus(at: now) == .running)
+    await gate.release()
+    _ = await runningTask.value
   }
 
   @Test("Today status text covers ready, running, updated, and problems")
@@ -337,6 +426,17 @@ struct MorningPrepTests {
     #expect(MorningPrepTodayStatus.ready(date).line(locale: locale) == "Ready at \(time)")
     #expect(MorningPrepTodayStatus.updated(date).line(locale: locale) == "Updated at \(time)")
     #expect(MorningPrepTodayStatus.problem("Mail not updated: sign in to Gmail").line() == "Mail not updated: sign in to Gmail")
+  }
+
+  private func storedRun(
+    trigger: MorningPrepTrigger, startedAt: Date, endedAt: Date?,
+    mail: MorningPrepMailResult?, feeds: MorningPrepFeedsResult?,
+    state: MorningPrepRun.State = .finished
+  ) -> MorningPrepRun {
+    MorningPrepRun(
+      trigger: trigger, startedAt: startedAt, endedAt: endedAt,
+      state: state, mail: mail, feeds: feeds,
+      summaries: endedAt == nil ? nil : .completed(done: 0, waiting: 0))
   }
 }
 
