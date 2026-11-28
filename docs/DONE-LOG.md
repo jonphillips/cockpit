@@ -8,8 +8,8 @@ History before 2026-09-29 lives in the milestone ledgers (`docs/milestones/`), t
 
 ## 2026-11-27 — Morning prep S-p2: backup trigger and Today status (`effort/morning-prep-s-p2`)
 
-- **Result:** Added the 5:30 local app-refresh backup, local refusal reporting, and the status line on Today. Ready now follows the brief’s attempted-feed rule, including when feed requests fail.
-- **Verification:** Ran against 58b5b50 (pushed to origin/effort/morning-prep-s-p2). Passed: xcodebuild -scheme Cockpit -destination generic/platform=iOS -skipMacroValidation CODE_SIGNING_ALLOWED=NO build; swiftlint lint --strict --no-cache; swift test --package-path CockpitCore. Failed: none.
+- **Result:** Added the 5:30 local app-refresh backup, explicit “Already ready” records, actionable scheduler refusal messages, and the status line on Today. Ready follows the brief’s attempted-feed rule, including when feed requests fail.
+- **Verification:** Ran against 2b5e3e5 (pushed to origin/effort/morning-prep-s-p2). Passed: xcodebuild -scheme Cockpit -destination generic/platform=iOS -skipMacroValidation CODE_SIGNING_ALLOWED=NO build; swiftlint lint --strict --no-cache; swift test --package-path CockpitCore; swift test --package-path CockpitCore --filter MorningPrepTests. Failed: none.
 - **Owed:** morning-prep, S-p2's device gate, in [device-passes.md](device-passes.md).
 
 ## 2026-11-27 — Morning prep: shared refresh and Shortcuts intent (`effort/morning-prep-s-p1`)
