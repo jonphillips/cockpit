@@ -1474,7 +1474,7 @@ widen ADR-0003 D2, so it needs its own decision.
 **Still out.** Notifications. Silent push. Composing the tail early. `BGProcessingTask`. Any Gmail write without Jon there.
 
 **Amends.** §13, ADR-0001 D1, ADR-0002 D7, `ARCHITECTURE.md` § Execution model, `IMPLEMENTATION-CONTRACT.md` §3,
-`PRODUCT-MODEL.md` §4, and `CAPABILITY-REALITY-MAP.md` §13. Brief: `docs/efforts/morning-prep.md`.
+`PRODUCT-MODEL.md` §4, and `CAPABILITY-REALITY-MAP.md` §13. Brief: `docs/efforts/archive/morning-prep.md`.
 
 ---
 

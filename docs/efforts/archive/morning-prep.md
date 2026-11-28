@@ -3,8 +3,8 @@
 Status: Ready
 Summary: One refresh operation gets mail and feeds ready before Jon opens Cockpit, started by a Shortcuts automation at about 6:50, backed up by iPadOS background refresh, and caught up visibly on open when neither ran.
 
-Implements: [DECISIONS.md](../DECISIONS.md) §35, [ADR-0001](../ADR-0001-PERSISTENCE-AND-EXECUTION.md) D1 and
-[ADR-0002](../ADR-0002-GMAIL-INTEGRATION-AND-DISPOSITION.md) D7 as amended 2026-11-25. There's no change to the
+Implements: [DECISIONS.md](../../DECISIONS.md) §35, [ADR-0001](../../ADR-0001-PERSISTENCE-AND-EXECUTION.md) D1 and
+[ADR-0002](../../ADR-0002-GMAIL-INTEGRATION-AND-DISPOSITION.md) D7 as amended 2026-11-25. There's no change to the
 persisted schema, CloudKit, or Edition. If a slice seems to need one, stop and raise a `question-for-architect`.
 
 **The promise:** usually ready by 7; when it isn't, Cockpit catches up on open and says so. iPadOS gives an app no
@@ -127,7 +127,7 @@ run's step results under it, and one plain line on setting up the automation. Th
 
 ### Done when
 
-Tests, lint, and the unsigned build pass per [verification.md](../verification.md). Closeout per ADR-0005 D16, with
+Tests, lint, and the unsigned build pass per [verification.md](../../verification.md). Closeout per ADR-0005 D16, with
 `--keep-brief`, and a gate line for the S-p1 device check below.
 
 ### Jon's device check for S-p1
