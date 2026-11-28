@@ -33,7 +33,6 @@ public struct APNsAlertSender: Sendable {
     request.setValue("alert", forHTTPHeaderField: "apns-push-type")
     request.setValue(passive ? "5" : "10", forHTTPHeaderField: "apns-priority")
     request.setValue("com.jonphillips.cockpit", forHTTPHeaderField: "apns-topic")
-    request.setValue(passive ? "passive" : "time-sensitive", forHTTPHeaderField: "apns-interruption-level")
     if let collapseID = alert.collapseID { request.setValue(collapseID, forHTTPHeaderField: "apns-collapse-id") }
     request.httpBody = try Self.payload(alert: alert, passive: passive)
     let (data, response) = try await URLSession.shared.data(for: request)
