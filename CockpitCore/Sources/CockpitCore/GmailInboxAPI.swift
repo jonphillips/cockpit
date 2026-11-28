@@ -12,9 +12,8 @@ public struct GmailInboxAPI: Sendable {
     return profile.emailAddress.lowercased()
   }
 
-  /// The watched-sender route's narrow read: one Gmail `from:` search followed by full message reads.
-  /// Gmail search is deliberately loose; callers must compare the parsed From address exactly.
-  public func messages(from sender: String, after date: Date) async throws -> [GmailInboxMessage] {
+  /// Lists message IDs only. The watcher drops known IDs before paying for a `messages.get`.
+  public func messageIDs(from sender: String, after date: Date) async throws -> [String] {
     // Rounding upward keeps Gmail's whole-second `after:` query from including mail received before the baseline.
     let epochSeconds = Int(date.timeIntervalSince1970.rounded(.up))
     let query = "from:\(sender) after:\(epochSeconds)"
@@ -30,10 +29,12 @@ public struct GmailInboxAPI: Sendable {
       ids.append(contentsOf: page.messages?.map(\.id) ?? [])
       pageToken = page.nextPageToken
     } while pageToken != nil
-    var messages: [GmailInboxMessage] = []
-    messages.reserveCapacity(ids.count)
-    for id in ids { messages.append(try await message(id: id)) }
-    return messages
+    return ids
+  }
+
+  /// Reads one complete message after the caller has excluded IDs already present in its ledger.
+  public func message(id: String) async throws -> GmailInboxMessage {
+    try await message(id: id, category: .primary)
   }
 
   /// Gmail bills each `messages.get` at 20 quota units against a 6,000 unit/user/minute ceiling.
@@ -234,7 +235,10 @@ extension GmailInboxAPI {
       bodyHTML: response.payload.text(matching: "text/html"),
       bodyPlainText: response.payload.text(matching: "text/plain"),
       labelIDs: response.labelIDs,
-      inboxCategory: category
+      inboxCategory: category,
+      internalDate: response.internalDate.flatMap { milliseconds in
+        Double(milliseconds).map { Date(timeIntervalSince1970: $0 / 1_000) }
+      }
     )
   }
 

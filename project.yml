@@ -48,7 +48,7 @@ targets:
     entitlements:
       path: CockpitApp/Cockpit.entitlements
       properties:
-        aps-environment: $(OFFER_WATCH_APNS_ENTITLEMENT)
+        aps-environment: development
         com.apple.security.application-groups: [group.com.jonphillips.cockpit-yeschef]
         com.apple.developer.icloud-container-identifiers: [iCloud.com.jonphillips.cockpit]
         com.apple.developer.icloud-services: [CloudKit]
@@ -103,10 +103,8 @@ targets:
       configs:
         Debug:
           OFFER_WATCH_APNS_ENVIRONMENT: sandbox
-          OFFER_WATCH_APNS_ENTITLEMENT: development
         Release:
           OFFER_WATCH_APNS_ENVIRONMENT: production
-          OFFER_WATCH_APNS_ENTITLEMENT: production
   CockpitTests:
     type: bundle.unit-test
     platform: iOS

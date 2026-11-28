@@ -16,15 +16,20 @@ stored in the login keychain.
 4. Run `offerwatch pair <device-name> <device-token> <production|sandbox>` for each Cockpit device.
    `offerwatch pairs` lists pair names and environments only.
 5. Create `~/Library/Mobile Documents/com~apple~CloudDocs/Offer Watch/watched.txt`, one sender address
-   per line. Access to that folder from a LaunchAgent has not yet been verified on Jon's Mac. The
-   watcher mirrors readable contents to `~/Library/Application Support/OfferWatch/watched.txt`; if
-   macOS denies access, it uses the last-good local copy and sends a status report. No Full Disk
-   Access grant is required; macOS may ask the logged-in user to allow file access on first read.
+   per line. Access to that folder from a LaunchAgent and whether macOS requires a privacy grant
+   are unverified until the live run. Resolve any macOS access prompt based on the observed request.
+   The watcher mirrors readable contents to
+   `~/Library/Application Support/OfferWatch/watched.txt`; if iCloud Drive cannot be read, it uses
+   the last-good local copy and sends a status report. Full Disk Access has not been tested.
 6. Load it with `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jonphillips.offerwatch.plist`.
    Inspect `~/Library/Logs/OfferWatch.error.log`; stop it with `launchctl bootout gui/$(id -u)/com.jonphillips.offerwatch`.
+   After fixing a terminal error, restart it with `launchctl kickstart gui/$(id -u)/com.jonphillips.offerwatch`.
 
-After a restart, the LaunchAgent starts when Jon logs in. FileVault therefore requires a manual
-unlock after restart. The watcher searches watched addresses every two minutes, validates the exact
+Choose one restart posture: keep FileVault on and unlock the Mac manually after a restart, or turn
+FileVault off and enable automatic login. Rebuilding the executable changes its ad-hoc signature;
+macOS may ask to allow the new binary to access its login-keychain items again; choose Always Allow
+for the Offer Watch keychain items if prompted. After a restart, the
+LaunchAgent starts when Jon logs in. The watcher searches watched addresses every two minutes, validates the exact
 From address and DKIM/SPF authentication result, then sends the subject as a short time-sensitive
 alert. It stores message IDs and outcomes locally for 90 days. A send immediately before a crash can
 repeat after restart. No mail body is sent in the push payload.

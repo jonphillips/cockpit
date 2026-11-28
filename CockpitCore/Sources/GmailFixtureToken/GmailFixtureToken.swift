@@ -15,8 +15,10 @@ struct GmailFixtureToken {
       arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
     } ?? "https://www.googleapis.com/auth/gmail.readonly"
     do {
-      print(try await GmailDesktopAuthorization.accessToken(
-        clientFile: URL(fileURLWithPath: path), scope: scope))
+      let token = try await GmailDesktopAuthorization.accessToken(
+        clientFile: URL(fileURLWithPath: path), scope: scope,
+        log: { FileHandle.standardError.write(Data(($0 + "\n").utf8)) })
+      print(token.value)
     } catch {
       fputs("error: \(error.localizedDescription)\n", stderr)
       exit(1)

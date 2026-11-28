@@ -10,7 +10,7 @@
     <key>OFFERWATCH_TEAM_ID</key><string>APPLE_TEAM_ID</string>
   </dict>
   <key>RunAtLoad</key><true/>
-  <key>KeepAlive</key><true/>
+  <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
   <key>StandardOutPath</key><string>USER_HOME/Library/Logs/OfferWatch.log</string>
   <key>StandardErrorPath</key><string>USER_HOME/Library/Logs/OfferWatch.error.log</string>
 </dict>

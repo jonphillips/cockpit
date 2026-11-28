@@ -25,7 +25,7 @@ struct CockpitApp: App {
 
   var body: some Scene {
     WindowGroup {
-      CockpitRootView()
+      CockpitRootView(offerAlerts: appDelegate.offerAlertsModel)
         .onOpenURL { url in
           _ = GIDSignIn.sharedInstance.handle(url)
         }
@@ -38,13 +38,16 @@ struct CockpitApp: App {
 
 @MainActor
 final class CockpitAppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate {
+  let offerAlertsModel = OfferAlertsModel(
+    environment: Bundle.main.object(forInfoDictionaryKey: "OfferWatchAPNSEnvironment") as? String ?? "sandbox")
+
   func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
     let token = deviceToken.map { String(format: "%02x", $0) }.joined()
-    NotificationCenter.default.post(name: .offerWatchDeviceToken, object: token)
+    offerAlertsModel.didRegister(deviceToken: token)
   }
 
   func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-    NotificationCenter.default.post(name: .offerWatchRegistrationFailed, object: error.localizedDescription)
+    offerAlertsModel.didFailRegistration(error.localizedDescription)
   }
 
   func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
@@ -55,7 +58,7 @@ final class CockpitAppDelegate: NSObject, UIApplicationDelegate, @preconcurrency
   func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
     if response.notification.request.content.userInfo["kind"] as? String == "mail",
       let messageID = response.notification.request.content.userInfo["source"] as? String {
-      NotificationCenter.default.post(name: .offerWatchMessageTapped, object: messageID)
+      offerAlertsModel.notificationTapped(messageID: messageID)
     }
     completionHandler()
   }
@@ -65,14 +68,9 @@ final class CockpitAppDelegate: NSObject, UIApplicationDelegate, @preconcurrency
   }
 }
 
-private extension Notification.Name {
-  static let offerWatchDeviceToken = Notification.Name("offerWatchDeviceToken")
-  static let offerWatchRegistrationFailed = Notification.Name("offerWatchRegistrationFailed")
-  static let offerWatchMessageTapped = Notification.Name("offerWatchMessageTapped")
-}
-
 @MainActor
 private struct CockpitRootView: View {
+  let offerAlerts: OfferAlertsModel
   @State private var shellModel = ShellModel()
   @State private var followingModel = FollowingModel()
   @State private var editionModel = EditionModel()
@@ -83,11 +81,11 @@ private struct CockpitRootView: View {
   @State private var dailyLinkModel = DailyLinkModel()
   @State private var pendingFindModel = PendingFindListModel()
   @State private var morningPrep: MorningPrep
-  @State private var offerAlerts = OfferAlertsModel(environment: Bundle.main.object(forInfoDictionaryKey: "OfferWatchAPNSEnvironment") as? String ?? "sandbox")
   @State private var feedSelection: FeedsSelection? = .all
   @Environment(\.scenePhase) private var scenePhase
 
-  init() {
+  init(offerAlerts: OfferAlertsModel) {
+    self.offerAlerts = offerAlerts
     let morningPrep = MorningPrepWiring.shared
     let listedFeedsModel = ListedFeedsModel()
     let dispositionQueue = GmailDispositionQueue.shared
@@ -182,7 +180,7 @@ private struct CockpitRootView: View {
     .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
       Task { try? await listedFeedsModel.reload() }
     }
-    .offerWatchNotifications(model: offerAlerts, shellModel: shellModel)
+    .offerWatchRouting(model: offerAlerts, shellModel: shellModel)
   }
 
   @MainActor
@@ -193,17 +191,20 @@ private struct CockpitRootView: View {
   }
 }
 
+@MainActor
 private extension View {
-  func offerWatchNotifications(model: OfferAlertsModel, shellModel: ShellModel) -> some View {
-    onReceive(NotificationCenter.default.publisher(for: .offerWatchDeviceToken)) { note in
-      if let token = note.object as? String { model.didRegister(deviceToken: token) }
-    }
-    .onReceive(NotificationCenter.default.publisher(for: .offerWatchRegistrationFailed)) { note in
-      if let message = note.object as? String { model.didFailRegistration(message) }
-    }
-    .onReceive(NotificationCenter.default.publisher(for: .offerWatchMessageTapped)) { note in
-      guard let messageID = note.object as? String else { return }
+  func offerWatchRouting(model: OfferAlertsModel, shellModel: ShellModel) -> some View {
+    onChange(of: model.pendingMessageID) { _, messageID in
+      guard let messageID else { return }
       shellModel.pushSettings(.offerAlert(messageID: messageID))
+      model.clearPendingTap()
+    }
+    .task {
+      if let messageID = model.pendingMessageID,
+        !shellModel.settingsPath.contains(.offerAlert(messageID: messageID)) {
+        shellModel.pushSettings(.offerAlert(messageID: messageID))
+        model.clearPendingTap()
+      }
     }
   }
 }

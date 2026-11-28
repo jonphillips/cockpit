@@ -8,7 +8,6 @@ struct OfferAlertsSettingsView: View {
   @State private var copied = false
 
   var body: some View {
-    @Bindable var model = model
     List {
       Section {
         LabeledContent("APNs environment", value: model.environment.capitalized)
@@ -40,6 +39,15 @@ struct OfferAlertsSettingsView: View {
       }
     }
     .navigationTitle("Offer alerts")
+    .task {
+      let settings = await UNUserNotificationCenter.current().notificationSettings()
+      await model.authorizationDidChange(
+        authorized: settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional,
+        loadPersistedToken: { UserDefaults.standard.string(forKey: "offerWatch.deviceToken") },
+        registerForRemoteNotifications: {
+          await MainActor.run { UIApplication.shared.registerForRemoteNotifications() }
+        })
+    }
   }
 }
 
@@ -47,12 +55,10 @@ struct OfferAlertMessageView: View {
   let messageID: String
   let model: ShellModel
   let offerAlerts: OfferAlertsModel
-  @State private var foundContentPieceID: UUID?
-  @State private var didAttemptIngest = false
 
   var body: some View {
     Group {
-      if let foundContentPieceID {
+      if case let .found(foundContentPieceID) = offerAlerts.messageResolution {
         ContentUnavailableView {
           Label("Opening message", systemImage: "envelope.open")
         } description: {
@@ -63,30 +69,34 @@ struct OfferAlertMessageView: View {
           model.pushSettings(.reader(contentPieceID: foundContentPieceID))
         }
       } else {
-    ContentUnavailableView {
-      Label("Message not synced", systemImage: "envelope.badge")
-    } description: {
-      Text("This Gmail message is not available in Cockpit yet. Open it in Gmail, then return and retry after syncing.")
-    } actions: {
-      HStack {
-        Link("Open in Gmail", destination: URL(string: "https://mail.google.com/mail/u/0/#all/\(messageID)")!)
-        Button("Retry") { Task { await resolveMessage(ingestIfMissing: false) } }
+        switch offerAlerts.messageResolution {
+        case .resolving:
+          ProgressView("Finding message…").frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .idle, .absent:
+          ContentUnavailableView {
+            Label("Message not synced", systemImage: "envelope.badge")
+          } description: {
+            Text("This Gmail message is not available in Cockpit yet. Open it in Gmail, then retry after syncing.")
+          } actions: {
+            HStack {
+              if OfferAlertsModel.isValidMessageID(messageID),
+                let url = URL(string: "https://mail.google.com/mail/u/0/#all/\(messageID)") {
+                Link("Open in Gmail", destination: url)
+              }
+              Button("Retry") { Task { await resolve(retrySync: true) } }
+            }
+          }
+          .navigationTitle("Offer alert")
+        case .found:
+          EmptyView()
+        }
       }
     }
-    .navigationTitle("Offer alert")
-      }
-    }
-    .task { await resolveMessage(ingestIfMissing: true) }
+    .task { await resolve(retrySync: true) }
   }
 
-  private func resolveMessage(ingestIfMissing: Bool) async {
-    if let pieceID = await offerAlerts.contentPieceID(for: messageID) {
-      foundContentPieceID = pieceID
-      return
-    }
-    guard ingestIfMissing, !didAttemptIngest else { return }
-    didAttemptIngest = true
-    try? await MorningPrepWiring.syncMailOnce()
-    foundContentPieceID = await offerAlerts.contentPieceID(for: messageID)
+  private func resolve(retrySync: Bool) async {
+    await offerAlerts.resolveMessage(
+      messageID: messageID, syncMail: { try await MorningPrepWiring.syncMailOnce() }, retrySync: retrySync)
   }
 }
