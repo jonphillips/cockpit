@@ -48,10 +48,11 @@ targets:
     entitlements:
       path: CockpitApp/Cockpit.entitlements
       properties:
-        aps-environment: development
+        aps-environment: $(OFFER_WATCH_APNS_ENTITLEMENT)
         com.apple.security.application-groups: [group.com.jonphillips.cockpit-yeschef]
         com.apple.developer.icloud-container-identifiers: [iCloud.com.jonphillips.cockpit]
         com.apple.developer.icloud-services: [CloudKit]
+        com.apple.developer.usernotifications.time-sensitive: true
     info:
       path: CockpitApp/Info.plist
       properties:
@@ -62,6 +63,7 @@ targets:
           - CFBundleURLSchemes:
               - com.googleusercontent.apps.305782585157-80plee5p6augqkg5l5ps60bft7fe8r29
         GIDClientID: 305782585157-80plee5p6augqkg5l5ps60bft7fe8r29.apps.googleusercontent.com
+        OfferWatchAPNSEnvironment: $(OFFER_WATCH_APNS_ENVIRONMENT)
         UILaunchScreen: {}
         UIBackgroundModes: [remote-notification, fetch]
         BGTaskSchedulerPermittedIdentifiers:
@@ -98,6 +100,13 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.jonphillips.cockpit
         CODE_SIGN_ENTITLEMENTS: CockpitApp/Cockpit.entitlements
         TARGETED_DEVICE_FAMILY: "2"
+      configs:
+        Debug:
+          OFFER_WATCH_APNS_ENVIRONMENT: sandbox
+          OFFER_WATCH_APNS_ENTITLEMENT: development
+        Release:
+          OFFER_WATCH_APNS_ENVIRONMENT: production
+          OFFER_WATCH_APNS_ENTITLEMENT: production
   CockpitTests:
     type: bundle.unit-test
     platform: iOS

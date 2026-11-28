@@ -1,8 +1,8 @@
 # Development tools
 
-Both tools below are one-time, read-only development executables. Neither is linked by `CockpitApp`
-or `CockpitCore`; their output is test data only. Gmail access is always read-only (`GET` requests
-and the `gmail.readonly` scope); no message is ever archived, trashed, or modified.
+The fixture harvester and token helper are one-time, read-only development executables. Offer Watch
+is a separate, long-running read-only Mac client. Gmail access uses `GET` requests and the
+`gmail.readonly` scope; no message is ever archived, trashed, or modified.
 
 The harvest runs as a preflight (`discover`) followed by the body-bearing pull (`export`), so the
 sender allowlist is confirmed before any message body is written to disk.
@@ -26,6 +26,13 @@ export GMAIL_ACCESS_TOKEN=$(swift run --package-path CockpitCore \
 
 Access tokens last about an hour. If `discover`/`export` fails with HTTP 401, re-run the command
 above to mint a fresh one.
+
+## Offer Watch — `offerwatch`
+
+The personal watched-sender client runs as a login LaunchAgent. See
+[`offer-watch/SETUP.md`](offer-watch/SETUP.md) for Release build, OAuth, APNs pairing, list location,
+and start/stop instructions. Its credentials and alert ledger stay in the Mac's login keychain and
+Application Support; it is not linked by the iOS app.
 
 ## 1. Preflight — `JudgmentFixtureHarvest discover`
 

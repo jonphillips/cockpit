@@ -8,6 +8,7 @@ struct SettingsView: View {
   let pendingFindModel: PendingFindListModel
   let dailyLinkModel: DailyLinkModel
   let morningPrep: MorningPrep
+  let offerAlerts: OfferAlertsModel
   @State private var gmailAuthorizationProbe = GmailAuthorizationProbe()
   @State private var dispositionPolicyModel = GmailDispositionPolicyModel()
 
@@ -30,6 +31,12 @@ struct SettingsView: View {
           }
           NavigationLink(value: SettingsRoute.subfeedRouting) {
             Label("Sub-feed routing", systemImage: "arrow.triangle.branch")
+          }
+        }
+
+        Section {
+          NavigationLink(value: SettingsRoute.offerAlerts) {
+            Label("Offer alerts", systemImage: "bell.badge")
           }
         }
 
@@ -102,6 +109,10 @@ struct SettingsView: View {
           GmailAuthorizationProbeView(probe: gmailAuthorizationProbe, morningPrep: morningPrep)
         case .morningPrep:
           MorningPrepSettingsView(model: morningPrep)
+        case .offerAlerts:
+          OfferAlertsSettingsView(model: offerAlerts)
+        case let .offerAlert(messageID):
+          OfferAlertMessageView(messageID: messageID, model: model, offerAlerts: offerAlerts)
         }
       }
     }

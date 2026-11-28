@@ -6,9 +6,11 @@ import Observation
 import SQLiteData
 import SwiftUI
 import UIKit
+import UserNotifications
 
 @main
 struct CockpitApp: App {
+  @UIApplicationDelegateAdaptor(CockpitAppDelegate.self) private var appDelegate
   init() {
     prepareDependencies {
       try! $0.bootstrapDatabase()
@@ -35,6 +37,41 @@ struct CockpitApp: App {
 }
 
 @MainActor
+final class CockpitAppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate {
+  func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    let token = deviceToken.map { String(format: "%02x", $0) }.joined()
+    NotificationCenter.default.post(name: .offerWatchDeviceToken, object: token)
+  }
+
+  func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    NotificationCenter.default.post(name: .offerWatchRegistrationFailed, object: error.localizedDescription)
+  }
+
+  func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+    UNUserNotificationCenter.current().delegate = self
+    return true
+  }
+
+  func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+    if response.notification.request.content.userInfo["kind"] as? String == "mail",
+      let messageID = response.notification.request.content.userInfo["source"] as? String {
+      NotificationCenter.default.post(name: .offerWatchMessageTapped, object: messageID)
+    }
+    completionHandler()
+  }
+
+  func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+    completionHandler([.banner, .list, .sound])
+  }
+}
+
+private extension Notification.Name {
+  static let offerWatchDeviceToken = Notification.Name("offerWatchDeviceToken")
+  static let offerWatchRegistrationFailed = Notification.Name("offerWatchRegistrationFailed")
+  static let offerWatchMessageTapped = Notification.Name("offerWatchMessageTapped")
+}
+
+@MainActor
 private struct CockpitRootView: View {
   @State private var shellModel = ShellModel()
   @State private var followingModel = FollowingModel()
@@ -46,6 +83,7 @@ private struct CockpitRootView: View {
   @State private var dailyLinkModel = DailyLinkModel()
   @State private var pendingFindModel = PendingFindListModel()
   @State private var morningPrep: MorningPrep
+  @State private var offerAlerts = OfferAlertsModel(environment: Bundle.main.object(forInfoDictionaryKey: "OfferWatchAPNSEnvironment") as? String ?? "sandbox")
   @State private var feedSelection: FeedsSelection? = .all
   @Environment(\.scenePhase) private var scenePhase
 
@@ -99,7 +137,7 @@ private struct CockpitRootView: View {
       Tab("Settings", systemImage: "gearshape", value: .settings) {
         SettingsView(
           model: shellModel, followingModel: followingModel, pendingFindModel: pendingFindModel,
-          dailyLinkModel: dailyLinkModel, morningPrep: morningPrep)
+          dailyLinkModel: dailyLinkModel, morningPrep: morningPrep, offerAlerts: offerAlerts)
       }
     }
     .tabViewStyle(.sidebarAdaptable)
@@ -144,6 +182,7 @@ private struct CockpitRootView: View {
     .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
       Task { try? await listedFeedsModel.reload() }
     }
+    .offerWatchNotifications(model: offerAlerts, shellModel: shellModel)
   }
 
   @MainActor
@@ -151,5 +190,20 @@ private struct CockpitRootView: View {
     try? await todayModel.$content.load()
     try? await todayModel.$offers.load()
     await readingQueueModel.reload()
+  }
+}
+
+private extension View {
+  func offerWatchNotifications(model: OfferAlertsModel, shellModel: ShellModel) -> some View {
+    onReceive(NotificationCenter.default.publisher(for: .offerWatchDeviceToken)) { note in
+      if let token = note.object as? String { model.didRegister(deviceToken: token) }
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .offerWatchRegistrationFailed)) { note in
+      if let message = note.object as? String { model.didFailRegistration(message) }
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .offerWatchMessageTapped)) { note in
+      guard let messageID = note.object as? String else { return }
+      shellModel.pushSettings(.offerAlert(messageID: messageID))
+    }
   }
 }

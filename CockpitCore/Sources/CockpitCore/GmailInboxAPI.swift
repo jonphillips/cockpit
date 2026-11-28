@@ -2,8 +2,39 @@ import Foundation
 
 /// The transport is intentionally isolated from persistence: every request is an authenticated
 /// Gmail GET, and `GmailInboxIngestor` owns the resulting canonical writes.
-struct GmailInboxAPI {
-  let accessToken: String
+public struct GmailInboxAPI: Sendable {
+  private let accessToken: String
+
+  public init(accessToken: String) { self.accessToken = accessToken }
+
+  public func accountEmail() async throws -> String {
+    let profile: GmailProfile = try await get(path: "profile")
+    return profile.emailAddress.lowercased()
+  }
+
+  /// The watched-sender route's narrow read: one Gmail `from:` search followed by full message reads.
+  /// Gmail search is deliberately loose; callers must compare the parsed From address exactly.
+  public func messages(from sender: String, after date: Date) async throws -> [GmailInboxMessage] {
+    // Rounding upward keeps Gmail's whole-second `after:` query from including mail received before the baseline.
+    let epochSeconds = Int(date.timeIntervalSince1970.rounded(.up))
+    let query = "from:\(sender) after:\(epochSeconds)"
+    var ids: [String] = []
+    var pageToken: String?
+    repeat {
+      // Gmail messages.list accepts at most 500 results per page; follow its cursor to avoid omissions.
+      var items = [
+        URLQueryItem(name: "q", value: query), URLQueryItem(name: "maxResults", value: "500")
+      ]
+      if let pageToken { items.append(URLQueryItem(name: "pageToken", value: pageToken)) }
+      let page: GmailMessageList = try await get(path: "messages", query: items)
+      ids.append(contentsOf: page.messages?.map(\.id) ?? [])
+      pageToken = page.nextPageToken
+    } while pageToken != nil
+    var messages: [GmailInboxMessage] = []
+    messages.reserveCapacity(ids.count)
+    for id in ids { messages.append(try await message(id: id)) }
+    return messages
+  }
 
   /// Gmail bills each `messages.get` at 20 quota units against a 6,000 unit/user/minute ceiling.
   /// Fetching every Inbox message at once trips HTTP 429, so per-message reads run through a

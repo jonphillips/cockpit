@@ -69,6 +69,14 @@ enum MorningPrepWiring {
     _ = await shared.run(.init(trigger: .backgroundRefresh, timeBudget: MorningPrep.unattendedBudget))
   }
 
+  /// Performs Cockpit's existing Gmail ingestion once for a tapped Offer Watch message. It does not
+  /// apply disposition policies; the tap path only needs to make the source available to Reader.
+  static func syncMailOnce() async throws {
+    @Dependency(\.defaultDatabase) var database
+    let token = try await GmailDispositionWiring.refreshedAccessToken()
+    _ = try await GmailInboxIngestor(client: .live(accessToken: token)).ingest(into: database)
+  }
+
   private static func scheduleBackgroundRefresh(at date: Date) async throws {
     let request = BGAppRefreshTaskRequest(identifier: backgroundTaskIdentifier)
     request.earliestBeginDate = date
