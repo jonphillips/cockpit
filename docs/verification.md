@@ -9,8 +9,13 @@ qr=~/code/jon-platform/scripts/quiet-run
 $qr swift test --package-path CockpitCore
 $qr swiftlint lint --strict --no-cache
 $qr xcodebuild -scheme Cockpit -destination 'generic/platform=iOS' -skipMacroValidation CODE_SIGNING_ALLOWED=NO build
+$qr xcodebuild -scheme Cockpit -destination 'generic/platform=iOS Simulator' -skipMacroValidation build-for-testing
 ~/code/jon-platform/scripts/check-handoff     # warn-only document-shape hygiene (ADR-0005)
 ```
+
+`build-for-testing` compiles and links `CockpitTests` (`CockpitAppTests/`) without booting a simulator,
+so the app test target can't rot unseen (jon-platform `docs/ios/drift-control.md` § The verification gate).
+It isn't a simulator test run.
 
 Run `xcodegen generate` first when `project.yml` or the file list changed. Start with the
 narrowest test (`swift test --filter …`) and run the full set once before marking a PR ready.
